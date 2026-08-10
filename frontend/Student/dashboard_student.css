@@ -1,0 +1,164 @@
+/* Color System matching Mentorae System Palette Architecture */
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-bg-canvas: #f4f6f9;
+    --light-green-workspace: #eef7ee;
+    --text-dark: #2d3748;
+    --custom-purple: #9b51e0;
+}
+
+/* Base Body Framework Canvas Setup */
+.dashboard-bg {
+    background-color: var(--mentorae-bg-canvas);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Bounded frame container maintaining aspect layout proportions */
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Header Ribbon elements properties */
+.custom-navbar {
+    background-color: var(--mentorae-green);
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden; /* Ensures the image is clipped to the container's bounds */
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Fills the container, cropping if necessary */
+    border-radius: 50%; /* Ensures the image itself is circular */
+}
+
+.tracking-wide {
+    letter-spacing: 0.5px;
+}
+
+/* Main inner canvas backdrop tint underlay */
+.workspace-content-fill {
+    background-color: var(--light-green-workspace);
+}
+
+/* Student Profile Card Customization metrics fields */
+.profile-banner {
+    background-color: var(--mentorae-green) !important;
+    border-radius: 12px;
+}
+
+.avatar-photo-wrap {
+    width: 60px;
+    height: 60px;
+}
+
+.status-dot-mini {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Header Triggers utilities links overrides */
+.notification-trigger, .logout-btn {
+    border: none !important;
+    background-color: #f8f9fa !important;
+    color: var(--text-dark) !important;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.notification-trigger i {
+    color: var(--mentorae-green) !important;
+}
+
+.notification-trigger:hover {
+    transform: scale(1.04);
+}
+
+.logout-btn:hover {
+    background-color: #edf2f7 !important;
+}
+
+/* Metrics and access card geometry alignments blocks layout styles */
+.card {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.stat-metric-card {
+    border: 1px solid #e2e8f0 !important;
+    border-left: 4px solid var(--mentorae-green) !important;
+}
+
+.stat-metric-card h4 {
+    line-height: 1;
+}
+
+.text-purple {
+    color: var(--custom-purple) !important;
+}
+
+.access-routing-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+
+.access-routing-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.access-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.section-title {
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #000000 !important;
+    border-bottom: 1px solid #edf2f7;
+    padding-bottom: 0.25rem;
+}
+
+.card-desc-text {
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+/* Timeline streaming lines list structures selectors */
+.timeline-stream-list {
+    padding-left: 5px;
+}
+
+.activity-marker-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.border-bottom-dashed {
+    border-bottom: 1px dashed #cbd5e1 !important;
+}
+
+/* Micro Helpers scaling ratios context variables */
+.micro-text { font-size: 0.75rem; }
+.tiny-text { font-size: 0.7rem; }
+.text-sm { font-size: 0.88rem; }

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Attendance Confirmation</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="attendance_confirmation_teacher.css">
+</head>
+<body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper to match target portal frame proportions -->
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <!-- Header Ribbon Navbar -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4 link-transition" id="backToDashboardBtn" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-3 fw-bold tracking-wide d-inline-block">Attendance Confirmation</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Validate Attendance</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Workspace Content Area -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill d-flex flex-column justify-content-between">
+            
+            <div>
+                <!-- Lock Status Banner -->
+                <div id="sessionLockBanner" class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-3 rounded-3 mb-3 d-none">
+                    <i class="bi bi-lock-fill fs-4 text-warning" id="lockBannerIcon"></i>
+                    <div>
+                        <h6 class="fw-bold m-0" id="lockBannerTitle">Session Locked</h6>
+                        <p class="micro-text m-0 opacity-75" id="lockBannerMessage">
+                            You can only confirm attendance during your scheduled period (8:30 AM - 9:30 AM).
+                        </p>
+                    </div>
+                </div>
+                <!-- Toolbar: Search & Filters -->
+                <div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+                    <div class="input-group search-box shadow-sm rounded-3 flex-grow-1" style="max-width: 450px;">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" id="searchBar" placeholder="Search by ID, name, strand, or status...">
+                    </div>
+                    <select class="form-select custom-filter-dropdown shadow-sm d-none" id="filterStrand" aria-label="Filter Strand">
+                    </select>
+                    <select class="form-select custom-filter-dropdown shadow-sm" id="filterSection" aria-label="Filter Section">
+                        <!-- Sections are populated dynamically by JavaScript -->
+                    </select>
+                </div>
+
+                <!-- Attendance Table Sheet Matrix -->
+                <div class="card border-0 shadow-sm overflow-hidden rounded-3 bg-white mb-4">
+                    <div class="table-responsive">
+                        <table class="table align-middle m-0 text-sm db-record-table" id="attendanceConfirmationTable">
+                            <thead>
+                                <tr class="table-header-row text-white">
+                                    <th class="px-4 py-3 fw-semibold">Student ID</th>
+                                    <th class="px-4 py-3 fw-semibold">Name</th>
+                                    <th class="px-4 py-3 fw-semibold">Strand</th>
+                                    <th class="px-4 py-3 fw-semibold">Section</th>
+                                    <th class="px-4 py-3 fw-semibold text-center">Status</th>
+                                    <th class="px-4 py-3 fw-semibold text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceConfirmationBody">
+                                <!-- Populated dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Finish Action Button -->
+            <div class="d-flex justify-content-end mt-3 pb-2">
+                <button type="button" class="btn btn-finish-action px-5 py-2.5 fw-bold fs-5 shadow-sm" id="btnFinishAttendance">
+                    Finish
+                </button>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap Bundle Script -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Component Logic Link -->
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
+    <script src="attendance_confirmation_teacher.js"></script>
+</body>
+</html>

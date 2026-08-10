@@ -1,0 +1,120 @@
+/* Color System matching Mentorae Visual Archetype */
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-canvas-bg: #f4f6f9;       /* External browser sheet page frame wrapper color */
+    --light-green-workspace: #eef7ee;  /* Internal soft background fill underlay */
+    --stat-card-highlight: #e7f5e7;    /* Distinct light green highlight from left card */
+    --text-dark: #2d3748;
+}
+
+/* Base Body Layout Setup */
+.dashboard-bg {
+    background-color: var(--mentorae-canvas-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Bounded wrapper frame width replicating portal architecture */
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Header Navbar Ribbon Styling rules */
+.custom-navbar {
+    background-color: var(--mentorae-green);
+    border-color: #084c24 !important;
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden; /* Ensure content is clipped if it overflows */
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ensures the image fills the container, potentially cropping */
+    border-radius: 50%; /* Clips the image itself into a circle */
+}
+
+.tracking-wide {
+    letter-spacing: 0.5px;
+}
+
+/* Workspace main grid container content background fill */
+.workspace-content-fill {
+    background-color: var(--light-green-workspace);
+}
+
+/* (For Overview)Counter Display Block Geometry configuration */
+.stat-metric-card {
+    border-radius: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border: 1px solid #e2e8f0 !important;
+    border-left: 4px solid var(--mentorae-green) !important;
+}
+
+/* A separator line for below the overview section */
+.overview-separator {
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Visual state feedback rules for interactive tabs */
+.interactive-stat-card {
+    cursor: pointer;
+}
+
+.interactive-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+}
+
+.highlighted-stat {
+    background-color: var(--stat-card-highlight) !important;
+    border: 1px solid #ccebc4 !important;
+}
+
+.metric-icon-box i {
+    font-size: 2.5rem !important;
+}
+
+/* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
+.table-header-row {
+    background-color: var(--mentorae-green) !important;
+}
+
+.table-header-row th {
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+.db-record-table tbody tr {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Applies clear gray highlight block strips on even row increments */
+.db-record-table tbody tr:nth-child(even) {
+    background-color: #e2e8f0 !important;
+}
+
+/* Micro sizing utilities alignment */
+.micro-text { font-size: 0.75rem; }
+.tiny-text { font-size: 0.7rem; }
+.text-sm { font-size: 0.88rem; }
+.tracking-sm { letter-spacing: 0.3px; }
+
+.link-transition {
+    transition: opacity 0.15s ease;
+}
+.link-transition:hover {
+    opacity: 0.8;
+}

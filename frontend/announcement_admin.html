@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Announcements Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="announcement_admin.css">
+</head>
+<body class="dashboard-bg">
+
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <a href="dashboard_admin.html" class="text-white text-decoration-none fs-4 link-transition" id="backToDashboardBtn" aria-label="Go Back">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                    <img src="TSHS_image.png" alt="School Logo" class="school-logo-img">
+                </div>
+                <div>
+                    <h1 class="m-0 fs-4 fw-bold tracking-wide d-inline-block">Announcement</h1>
+                    <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Stay updated with school news</p>
+                </div>
+            </div>
+            <div class="text-white text-end dashboard-time">
+                <div class="small opacity-75" id="liveDate"></div>
+                <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+            </div>
+        </header>
+
+        <main class="container-fluid px-4 py-4 flex-grow-1">
+            
+            <div class="d-flex justify-content-end gap-2 mb-4">
+                <button class="btn btn-create-announcement d-flex align-items-center gap-2 px-3 py-2 fw-semibold" id="toggleFormBtn">
+                    <i class="bi bi-plus-lg"></i> Create Announcement
+                </button>
+                <button class="btn btn-outline-danger d-flex align-items-center gap-2 px-3 py-2 fw-semibold" id="deleteBtn" disabled>
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 p-4 mb-4 creation-drawer d-none" id="creationFormWrapper">
+                <div class="badge-form-title mb-3 text-center text-sm-start">
+                    <span class="badge bg-mentorae-green px-3 py-2 fs-6 fw-medium">Create Announcement</span>
+                </div>
+                <form id="announcementForm">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-8">
+                            <label for="inputEvent" class="form-label text-dark fw-semibold text-sm">Event</label>
+                            <input type="text" class="form-control custom-input" id="inputEvent" placeholder="E.g., Quarterly Exam" required>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label for="inputDate" class="form-label text-dark fw-semibold text-sm">Date</label>
+                            <input type="date" class="form-control custom-input" id="inputDate" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="inputDesc" class="form-label text-dark fw-semibold text-sm">Brief Description</label>
+                            <textarea class="form-control custom-textarea" id="inputDesc" rows="2" placeholder="E.g., Quarterly Exam" required></textarea>
+                        </div>
+                        <div class="col-12 d-flex justify-content-end">
+                            <button type="submit" class="btn btn-create-announcement d-flex align-items-center gap-2 px-4 py-2 fw-semibold">
+                                <i class="bi bi-plus-lg"></i> Create
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="d-flex flex-column gap-3" id="announcementsFeed">
+                </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="config.js"></script>
+    <script src="session.js"></script>
+    <script src="announcement_admin.js"></script>
+</body>
+</html>

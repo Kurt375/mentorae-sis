@@ -1,0 +1,159 @@
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-bg: #eef7ee;
+    --text-dark: #2d3748;
+    --custom-purple: #9b51e0;
+}
+
+.dashboard-bg {
+    background-color: #f4f6f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Header Navbar Rules */
+.custom-navbar {
+    background-color: var(--mentorae-green);
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.scanner-search-input {
+    max-width: 280px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.88rem;
+    padding: 8px 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.tracking-wide {
+    letter-spacing: 0.5px;
+}
+
+/* Profile Banner Design Overrides */
+.profile-banner {
+    background-color: var(--mentorae-green) !important;
+    border-radius: 16px;
+}
+
+.avatar-container {
+    width: 65px;
+    height: 65px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.avatar-img-fill {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-edit-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.avatar-container:hover .avatar-edit-overlay {
+    opacity: 1;
+}
+
+.notification-trigger, .logout-btn {
+    border: none !important;
+    background-color: #f8f9fa !important;
+    color: var(--text-dark) !important;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.notification-trigger i {
+    color: var(--mentorae-green) !important;
+}
+
+.notification-trigger:hover {
+    transform: scale(1.04);
+}
+
+.logout-btn:hover {
+    background-color: #edf2f7 !important;
+}
+
+/* Card Geometry Configuration Rulesets */
+.card {
+    border-radius: 12px;
+    background-color: #ffffff;
+}
+
+.access-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.access-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05) !important;
+    cursor: pointer;
+}
+
+.stat-card {
+    border: 1px solid #e2e8f0 !important;
+    border-left: 4px solid var(--mentorae-green) !important;
+}
+
+/* Typography Sizing Overrides */
+.section-title {
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #000000 !important;
+    border-bottom: 1px solid #edf2f7;
+    padding-bottom: 0.25rem;
+}
+
+.micro-text { font-size: 0.75rem; }
+.text-sm { font-size: 0.88rem; }
+.card-desc { font-size: 0.82rem; line-height: 1.4; }
+.text-purple { color: var(--custom-purple) !important; }
+.bg-purple-subtle { background-color: #f3e8ff !important; }
+
+/* Status Activity Indicator Dots */
+.status-indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.activity-row-item {
+    background-color: #f8fafc;
+    transition: background-color 0.15s ease;
+}
+
+.activity-row-item:hover {
+    background-color: #f1f5f9;
+}

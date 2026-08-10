@@ -1,0 +1,299 @@
+/* Unified Color System Archetype Match */
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-canvas-bg: #f4f6f9;
+    --light-green-workspace: #eef7ee;
+    --text-dark: #2d3748;
+    --custom-purple: #9b51e0;
+    
+    /* Attendance State Badge Color Tokens */
+    --badge-present-bg: #cff4fc;
+    --badge-present-txt: #055160;
+    --badge-late-bg: #fff3cd;
+    --badge-late-txt: #664d03;
+    --badge-absent-bg: #f8d7da;
+    --badge-absent-txt: #842029;
+}
+
+.dashboard-bg {
+    background-color: var(--mentorae-canvas-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+.custom-navbar {
+    background-color: var(--mentorae-green);
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.workspace-content-fill {
+    background-color: var(--light-green-workspace);
+}
+
+/* Stat Card Geometry Layout Configuration */
+.stat-metric-card {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0 !important;
+    border-left: 4px solid var(--mentorae-green) !important;
+}
+
+.metric-icon {
+    flex-grow: 0;
+}
+
+.text-purple {
+    color: var(--custom-purple) !important;
+}
+
+/* Filter Control Forms Rulesets */
+.search-box .form-control:focus {
+    border-color: #dee2e6;
+    box-shadow: none;
+}
+
+.custom-filter-select, .search-box .form-control, .search-box .input-group-text {
+    border: 1px solid #a3b899;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.custom-filter-select:focus {
+    border-color: var(--mentorae-green);
+    box-shadow: 0 0 0 0.25rem rgba(10, 92, 44, 0.15);
+}
+
+/* Data Table Matrix Layout Rendering Styles */
+.table-header-row {
+    background-color: var(--mentorae-green) !important;
+}
+
+.table-header-row th {
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+.db-record-table tbody tr {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: background-color 0.1s linear;
+}
+
+.db-record-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Grade text color thresholds */
+.grade-excellent { color: #198754 !important; font-weight: 600; }
+.grade-average { color: #0d6efd !important; font-weight: 600; }
+.grade-warning { color: #dc3545 !important; font-weight: 600; }
+
+/* Status Micro pill capsules templates */
+.attendance-status-badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 5px 0;
+    width: 100px;
+    border-radius: 6px;
+    border: none;
+    text-transform: capitalize;
+}
+
+.attendance-status-badge.present { background-color: var(--badge-present-bg); color: var(--badge-present-txt); }
+.attendance-status-badge.late { background-color: var(--badge-late-bg); color: var(--badge-late-txt); }
+.attendance-status-badge.absent { background-color: var(--badge-absent-bg); color: var(--badge-absent-txt); }
+
+/* Buttons System Processing Panel rules */
+.btn-action-primary {
+    background-color: var(--mentorae-green);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.btn-action-primary:hover {
+    background-color: #084c24;
+    color: #ffffff;
+}
+
+.btn-action-secondary {
+    background-color: #006400;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.btn-action-secondary:hover {
+    background-color: #004d00;
+    color: #ffffff;
+}
+
+.text-sm { font-size: 0.88rem; }
+.micro-text { font-size: 0.75rem; }
+.tracking-wide { letter-spacing: 0.5px; }
+.link-transition { transition: opacity 0.15s; }
+.link-transition:hover { opacity: 0.8; }
+
+/* Styles for Badge Awarding Section */
+.badge-card {
+    cursor: pointer;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    transition: all 0.2s ease-in-out;
+    position: relative; /* For checkbox positioning */
+}
+
+.badge-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.badge-card .badge-card-checkbox {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 1;
+    height: 1.1rem;
+    width: 1.1rem;
+}
+
+.badge-card.selected {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.badge-icon-wrapper {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Styles for Recent Activity Sidebar */
+.activity-sidebar .timeline-item {
+    padding-left: 1.5rem;
+}
+
+.activity-sidebar .badge-icon-status {
+    width: 30px;
+    height: 30px;
+}
+
+.timeline-stream {
+    max-height: 520px; /* Set a fixed max height for the activity feed */
+    flex: 1; /* This makes the timeline fill the available vertical space */
+    overflow-y: auto;
+    min-height: 0; /* This is necessary for the flex item to shrink and allow scrolling */
+}
+
+/* Styles for Grade Encoding Section (from view_encode_grade.css) */
+
+/* Parameters Filtering Controls Toolbar rules */
+.grade-filter-dropdown {
+    min-width: 160px;
+    border: 1px solid #a3b899;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    font-weight: 500;
+}
+.grade-filter-dropdown:focus {
+    border-color: var(--mentorae-green);
+    box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.12);
+}
+
+/* Sheet Grid Table Layout Overrides */
+.encode-matrix-table .table-header-row th {
+    font-size: 0.82rem;
+    line-height: 1.3;
+}
+.encode-matrix-table tbody tr {
+    background-color: #ffffff;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+/* Numeric input cell styling mimicking white bordered squares */
+.grade-input-cell {
+    max-width: 58px;
+    padding: 4px 6px;
+    text-align: center;
+    border: 1px solid #4a5568;
+    font-weight: 500;
+    color: var(--text-dark);
+    border-radius: 4px;
+}
+.grade-input-cell:focus {
+    border-color: var(--mentorae-green);
+    box-shadow: 0 0 0 0.15rem rgba(10, 92, 44, 0.12);
+}
+
+.computed-avg-cell-box {
+    width: 48px;
+    padding: 4px 0;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    font-weight: 600;
+    color: #334155;
+    display: inline-block;
+    border-radius: 4px;
+}
+
+/* Pillow Capsule Remarks Matrix Coloring Styles rules */
+.remark-matrix-pill {
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.txt-outstanding { color: #2e7d32; }
+.txt-satisfactory { color: #1565c0; }
+.txt-verysatisfactory { color: #43a047; }
+.txt-dnme { color: #c62828; }
+
+/* Excel Integration footer button rules */
+.btn-encode-excel {
+    background-color: #055f24;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    padding: 0.55rem 1.35rem;
+    font-size: 0.88rem;
+    transition: background-color 0.15s ease;
+}
+.btn-encode-excel:hover {
+    background-color: #03421c;
+}
+
+.save-record-floppy-btn {
+    color: #3b82f6;
+    transition: transform 0.12s ease;
+}
+.save-record-floppy-btn:hover {
+    transform: scale(1.18);
+}
