@@ -1,0 +1,3 @@
+[build]
+  base = "mentorae-sis/frontend"
+  publish = "."
