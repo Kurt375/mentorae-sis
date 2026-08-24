@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard_teacher.css">
+    <style>
+        .roster-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee; font-size:13px; }
+        .roster-row:last-child { border-bottom:none; }
+        .risk-high { color:#c0392b; font-weight:700; }
+        .risk-medium { color:#b27a00; font-weight:700; }
+        .risk-low { color:#1f6e1f; font-weight:700; }
+    </style>
+</head>
+<body class="dashboard-bg">
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        <nav class="custom-navbar text-white py-3 px-4 d-flex align-items-center gap-3">
+            <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4"><i class="bi bi-chevron-left"></i></a>
+            <div>
+                <h1 class="m-0 fs-4 fw-bold">Analytics</h1>
+                <p class="m-0 small opacity-75">Performance across your sections</p>
+            </div>
+        </nav>
+        <main class="container-fluid px-4 py-4 flex-grow-1">
+            <label class="form-label small fw-semibold">Section</label>
+            <select id="sectionSelect" class="form-select mb-4" style="max-width:320px;"></select>
+
+            <div class="card border-0 shadow-sm p-3">
+                <h5 class="fw-bold mb-3">Student Overview</h5>
+                <div id="rosterList"></div>
+                <p class="text-muted small text-center py-3 d-none" id="emptyMsg">Select a section to see student data.</p>
+            </div>
+        </main>
+    </div>
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
+    <script>
+        const { token } = requireSession('../login.html');
+        const select = document.getElementById('sectionSelect');
+
+        function classifyRisk(grade, attendanceRate) {
+            const g = grade === null || grade === undefined ? 100 : Number(grade);
+            const a = attendanceRate === null || attendanceRate === undefined ? 100 : Number(String(attendanceRate).replace('%',''));
+            if (g < 75 || a < 75) return { label: 'High Risk', cls: 'risk-high' };
+            if (g < 85 || a < 90) return { label: 'Medium Risk', cls: 'risk-medium' };
+            return { label: 'Low Risk', cls: 'risk-low' };
+        }
+
+        async function loadSections() {
+            const data = await authedFetch('/api/classes/my-sections', token);
+            if (!data.success || !data.sections.length) {
+                select.innerHTML = '<option>No sections assigned</option>';
+                return;
+            }
+            select.innerHTML = data.sections.map(s => `<option value="${s.id}">${s.strandCode} ${s.grade_level} - ${s.name}</option>`).join('');
+            loadRoster(select.value);
+        }
+
+        async function loadRoster(sectionId) {
+            const list = document.getElementById('rosterList');
+            list.innerHTML = '';
+            if (!sectionId) {
+                document.getElementById('emptyMsg').classList.remove('d-none');
+                return;
+            }
+            const data = await authedFetch(`/api/classes/roster?sectionId=${sectionId}`, token);
+            if (!data.success || !data.roster.length) {
+                document.getElementById('emptyMsg').classList.remove('d-none');
+                return;
+            }
+            document.getElementById('emptyMsg').classList.add('d-none');
+            for (const s of data.roster) {
+                const risk = classifyRisk(s.grade, s.attendance);
+                const row = document.createElement('div');
+                row.className = 'roster-row';
+                row.innerHTML = `
+                    <span>${s.name} (${s.idNumber})</span>
+                    <span>Grade: ${s.grade ?? '—'} &middot; Attendance: ${s.attendance}</span>
+                    <span class="${risk.cls}">${risk.label}</span>
+                `;
+                list.appendChild(row);
+            }
+        }
+
+        select.addEventListener('change', (e) => loadRoster(e.target.value));
+        loadSections();
+    </script>
+</body>
+</html>

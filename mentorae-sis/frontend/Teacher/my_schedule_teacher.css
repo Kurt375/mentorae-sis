@@ -1,0 +1,92 @@
+/* Unified Color System Archetype Match */
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-canvas-bg: #f4f6f9;
+    --light-green-workspace: #eef7ee;
+    --text-dark: #2d3748;
+}
+
+.dashboard-bg {
+    background-color: var(--mentorae-canvas-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+.custom-navbar {
+    background-color: var(--mentorae-green);
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.workspace-content-fill {
+    background-color: var(--light-green-workspace);
+}
+
+/* Schedule Table Specific Styles */
+.schedule-table {
+    table-layout: fixed;
+    background-color: #fff;
+}
+
+.table-header-row {
+    background-color: var(--mentorae-green) !important;
+}
+
+.schedule-table thead th {
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    vertical-align: middle;
+}
+
+.schedule-table tbody td {
+    height: 80px;
+    padding: 0.5rem;
+    vertical-align: top;
+    font-size: 0.8rem;
+}
+
+.schedule-table .time-slot {
+    font-weight: 600;
+    font-size: 0.85rem;
+    vertical-align: middle;
+    background-color: #f8f9fa;
+}
+
+.class-entry {
+    background-color: #e7f5e7;
+    border-left: 3px solid var(--mentorae-green);
+    padding: 0.4rem;
+    border-radius: 4px;
+    height: 100%;
+    text-align: left;
+}
+
+.class-entry .subject { font-weight: 700; color: var(--mentorae-green); }
+.class-entry .section { font-size: 0.75rem; }
+
+/* Micro Utilities */
+.micro-text { font-size: 0.75rem; }
+.tracking-wide { letter-spacing: 0.5px; }
+.tracking-sm { letter-spacing: 0.3px; }
+.link-transition { transition: opacity 0.15s; }
+.link-transition:hover { opacity: 0.8; }

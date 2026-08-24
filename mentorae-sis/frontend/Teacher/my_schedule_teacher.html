@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - My Schedule</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="my_schedule_teacher.css">
+</head>
+<body class="dashboard-bg">
+
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4 link-transition" aria-label="Go Back">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                    <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                </div>
+                <div>
+                    <h1 class="m-0 fs-4 fw-bold tracking-wide">My Schedule</h1>
+                    <p class="m-0 micro-text opacity-75">Weekly Class Timetable</p>
+                </div>
+            </div>
+            <div class="text-white text-end dashboard-time">
+                <div class="small opacity-75" id="liveDate"></div>
+                <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+            </div>
+        </header>
+
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+            
+            <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
+                    <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Weekly Timetable</h3>
+                    <button class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-2" id="btnPrintSchedule">
+                        <i class="bi bi-printer-fill"></i> Print Schedule
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center m-0 schedule-table">
+                        <thead>
+                            <tr class="table-header-row text-white">
+                                <th style="width: 12%;">Time</th>
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-body">
+                            <!-- Schedule slots will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
+    <script src="my_schedule_teacher.js"></script>
+</body>
+</html>
