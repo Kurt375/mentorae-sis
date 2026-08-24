@@ -1,3 +1,7 @@
 [build]
-  base = "mentorae-sis/frontend"
-  publish = "."
+  publish = "frontend"
+
+[[redirects]]
+  from = "/"
+  to = "/login.html"
+  status = 302
