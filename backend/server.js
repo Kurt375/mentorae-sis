@@ -23,7 +23,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const allowedOrigins = [
-  'https://comforting-fox-c29e5a.netlify.app',
+  'https://mentorae-student-portal.netlify.app',
   'http://localhost:5500',
   'http://127.0.0.1:5500',
   'http://localhost:5000',
