@@ -8,6 +8,7 @@ const {
   getSessionStatus,
   getConfirmationRoster,
   confirmAttendance,
+  confirmAttendanceOut,
   getSummary,
   getHistory,
 } = require('../controllers/attendanceController');
@@ -18,6 +19,7 @@ router.post('/verify-scanner-key', verifyScannerKey); // public — used before 
 router.get('/session-status', requireAuth, requireRole('teacher'), getSessionStatus);
 router.get('/confirmation', requireAuth, requireRole('teacher', 'admin'), getConfirmationRoster);
 router.post('/confirm', requireAuth, requireRole('teacher'), confirmAttendance);
+router.post('/confirm-out', requireAuth, requireRole('teacher'), confirmAttendanceOut);
 router.get('/summary', requireAuth, getSummary);
 router.get('/history', requireAuth, getHistory);
 

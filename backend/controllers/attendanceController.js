@@ -3,7 +3,8 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { parsePagination, paginatedMeta } = require('../utils/pagination');
-const { teacherTeachesSection, canViewStudent } = require('../utils/authz');
+const { teacherTeachesSection, canViewStudent, getParentIdsForStudent, getAdviserIdForStudent } = require('../utils/authz');
+const { notify, notifyMany } = require('../utils/notifications');
 
 async function logActivity(studentId, description) {
   try {
@@ -11,6 +12,21 @@ async function logActivity(studentId, description) {
   } catch (err) {
     console.error('logActivity error:', err);
   }
+}
+
+/** Reads the handful of timing settings used by scanning/notifications, with hardcoded fallbacks. */
+async function getAttendanceSettings() {
+  const [rows] = await pool.query(
+    `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN
+     ('attendance_late_cutoff','attendance_time_out_cutoff','scanner_key_window_start','scanner_key_window_end')`
+  );
+  const map = Object.fromEntries(rows.map((r) => [r.setting_key, r.setting_value]));
+  return {
+    lateCutoff: map.attendance_late_cutoff || '07:45:00',
+    timeOutCutoff: map.attendance_time_out_cutoff || '15:30:00',
+    scannerWindowStart: map.scanner_key_window_start || '06:00:00',
+    scannerWindowEnd: map.scanner_key_window_end || '16:00:00',
+  };
 }
 
 /** GET /api/attendance/my-qr — the text a student's QR code should encode (their own ID number) */
@@ -23,8 +39,12 @@ async function getMyQrCode(req, res) {
 
 /**
  * POST /api/attendance/scan  { idNumber }
- * Called by the camera scanner once a QR code is decoded. Self check-in —
- * marks present/late based on the admin-configured cutoff time.
+ * Called by the camera scanner once a QR code is decoded.
+ * First scan of the day = time-in (present/late). Second scan of the same
+ * day = time-out: on/after the time-out cutoff (default 3:30 PM) is marked
+ * "out"; before the cutoff is flagged "excused" (left early).
+ * These raw scans are unconfirmed — parents/advisers are only notified once
+ * a teacher verifies the record (see confirmAttendance / confirmAttendanceOut).
  */
 async function scanAttendance(req, res) {
   const { idNumber } = req.body;
@@ -34,7 +54,8 @@ async function scanAttendance(req, res) {
 
   try {
     const [studentRows] = await pool.query(
-      `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, s.grade_level, st.code AS strandCode
+      `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.section_id,
+              u.profile_picture_url, s.grade_level, st.code AS strandCode
        FROM users u
        LEFT JOIN sections s ON s.id = u.section_id
        LEFT JOIN strands st ON st.id = s.strand_id
@@ -46,43 +67,77 @@ async function scanAttendance(req, res) {
       return res.status(404).json({ success: false, message: 'Unknown QR code.' });
     }
 
+    // Only show/allow students under this teacher's current subject & time slot —
+    // a teacher can only scan a student whose section they have an active
+    // scheduled period for right now. Security/admin scans (front-gate) skip this.
+    if (req.user?.role === 'teacher') {
+      if (!student.section_id) {
+        return res.status(403).json({ success: false, message: 'This student has no assigned section.' });
+      }
+      const session = await checkSessionLock(req.user.id, student.section_id, null);
+      if (!session.isAllowed) {
+        return res.status(403).json({ success: false, message: `Cannot scan — ${session.reason}` });
+      }
+    }
+
     const now = new Date();
     const scanDate = now.toISOString().slice(0, 10);
     const scanTime = now.toTimeString().slice(0, 8);
-
-    const [cutoffRow] = await pool.query(
-      "SELECT setting_value FROM system_settings WHERE setting_key = 'attendance_late_cutoff'"
-    );
-    const lateCutoff = cutoffRow[0]?.setting_value || '07:45:00';
-    const status = scanTime > lateCutoff ? 'late' : 'present';
+    const { lateCutoff, timeOutCutoff } = await getAttendanceSettings();
 
     const [existing] = await pool.query(
-      'SELECT id, status FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
+      'SELECT * FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
       [student.id, scanDate]
     );
 
-    if (existing[0]) {
-      return res.status(409).json({
-        success: false,
-        message: `${student.first_name} already checked in today.`,
+    const studentOut = {
+      name: `${student.first_name} ${student.middle_initial ? student.middle_initial + ' ' : ''}${student.last_name}`,
+      idNumber: student.id_number,
+      strand: student.grade_level ? `Grade${student.grade_level}-${student.strandCode}` : student.strandCode || '—',
+      profilePictureUrl: student.profile_picture_url || null,
+    };
+
+    if (!existing[0]) {
+      // First scan today = time in
+      const status = scanTime > lateCutoff ? 'late' : 'present';
+      await pool.query(
+        'INSERT INTO attendance_logs (student_id, scanned_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?)',
+        [student.id, req.user?.id || null, status, scanDate, scanTime]
+      );
+      await logActivity(student.id, `Checked in via QR scan — marked ${status}.`);
+
+      return res.json({
+        success: true,
+        message: `Checked in — marked ${status}.`,
+        scanType: 'in',
+        student: { ...studentOut, status },
       });
     }
 
-    await pool.query(
-      'INSERT INTO attendance_logs (student_id, scanned_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?)',
-      [student.id, req.user?.id || null, status, scanDate, scanTime]
+    if (existing[0].time_out) {
+      return res.status(409).json({
+        success: false,
+        message: `${student.first_name} has already been marked out today.`,
+      });
+    }
+
+    // Second scan today = time out
+    const timeOutStatus = scanTime >= timeOutCutoff ? 'out' : 'excused';
+    await pool.query('UPDATE attendance_logs SET time_out = ?, time_out_status = ? WHERE id = ?', [
+      scanTime,
+      timeOutStatus,
+      existing[0].id,
+    ]);
+    await logActivity(
+      student.id,
+      timeOutStatus === 'out' ? 'Checked out via QR scan.' : 'Checked out early via QR scan — flagged excused.'
     );
-    await logActivity(student.id, `Checked in via QR scan — marked ${status}.`);
 
     return res.json({
       success: true,
-      message: `Checked in — marked ${status}.`,
-      student: {
-        name: `${student.first_name} ${student.middle_initial ? student.middle_initial + ' ' : ''}${student.last_name}`,
-        idNumber: student.id_number,
-        strand: student.grade_level ? `Grade${student.grade_level}-${student.strandCode}` : student.strandCode || '—',
-        status,
-      },
+      message: timeOutStatus === 'out' ? 'Checked out.' : 'Checked out early — flagged as excused.',
+      scanType: 'out',
+      student: { ...studentOut, status: timeOutStatus },
     });
   } catch (err) {
     console.error('scanAttendance error:', err);
@@ -98,9 +153,20 @@ async function verifyScannerKey(req, res) {
   }
 
   try {
+    const nowStr = new Date().toTimeString().slice(0, 8);
+    const { scannerWindowStart, scannerWindowEnd } = await getAttendanceSettings();
+
     const [rows] = await pool.query('SELECT * FROM scanner_keys WHERE is_active = 1');
     for (const row of rows) {
       if (await bcrypt.compare(key, row.key_hash)) {
+        const windowStart = row.valid_from || scannerWindowStart;
+        const windowEnd = row.valid_until || scannerWindowEnd;
+        if (nowStr < windowStart || nowStr > windowEnd) {
+          return res.status(403).json({
+            success: false,
+            message: `This scanner code is only valid between ${windowStart.slice(0, 5)} and ${windowEnd.slice(0, 5)}.`,
+          });
+        }
         const token = jwt.sign({ role: 'security', label: row.label }, process.env.JWT_SECRET, { expiresIn: '12h' });
         return res.json({ success: true, token });
       }
@@ -201,7 +267,7 @@ async function getConfirmationRoster(req, res) {
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
               st.code AS strandCode, sec.grade_level, sec.name AS sectionName,
-              a.status, a.scan_time
+              a.status, a.scan_time, a.time_out, a.time_out_status
        FROM users u
        JOIN sections s ON s.id = u.section_id
        JOIN sections sec ON sec.id = u.section_id
@@ -220,6 +286,8 @@ async function getConfirmationRoster(req, res) {
       section: r.sectionName,
       status: r.status || 'absent',
       timeIn: r.scan_time,
+      timeOut: r.time_out,
+      timeOutStatus: r.time_out_status,
     }));
 
     return res.json({ success: true, roster });
@@ -271,10 +339,88 @@ async function confirmAttendance(req, res) {
 
     await logActivity(studentId, `Attendance manually set to "${status}" by a teacher.`);
 
+    // Parent notification — only fires once a teacher has verified the scan.
+    if (['present', 'late', 'excused'].includes(status)) {
+      const parentIds = await getParentIdsForStudent(studentId);
+      const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : 'attendance_excused';
+      const label = status === 'present' ? 'arrived at school' : status === 'late' ? 'arrived late' : 'been marked excused';
+      await notifyMany(parentIds, {
+        type: notifType,
+        title: 'Attendance update',
+        message: `Your child has ${label}, confirmed by their teacher.`,
+        relatedStudentId: studentId,
+      });
+    }
+
     return res.json({ success: true, message: `Attendance updated to ${status}.` });
   } catch (err) {
     console.error('confirmAttendance error:', err);
     return res.status(500).json({ success: false, message: 'Could not update attendance.' });
+  }
+}
+
+/**
+ * POST /api/attendance/confirm-out  { studentId, sectionId }
+ * Teacher verifies a student's time-out scan for today. Notifies the
+ * parent(s) (out / excused), and if the student left early (excused),
+ * also notifies the section adviser.
+ */
+async function confirmAttendanceOut(req, res) {
+  const { studentId, sectionId } = req.body;
+  if (!studentId || !sectionId) {
+    return res.status(400).json({ success: false, message: 'studentId and sectionId are required.' });
+  }
+
+  try {
+    if (req.user.role === 'teacher') {
+      const teaches = await teacherTeachesSection(req.user.id, sectionId);
+      if (!teaches) {
+        return res.status(403).json({ success: false, message: 'You do not teach this section.' });
+      }
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const [rows] = await pool.query(
+      'SELECT * FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
+      [studentId, today]
+    );
+    const record = rows[0];
+    if (!record || !record.time_out) {
+      return res.status(400).json({ success: false, message: 'This student has no time-out scan to confirm yet.' });
+    }
+
+    await pool.query('UPDATE attendance_logs SET confirmed_by = ?, confirmed_at = NOW() WHERE id = ?', [
+      req.user.id,
+      record.id,
+    ]);
+    await logActivity(studentId, `Time-out scan (${record.time_out_status}) confirmed by a teacher.`);
+
+    const parentIds = await getParentIdsForStudent(studentId);
+    const isEarly = record.time_out_status === 'excused';
+    await notifyMany(parentIds, {
+      type: isEarly ? 'attendance_excused' : 'attendance_out',
+      title: 'Attendance update',
+      message: isEarly
+        ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
+        : 'Your child has checked out for the day, confirmed by their teacher.',
+      relatedStudentId: studentId,
+    });
+
+    if (isEarly) {
+      const adviserId = await getAdviserIdForStudent(studentId);
+      await notify({
+        recipientId: adviserId,
+        type: 'adviser_early_leave',
+        title: 'Student left early',
+        message: `A student from your section left campus early today (${record.time_out}).`,
+        relatedStudentId: studentId,
+      });
+    }
+
+    return res.json({ success: true, message: 'Time-out confirmed.' });
+  } catch (err) {
+    console.error('confirmAttendanceOut error:', err);
+    return res.status(500).json({ success: false, message: 'Could not confirm the time-out scan.' });
   }
 }
 
@@ -341,6 +487,7 @@ module.exports = {
   getSessionStatus,
   getConfirmationRoster,
   confirmAttendance,
+  confirmAttendanceOut,
   getSummary,
   getHistory,
 };

@@ -53,4 +53,26 @@ async function canViewStudent(user, studentId) {
   return { ok: false, status: 403, message: 'You do not have permission to view this.' };
 }
 
-module.exports = { teacherTeachesSection, teacherTeachesStudent, parentLinkedToStudent, canViewStudent };
+/** Parent user IDs linked to a student. */
+async function getParentIdsForStudent(studentId) {
+  const [rows] = await pool.query('SELECT parent_id FROM parent_student_links WHERE student_id = ?', [studentId]);
+  return rows.map((r) => r.parent_id);
+}
+
+/** The adviser (teacher user id) of a student's section, or null. */
+async function getAdviserIdForStudent(studentId) {
+  const [rows] = await pool.query(
+    `SELECT sec.adviser_id FROM users u JOIN sections sec ON sec.id = u.section_id WHERE u.id = ?`,
+    [studentId]
+  );
+  return rows[0]?.adviser_id || null;
+}
+
+module.exports = {
+  teacherTeachesSection,
+  teacherTeachesStudent,
+  parentLinkedToStudent,
+  canViewStudent,
+  getParentIdsForStudent,
+  getAdviserIdForStudent,
+};

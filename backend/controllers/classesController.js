@@ -67,4 +67,25 @@ async function getMySections(req, res) {
   }
 }
 
-module.exports = { getRosterOverview, getMySections };
+/** GET /api/classes/my-subjects?sectionId= — subjects this teacher actually teaches (optionally scoped to one section) */
+async function getMySubjects(req, res) {
+  try {
+    const params = [req.user.id];
+    let sql = `
+      SELECT DISTINCT sub.id, sub.code, sub.name
+      FROM schedules sch JOIN subjects sub ON sub.id = sch.subject_id
+      WHERE sch.teacher_id = ?`;
+    if (req.query.sectionId) {
+      sql += ' AND sch.section_id = ?';
+      params.push(req.query.sectionId);
+    }
+    sql += ' ORDER BY sub.name';
+    const [rows] = await pool.query(sql, params);
+    return res.json({ success: true, subjects: rows });
+  } catch (err) {
+    console.error('getMySubjects error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load your subjects.' });
+  }
+}
+
+module.exports = { getRosterOverview, getMySections, getMySubjects };

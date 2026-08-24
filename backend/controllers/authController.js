@@ -229,7 +229,8 @@ async function me(req, res) {
 async function getProfile(req, res) {
   try {
     const [rows] = await pool.query(
-      `SELECT u.id, u.role, u.id_number, u.first_name, u.middle_initial, u.last_name, u.email, u.contact_number,
+      `SELECT u.id, u.role, u.id_number, u.first_name, u.middle_initial, u.last_name, u.email,
+              u.personal_email, u.contact_number, u.profile_picture_url, u.program, u.enrollment_status,
               sec.grade_level, sec.name AS sectionName, st.code AS strandCode
        FROM users u
        LEFT JOIN sections sec ON sec.id = u.section_id
@@ -246,8 +247,12 @@ async function getProfile(req, res) {
         fullName: fullName(u),
         idNumber: u.id_number,
         email: u.email,
+        personalEmail: u.personal_email,
         contactNumber: u.contact_number,
         role: u.role,
+        program: u.program,
+        enrollmentStatus: u.enrollment_status,
+        profilePictureUrl: u.profile_picture_url,
         section: u.sectionName ? `Grade ${u.grade_level} - ${u.strandCode} (${u.sectionName})` : null,
       },
     });
@@ -257,4 +262,96 @@ async function getProfile(req, res) {
   }
 }
 
-module.exports = { login, logout, sendResetCode, verifyResetCode, resetPassword, me, getProfile };
+/**
+ * PATCH /api/auth/profile  { personalEmail?, avatarBase64? }
+ * Lets a student/teacher attach a personal email for real-time updates
+ * and/or upload a formal profile picture. Either field is optional.
+ */
+async function updateProfile(req, res) {
+  const { personalEmail, avatarBase64 } = req.body;
+
+  if (personalEmail !== undefined && personalEmail !== null && personalEmail !== '') {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(personalEmail)) {
+      return res.status(400).json({ success: false, message: 'That personal email address looks invalid.' });
+    }
+  }
+  if (avatarBase64 && !/^data:image\/(png|jpe?g|webp);base64,/.test(avatarBase64)) {
+    return res.status(400).json({ success: false, message: 'Profile picture must be a PNG, JPG, or WEBP image.' });
+  }
+
+  try {
+    const sets = [];
+    const params = [];
+    if (personalEmail !== undefined) {
+      sets.push('personal_email = ?');
+      params.push(personalEmail || null);
+    }
+    if (avatarBase64) {
+      sets.push('profile_picture_url = ?');
+      params.push(avatarBase64);
+    }
+    if (!sets.length) {
+      return res.status(400).json({ success: false, message: 'Nothing to update.' });
+    }
+    params.push(req.user.id);
+    await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params);
+
+    return res.json({ success: true, message: 'Profile updated.' });
+  } catch (err) {
+    console.error('updateProfile error:', err);
+    return res.status(500).json({ success: false, message: 'Could not update profile.' });
+  }
+}
+
+/**
+ * GET /api/auth/status-summary
+ * Semester/year/section/strand/program/today's-attendance for the
+ * student/teacher dashboards.
+ */
+async function getStatusSummary(req, res) {
+  try {
+    const [settingRows] = await pool.query(
+      "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('current_semester','school_year')"
+    );
+    const settings = Object.fromEntries(settingRows.map((r) => [r.setting_key, r.setting_value]));
+
+    const [userRows] = await pool.query(
+      `SELECT u.program, u.enrollment_status, sec.grade_level, sec.name AS sectionName, st.code AS strandCode
+       FROM users u
+       LEFT JOIN sections sec ON sec.id = u.section_id
+       LEFT JOIN strands st ON st.id = sec.strand_id
+       WHERE u.id = ?`,
+      [req.user.id]
+    );
+    const u = userRows[0] || {};
+
+    let presentStatus = null;
+    if (req.user.role === 'student') {
+      const today = new Date().toISOString().slice(0, 10);
+      const [attRows] = await pool.query(
+        'SELECT status, time_out_status FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
+        [req.user.id, today]
+      );
+      presentStatus = attRows[0] ? attRows[0].time_out_status || attRows[0].status : 'absent';
+    }
+
+    return res.json({
+      success: true,
+      summary: {
+        semester: settings.current_semester || null,
+        schoolYear: settings.school_year || null,
+        section: u.sectionName ? `Grade ${u.grade_level} - ${u.strandCode} (${u.sectionName})` : null,
+        strand: u.strandCode || null,
+        program: u.program || 'none',
+        enrollmentStatus: u.enrollment_status || null,
+        presentStatus,
+      },
+    });
+  } catch (err) {
+    console.error('getStatusSummary error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load status summary.' });
+  }
+}
+
+module.exports = { login, logout, sendResetCode, verifyResetCode, resetPassword, me, getProfile, updateProfile, getStatusSummary };

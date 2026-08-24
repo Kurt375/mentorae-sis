@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const pool = require('../config/db');
 const { parsePagination, paginatedMeta } = require('../utils/pagination');
+const { notify } = require('../utils/notifications');
 
 /** GET /api/users/generate-id?role=Student — next sequential ID for the current year */
 async function generateId(req, res) {
@@ -56,24 +57,34 @@ async function generateEmail(req, res) {
   }
 }
 
-/** POST /api/users — create a user account, auto-generating a temporary password */
+/** POST /api/users — create a user account. Uses the admin-supplied password if given, otherwise auto-generates a temporary one. */
 async function createUser(req, res) {
-  const { firstName, middleInitial, lastName, contactNumber, idNumber, email, role, sectionId } = req.body;
+  const { firstName, middleInitial, lastName, contactNumber, idNumber, email, role, sectionId, password, program } = req.body;
 
   const validRoles = ['Student', 'Teacher', 'Parent', 'Admin', 'Security'];
+  const validPrograms = ['none', '4ps', 'aral'];
   if (!firstName || !lastName || !contactNumber || !idNumber || !email || !role || !validRoles.includes(role)) {
     return res.status(400).json({ success: false, message: 'All fields are required and role must be valid.' });
   }
+  const userProgram = role === 'Student' && validPrograms.includes(program) ? program : 'none';
+
+  if (password !== undefined && password !== null && password !== '' && password.length < 8) {
+    return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
+  }
 
   try {
-    const tempPassword = crypto.randomBytes(6).toString('base64').replace(/[+/=]/g, '').slice(0, 10);
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    const usingManualPassword = !!password;
+    const tempPassword = usingManualPassword
+      ? null
+      : crypto.randomBytes(6).toString('base64').replace(/[+/=]/g, '').slice(0, 10);
+    const passwordHash = await bcrypt.hash(usingManualPassword ? password : tempPassword, 10);
 
-    await pool.query(
-      `INSERT INTO users (role, id_number, first_name, middle_initial, last_name, contact_number, email, password_hash, section_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    const [result] = await pool.query(
+      `INSERT INTO users (role, program, id_number, first_name, middle_initial, last_name, contact_number, email, password_hash, section_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         role.toLowerCase(),
+        userProgram,
         idNumber,
         firstName,
         middleInitial || null,
@@ -85,10 +96,21 @@ async function createUser(req, res) {
       ]
     );
 
+    // New-account notification: tells the user their account was created and
+    // that they can attach a personal email (Profile page) for real-time updates.
+    await notify({
+      recipientId: result.insertId,
+      type: 'account_created',
+      title: 'Welcome to Mentorae',
+      message: `Your ${role} account has been created. Go to your Profile to review your details and add a personal email for real-time updates.`,
+    });
+
     return res.json({
       success: true,
       message: `${firstName} ${lastName} created as ${role}.`,
-      tempPassword, // shown once — admin must share this with the new user
+      // Only sent back when auto-generated — shown once, admin must share it with the new user.
+      // When the admin set the password manually, nothing is echoed back.
+      ...(usingManualPassword ? {} : { tempPassword }),
     });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -111,9 +133,18 @@ async function listUsers(req, res) {
       params.push(req.query.role.toLowerCase());
     }
     if (req.query.search) {
-      conditions.push('(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR id_number LIKE ?)');
+      // Search across every column shown in the user list table, not just name/email.
+      conditions.push(`(
+        first_name LIKE ? OR last_name LIKE ? OR middle_initial LIKE ? OR
+        email LIKE ? OR personal_email LIKE ? OR id_number LIKE ? OR
+        contact_number LIKE ? OR role LIKE ? OR program LIKE ? OR
+        CONCAT(first_name, ' ', last_name) LIKE ? OR
+        (is_active = 1 AND ? IN ('active','Active')) OR
+        (is_active = 0 AND ? IN ('inactive','Inactive'))
+      )`);
       const like = `%${req.query.search}%`;
-      params.push(like, like, like, like);
+      const term = req.query.search;
+      params.push(like, like, like, like, like, like, like, like, like, like, term, term);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';

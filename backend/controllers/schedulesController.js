@@ -13,7 +13,7 @@ async function listSchedules(req, res) {
   try {
     const params = [];
     let sql = `
-      SELECT sch.id, sch.day_of_week, sch.start_time, sch.end_time,
+      SELECT sch.id, sch.day_of_week, sch.start_time, sch.end_time, sch.quarter,
              t.first_name AS teacherFirst, t.last_name AS teacherLast,
              sub.name AS subjectName,
              st.code AS strandCode, sec.grade_level, sec.name AS sectionName
@@ -40,6 +40,7 @@ async function listSchedules(req, res) {
       day: r.day_of_week,
       startTime: r.start_time,
       endTime: r.end_time,
+      quarter: r.quarter,
     }));
 
     return res.json({ success: true, schedules });
@@ -51,7 +52,9 @@ async function listSchedules(req, res) {
 
 /** POST /api/schedules  { teacherId, subjectId, sectionId, days: [], startTime, endTime } */
 async function createSchedule(req, res) {
-  const { teacherId, subjectId, sectionId, days, startTime, endTime } = req.body;
+  const { teacherId, subjectId, sectionId, days, startTime, endTime, quarter } = req.body;
+  const validQuarters = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
+  const scheduleQuarter = validQuarters.includes(quarter) ? quarter : '1st Quarter';
 
   if (!teacherId || !subjectId || !sectionId || !Array.isArray(days) || !days.length || !startTime || !endTime) {
     return res.status(400).json({ success: false, message: 'All fields are required.' });
@@ -91,8 +94,8 @@ async function createSchedule(req, res) {
       }
 
       const [result] = await pool.query(
-        'INSERT INTO schedules (teacher_id, subject_id, section_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)',
-        [teacherId, subjectId, sectionId, day, startTime, endTime]
+        'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [teacherId, subjectId, sectionId, scheduleQuarter, day, startTime, endTime]
       );
       created.push(result.insertId);
     }
@@ -122,7 +125,7 @@ async function deleteSchedule(req, res) {
 async function getMySchedule(req, res) {
   try {
     const [rows] = await pool.query(
-      `SELECT sch.day_of_week, sch.start_time, sch.end_time, sub.name AS subjectName,
+      `SELECT sch.day_of_week, sch.start_time, sch.end_time, sch.quarter, sub.name AS subjectName,
               st.code AS strandCode, sec.grade_level, sec.name AS sectionName
        FROM schedules sch
        JOIN subjects sub ON sub.id = sch.subject_id
@@ -136,6 +139,7 @@ async function getMySchedule(req, res) {
       day: r.day_of_week,
       startTime: r.start_time,
       endTime: r.end_time,
+      quarter: r.quarter,
       subject: r.subjectName,
       strand: `${r.strandCode} ${r.grade_level}`,
       section: r.sectionName,
