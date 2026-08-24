@@ -22,12 +22,15 @@ const resourcesRoutes = require('./routes/resources');
 const app = express();
 app.set('trust proxy', 1);
 
-const allowedOrigins = (process.env.CLIENT_ORIGIN || '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+const allowedOrigins = [
+  'https://comforting-fox-c29e5a.netlify.app',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
+  'http://localhost:5000',
+  'http://localhost:3000'
+];
 
-app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true, credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({ limit: '8mb' })); // raised for base64 profile-picture uploads
 app.use(cookieParser());
 
