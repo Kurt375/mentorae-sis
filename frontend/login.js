@@ -1,4 +1,7 @@
-const API_BASE = window.MENTORAE_CONFIG.API_BASE_URL;
+// Safely fetch API_BASE_URL with fallback
+const API_BASE = (window.MENTORAE_CONFIG && window.MENTORAE_CONFIG.API_BASE_URL)
+    ? window.MENTORAE_CONFIG.API_BASE_URL
+    : "http://localhost:5000";
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
@@ -51,10 +54,10 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = true;
 
         try {
+            // Note: credentials: 'include' removed to allow cross-origin requests from Netlify
             const res = await fetch(`${API_BASE}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify({ identity, password }),
             });
             const data = await res.json();
@@ -68,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('mentorae_user', JSON.stringify(data.user));
             window.location.href = destinations[data.user.role] || 'login.html';
         } catch (err) {
-            console.error(err);
+            console.error('Fetch error:', err);
             alert('Could not reach the server. Please try again.');
         } finally {
             submitBtn.disabled = false;
@@ -127,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
 
     let userEmail = null;
-    let resetToken = null; // issued by the server once the OTP is verified
+    let resetToken = null; 
 
     if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', (e) => {
