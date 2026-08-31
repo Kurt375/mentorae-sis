@@ -4,7 +4,7 @@
 -- =========================================================
 
 CREATE DATABASE IF NOT EXISTS mentorae_sis;
-USE mentorae_sis;
+USE railway;
 
 -- ---------------------------------------------------------
 -- STRANDS (Academic/TVL tracks: STEM, ABM, HUMSS, ICT, etc.)
