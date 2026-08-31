@@ -16,7 +16,7 @@
 -- through the app going forward will store NULL until a teacher
 -- actually enters an exam score.
 -- =========================================================
-USE mentorae_sis;
+USE railway;
 
 ALTER TABLE grades
   MODIFY COLUMN exam_score DECIMAL(5,2) NULL DEFAULT NULL;

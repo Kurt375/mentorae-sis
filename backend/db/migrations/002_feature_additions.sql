@@ -3,7 +3,7 @@
 -- Run this once against your existing database (after schema.sql).
 -- Safe to re-run: every statement is guarded.
 -- =========================================================
-USE mentorae_sis;
+USE railway;
 
 -- ---------------------------------------------------------
 -- 1. Role dropdown additions (4Ps / ARAL Program)
