@@ -19,10 +19,13 @@
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
         <nav class="custom-navbar text-white py-3 px-4 d-flex align-items-center gap-3">
             <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4"><i class="bi bi-chevron-left"></i></a>
-            <div>
+            <div class="flex-grow-1">
                 <h1 class="m-0 fs-4 fw-bold">Analytics</h1>
                 <p class="m-0 small opacity-75">Performance across your sections</p>
             </div>
+            <button type="button" id="btnExportClassReport" class="btn btn-sm btn-light">
+                <i class="bi bi-file-earmark-arrow-down"></i> Export Report
+            </button>
         </nav>
         <main class="container-fluid px-4 py-4 flex-grow-1">
             <label class="form-label small fw-semibold">Section</label>
@@ -49,6 +52,9 @@
             return { label: 'Low Risk', cls: 'risk-low' };
         }
 
+        let currentRoster = [];
+        let currentSectionLabel = '';
+
         async function loadSections() {
             const data = await authedFetch('/api/classes/my-sections', token);
             if (!data.success || !data.sections.length) {
@@ -62,6 +68,8 @@
         async function loadRoster(sectionId) {
             const list = document.getElementById('rosterList');
             list.innerHTML = '';
+            currentRoster = [];
+            currentSectionLabel = select.options[select.selectedIndex]?.text || '';
             if (!sectionId) {
                 document.getElementById('emptyMsg').classList.remove('d-none');
                 return;
@@ -74,6 +82,7 @@
             document.getElementById('emptyMsg').classList.add('d-none');
             for (const s of data.roster) {
                 const risk = classifyRisk(s.grade, s.attendance);
+                currentRoster.push({ ...s, riskLabel: risk.label });
                 const row = document.createElement('div');
                 row.className = 'roster-row';
                 row.innerHTML = `
@@ -85,7 +94,48 @@
             }
         }
 
+        /** Class performance summary + at-risk list export (Objective 3.2). */
+        function exportClassReport() {
+            if (!currentRoster.length) {
+                alert('Select a section with students before exporting.');
+                return;
+            }
+            const grades = currentRoster.map((s) => Number(s.grade)).filter((g) => !isNaN(g));
+            const classAvg = grades.length ? (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1) : '—';
+            const atRisk = currentRoster.filter((s) => s.riskLabel !== 'Low Risk');
+
+            const rosterRows = currentRoster.map((s) =>
+                `<tr><td>${s.name}</td><td>${s.idNumber}</td><td>${s.grade ?? '—'}</td><td>${s.attendance}</td><td>${s.riskLabel}</td></tr>`
+            ).join('');
+
+            const w = window.open('', '_blank');
+            w.document.write(`
+                <html><head><title>Class Performance Report</title>
+                <style>
+                    body { font-family: sans-serif; padding: 2.5rem; }
+                    .summary { display: flex; gap: 2rem; margin-bottom: 1.5rem; }
+                    .summary div { border: 1px solid #dee2e6; border-radius: 8px; padding: 0.75rem 1.25rem; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border: 1px solid #dee2e6; padding: 0.5rem; text-align: left; font-size: 0.9rem; }
+                    th { background: #f1f3f5; }
+                </style></head>
+                <body>
+                    <h1>Mentorae — Class Performance Report</h1>
+                    <p style="color:#6c757d;">${currentSectionLabel} · Generated ${new Date().toLocaleDateString()}</p>
+                    <div class="summary">
+                        <div><strong>Class Average</strong><br>${classAvg}${classAvg !== '—' ? '%' : ''}</div>
+                        <div><strong>Total Students</strong><br>${currentRoster.length}</div>
+                        <div><strong>At-Risk Students</strong><br>${atRisk.length}</div>
+                    </div>
+                    <table><tr><th>Name</th><th>ID Number</th><th>Grade</th><th>Attendance</th><th>Risk</th></tr>${rosterRows}</table>
+                </body></html>
+            `);
+            w.document.close();
+            w.print();
+        }
+
         select.addEventListener('change', (e) => loadRoster(e.target.value));
+        document.getElementById('btnExportClassReport').addEventListener('click', exportClassReport);
         loadSections();
     </script>
 </body>

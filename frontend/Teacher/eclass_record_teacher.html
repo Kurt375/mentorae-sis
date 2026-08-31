@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DepEd Electronic Class Record (ASSH 11 - 2) - Mentorae</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- SheetJS for Live Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Custom E-Class Record CSS -->
+    <link rel="stylesheet" href="eclass_record_teacher.css">
+</head>
+
+<body class="ecr-body">
+
+    <!-- 1. Top Excel / Google Sheets Header Ribbon -->
+    <header class="ecr-top-nav d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="d-flex align-items-center gap-3">
+            <a href="class_management_teacher.html"
+                class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
+                title="Return to Class Management">
+                <i class="bi bi-arrow-left"></i> <span>Back</span>
+            </a>
+            <div class="ecr-logo-wrap">
+                <img src="../TSHS_image.png" alt="School Seal">
+            </div>
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="ecr-file-title" id="ecrWorkbookTitle">ASSH 11 - 2-e-CLASS-RECORD.xlsm</span>
+                    <span class="ecr-save-pill"><i class="bi bi-cloud-check-fill me-1"></i> Saved to Cloud</span>
+                </div>
+                <div class="micro-text text-white-50">Strengthened Senior High School Class Record (DepEd Order No. 15,
+                    s. 2026 / DO 8, s. 2015)</div>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button type="button"
+                class="btn btn-sm btn-light fw-bold text-success d-inline-flex align-items-center gap-1.5 px-3 py-1.5 shadow-sm"
+                id="btnSyncToMentorae">
+                <i class="bi bi-arrow-repeat"></i> Sync to Mentorae
+            </button>
+            <button type="button"
+                class="btn btn-sm btn-outline-light fw-semibold d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5"
+                id="btnUploadECRDirect" title="Upload and open another DepEd ECR file">
+                <i class="bi bi-cloud-arrow-up-fill"></i> Upload .xlsm
+            </button>
+            <input type="file" id="ecrDirectFileInput" accept=".xlsm,.xlsx,.xls" class="d-none">
+            <a href="ASSH 11 - 2-e-CLASS-RECORD.xlsm" download
+                class="btn btn-sm btn-outline-light fw-semibold d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5"
+                id="btnDownloadOriginalXlsm" title="Download original DepEd .xlsm file">
+                <i class="bi bi-file-earmark-arrow-down-fill"></i> Download .xlsm
+            </a>
+            <button type="button"
+                class="btn btn-sm btn-outline-light fw-semibold d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5"
+                id="btnExportExcel">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export .xlsx
+            </button>
+            <button type="button"
+                class="btn btn-sm btn-outline-light fw-semibold d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5"
+                id="btnPrintRecord">
+                <i class="bi bi-printer"></i> Print
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. Menu Toolbar Ribbon -->
+    <div class="ecr-menu-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-1 flex-wrap">
+            <div class="dropdown">
+                <button class="ecr-menu-btn dropdown-toggle" type="button" id="dropdownSubjectType"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-sliders me-1"></i> <span id="labelSubjectType">Core Subject (20% - 50% - 30%)</span>
+                </button>
+                <ul class="dropdown-menu shadow-sm" aria-labelledby="dropdownSubjectType">
+                    <li><a class="dropdown-item active subject-type-opt" href="#" data-type="core" data-ww="0.20"
+                            data-pt="0.50" data-qa="0.30">Core Subject (WW: 20%, PT: 50%, QA: 30%)</a></li>
+                    <li><a class="dropdown-item subject-type-opt" href="#" data-type="academic" data-ww="0.25"
+                            data-pt="0.45" data-qa="0.30">Academic Electives (WW: 25%, PT: 45%, QA: 30%)</a></li>
+                    <li><a class="dropdown-item subject-type-opt" href="#" data-type="techpro" data-ww="0.20"
+                            data-pt="0.60" data-qa="0.20">TechPro / TVL Electives (WW: 20%, PT: 60%, QA: 20%)</a></li>
+                </ul>
+            </div>
+            <button class="ecr-menu-btn" id="btnRecalculateAll"><i class="bi bi-calculator me-1"></i> Recalculate
+                All</button>
+            <button class="ecr-menu-btn" id="btnAutoFillSampleScores"><i class="bi bi-magic me-1"></i> Populate Sample
+                Scores</button>
+            <button class="ecr-menu-btn" id="btnResetDefaults"><i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                to Roster</button>
+        </div>
+        <div class="d-flex align-items-center gap-2 micro-text text-muted">
+            <span>Roster: <strong id="rosterCountBadge">51 Learners (40 Males, 11 Females)</strong></span>
+            <span>|</span>
+            <span>Section: <strong>ASSH 11 - 2</strong></span>
+            <span>|</span>
+            <span>SY: <strong>2026-2027</strong></span>
+        </div>
+    </div>
+
+    <!-- 3. Formula Bar Component (Google Sheets / Excel Style) -->
+    <div class="ecr-formula-bar-wrap">
+        <div class="ecr-cell-name-box" id="activeCellCoordinate">A1</div>
+        <div class="ecr-fx-icon">fx</div>
+        <input type="text" class="ecr-formula-input" id="activeCellFormula" readonly
+            value="=DEPED_TRANSMUTE(InitialGrade)">
+    </div>
+
+    <!-- 4. DepEd Official Header Information Banner -->
+    <div class="ecr-deped-header">
+        <div class="row align-items-center">
+            <div class="col-12 col-md-4 text-center text-md-start mb-2 mb-md-0">
+                <span class="deped-seal-title d-block">Republic of the Philippines &bull; Department of Education</span>
+                <h1 class="deped-school-title">Talisay Senior High School</h1>
+                <span class="micro-text text-muted">Region IV-A CALABARZON &bull; Division of Batangas Province &bull;
+                    School ID: <strong>342218</strong></span>
+            </div>
+            <div class="col-12 col-md-8">
+                <table class="deped-meta-table">
+                    <tr>
+                        <td class="deped-meta-label">Grade & Section:</td>
+                        <td class="deped-meta-value">Grade 11 - Arts and Social Sciences 2 (ASSH 11 - 2)</td>
+                        <td class="deped-meta-label">Track:</td>
+                        <td class="deped-meta-value">Academic Track (HUMSS / GAS)</td>
+                    </tr>
+                    <tr>
+                        <td class="deped-meta-label">Subject:</td>
+                        <td class="deped-meta-value" id="hdrSubjectName">Effective Communication / General Mathematics
+                        </td>
+                        <td class="deped-meta-label">Subject Teacher:</td>
+                        <td class="deped-meta-value" id="hdrTeacherName">Faculty Adviser (Mr. M. Santos)</td>
+                    </tr>
+                    <tr>
+                        <td class="deped-meta-label">School Year:</td>
+                        <td class="deped-meta-value">SY 2026-2027 &bull; Strengthened SHS</td>
+                        <td class="deped-meta-label">Grading Breakdown:</td>
+                        <td class="deped-meta-value text-success fw-bold" id="hdrWeightsText">WW (20%) &bull; PT (50%)
+                            &bull; Summative (30%)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Main Spreadsheet Workspace (6 Tab Sheets) -->
+    <main class="ecr-workspace-canvas">
+
+        <!-- =========================================================================
+             SHEET 1: INPUT DATA (School Info, Settings & Learners Masterlist)
+             ========================================================================= -->
+        <div class="ecr-sheet-view d-none" id="sheetInputData">
+            <div class="container-fluid px-0">
+                <div class="card border-0 shadow-sm p-4 bg-white mb-4">
+                    <h5 class="fw-bold text-success border-bottom pb-2 mb-3">
+                        <i class="bi bi-sliders2-vertical me-2"></i>A & B. School & Subject Area Information
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">Region</label>
+                            <input type="text" class="form-control form-control-sm" id="inputRegion"
+                                value="Region IV-A CALABARZON">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">Division</label>
+                            <input type="text" class="form-control form-control-sm" id="inputDivision"
+                                value="BATANGAS PROVINCE">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">School ID</label>
+                            <input type="text" class="form-control form-control-sm" id="inputSchoolId" value="342218">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">School Name</label>
+                            <input type="text" class="form-control form-control-sm" id="inputSchoolName"
+                                value="TALISAY SENIOR HIGH SCHOOL">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">School Year</label>
+                            <input type="text" class="form-control form-control-sm" id="inputSchoolYear"
+                                value="2026-2027">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">Grade Level</label>
+                            <input type="text" class="form-control form-control-sm" id="inputGradeLevel" value="11"
+                                readonly>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">Section Name</label>
+                            <input type="text" class="form-control form-control-sm" id="inputSection"
+                                value="ARTS AND SOCIAL SCIENCES 2">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">Track</label>
+                            <input type="text" class="form-control form-control-sm" id="inputTrack" value="ACADEMIC">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-muted">Subject</label>
+                            <input type="text" class="form-control form-control-sm" id="inputSubject"
+                                value="Core Subject (All Tracks)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Masterlist Table (40 Males, 11 Females) -->
+                <div class="card border-0 shadow-sm p-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                        <h5 class="fw-bold text-primary m-0">
+                            <i class="bi bi-people-fill me-2"></i>C. Learners' Masterlist (ASSH 11 - 2 Roster)
+                        </h5>
+                        <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-1.5">51 Total Registered
+                            Learners</span>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- Male Learners Column (1-40) -->
+                        <div class="col-12 col-lg-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <h6 class="fw-bold text-primary mb-3"><i class="bi bi-gender-male me-1"></i> Male
+                                    Learners (40)</h6>
+                                <div class="table-responsive" style="max-height: 480px;">
+                                    <table class="table table-sm table-bordered bg-white mb-0" id="inputMaleTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 45px;">No.</th>
+                                                <th>Learner's Name (Last Name, First Name Middle Initial)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="inputDataMaleBody">
+                                            <!-- Rendered dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Female Learners Column (1-11) -->
+                        <div class="col-12 col-lg-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <h6 class="fw-bold text-danger mb-3"><i class="bi bi-gender-female me-1"></i> Female
+                                    Learners (11)</h6>
+                                <div class="table-responsive" style="max-height: 480px;">
+                                    <table class="table table-sm table-bordered bg-white mb-0" id="inputFemaleTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 45px;">No.</th>
+                                                <th>Learner's Name (Last Name, First Name Middle Initial)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="inputDataFemaleBody">
+                                            <!-- Rendered dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             SHEET 2: TERM 1 (First Term Class Record - Full Component Grid)
+             ========================================================================= -->
+        <div class="ecr-sheet-view" id="sheetTerm1">
+            <div class="ecr-table-container">
+                <table class="ecr-grid-table" id="tableTerm1">
+                    <thead>
+                        <tr class="ecr-coord-row">
+                            <th>A</th>
+                            <th>B</th>
+                            <th>F</th>
+                            <th>G</th>
+                            <th>H</th>
+                            <th>I</th>
+                            <th>J</th>
+                            <th>K</th>
+                            <th>L</th>
+                            <th>M</th>
+                            <th>N</th>
+                            <th>O</th>
+                            <th>P</th>
+                            <th>Q</th>
+                            <th>R</th>
+                            <th>S</th>
+                            <th>T</th>
+                            <th>U</th>
+                            <th>V</th>
+                            <th>W</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Z</th>
+                            <th>AA</th>
+                            <th>AB</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <th rowspan="2" class="sticky-col-id">No.</th>
+                            <th rowspan="2" class="sticky-col-name">LEARNERS' NAMES</th>
+                            <th colspan="8" class="th-ww">WRITTEN / ORAL WORKS (<span class="lbl-ww-weight">20%</span>)
+                            </th>
+                            <th colspan="6" class="th-pt">PRODUCT / PERFORMANCE TASKS (<span
+                                    class="lbl-pt-weight">50%</span>)</th>
+                            <th colspan="6" class="th-qa">SUMMATIVE ASSESSMENT & TERM EXAM (<span
+                                    class="lbl-qa-weight">30%</span>)</th>
+                            <th rowspan="2" class="th-total">Initial Grade</th>
+                            <th rowspan="2" class="th-summary">Transmuted Grade</th>
+                            <th rowspan="2" class="th-summary">Remarks</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <!-- WW (1 to 5, Total, PS, WS) -->
+                            <th class="th-ww">1</th>
+                            <th class="th-ww">2</th>
+                            <th class="th-ww">3</th>
+                            <th class="th-ww">4</th>
+                            <th class="th-ww">5</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-ww">WS</th>
+                            <!-- PT (1 to 3, Total, PS, WS) -->
+                            <th class="th-pt">1</th>
+                            <th class="th-pt">2</th>
+                            <th class="th-pt">3</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-pt">WS</th>
+                            <!-- QA (SA1, SA2, TE, Total, PS, WS) -->
+                            <th class="th-qa">SA1</th>
+                            <th class="th-qa">SA2</th>
+                            <th class="th-qa">TE</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-qa">WS</th>
+                        </tr>
+                        <!-- Highest Possible Score Row -->
+                        <tr class="th-hps text-center" id="hpsRowTerm1">
+                            <td class="sticky-col-id fw-bold">HPS</td>
+                            <td class="sticky-col-name fw-bold text-start">HIGHEST POSSIBLE SCORE</td>
+                            <!-- WW HPS -->
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t1" value="20" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t1" value="25" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t1" value="20" data-idx="2">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t1" value="20" data-idx="3">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t1" value="25" data-idx="4">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalWW_t1">110</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-ww">20.00</td>
+                            <!-- PT HPS -->
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t1" value="50" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t1" value="50" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t1" value="50" data-idx="2">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalPT_t1">150</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-pt">50.00</td>
+                            <!-- QA HPS -->
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t1" value="50" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t1" value="50" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t1" value="100" data-idx="2">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalQA_t1">200</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-qa">30.00</td>
+                            <!-- Summary HPS -->
+                            <td class="fw-bold">100.00</td>
+                            <td class="fw-bold text-success">100</td>
+                            <td class="fw-bold text-success">Passed</td>
+                        </tr>
+                    </thead>
+                    <tbody id="term1TableBody">
+                        <!-- Rendered dynamically by eclass_record_teacher.js -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             SHEET 3: TERM 2 (Second Term Class Record)
+             ========================================================================= -->
+        <div class="ecr-sheet-view d-none" id="sheetTerm2">
+            <div class="ecr-table-container">
+                <table class="ecr-grid-table" id="tableTerm2">
+                    <thead>
+                        <tr class="ecr-coord-row">
+                            <th>A</th>
+                            <th>B</th>
+                            <th>F</th>
+                            <th>G</th>
+                            <th>H</th>
+                            <th>I</th>
+                            <th>J</th>
+                            <th>K</th>
+                            <th>L</th>
+                            <th>M</th>
+                            <th>N</th>
+                            <th>O</th>
+                            <th>P</th>
+                            <th>Q</th>
+                            <th>R</th>
+                            <th>S</th>
+                            <th>T</th>
+                            <th>U</th>
+                            <th>V</th>
+                            <th>W</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Z</th>
+                            <th>AA</th>
+                            <th>AB</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <th rowspan="2" class="sticky-col-id">No.</th>
+                            <th rowspan="2" class="sticky-col-name">LEARNERS' NAMES</th>
+                            <th colspan="8" class="th-ww">WRITTEN / ORAL WORKS (<span class="lbl-ww-weight">20%</span>)
+                            </th>
+                            <th colspan="6" class="th-pt">PRODUCT / PERFORMANCE TASKS (<span
+                                    class="lbl-pt-weight">50%</span>)</th>
+                            <th colspan="6" class="th-qa">SUMMATIVE ASSESSMENT & TERM EXAM (<span
+                                    class="lbl-qa-weight">30%</span>)</th>
+                            <th rowspan="2" class="th-total">Initial Grade</th>
+                            <th rowspan="2" class="th-summary">Transmuted Grade</th>
+                            <th rowspan="2" class="th-summary">Remarks</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <th class="th-ww">1</th>
+                            <th class="th-ww">2</th>
+                            <th class="th-ww">3</th>
+                            <th class="th-ww">4</th>
+                            <th class="th-ww">5</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-ww">WS</th>
+                            <th class="th-pt">1</th>
+                            <th class="th-pt">2</th>
+                            <th class="th-pt">3</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-pt">WS</th>
+                            <th class="th-qa">SA1</th>
+                            <th class="th-qa">SA2</th>
+                            <th class="th-qa">TE</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-qa">WS</th>
+                        </tr>
+                        <tr class="th-hps text-center" id="hpsRowTerm2">
+                            <td class="sticky-col-id fw-bold">HPS</td>
+                            <td class="sticky-col-name fw-bold text-start">HIGHEST POSSIBLE SCORE</td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t2" value="20" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t2" value="25" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t2" value="20" data-idx="2">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t2" value="20" data-idx="3">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t2" value="25" data-idx="4">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalWW_t2">110</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-ww">20.00</td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t2" value="50" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t2" value="50" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t2" value="50" data-idx="2">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalPT_t2">150</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-pt">50.00</td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t2" value="50" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t2" value="50" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t2" value="100" data-idx="2">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalQA_t2">200</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-qa">30.00</td>
+                            <td class="fw-bold">100.00</td>
+                            <td class="fw-bold text-success">100</td>
+                            <td class="fw-bold text-success">Passed</td>
+                        </tr>
+                    </thead>
+                    <tbody id="term2TableBody">
+                        <!-- Rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             SHEET 4: TERM 3 (Third Term Class Record)
+             ========================================================================= -->
+        <div class="ecr-sheet-view d-none" id="sheetTerm3">
+            <div class="ecr-table-container">
+                <table class="ecr-grid-table" id="tableTerm3">
+                    <thead>
+                        <tr class="ecr-coord-row">
+                            <th>A</th>
+                            <th>B</th>
+                            <th>F</th>
+                            <th>G</th>
+                            <th>H</th>
+                            <th>I</th>
+                            <th>J</th>
+                            <th>K</th>
+                            <th>L</th>
+                            <th>M</th>
+                            <th>N</th>
+                            <th>O</th>
+                            <th>P</th>
+                            <th>Q</th>
+                            <th>R</th>
+                            <th>S</th>
+                            <th>T</th>
+                            <th>U</th>
+                            <th>V</th>
+                            <th>W</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Z</th>
+                            <th>AA</th>
+                            <th>AB</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <th rowspan="2" class="sticky-col-id">No.</th>
+                            <th rowspan="2" class="sticky-col-name">LEARNERS' NAMES</th>
+                            <th colspan="8" class="th-ww">WRITTEN / ORAL WORKS (<span class="lbl-ww-weight">20%</span>)
+                            </th>
+                            <th colspan="6" class="th-pt">PRODUCT / PERFORMANCE TASKS (<span
+                                    class="lbl-pt-weight">50%</span>)</th>
+                            <th colspan="6" class="th-qa">SUMMATIVE ASSESSMENT & TERM EXAM (<span
+                                    class="lbl-qa-weight">30%</span>)</th>
+                            <th rowspan="2" class="th-total">Initial Grade</th>
+                            <th rowspan="2" class="th-summary">Transmuted Grade</th>
+                            <th rowspan="2" class="th-summary">Remarks</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <th class="th-ww">1</th>
+                            <th class="th-ww">2</th>
+                            <th class="th-ww">3</th>
+                            <th class="th-ww">4</th>
+                            <th class="th-ww">5</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-ww">WS</th>
+                            <th class="th-pt">1</th>
+                            <th class="th-pt">2</th>
+                            <th class="th-pt">3</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-pt">WS</th>
+                            <th class="th-qa">SA1</th>
+                            <th class="th-qa">SA2</th>
+                            <th class="th-qa">TE</th>
+                            <th class="th-total">Total</th>
+                            <th class="th-total">PS</th>
+                            <th class="th-qa">WS</th>
+                        </tr>
+                        <tr class="th-hps text-center" id="hpsRowTerm3">
+                            <td class="sticky-col-id fw-bold">HPS</td>
+                            <td class="sticky-col-name fw-bold text-start">HIGHEST POSSIBLE SCORE</td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t3" value="20" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t3" value="25" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t3" value="20" data-idx="2">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t3" value="20" data-idx="3">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-ww-t3" value="25" data-idx="4">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalWW_t3">110</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-ww">20.00</td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t3" value="50" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t3" value="50" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-pt-t3" value="50" data-idx="2">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalPT_t3">150</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-pt">50.00</td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t3" value="50" data-idx="0">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t3" value="50" data-idx="1">
+                            </td>
+                            <td><input type="number" class="ecr-cell-input fw-bold hps-qa-t3" value="100" data-idx="2">
+                            </td>
+                            <td class="fw-bold" id="hpsTotalQA_t3">200</td>
+                            <td class="fw-bold">100</td>
+                            <td class="fw-bold ws-hps-qa">30.00</td>
+                            <td class="fw-bold">100.00</td>
+                            <td class="fw-bold text-success">100</td>
+                            <td class="fw-bold text-success">Passed</td>
+                        </tr>
+                    </thead>
+                    <tbody id="term3TableBody">
+                        <!-- Rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             SHEET 5: SUMMARY OF FINAL GRADES (Consolidated Terms 1, 2, 3)
+             ========================================================================= -->
+        <div class="ecr-sheet-view d-none" id="sheetSummary">
+            <div class="ecr-table-container">
+                <table class="ecr-grid-table" id="tableSummary">
+                    <thead>
+                        <tr class="ecr-coord-row">
+                            <th>A</th>
+                            <th>B</th>
+                            <th>F</th>
+                            <th>N</th>
+                            <th>V</th>
+                            <th>Z</th>
+                            <th>AC</th>
+                        </tr>
+                        <tr class="table-header-row text-center">
+                            <th class="sticky-col-id">No.</th>
+                            <th class="sticky-col-name">LEARNERS' NAMES (DepEd Strengthened SHS)</th>
+                            <th class="th-ww">FIRST TERM</th>
+                            <th class="th-pt">SECOND TERM</th>
+                            <th class="th-qa">THIRD TERM</th>
+                            <th class="th-summary">SEMESTRAL AVERAGE</th>
+                            <th class="th-summary">FINAL REMARKS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTableBody">
+                        <!-- Rendered dynamically by eclass_record_teacher.js -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             SHEET 6: TRANSMUTATION TABLE (DEPED ORDER 8, S. 2015 & DO 15, S. 2026)
+             ========================================================================= -->
+        <div class="ecr-sheet-view d-none" id="sheetTransmutation">
+            <div class="transmutation-ref-box p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h4 class="fw-bold text-dark fs-5 m-0">Department of Education Transmutation Table</h4>
+                        <span class="micro-text text-muted">Official Transmutation Reference Guide (DepEd Order No. 8,
+                            s. 2015 & DO 15, s. 2026)</span>
+                    </div>
+                    <span class="badge bg-success-subtle text-success fw-bold px-3 py-1.5">Standard SHS Scale</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped text-center transmutation-table mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Initial Grade Range</th>
+                                <th>Transmuted Grade</th>
+                                <th>Initial Grade Range</th>
+                                <th>Transmuted Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>100</td>
+                                <td class="fw-bold text-success">100</td>
+                                <td>76.00 - 77.59</td>
+                                <td class="fw-bold">85</td>
+                            </tr>
+                            <tr>
+                                <td>98.40 - 99.99</td>
+                                <td class="fw-bold text-success">99</td>
+                                <td>74.40 - 75.99</td>
+                                <td class="fw-bold">84</td>
+                            </tr>
+                            <tr>
+                                <td>96.80 - 98.39</td>
+                                <td class="fw-bold text-success">98</td>
+                                <td>72.80 - 74.39</td>
+                                <td class="fw-bold">83</td>
+                            </tr>
+                            <tr>
+                                <td>95.20 - 96.79</td>
+                                <td class="fw-bold text-success">97</td>
+                                <td>71.20 - 72.79</td>
+                                <td class="fw-bold">82</td>
+                            </tr>
+                            <tr>
+                                <td>93.60 - 95.19</td>
+                                <td class="fw-bold text-success">96</td>
+                                <td>69.60 - 71.19</td>
+                                <td class="fw-bold">81</td>
+                            </tr>
+                            <tr>
+                                <td>92.00 - 93.59</td>
+                                <td class="fw-bold text-success">95</td>
+                                <td>68.00 - 69.59</td>
+                                <td class="fw-bold">80</td>
+                            </tr>
+                            <tr>
+                                <td>90.40 - 91.99</td>
+                                <td class="fw-bold text-success">94</td>
+                                <td>66.40 - 67.99</td>
+                                <td class="fw-bold">79</td>
+                            </tr>
+                            <tr>
+                                <td>88.80 - 90.39</td>
+                                <td class="fw-bold text-success">93</td>
+                                <td>64.80 - 66.39</td>
+                                <td class="fw-bold">78</td>
+                            </tr>
+                            <tr>
+                                <td>87.20 - 88.79</td>
+                                <td class="fw-bold text-success">92</td>
+                                <td>63.20 - 64.79</td>
+                                <td class="fw-bold">77</td>
+                            </tr>
+                            <tr>
+                                <td>85.60 - 87.19</td>
+                                <td class="fw-bold text-success">91</td>
+                                <td>61.60 - 63.19</td>
+                                <td class="fw-bold">76</td>
+                            </tr>
+                            <tr>
+                                <td>84.00 - 85.59</td>
+                                <td class="fw-bold text-success">90</td>
+                                <td>60.00 - 61.59</td>
+                                <td class="fw-bold text-success">75 (Passed)</td>
+                            </tr>
+                            <tr>
+                                <td>82.40 - 83.99</td>
+                                <td class="fw-bold text-primary">89</td>
+                                <td>56.00 - 59.99</td>
+                                <td class="fw-bold text-danger">74</td>
+                            </tr>
+                            <tr>
+                                <td>80.80 - 82.39</td>
+                                <td class="fw-bold text-primary">88</td>
+                                <td>40.00 - 55.99</td>
+                                <td class="fw-bold text-danger">70 - 73</td>
+                            </tr>
+                            <tr>
+                                <td>79.20 - 80.79</td>
+                                <td class="fw-bold text-primary">87</td>
+                                <td>Below 40.00</td>
+                                <td class="fw-bold text-danger">60 - 69</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 6. Bottom Sheet Tabs (Excel / Google Sheets Navigation) -->
+    <footer class="ecr-sheets-tab-bar">
+        <button type="button" class="ecr-sheet-tab" data-sheet-target="sheetInputData">
+            <i class="bi bi-file-earmark-text text-primary"></i> INPUT DATA
+        </button>
+        <button type="button" class="ecr-sheet-tab active" data-sheet-target="sheetTerm1">
+            <i class="bi bi-grid-3x3-gap-fill text-success"></i> TERM 1
+        </button>
+        <button type="button" class="ecr-sheet-tab" data-sheet-target="sheetTerm2">
+            <i class="bi bi-grid-3x3-gap-fill text-success"></i> TERM 2
+        </button>
+        <button type="button" class="ecr-sheet-tab" data-sheet-target="sheetTerm3">
+            <i class="bi bi-grid-3x3-gap-fill text-success"></i> TERM 3
+        </button>
+        <button type="button" class="ecr-sheet-tab" data-sheet-target="sheetSummary">
+            <i class="bi bi-bar-chart-fill text-info"></i> SUMMARY
+        </button>
+        <button type="button" class="ecr-sheet-tab" data-sheet-target="sheetTransmutation">
+            <i class="bi bi-table text-secondary"></i> TRANSMUTATION TABLE
+        </button>
+    </footer>
+
+    <!-- Bootstrap 5.3.2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="eclass_record_teacher.js"></script>
+</body>
+
+</html>

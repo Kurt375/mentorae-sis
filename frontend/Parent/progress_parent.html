@@ -16,10 +16,13 @@
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
         <nav class="custom-navbar text-white py-3 px-4 d-flex align-items-center gap-3">
             <a href="dashboard_parent.html" class="text-white text-decoration-none fs-4"><i class="bi bi-chevron-left"></i></a>
-            <div>
+            <div class="flex-grow-1">
                 <h1 class="m-0 fs-4 fw-bold">Student Progress</h1>
                 <p class="m-0 small opacity-75">Grades &amp; attendance details</p>
             </div>
+            <button type="button" id="btnDownloadFullReport" class="btn btn-sm btn-light">
+                <i class="bi bi-file-earmark-arrow-down"></i> Full Report
+            </button>
         </nav>
         <main class="container-fluid px-4 py-4 flex-grow-1">
             <div class="row g-3 mb-4">
@@ -107,6 +110,55 @@
                 tbody.appendChild(tr);
             }
         }
+
+        async function downloadFullReport() {
+            const [gradesData, summary, badgesData] = await Promise.all([
+                authedFetch(`/api/grades/student/${studentId}`, token),
+                authedFetch(`/api/attendance/summary?studentId=${studentId}`, token),
+                authedFetch(`/api/badges/student/${studentId}`, token),
+            ]);
+
+            const gwa = gradesData.success && gradesData.overallGrade ? `${gradesData.overallGrade}%` : '—';
+            const attendanceRate = summary.success ? `${summary.rate}%` : '—';
+            const badgeCount = badgesData.success ? (badgesData.badges || []).length : 0;
+
+            const subjectRows = (gradesData.success ? gradesData.grades || [] : [])
+                .map((g) => `<tr><td>${g.subject}</td><td>${g.term}</td><td>${g.average}</td><td>${g.remarks}</td></tr>`)
+                .join('');
+            const badgeRows = (badgesData.success ? badgesData.badges || [] : [])
+                .map((b) => `<li>${b.name} — earned ${new Date(b.earned_at).toLocaleDateString()}</li>`)
+                .join('');
+
+            const w = window.open('', '_blank');
+            w.document.write(`
+                <html><head><title>Student Progress Report</title>
+                <style>
+                    body { font-family: sans-serif; padding: 2.5rem; }
+                    .summary { display: flex; gap: 2rem; margin-bottom: 1.5rem; }
+                    .summary div { border: 1px solid #dee2e6; border-radius: 8px; padding: 0.75rem 1.25rem; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+                    th, td { border: 1px solid #dee2e6; padding: 0.5rem; text-align: left; font-size: 0.9rem; }
+                    th { background: #f1f3f5; }
+                </style></head>
+                <body>
+                    <h1>Mentorae — Student Progress Report</h1>
+                    <p style="color:#6c757d;">Generated ${new Date().toLocaleDateString()}</p>
+                    <div class="summary">
+                        <div><strong>GWA</strong><br>${gwa}</div>
+                        <div><strong>Attendance Rate</strong><br>${attendanceRate}</div>
+                        <div><strong>Badges Earned</strong><br>${badgeCount}</div>
+                    </div>
+                    <h3>Grades by Subject</h3>
+                    <table><tr><th>Subject</th><th>Term</th><th>Average</th><th>Remarks</th></tr>${subjectRows || '<tr><td colspan="4">No grades yet.</td></tr>'}</table>
+                    <h3>Badges</h3>
+                    <ul>${badgeRows || '<li>No badges earned yet.</li>'}</ul>
+                </body></html>
+            `);
+            w.document.close();
+            w.print();
+        }
+
+        document.getElementById('btnDownloadFullReport').addEventListener('click', downloadFullReport);
 
         loadGrades();
         loadAttendance();

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - File Viewer</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="subject_detail_teacher.css">
+</head>
+<body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper -->
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <!-- Header Ribbon Navbar -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="#" class="text-white text-decoration-none fs-4 link-transition" id="backBtn" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-4 fw-bold tracking-wide d-inline-block" id="pageTitle">File Viewer</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block" id="pageSubtitle">Topic: Loading...</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Workspace Fill -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+            <div class="card border-0 shadow-sm p-4">
+                <h2 class="h5 fw-bold text-dark mb-3" id="fileTopicTitle">Files for...</h2>
+                
+                <!-- File Upload Section -->
+                <div class="card bg-light border-dashed p-4 mb-4 text-center" id="dropZone">
+                    <i class="bi bi-upload fs-1 text-secondary"></i>
+                    <p class="mt-2 text-muted">Drag & drop files here or click to browse</p>
+                    <input type="file" id="fileUploadInput" class="d-none" multiple>
+                    <button class="btn btn-success" id="browseFilesBtn"><i class="bi bi-folder2-open me-2"></i>Browse Files</button>
+                </div>
+
+                <!-- Uploaded Files List -->
+                <h3 class="h6 fw-bold text-dark mb-3">Uploaded Files</h3>
+                <ul class="list-group" id="fileList">
+                    <!-- Files will be dynamically inserted here -->
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const SUBJECTS_STORAGE_KEY = 'mentorae-subjects-data';
+            const urlParams = new URLSearchParams(window.location.search);
+            const subjectName = urlParams.get('subject');
+            const topicName = urlParams.get('topic');
+
+            const decodedSubject = subjectName ? decodeURIComponent(subjectName) : 'Subject';
+            const decodedTopic = topicName ? decodeURIComponent(topicName) : 'Topic';
+
+            // Update titles and back button
+            document.title = `Mentorae - Files: ${decodedTopic}`;
+            const pageSubtitle = document.getElementById('pageSubtitle');
+            if (pageSubtitle) pageSubtitle.textContent = `Topic: ${decodedTopic}`;
+
+            const fileTopicTitle = document.getElementById('fileTopicTitle');
+            if (fileTopicTitle) fileTopicTitle.textContent = `Files for ${decodedTopic}`;
+            
+            const backBtn = document.getElementById('backBtn');
+            if (backBtn) {
+                backBtn.href = `subject_detail_teacher.html?subject=${encodeURIComponent(subjectName || '')}`;
+            }
+
+            let allSubjects = [];
+            let currentSubject = null;
+            let currentTopic = null;
+
+            function loadData() {
+                const storedSubjects = localStorage.getItem(SUBJECTS_STORAGE_KEY);
+                allSubjects = storedSubjects ? JSON.parse(storedSubjects) : [];
+                currentSubject = allSubjects.find(s => s.name === decodedSubject);
+                if (currentSubject) {
+                    // Defensively ensure the topics array exists.
+                    if (!currentSubject.topics) {
+                        currentSubject.topics = [];
+                    }
+                    currentTopic = currentSubject.topics.find(t => t.title === decodedTopic);
+                    if (currentTopic && !currentTopic.files) {
+                        currentTopic.files = []; // Ensure files array exists on the topic
+                    }
+                }
+            }
+
+            function saveData() {
+                const subjectIndex = allSubjects.findIndex(s => s.name === decodedSubject);
+                if (subjectIndex !== -1) {
+                    allSubjects[subjectIndex] = currentSubject;
+                    localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(allSubjects));
+                }
+            }
+
+            function dataURItoBlob(dataURI) {
+                // convert base64 to raw binary data held in a string
+                var byteString = atob(dataURI.split(',')[1]);
+
+                // separate out the mime component
+                var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+
+                // write the bytes of the string to an ArrayBuffer
+                var ab = new ArrayBuffer(byteString.length);
+                var ia = new Uint8Array(ab);
+                for (var i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+
+                return new Blob([ab], {type: mimeString});
+            }
+
+            function renderFileList() {
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                if (currentTopic && currentTopic.files && currentTopic.files.length > 0) {
+                    currentTopic.files.forEach((file, index) => {
+                        let fileUrl = '#';
+                        try {
+                            // Create a Blob from the data URI for more reliable linking
+                            const blob = dataURItoBlob(file.dataUrl);
+                            fileUrl = URL.createObjectURL(blob);
+                        } catch (e) {
+                            console.error(`Failed to create Blob URL for ${file.name}:`, e);
+                        }
+
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-dark" title="Click to open file">
+                                <i class="bi bi-file-earmark-text me-2"></i>${file.name}
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger delete-file-btn" data-index="${index}" title="Delete File"><i class="bi bi-trash"></i></button>
+                        `;
+                        fileList.appendChild(li);
+                    });
+                } else {
+                    fileList.innerHTML = '<li class="list-group-item text-muted text-center">No files have been uploaded for this topic yet.</li>';
+                }
+            }
+
+            function handleFileUpload(files) {
+                if (!currentTopic) return;
+                if (!currentTopic.files) currentTopic.files = [];
+
+                const filePromises = [];
+
+                for (const file of files) {
+                    const promise = new Promise((resolve, reject) => {
+                        // Increased limit to 4.5MB. WARNING: localStorage has a hard limit of ~5MB.
+                        // Exceeding this may cause data loss for the entire application.
+                        if (file.size > 4.5 * 1024 * 1024) {
+                            alert(`File "${file.name}" is too large (max 4.5MB) and will not be saved.`);
+                            resolve(null); // Resolve with null to skip this file.
+                            return;
+                        }
+
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            resolve({
+                                name: file.name,
+                                size: file.size,
+                                dataUrl: event.target.result
+                            });
+                        };
+                        reader.onerror = (error) => {
+                            console.error("File reading error:", error);
+                            reject(error);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    filePromises.push(promise);
+                }
+
+                Promise.all(filePromises).then(fileDataArray => {
+                    const validFiles = fileDataArray.filter(f => f !== null);
+                    if (validFiles.length > 0) {
+                        currentTopic.files.push(...validFiles);
+                        saveData();
+                        renderFileList();
+                        alert(`${validFiles.length} file(s) added successfully!`);
+                    }
+                }).catch(error => {
+                    console.error("Error processing files:", error);
+                    alert("An error occurred while reading the files.");
+                });
+            }
+
+            // Event Listeners
+            const browseFilesBtn = document.getElementById('browseFilesBtn');
+            const fileUploadInput = document.getElementById('fileUploadInput');
+            browseFilesBtn.addEventListener('click', () => fileUploadInput.click());
+            fileUploadInput.addEventListener('change', (e) => handleFileUpload(e.target.files));
+
+            document.getElementById('fileList').addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.delete-file-btn');
+                if (deleteBtn) {
+                    const index = deleteBtn.dataset.index;
+                    if (confirm(`Are you sure you want to delete this file?`)) {
+                        currentTopic.files.splice(index, 1);
+                        saveData();
+                        renderFileList();
+                    }
+                }
+            });
+
+            // Live date and time
+            function updateDateTime() {
+                const liveDateElement = document.getElementById('liveDate');
+                const liveTimeElement = document.getElementById('liveTime');
+                if (!liveDateElement || !liveTimeElement) return;
+
+                const now = new Date();
+                const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                liveDateElement.textContent = now.toLocaleDateString('en-US', dateOptions);
+                const timeOptions = { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true };
+                liveTimeElement.textContent = now.toLocaleTimeString('en-US', timeOptions);
+            }
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+
+            // Initial Load
+            loadData();
+            renderFileList();
+        });
+    </script>
+</body>
+</html>

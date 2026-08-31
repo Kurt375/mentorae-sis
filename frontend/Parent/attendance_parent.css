@@ -1,0 +1,135 @@
+/* Color System matching Mentorae Visual Archetype */
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-green-hover: #063d1c;
+    --mentorae-canvas-bg: #f4f6f9;
+    --light-green-workspace: #eef7ee;
+    --text-dark: #2d3748;
+}
+
+/* Base Body Environment */
+.dashboard-bg {
+    background-color: var(--mentorae-canvas-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Bounded frame template column */
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Header Navbar Branding properties */
+.custom-navbar {
+    background-color: var(--mentorae-green);
+    border-color: #084c24 !important;
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.tracking-wide {
+    letter-spacing: 0.5px;
+}
+
+/* Internal workspace main background fill */
+.workspace-content-fill {
+    background-color: var(--light-green-workspace);
+}
+
+/* Student Monitored Context Banner */
+.student-context-banner {
+    background-color: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    border-left: 5px solid var(--mentorae-green) !important;
+}
+
+.avatar-mini-wrap {
+    width: 48px;
+    height: 48px;
+}
+
+/* Summary Counter metrics cards */
+.stat-metric-card {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0 !important;
+    border-left: 4px solid var(--mentorae-green) !important;
+}
+
+.stat-metric-card h2 {
+    line-height: 1.1;
+}
+
+/* Alert Banner Styling */
+.absence-alert-banner {
+    background: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%);
+    border: 1px solid #fca5a5 !important;
+    border-radius: 12px;
+}
+
+/* Card components layout */
+.card {
+    border-radius: 10px;
+    border: 1px solid #edf2f7;
+}
+
+/* Section Header formatting */
+.tracking-sm {
+    letter-spacing: 0.3px;
+}
+
+/* Tabular dataset layout */
+.table-header-row {
+    background-color: var(--mentorae-green) !important;
+}
+
+.table-header-row th {
+    font-weight: 500;
+}
+
+.attendance-pill {
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    min-width: 75px;
+    display: inline-block;
+    text-align: center;
+}
+
+/* Progress bar */
+.progress-bar-scale {
+    height: 6px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Micro Helpers */
+.micro-text { font-size: 0.75rem; }
+.tiny-text { font-size: 0.7rem; }
+.text-xs { font-size: 0.8rem; }
+.text-sm { font-size: 0.88rem; }
+
+.link-transition {
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.link-transition:hover {
+    opacity: 0.85;
+    transform: translateX(-2px);
+}

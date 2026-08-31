@@ -104,8 +104,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="goal-slider-val" id="goalSliderVal-${i}">90%</span>
                     </div>
                     <input type="range" class="form-range goal-slider" id="goalSlider-${i}" min="60" max="100" step="1" value="90"
-                           data-quiz="${quiz}" data-activity="${activity}">
+                           data-quiz="${quiz}" data-activity="${activity}" data-subject-id="${g.subjectId}" data-term="${encodeURIComponent(g.term)}">
                     <p class="small mb-0 mt-2" id="goalResult-${i}"></p>
+
+                    <button type="button" class="btn btn-sm btn-outline-success mt-2 practice-path-btn" data-i="${i}">
+                        <i class="bi bi-magic"></i> Recommended Practice Path
+                    </button>
+                    <div class="mt-2" id="practicePath-${i}"></div>
                 </div>
             </div>`;
         }).join('');
@@ -115,6 +120,50 @@ document.addEventListener('DOMContentLoaded', () => {
             slider.addEventListener('input', () => updateGoal(i));
             updateGoal(i);
         });
+
+        list.querySelectorAll('.practice-path-btn').forEach((btn) => {
+            btn.addEventListener('click', () => loadPracticePath(Number(btn.dataset.i)));
+        });
+    }
+
+    /**
+     * Calls the ML-backed "Prescriptive Path to Goal" endpoint for a single
+     * subject/term and renders the forecasted risk + recommended actions.
+     */
+    async function loadPracticePath(i) {
+        const slider = document.getElementById(`goalSlider-${i}`);
+        const container = document.getElementById(`practicePath-${i}`);
+        const subjectId = slider.dataset.subjectId;
+        const term = decodeURIComponent(slider.dataset.term);
+        const targetGrade = slider.value;
+
+        container.innerHTML = '<p class="small text-muted mb-0"><i class="bi bi-hourglass-split"></i> Building your practice path…</p>';
+
+        const data = await authedFetch(
+            `/api/grades/prescriptive-path?subjectId=${encodeURIComponent(subjectId)}&term=${encodeURIComponent(term)}&targetGrade=${encodeURIComponent(targetGrade)}`,
+            token
+        );
+
+        if (!data.success) {
+            container.innerHTML = `<p class="small text-danger mb-0">${data.message || 'Could not build a recommended path right now.'}</p>`;
+            return;
+        }
+
+        const riskColor = { High: 'text-danger', Medium: 'text-warning', Low: 'text-success' };
+        const confidenceText = data.confidence !== null ? ` (${Math.round(data.confidence * 100)}% confidence)` : '';
+
+        container.innerHTML = `
+            <div class="goal-panel border">
+                <p class="small fw-semibold mb-1 ${riskColor[data.predictedRisk] || ''}">
+                    <i class="bi bi-graph-up-arrow"></i> Forecast: ${data.predictedRisk} risk${confidenceText}
+                    ${!data.modelTrained ? '<span class="text-muted fw-normal"> (rule-based estimate — ML model not trained yet)</span>' : ''}
+                </p>
+                <p class="small mb-1"><strong>Focus area:</strong> ${data.focusArea}</p>
+                <ul class="small mb-0 ps-3">
+                    ${data.recommendedPath.map((a) => `<li class="mb-1">${a}</li>`).join('')}
+                </ul>
+            </div>
+        `;
     }
 
     function updateGoal(i) {
@@ -143,6 +192,79 @@ document.addEventListener('DOMContentLoaded', () => {
             resultEl.innerHTML = `Not possible this term — even a perfect exam score caps you at <strong>${maxPossible}%</strong>. Try a lower target.`;
         }
     }
+
+    /**
+     * Consolidated progress report: GWA + subject grades + attendance +
+     * badges in one printable document (Objective 3.1). Reuses the same
+     * "open a print-ready window" pattern as the Attendance page's Export
+     * button, just combining three data sources instead of one table.
+     */
+    async function downloadFullReport() {
+        const [gradesData, attendanceData, badgesData] = await Promise.all([
+            authedFetch('/api/grades/mine', token),
+            authedFetch('/api/attendance/summary', token),
+            authedFetch(`/api/badges/student/${encodeURIComponent(getSelfId())}`, token),
+        ]);
+
+        function getSelfId() {
+            try {
+                return JSON.parse(atob(token.split('.')[1])).id;
+            } catch (e) {
+                return '';
+            }
+        }
+
+        const studentName = document.querySelector('.student-name, #studentNameHeader')?.textContent?.trim() || 'Student';
+        const gwa = gradesData.success && gradesData.overallGrade ? Number(gradesData.overallGrade).toFixed(1) : '—';
+        const attendanceRate = attendanceData.success ? (attendanceData.attendanceRate ?? '—') : '—';
+        const badgeCount = badgesData.success ? (badgesData.badges || []).length : 0;
+
+        const subjectRows = (gradesData.success ? gradesData.subjects || [] : [])
+            .map((s) => `<tr><td>${s.subjectName || s.name}</td><td>${s.average ?? '—'}</td><td>${remarksFor(Number(s.average) || 0)}</td></tr>`)
+            .join('');
+
+        const badgeRows = (badgesData.success ? badgesData.badges || [] : [])
+            .map((b) => `<li>${b.name} — earned ${new Date(b.earned_at).toLocaleDateString()}</li>`)
+            .join('');
+
+        const w = window.open('', '_blank');
+        w.document.write(`
+            <html>
+            <head>
+                <title>Progress Report — ${studentName}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 2.5rem; color: #212529; }
+                    h1 { font-size: 1.4rem; margin-bottom: 0; }
+                    .subtitle { color: #6c757d; margin-bottom: 1.5rem; }
+                    .summary { display: flex; gap: 2rem; margin-bottom: 1.5rem; }
+                    .summary div { border: 1px solid #dee2e6; border-radius: 8px; padding: 0.75rem 1.25rem; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+                    th, td { border: 1px solid #dee2e6; padding: 0.5rem; text-align: left; font-size: 0.9rem; }
+                    th { background: #f1f3f5; }
+                    @media print { body { -webkit-print-color-adjust: exact; } }
+                </style>
+            </head>
+            <body>
+                <h1>Mentorae — Student Progress Report</h1>
+                <div class="subtitle">${studentName} · Generated ${new Date().toLocaleDateString()}</div>
+                <div class="summary">
+                    <div><strong>GWA</strong><br>${gwa}%</div>
+                    <div><strong>Attendance Rate</strong><br>${attendanceRate}%</div>
+                    <div><strong>Badges Earned</strong><br>${badgeCount}</div>
+                </div>
+                <h3>Subject Grades</h3>
+                <table><tr><th>Subject</th><th>Average</th><th>Remarks</th></tr>${subjectRows || '<tr><td colspan="3">No grades yet.</td></tr>'}</table>
+                <h3>Badges</h3>
+                <ul>${badgeRows || '<li>No badges earned yet.</li>'}</ul>
+            </body>
+            </html>
+        `);
+        w.document.close();
+        w.print();
+    }
+
+    const btnFullReport = document.getElementById('btnDownloadFullReport');
+    if (btnFullReport) btnFullReport.addEventListener('click', downloadFullReport);
 
     load();
 });

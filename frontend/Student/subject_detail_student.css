@@ -1,0 +1,8 @@
+/* Import general styling from the teacher's subject detail page for consistency */
+@import url("../Teacher/subject_detail_teacher.css");
+
+/* Any student-specific overrides or additions can go here */
+/* For example, if you wanted to change the background color slightly for student pages: */
+/* .workspace-content-fill {
+    background-color: #f0f8f0;
+} */

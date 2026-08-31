@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Practice Quiz</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="../Teacher/learning_resources_teacher.css">
+    <link rel="stylesheet" href="../Teacher/subject_detail_teacher.css">
+    <style>
+        .quiz-option-label {
+            display: block;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .quiz-option-label:hover {
+            background-color: #f8f9fa;
+        }
+        input[type="radio"]:checked + .quiz-option-label {
+            border-color: var(--mentorae-green);
+            background-color: #eef7ee;
+        }
+        .correct-answer {
+            border-color: #198754 !important;
+            background-color: #d1e7dd !important;
+        }
+        .wrong-answer {
+            border-color: #dc3545 !important;
+            background-color: #f8d7da !important;
+        }
+        .review-item.correct { border-left: 4px solid #198754; }
+        .review-item.incorrect { border-left: 4px solid #dc3545; }
+    </style>
+</head>
+<body class="dashboard-bg">
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        <!-- Header -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="#" onclick="history.back(); return false;" class="text-white text-decoration-none fs-4 link-transition" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-4 fw-bold tracking-wide d-inline-block">Practice Quiz</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block" id="pageSubtitle">Topic: N/A</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+            <div class="card shadow-sm p-3 mb-4">
+                <h5 class="card-title fw-bold mb-2">Topic Details</h5>
+                <div class="micro-text">
+                    <p class="mb-1"><strong>Subject:</strong> <span id="subjectNameDisplay">N/A</span></p>
+                    <p class="mb-1"><strong>Topic:</strong> <span id="topicTitleDisplay">N/A</span></p>
+                    <p class="mb-0"><strong>Description:</strong> <span id="topicDescriptionDisplay">N/A</span></p>
+                </div>
+            </div>
+
+            <!-- Quiz Container -->
+            <div id="quizContainer">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-light border-bottom p-3">
+                        <h2 class="h5 fw-bold m-0" id="quizSetTitle">Practice Quiz</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="progress mb-4" style="height: 10px;">
+                            <div id="quizProgress" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <p id="questionText" class="fw-bold fs-5 mb-4">Question text will load here...</p>
+                        <div class="vstack gap-3">
+                            <div id="optionAContainer">
+                                <input type="radio" name="quizOption" value="A" id="optionA" class="d-none">
+                                <label for="optionA" id="labelA" class="quiz-option-label">Option A</label>
+                            </div>
+                            <div id="optionBContainer">
+                                <input type="radio" name="quizOption" value="B" id="optionB" class="d-none">
+                                <label for="optionB" id="labelB" class="quiz-option-label">Option B</label>
+                            </div>
+                            <div id="optionCContainer">
+                                <input type="radio" name="quizOption" value="C" id="optionC" class="d-none">
+                                <label for="optionC" id="labelC" class="quiz-option-label">Option C</label>
+                            </div>
+                            <div id="optionDContainer">
+                                <input type="radio" name="quizOption" value="D" id="optionD" class="d-none">
+                                <label for="optionD" id="labelD" class="quiz-option-label">Option D</label>
+                            </div>
+                        </div>
+                        <div id="feedback" class="mt-3 fw-bold"></div>
+                    </div>
+                    <div class="card-footer bg-light d-flex justify-content-between align-items-center p-3">
+                        <div>
+                            <button id="prevQuestionBtn" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Prev</button>
+                        </div>
+                        <div class="fw-bold text-muted">
+                            Question <span id="currentQuestionIndex">1</span> of <span id="totalQuestions">10</span>
+                        </div>
+                        <div>
+                            <button id="submitAnswerBtn" class="btn btn-success">Submit Answer</button>
+                            <button id="nextQuestionBtn" class="btn btn-primary d-none">Next <i class="bi bi-arrow-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Container -->
+            <div id="quizResults" class="d-none text-center">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-5">
+                        <i class="bi bi-trophy-fill text-warning" style="font-size: 4rem;"></i>
+                        <h2 class="h3 fw-bold mt-3">Quiz Complete!</h2>
+                        <p class="text-muted">Here's how you did:</p>
+                        <p class="display-4 fw-bold text-success"><span id="finalScore">0</span> / <span id="maxScore">0</span></p>
+                        <p class="fw-medium">You got <span id="correctAnswersCount">0</span> questions correct.</p>
+                        <button id="retakeQuizBtn" class="btn btn-success mt-3"><i class="bi bi-arrow-clockwise"></i> Retake Quiz</button>
+                        <hr class="my-4">
+                        <h3 class="h5 fw-bold text-start mb-3">Review Your Answers</h3>
+                        <div id="reviewContainer" class="text-start"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="bg-light py-3 mt-auto border-top">
+            <div class="container-fluid portal-wrapper text-center text-muted micro-text">
+                Mentorae &copy; 2026. All rights reserved.
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="quiz_taker_student.js"></script>
+</body>
+</html>

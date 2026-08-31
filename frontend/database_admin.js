@@ -20,7 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
         strands: document.getElementById('btnStrands'),
     };
 
+    let currentCategory = 'students';
+
     async function renderTable(category) {
+        currentCategory = category;
         Object.values(statButtons).forEach(btn => btn.classList.remove('highlighted-stat'));
         statButtons[category].classList.add('highlighted-stat');
 
@@ -63,6 +66,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (students.success) document.getElementById('studentsCountVal').textContent = students.records.length;
         if (subjects.success) document.getElementById('subjectsCountVal').textContent = subjects.records.length;
         if (strands.success) document.getElementById('strandsCountVal').textContent = strands.records.length;
+    }
+
+    const btnExportCsv = document.getElementById('btnExportCurrentCsv');
+    if (btnExportCsv) {
+        btnExportCsv.addEventListener('click', () => {
+            // The export routes require auth same as any /api/database/* route;
+            // requireAuth also accepts the token via ?token=, which is what makes
+            // a plain download link (rather than a fetch+blob dance) possible here.
+            window.open(`${API_BASE}/api/database/${currentCategory}/export.csv?token=${encodeURIComponent(token)}`, '_blank');
+        });
     }
 
     loadAllCounts();

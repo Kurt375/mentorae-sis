@@ -1,0 +1,126 @@
+:root {
+    --mentorae-green: #0a5c2c;
+    --mentorae-green-hover: #063e1d;
+    --mentorae-canvas-bg: #f4f6f9;
+    --light-green-workspace: #eef7ee;
+    --text-dark: #2d3748;
+    
+    --badge-high-risk: #fba1a1;
+    --badge-medium-risk: #fff2a8;
+    --badge-low-risk: #bdf2c9;
+}
+
+body.dashboard-bg {
+    background-color: var(--mentorae-canvas-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.portal-wrapper {
+    max-width: 992px;
+    margin: 0 auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+
+.custom-navbar {
+    background-color: var(--mentorae-green);
+    border-color: #074724 !important;
+}
+
+.logo-wrap {
+    width: 38px;
+    height: 38px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.logo-wrap .school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.tracking-wide {
+    letter-spacing: 0.5px;
+}
+
+.workspace-content-fill {
+    background-color: var(--light-green-workspace);
+}
+
+.dimension-card {
+    border-radius: 16px;
+}
+
+.card-desc {
+    line-height: 1.35;
+    font-size: 0.8rem;
+}
+
+.filter-dropdown {
+    width: 125px; /* Set a fixed width to match admin page and prevent wrapping */
+    font-size: 0.78rem;
+    border-color: #cbd5e1;
+    color: #333;    
+}
+
+.chart-canvas-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.donut-center-label {
+    pointer-events: none;
+    z-index: 10;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.btn-action-recommend {
+    background-color: var(--mentorae-green) !important;
+    border-color: var(--mentorae-green) !important;
+    color: #ffffff !important;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+
+.btn-action-recommend:hover {
+    background-color: var(--mentorae-green-hover) !important;
+    border-color: var(--mentorae-green-hover) !important;
+}
+
+.risk-tag-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.55rem 1.25rem;
+    border-radius: 18px;
+    display: inline-block;
+    min-width: 110px;
+}
+
+.bg-high-risk { background-color: var(--badge-high-risk) !important; }
+.bg-medium-risk { background-color: var(--badge-medium-risk) !important; }
+.bg-low-risk { background-color: var(--badge-low-risk) !important; }
+
+.micro-text { font-size: 0.75rem; }
+.text-xs { font-size: 0.82rem; }
+
+.link-transition {
+    transition: opacity 0.15s ease;
+}
+.link-transition:hover {
+    opacity: 0.8;
+}
+
+/* Responsive adjustments for filter alignment */
+@media (min-width: 768px) { /* Bootstrap's 'md' breakpoint */
+    .file-filters-row {
+        flex-wrap: nowrap;
+    }
+}

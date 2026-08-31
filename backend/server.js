@@ -18,6 +18,7 @@ const referenceRoutes = require('./routes/reference');
 const parentRoutes = require('./routes/parent');
 const notificationsRoutes = require('./routes/notifications');
 const resourcesRoutes = require('./routes/resources');
+const contentRoutes = require('./routes/content');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -53,6 +54,7 @@ app.use('/api/reference', referenceRoutes);
 app.use('/api/parent', parentRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/resources', resourcesRoutes);
+app.use('/api/content', contentRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ success: false, message: 'Not found.' });

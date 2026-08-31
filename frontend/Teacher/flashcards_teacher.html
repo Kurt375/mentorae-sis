@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Flashcards</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="subject_detail_teacher.css">
+</head>
+<body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper -->
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <!-- Header Ribbon Navbar -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="#" class="text-white text-decoration-none fs-4 link-transition" id="backBtn" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-4 fw-bold tracking-wide d-inline-block" id="pageTitle">Flashcards</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block" id="pageSubtitle">Topic: Loading...</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Workspace Fill -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+            <div class="card border-0 shadow-sm p-4 mb-4">
+                <h2 class="h5 fw-bold text-dark mb-3" id="flashcardsTopicTitle">Flashcard Builder for...</h2>
+                
+                <!-- Add/Edit Flashcard Form -->
+                <form id="flashcardForm" class="mb-4 p-3 border rounded bg-light">
+                    <input type="hidden" id="flashcardId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="flashcardTerm" class="form-label fw-bold">Term</label>
+                            <input type="text" class="form-control" id="flashcardTerm" placeholder="e.g., Photosynthesis" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="flashcardDefinition" class="form-label fw-bold">Definition</label>
+                            <textarea class="form-control" id="flashcardDefinition" rows="2" placeholder="e.g., The process by which green plants use sunlight..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-secondary" id="cancelEditBtn" style="display: none;">Cancel Edit</button>
+                        <button type="submit" class="btn btn-primary" id="addOrUpdateBtn">Add Flashcard</button>
+                    </div>
+                </form>
+
+                <h3 class="h6 fw-bold text-dark mb-3">Your Flashcards</h3>
+                <div class="row g-3" id="flashcardList"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const SUBJECTS_STORAGE_KEY = 'mentorae-subjects-data';
+            const urlParams = new URLSearchParams(window.location.search);
+            const subjectName = urlParams.get('subject');
+            const topicName = urlParams.get('topic');
+
+            const decodedSubject = subjectName ? decodeURIComponent(subjectName) : 'Subject';
+            const decodedTopic = topicName ? decodeURIComponent(topicName) : 'Topic';
+
+            // Update titles and back button
+            document.title = `Mentorae - Flashcards: ${decodedTopic}`;
+            document.getElementById('pageSubtitle').textContent = `Topic: ${decodedTopic}`;
+            document.getElementById('flashcardsTopicTitle').textContent = `Flashcards for ${decodedTopic}`;
+            
+            const backBtn = document.getElementById('backBtn');
+            backBtn.href = `subject_detail_teacher.html?subject=${encodeURIComponent(subjectName || '')}`;
+
+            let allSubjects = [];
+            let currentSubject = null;
+            let currentTopic = null;
+
+            const flashcardForm = document.getElementById('flashcardForm');
+            const flashcardList = document.getElementById('flashcardList');
+            const addOrUpdateBtn = document.getElementById('addOrUpdateBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+            function loadData() {
+                const storedSubjects = localStorage.getItem(SUBJECTS_STORAGE_KEY);
+                allSubjects = storedSubjects ? JSON.parse(storedSubjects) : [];
+                currentSubject = allSubjects.find(s => s.name === decodedSubject);
+                if (currentSubject) {
+                    // Defensively ensure the topics array exists.
+                    if (!currentSubject.topics) {
+                        currentSubject.topics = [];
+                    }
+                    currentTopic = currentSubject.topics.find(t => t.title === decodedTopic);
+                    if (currentTopic && !currentTopic.flashcards) {
+                        currentTopic.flashcards = []; // Ensure array exists
+                    }
+                }
+            }
+
+            function saveData() {
+                const subjectIndex = allSubjects.findIndex(s => s.name === decodedSubject);
+                if (subjectIndex !== -1) {
+                    allSubjects[subjectIndex] = currentSubject;
+                    localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(allSubjects));
+                }
+            }
+
+            function renderFlashcards() {
+                flashcardList.innerHTML = '';
+                if (currentTopic && currentTopic.flashcards && currentTopic.flashcards.length > 0) {
+                    currentTopic.flashcards.forEach((card, index) => {
+                        const cardCol = document.createElement('div');
+                        cardCol.className = 'col-md-6 col-lg-4';
+                        cardCol.innerHTML = `
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <h5 class="card-title">${card.term}</h5>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-primary edit-btn" data-index="${index}"><i class="bi bi-pencil"></i></button>
+                                            <button class="btn btn-sm btn-outline-danger delete-btn" data-index="${index}"><i class="bi bi-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <p class="card-text">${card.definition}</p>
+                                </div>
+                            </div>
+                        `;
+                        flashcardList.appendChild(cardCol);
+                    });
+                } else {
+                    flashcardList.innerHTML = '<p class="text-muted text-center col-12">No flashcards have been added yet.</p>';
+                }
+            }
+
+            function resetForm() {
+                flashcardForm.reset();
+                document.getElementById('flashcardId').value = '';
+                addOrUpdateBtn.textContent = 'Add Flashcard';
+                cancelEditBtn.style.display = 'none';
+            }
+
+            flashcardForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!currentTopic) return;
+
+                const cardData = {
+                    term: document.getElementById('flashcardTerm').value,
+                    definition: document.getElementById('flashcardDefinition').value,
+                };
+
+                const cardId = document.getElementById('flashcardId').value;
+                if (cardId !== '') {
+                    currentTopic.flashcards[cardId] = cardData;
+                } else {
+                    currentTopic.flashcards.push(cardData);
+                }
+                saveData();
+                renderFlashcards();
+                resetForm();
+            });
+
+            flashcardList.addEventListener('click', (e) => {
+                const index = e.target.closest('button')?.dataset.index;
+                if (index === undefined) return;
+
+                if (e.target.closest('.edit-btn')) {
+                    const card = currentTopic.flashcards[index];
+                    document.getElementById('flashcardId').value = index;
+                    document.getElementById('flashcardTerm').value = card.term;
+                    document.getElementById('flashcardDefinition').value = card.definition;
+                    addOrUpdateBtn.textContent = 'Update Flashcard';
+                    cancelEditBtn.style.display = 'inline-block';
+                } else if (e.target.closest('.delete-btn')) {
+                    if (confirm('Are you sure you want to delete this flashcard?')) {
+                        currentTopic.flashcards.splice(index, 1);
+                        saveData();
+                        renderFlashcards();
+                    }
+                }
+            });
+
+            cancelEditBtn.addEventListener('click', resetForm);
+
+            function updateDateTime() {
+                document.getElementById('liveDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                document.getElementById('liveTime').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+            }
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+
+            // Initial Load
+            loadData();
+            renderFlashcards();
+        });
+    </script>
+</body>
+</html>

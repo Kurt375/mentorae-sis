@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - GenPhy1 Topics</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="subject_detail_teacher.css">
+    <style>
+        /* Color definitions for card banners, matching learning_resources_teacher */
+        .bg-card-green { background-color: #4CAF50 !important; }
+        .bg-card-orange { background-color: #FF9800 !important; }
+        .bg-card-blue { background-color: #2196F3 !important; }
+        .bg-card-purple { background-color: #9C27B0 !important; }
+        .bg-card-red { background-color: #f44336 !important; }
+
+        /* Style for resource buttons inside topic cards */
+        .btn-resource {
+            background-color: #6c757d; /* A neutral gray as a default */
+            border: none;
+        }
+        .btn-resource:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper matching portal frame specifications -->
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <!-- Header Ribbon Navbar -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="learning_resources_teacher.html" class="text-white text-decoration-none fs-4 link-transition" id="backBtn" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-4 fw-bold tracking-wide d-inline-block">General Physics 1</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Topics and Materials</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Workspace Fill -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+
+            <!-- Section 1: Topics under GenPhy1 -->
+            <section class="mb-5">
+                <h2 class="h5 fw-bold text-dark mb-3">Topics under GenPhy1</h2>
+                
+                <div class="d-flex flex-column gap-3" id="topicsList"> 
+                    <!-- Topics will be dynamically inserted here -->
+                    <!-- Add New Topic Button Card -->
+                    <div class="card add-topic-card border-2 border-dashed shadow-sm p-3 text-center cursor-pointer d-flex flex-column align-items-center justify-content-center" id="btnAddItem" style="min-height: 120px;">
+                        <i class="bi bi-plus-lg display-5 text-secondary"></i>
+                        <span class="micro-text text-muted fw-bold text-uppercase mt-1">Add Content</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: Teacher's Recommendation -->
+            <section class="mb-4">
+                <h2 class="h5 fw-bold text-dark mb-3">Teacher's Recommendation</h2>
+
+                <div class="d-flex flex-column gap-3" id="recommendationsList">
+                    <!-- Recommendations will be dynamically inserted here -->
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Add Topic Modal -->
+    <div class="modal fade" id="addTopicModal" tabindex="-1" aria-labelledby="addTopicModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTopicModalLabel">Add New Topic</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addTopicForm">
+                        <input type="hidden" id="topicId">
+                        <input type="hidden" id="recommendationId">
+                        <div class="mb-3" id="destinationContainer">
+                            <label for="itemDestination" class="form-label">Action</label>
+                            <select class="form-select" id="itemDestination" required>
+                                <option value="recommendation" selected>Save as Teacher's Recommendation</option>
+                                <option value="request">Request to Add as Main Topic</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="topicTitle" class="form-label">Topic Title</label>
+                            <input type="text" class="form-control" id="topicTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="topicDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="topicDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3 d-none" id="topicCommentContainer">
+                            <label for="topicComment" class="form-label">Comment</label>
+                            <input type="text" class="form-control" id="topicComment" placeholder="e.g., For the upcoming quiz.">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Resources</label>
+                            <div class="resource-selection-group">
+                                <div class="form-check">
+                                    <input class="form-check-input resource-checkbox" type="checkbox" value="File" id="resourceFile" data-content-manager="fileManager">
+                                    <label class="form-check-label" for="resourceFile">File</label>
+                                    <div id="fileManager" class="content-manager d-none mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary manage-request-content-btn" data-type="file">Manage Files</button>
+                                    </div>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input resource-checkbox" type="checkbox" value="Practice Quiz" id="resourceQuiz" data-content-manager="quizManager">
+                                    <label class="form-check-label" for="resourceQuiz">Practice Quiz</label>
+                                    <div id="quizManager" class="content-manager d-none mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary manage-request-content-btn" data-type="quiz">Manage Quiz</button>
+                                    </div>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input resource-checkbox" type="checkbox" value="Flashcards" id="resourceFlashcards" data-content-manager="flashcardManager">
+                                    <label class="form-check-label" for="resourceFlashcards">Flashcards</label>
+                                    <div id="flashcardManager" class="content-manager d-none mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary manage-request-content-btn" data-type="flashcards">Manage Flashcards</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="topicVisibilityContainer" class="d-none"></div>
+                        <div class="modal-footer mt-4 pb-0">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary" id="saveItemBtn">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals for Managing Request Content -->
+
+    <!-- File Manager Modal for Topic Request -->
+    <div class="modal fade" id="requestContentFileModal" tabindex="-1" aria-labelledby="requestContentFileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestContentFileModalLabel">Manage Request Files</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="requestFilesContainer" class="mb-4"></div>
+                    <div class="card bg-light border p-3">
+                        <h6 class="fw-bold mb-3">Upload New File</h6>
+                        <form id="requestFileUploadForm">
+                            <div class="mb-3">
+                                <label for="requestFileInput" class="form-label">Select File</label>
+                                <input class="form-control" type="file" id="requestFileInput" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">Upload File</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Editor Modal for Topic Request -->
+    <div class="modal fade" id="requestContentQuizModal" tabindex="-1" aria-labelledby="requestContentQuizModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestContentQuizModalLabel">Manage Request Quiz</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="requestQuizContainer" class="mb-4"></div>
+                    <div class="card bg-light border p-3">
+                        <h6 class="fw-bold mb-3" id="requestQuizFormLabel">Add New Question</h6>
+                        <form id="requestQuizForm">
+                            <input type="hidden" id="requestQuizQuestionId">
+                            <div class="mb-3">
+                                <label for="requestQuizQuestionText" class="form-label">Question</label>
+                                <textarea class="form-control" id="requestQuizQuestionText" rows="2" required></textarea>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionA" placeholder="Option A" required></div>
+                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionB" placeholder="Option B" required></div>
+                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionC" placeholder="Option C"></div>
+                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionD" placeholder="Option D"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="requestQuizCorrectAnswer" class="form-label">Correct Answer</label>
+                                <select class="form-select" id="requestQuizCorrectAnswer" required>
+                                    <option value="A">Option A</option>
+                                    <option value="B">Option B</option>
+                                    <option value="C">Option C</option>
+                                    <option value="D">Option D</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-success">Save Question</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flashcard Editor Modal for Topic Request -->
+    <div class="modal fade" id="requestContentFlashcardModal" tabindex="-1" aria-labelledby="requestContentFlashcardModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestContentFlashcardModalLabel">Manage Request Flashcards</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="requestFlashcardsContainer" class="mb-4"></div>
+                    <div class="card bg-light border p-3">
+                        <h6 class="fw-bold mb-3" id="requestFlashcardFormLabel">Add New Card</h6>
+                        <form id="requestFlashcardForm">
+                            <input type="hidden" id="requestFlashcardId">
+                            <div class="mb-3">
+                                <label for="requestFlashcardTerm" class="form-label">Term</label>
+                                <input type="text" class="form-control" id="requestFlashcardTerm" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="requestFlashcardDefinition" class="form-label">Definition</label>
+                                <textarea class="form-control" id="requestFlashcardDefinition" rows="2" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success">Save Card</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Component Logic Link -->
+    <script src="subject_detail_teacher.js"></script>
+</body>
+</html>

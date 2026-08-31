@@ -1,0 +1,451 @@
+/* ==========================================================================
+   Mentorae - Philippine DepEd Electronic Class Record (ECR) Stylesheet
+   Design Archetype: Microsoft Excel & Google Sheets DepEd ECR Blueprint
+   ========================================================================== */
+
+:root {
+    --deped-green: #0a5c2c;
+    --deped-green-hover: #06401e;
+    --excel-green: #107c41;
+    --excel-green-hover: #0b582e;
+    --sheet-border: #cbd5e1;
+    --sheet-grid: #e2e8f0;
+    --sheet-header-bg: #f8fafc;
+    --active-cell-border: #107c41;
+    --ww-theme-bg: #e0f2fe;
+    --ww-theme-border: #7dd3fc;
+    --pt-theme-bg: #f3e8ff;
+    --pt-theme-border: #d8b4fe;
+    --qa-theme-bg: #fef3c7;
+    --qa-theme-border: #fcd34d;
+    --summary-theme-bg: #dcfce7;
+    --summary-theme-border: #86efac;
+}
+
+body.ecr-body {
+    background-color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   1. Top Application Navbar & Ribbon
+   -------------------------------------------------------------------------- */
+.ecr-top-nav {
+    background-color: var(--excel-green);
+    color: #ffffff;
+    padding: 0.5rem 1.25rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.ecr-logo-wrap {
+    width: 34px;
+    height: 34px;
+    background-color: #ffffff;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ecr-logo-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ecr-file-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.ecr-save-pill {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+}
+
+/* Menu Ribbon Items */
+.ecr-menu-bar {
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.35rem 1.25rem;
+}
+
+.ecr-menu-btn {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    padding: 0.25rem 0.65rem;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    transition: all 0.15s ease;
+}
+
+.ecr-menu-btn:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+/* --------------------------------------------------------------------------
+   2. Formula Bar Component
+   -------------------------------------------------------------------------- */
+.ecr-formula-bar-wrap {
+    background-color: #ffffff;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 0.35rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ecr-cell-name-box {
+    width: 75px;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: center;
+    color: #334155;
+    font-family: monospace;
+}
+
+.ecr-fx-icon {
+    font-weight: 800;
+    font-style: italic;
+    color: #64748b;
+    font-size: 0.95rem;
+    user-select: none;
+}
+
+.ecr-formula-input {
+    flex-grow: 1;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 0.2rem 0.75rem;
+    font-size: 0.85rem;
+    font-family: monospace;
+    color: #0f172a;
+    background-color: #fdfdfd;
+}
+
+.ecr-formula-input:focus {
+    outline: none;
+    border-color: var(--excel-green);
+    background-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(16, 124, 65, 0.12);
+}
+
+/* --------------------------------------------------------------------------
+   3. DepEd Official Electronic Class Record Header
+   -------------------------------------------------------------------------- */
+.ecr-deped-header {
+    background-color: #ffffff;
+    border-bottom: 2px solid var(--deped-green);
+    padding: 1rem 1.5rem;
+}
+
+.deped-seal-title {
+    font-size: 0.78rem;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.deped-school-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--deped-green);
+    margin: 0;
+}
+
+.deped-meta-table {
+    font-size: 0.82rem;
+    width: 100%;
+}
+
+.deped-meta-table td {
+    padding: 0.2rem 0.5rem;
+}
+
+.deped-meta-label {
+    font-weight: 700;
+    color: #475569;
+    width: 120px;
+}
+
+.deped-meta-value {
+    font-weight: 600;
+    color: #0f172a;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+/* --------------------------------------------------------------------------
+   4. Spreadsheet Grid & Table Styling
+   -------------------------------------------------------------------------- */
+.ecr-workspace-canvas {
+    flex-grow: 1;
+    overflow: auto;
+    background-color: #f8fafc;
+    padding: 1rem;
+}
+
+.ecr-table-container {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.ecr-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.ecr-grid-table th,
+.ecr-grid-table td {
+    border: 1px solid var(--sheet-grid);
+    padding: 0.4rem 0.5rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Top column coordinates (A, B, C...) */
+.ecr-coord-row th {
+    background-color: #f1f5f9;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid #cbd5e1;
+    user-select: none;
+}
+
+.ecr-grid-table th {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.th-gender-header {
+    background-color: #e2e8f0;
+    font-weight: 800;
+    text-align: left !important;
+    padding-left: 1rem !important;
+    color: #1e293b;
+    font-size: 0.85rem;
+}
+
+/* Component Header Color Variations */
+.th-ww {
+    background-color: var(--ww-theme-bg);
+    border-color: var(--ww-theme-border) !important;
+    color: #0369a1;
+}
+
+.th-pt {
+    background-color: var(--pt-theme-bg);
+    border-color: var(--pt-theme-border) !important;
+    color: #7e22ce;
+}
+
+.th-qa {
+    background-color: var(--qa-theme-bg);
+    border-color: var(--qa-theme-border) !important;
+    color: #b45309;
+}
+
+.th-summary {
+    background-color: var(--summary-theme-bg);
+    border-color: var(--summary-theme-border) !important;
+    color: #15803d;
+}
+
+.th-total {
+    background-color: #f1f5f9;
+    font-weight: 800;
+}
+
+.th-hps {
+    background-color: #fffbeb;
+    font-weight: 800;
+    color: #92400e;
+}
+
+/* Sticky Left Columns for Learner Names */
+.sticky-col-id {
+    position: sticky;
+    left: 0;
+    background-color: #ffffff;
+    z-index: 2;
+    font-family: monospace;
+    font-weight: 600;
+    width: 90px;
+    min-width: 90px;
+}
+
+.sticky-col-name {
+    position: sticky;
+    left: 90px;
+    background-color: #ffffff;
+    z-index: 2;
+    text-align: left !important;
+    font-weight: 600;
+    min-width: 220px;
+    width: 220px;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.03);
+}
+
+.ecr-grid-table tr:hover td {
+    background-color: #f8fafc;
+}
+
+.ecr-grid-table tr:hover .sticky-col-id,
+.ecr-grid-table tr:hover .sticky-col-name {
+    background-color: #f1f5f9;
+}
+
+/* Editable Cell Inputs */
+.ecr-cell-input {
+    width: 48px;
+    border: 1px solid transparent;
+    background-color: transparent;
+    text-align: center;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #0f172a;
+    padding: 0.15rem 0.2rem;
+    border-radius: 2px;
+    transition: all 0.1s ease;
+}
+
+.ecr-cell-input:hover {
+    border-color: #94a3b8;
+    background-color: #ffffff;
+}
+
+.ecr-cell-input:focus {
+    outline: none;
+    border: 2px solid var(--excel-green) !important;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(16, 124, 65, 0.2);
+}
+
+/* Transmuted Grade Result Pills */
+.grade-transmuted-pass {
+    font-weight: 800;
+    color: #15803d;
+    font-size: 0.92rem;
+}
+
+.grade-transmuted-fail {
+    font-weight: 800;
+    color: #dc2626;
+    font-size: 0.92rem;
+}
+
+.badge-passed {
+    background-color: #dcfce7;
+    color: #15803d;
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.badge-failed {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Bottom Sheet Tabs (Excel / Sheets Navigation)
+   -------------------------------------------------------------------------- */
+.ecr-sheets-tab-bar {
+    background-color: #ffffff;
+    border-top: 1px solid #cbd5e1;
+    padding: 0.35rem 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    overflow-x: auto;
+}
+
+.ecr-sheet-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1.15rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #64748b;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.ecr-sheet-tab:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+}
+
+.ecr-sheet-tab.active {
+    background-color: #ffffff;
+    color: var(--excel-green);
+    border-top: 3px solid var(--excel-green);
+    border-bottom: 1px solid #ffffff;
+    margin-bottom: -1px;
+    z-index: 5;
+}
+
+/* --------------------------------------------------------------------------
+   6. Transmutation Table Reference View
+   -------------------------------------------------------------------------- */
+.transmutation-ref-box {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.transmutation-table td {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.82rem;
+}
+
+/* --------------------------------------------------------------------------
+   7. Utility Helpers
+   -------------------------------------------------------------------------- */
+.micro-text {
+    font-size: 0.75rem;
+}
+
+.tiny-text {
+    font-size: 0.7rem;
+}

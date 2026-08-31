@@ -128,10 +128,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <option value="monthly" ${settings.backup_frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
                     </select>
                 </div>
-                <div class="alert alert-secondary text-sm mb-0">
-                    Automated backups aren't wired up in this build. Your database is hosted on
-                    Railway's managed MySQL — use Railway's own Data tab or a MySQL client to
-                    back up or restore data directly.
+                <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-cloud-download text-secondary fs-5"></i>
+                        <div>
+                            <h3 class="fs-6 fw-bold text-dark m-0">Backup Now</h3>
+                            <span class="text-muted text-sm">Downloads a .sql file with all current data.</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnBackupNow">
+                        <i class="bi bi-download"></i> Backup Now
+                    </button>
+                </div>
+                <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-cloud-upload text-danger fs-5"></i>
+                        <div>
+                            <h3 class="fs-6 fw-bold text-dark m-0">Restore Backup</h3>
+                            <span class="text-muted text-sm">Replaces ALL current data with a previous backup file.</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="btnRestoreBackup">
+                        <i class="bi bi-upload"></i> Restore Backup
+                    </button>
+                    <input type="file" id="restoreFileInput" accept=".sql" class="d-none">
+                </div>
+                <div id="restoreStatusMsg" class="text-sm"></div>
+                <div class="alert alert-warning text-sm mb-0">
+                    <strong>Restoring overwrites all current data</strong> with the contents of the backup
+                    file and cannot be undone. Only .sql files downloaded from this system's own
+                    "Backup Now" button can be restored.
                 </div>
             </div>
         `
@@ -166,10 +192,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    function wireDatabaseTabButtons() {
+        const btnBackupNow = document.getElementById('btnBackupNow');
+        const btnRestoreBackup = document.getElementById('btnRestoreBackup');
+        const restoreFileInput = document.getElementById('restoreFileInput');
+        const restoreStatusMsg = document.getElementById('restoreStatusMsg');
+        if (!btnBackupNow) return; // not on the database tab
+
+        btnBackupNow.addEventListener('click', () => {
+            window.open(`${API_BASE}/api/database/backup?token=${encodeURIComponent(token)}`, '_blank');
+        });
+
+        btnRestoreBackup.addEventListener('click', () => restoreFileInput.click());
+
+        restoreFileInput.addEventListener('change', async () => {
+            const file = restoreFileInput.files[0];
+            if (!file) return;
+
+            const sure = confirm(
+                `This will PERMANENTLY REPLACE all current data with the contents of "${file.name}".\n\n` +
+                'This cannot be undone. Are you absolutely sure you want to restore this backup?'
+            );
+            restoreFileInput.value = '';
+            if (!sure) return;
+
+            restoreStatusMsg.textContent = 'Restoring… please don\'t close this page.';
+            restoreStatusMsg.className = 'text-sm text-muted';
+
+            const formData = new FormData();
+            formData.append('backupFile', file);
+            formData.append('confirm', 'RESTORE');
+
+            try {
+                const res = await fetch(`${API_BASE}/api/database/restore?token=${encodeURIComponent(token)}`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                restoreStatusMsg.textContent = data.message;
+                restoreStatusMsg.className = 'text-sm ' + (data.success ? 'text-success' : 'text-danger');
+            } catch (err) {
+                restoreStatusMsg.textContent = 'Restore failed: could not reach the server.';
+                restoreStatusMsg.className = 'text-sm text-danger';
+            }
+        });
+    }
+
     function switchTab(targetKey) {
         captureActiveTab(); // save whatever the admin typed on the tab they're leaving
         activeTab = targetKey;
         contentPanel.innerHTML = templates[targetKey]();
+        wireDatabaseTabButtons();
         tabButtons.forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-target') === targetKey);
         });
