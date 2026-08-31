@@ -1,12 +1,72 @@
+// Global role visibility function accessible from HTML onchange and JS events
+function syncRoleVisibility() {
+    const roleSelect = document.getElementById('userRoleSelect');
+    const rawVal = roleSelect ? roleSelect.value : 'Student';
+    const role = (rawVal || '').trim().toLowerCase();
+
+    const isStudent = role === 'student';
+    const isParent = role === 'parent' || role === 'parents';
+    const isTeacher = role === 'teacher';
+    const isAdmin = role === 'admin';
+
+    const activeRoleBadge = document.getElementById('activeRoleBadge');
+    const activeRoleDescription = document.getElementById('activeRoleDescription');
+
+    if (isParent) {
+        if (activeRoleBadge) activeRoleBadge.textContent = 'Parent Account';
+        if (activeRoleDescription) activeRoleDescription.textContent = 'Fill out parent details and child information below.';
+    } else if (isTeacher) {
+        if (activeRoleBadge) activeRoleBadge.textContent = 'Teacher Account';
+        if (activeRoleDescription) activeRoleDescription.textContent = 'Fill out teacher details, advisory section, and subjects handled.';
+    } else if (isAdmin) {
+        if (activeRoleBadge) activeRoleBadge.textContent = 'Admin Account';
+        if (activeRoleDescription) activeRoleDescription.textContent = 'Fill out administrative user details and credentials.';
+    } else {
+        if (activeRoleBadge) activeRoleBadge.textContent = 'Student Account';
+        if (activeRoleDescription) activeRoleDescription.textContent = 'Fill out student details and academic information below.';
+    }
+
+    const studentFields = document.getElementById('studentRoleFields');
+    const parentFields = document.getElementById('parentRoleFields');
+    const teacherFields = document.getElementById('teacherRoleFields');
+    const adminFields = document.getElementById('adminRoleFields');
+
+    if (studentFields) {
+        studentFields.classList.toggle('d-none', !isStudent);
+        studentFields.style.display = isStudent ? 'block' : 'none';
+    }
+    if (parentFields) {
+        parentFields.classList.toggle('d-none', !isParent);
+        parentFields.style.display = isParent ? 'block' : 'none';
+    }
+    if (teacherFields) {
+        teacherFields.classList.toggle('d-none', !isTeacher);
+        teacherFields.style.display = isTeacher ? 'block' : 'none';
+    }
+    if (adminFields) {
+        adminFields.classList.toggle('d-none', !isAdmin);
+        adminFields.style.display = isAdmin ? 'block' : 'none';
+    }
+}
+window.syncRoleVisibility = syncRoleVisibility;
+
 document.addEventListener('DOMContentLoaded', () => {
-    const { token } = requireSession('login.html');
+    let token = '';
+    try {
+        if (typeof requireSession === 'function') {
+            const session = requireSession('login.html');
+            if (session && session.token) token = session.token;
+        }
+    } catch (err) {
+        console.warn('Session check bypassed or in preview mode:', err);
+    }
 
     const liveDateElement = document.getElementById('liveDate');
     const liveTimeElement = document.getElementById('liveTime');
     function updateDateTime() {
         const now = new Date();
-        liveDateElement.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        liveTimeElement.textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+        if (liveDateElement) liveDateElement.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        if (liveTimeElement) liveTimeElement.textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
     }
     updateDateTime();
     setInterval(updateDateTime, 1000);
@@ -18,25 +78,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatedId = document.getElementById('generatedId');
     const generatedEmail = document.getElementById('generatedEmail');
     const userRoleSelect = document.getElementById('userRoleSelect');
-    const userProgramSelect = document.getElementById('userProgramSelect');
-    const userProgramWrap = document.getElementById('userProgramWrap');
+    const studentGradeLevelSelect = document.getElementById('studentGradeLevelSelect');
+    const studentStrandSelect = document.getElementById('studentStrandSelect');
     const userSectionSelect = document.getElementById('userSectionSelect');
-    const userSectionWrap = document.getElementById('userSectionWrap');
+    const studentStatusSelect = document.getElementById('studentStatusSelect');
+    const studentParentFullName = document.getElementById('studentParentFullName');
+    const parentChildrenNames = document.getElementById('parentChildrenNames');
+    const teacherAdvisorySection = document.getElementById('teacherAdvisorySection');
+    const teacherSubjects = document.getElementById('teacherSubjects');
     const createUserForm = document.getElementById('createUserForm');
     const createUserPassword = document.getElementById('createUserPassword');
 
-    // Program (4Ps / ARAL) and Section only apply to students
-    function syncProgramVisibility() {
-        const isStudent = userRoleSelect.value === 'Student';
-        userProgramWrap.style.display = isStudent ? '' : 'none';
-        userSectionWrap.style.display = isStudent ? '' : 'none';
-        if (!isStudent) {
-            userProgramSelect.value = 'none';
-            userSectionSelect.value = '';
-        }
+    if (userRoleSelect) {
+        userRoleSelect.addEventListener('change', syncRoleVisibility);
+        userRoleSelect.addEventListener('input', syncRoleVisibility);
     }
-    syncProgramVisibility();
-    userRoleSelect.addEventListener('change', syncProgramVisibility);
+    syncRoleVisibility();
+
+    // Teacher quick-add subjects
+    document.querySelectorAll('.subject-tag-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const subj = btn.dataset.subject;
+            if (!teacherSubjects) return;
+            const currentVal = teacherSubjects.value.trim();
+            if (!currentVal) {
+                teacherSubjects.value = subj;
+            } else {
+                const list = currentVal.split(',').map(s => s.trim()).filter(Boolean);
+                if (!list.includes(subj)) {
+                    list.push(subj);
+                    teacherSubjects.value = list.join(', ');
+                }
+            }
+        });
+    });
 
     // --- Sections & Strands (used across Create form, Assign Section modal, Link Parent filters, and Manager card) ---
     let sectionsCache = [];
@@ -53,6 +128,17 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    function refreshStudentSections() {
+        if (!userSectionSelect) return;
+        const strandId = studentStrandSelect ? studentStrandSelect.value : '';
+        const gradeLevel = studentGradeLevelSelect ? studentGradeLevelSelect.value : '';
+        const matching = sectionsMatching(strandId, gradeLevel);
+        userSectionSelect.innerHTML = `<option value="">— No section yet —</option>${sectionOptionsHtml(matching)}`;
+    }
+
+    if (studentGradeLevelSelect) studentGradeLevelSelect.addEventListener('change', refreshStudentSections);
+    if (studentStrandSelect) studentStrandSelect.addEventListener('change', refreshStudentSections);
+
     async function loadReferenceData() {
         const [strandsData, sectionsData] = await Promise.all([
             authedFetch('/api/reference/strands', token),
@@ -62,13 +148,18 @@ document.addEventListener('DOMContentLoaded', () => {
             strandsCache = strandsData.strands;
             const strandOptions = strandsCache.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
             document.getElementById('manageStrandFilter').innerHTML = `<option value="">All strands</option>${strandOptions}`;
+            if (studentStrandSelect) {
+                studentStrandSelect.innerHTML = `<option value="">All Strands</option>${strandOptions}`;
+            }
         }
         if (sectionsData.success) {
             sectionsCache = sectionsData.sections;
             const allOptions = sectionOptionsHtml(sectionsCache);
-            userSectionSelect.innerHTML = `<option value="">— No section yet —</option>${allOptions}`;
+            refreshStudentSections();
+            if (teacherAdvisorySection) {
+                teacherAdvisorySection.innerHTML = `<option value="">— No Advisory Section —</option>${allOptions}`;
+            }
             document.getElementById('assignSectionSelect').innerHTML = `<option value="">— No section —</option>${allOptions}`;
-            document.getElementById('linkStudentSectionFilter').innerHTML = `<option value="">Any section</option>${allOptions}`;
             document.getElementById('manageSectionFilter').innerHTML = `<option value="">All sections</option>${allOptions}`;
             document.getElementById('manageAssignSectionSelect').innerHTML = `<option value="">— No section —</option>${allOptions}`;
             refreshPromoteSectionOptions();
@@ -147,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const role = userRoleSelect.value;
         const payload = {
             firstName: firstName.value.trim(),
             middleInitial: middleInitial.value.trim(),
@@ -154,12 +246,34 @@ document.addEventListener('DOMContentLoaded', () => {
             contactNumber: contactNumber.value.trim(),
             idNumber: generatedId.value,
             email: generatedEmail.value,
-            role: userRoleSelect.value,
-            program: userRoleSelect.value === 'Student' ? userProgramSelect.value : 'none',
+            role: role,
         };
         if (manualPassword) payload.password = manualPassword;
-        if (userRoleSelect.value === 'Student' && userSectionSelect.value) {
-            payload.sectionId = userSectionSelect.value;
+
+        if (role === 'Student') {
+            const gradeLevel = studentGradeLevelSelect ? studentGradeLevelSelect.value : '';
+            const strandId = studentStrandSelect ? studentStrandSelect.value : '';
+            const sectionId = userSectionSelect ? userSectionSelect.value : '';
+            const status = studentStatusSelect ? studentStatusSelect.value : 'student';
+            const parentName = studentParentFullName ? studentParentFullName.value.trim() : '';
+
+            if (gradeLevel) payload.gradeLevel = gradeLevel;
+            if (strandId) payload.strandId = strandId;
+            if (sectionId) payload.sectionId = sectionId;
+            payload.status = status;
+            payload.program = status; // backwards compatibility
+            if (parentName) payload.parentFullName = parentName;
+        } else if (role === 'Parent') {
+            const childNames = parentChildrenNames ? parentChildrenNames.value.trim() : '';
+            if (childNames) {
+                payload.childrenNames = childNames;
+                payload.childName = childNames;
+            }
+        } else if (role === 'Teacher') {
+            const advisoryId = teacherAdvisorySection ? teacherAdvisorySection.value : '';
+            const subjects = teacherSubjects ? teacherSubjects.value.trim() : '';
+            if (advisoryId) payload.advisorySectionId = advisoryId;
+            if (subjects) payload.subjectsHandled = subjects;
         }
 
         const data = await authedFetch('/api/users', token, {
@@ -180,12 +294,12 @@ document.addEventListener('DOMContentLoaded', () => {
         createUserForm.reset();
         generatedId.value = '';
         generatedEmail.value = '';
-        userSectionSelect.value = '';
-        syncProgramVisibility();
+        if (userSectionSelect) userSectionSelect.value = '';
+        syncRoleVisibility();
         loadUsers();
-        if (userRoleSelect.value === 'Parent' || userRoleSelect.value === 'Student') {
+        if (role === 'Parent' || role === 'Student') {
             loadParentOptions();
-            loadStudentOptionsForLinking();
+            updateStudentSuggestions();
             loadManageStudents();
         }
     });
@@ -286,115 +400,41 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- Link Parent to Student (with search/filtering) ---
-    const linkParentSelect = document.getElementById('linkParentSelect');
-    const linkStudentSelect = document.getElementById('linkStudentSelect');
-    const linkParentForm = document.getElementById('linkParentForm');
-    const linkParentSearch = document.getElementById('linkParentSearch');
-    const linkStudentSearch = document.getElementById('linkStudentSearch');
-    const linkStudentGradeFilter = document.getElementById('linkStudentGradeFilter');
-    const linkStudentSectionFilter = document.getElementById('linkStudentSectionFilter');
-
+    // --- Suggestions Data Loaders (for Student & Parent form autocomplete) ---
     let parentsCache = [];
+
+    function updateParentSuggestions(list) {
+        const datalist = document.getElementById('parentSuggestionsList');
+        if (!datalist) return;
+        datalist.innerHTML = list.map(p => {
+            const name = `${p.first_name} ${p.middle_initial ? p.middle_initial + ' ' : ''}${p.last_name}`;
+            return `<option value="${name}">${p.email}</option>`;
+        }).join('');
+    }
+
+    async function updateStudentSuggestions() {
+        const datalist = document.getElementById('studentSuggestionsList');
+        if (!datalist) return;
+        const data = await authedFetch('/api/users/students?limit=1000', token);
+        if (data.success && data.students) {
+            datalist.innerHTML = data.students.map(s => {
+                const name = `${s.firstName || s.first_name} ${s.middleInitial || s.middle_initial ? (s.middleInitial || s.middle_initial) + ' ' : ''}${s.lastName || s.last_name}`;
+                const id = s.idNumber || s.id_number || '';
+                return `<option value="${name}">${id ? 'ID: ' + id : ''}</option>`;
+            }).join('');
+        }
+    }
 
     async function loadParentOptions() {
         const data = await authedFetch('/api/users?role=Parent&limit=1000', token);
         if (data.success) {
             parentsCache = data.users;
-            renderParentOptions(parentsCache);
+            updateParentSuggestions(parentsCache);
         }
     }
-
-    function renderParentOptions(list) {
-        linkParentSelect.innerHTML = list.length
-            ? list.map(p => `<option value="${p.id}">${p.first_name} ${p.last_name} (${p.email})</option>`).join('')
-            : '<option value="" disabled>No matches</option>';
-    }
-
-    linkParentSearch.addEventListener('input', () => {
-        const q = linkParentSearch.value.trim().toLowerCase();
-        const filtered = !q ? parentsCache : parentsCache.filter(p =>
-            `${p.first_name} ${p.last_name} ${p.email}`.toLowerCase().includes(q)
-        );
-        renderParentOptions(filtered);
-    });
-
-    async function loadStudentOptionsForLinking() {
-        const params = new URLSearchParams();
-        if (linkStudentGradeFilter.value) params.set('gradeLevel', linkStudentGradeFilter.value);
-        if (linkStudentSectionFilter.value) params.set('sectionId', linkStudentSectionFilter.value);
-        if (linkStudentSearch.value.trim()) params.set('search', linkStudentSearch.value.trim());
-
-        const data = await authedFetch(`/api/users/students?${params}`, token);
-        linkStudentSelect.innerHTML = (data.success && data.students.length)
-            ? data.students.map(s => `<option value="${s.id}">${s.firstName} ${s.lastName} — ${s.idNumber}${s.sectionName ? ` (${s.strandCode} G${s.gradeLevel} ${s.sectionName})` : ' (no section)'}</option>`).join('')
-            : '<option value="" disabled>No matches</option>';
-    }
-
-    linkStudentGradeFilter.addEventListener('change', () => {
-        // Narrow the section filter to the chosen grade level
-        const matching = sectionsMatching('', linkStudentGradeFilter.value);
-        linkStudentSectionFilter.innerHTML = `<option value="">Any section</option>${sectionOptionsHtml(matching)}`;
-        loadStudentOptionsForLinking();
-    });
-    linkStudentSectionFilter.addEventListener('change', loadStudentOptionsForLinking);
-    let linkSearchTimer;
-    linkStudentSearch.addEventListener('input', () => {
-        clearTimeout(linkSearchTimer);
-        linkSearchTimer = setTimeout(loadStudentOptionsForLinking, 300);
-    });
-
-    async function loadParentLinks() {
-        const data = await authedFetch('/api/users/parent-links', token);
-        const tbody = document.getElementById('parentLinksTableBody');
-        tbody.innerHTML = '';
-        if (!data.success || !data.links.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No parent-student links yet.</td></tr>';
-            return;
-        }
-        for (const link of data.links) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${link.parentName} <span class="text-muted">(${link.parentEmail})</span></td>
-                <td>${link.studentName} <span class="text-muted">(${link.studentIdNumber})</span></td>
-                <td class="text-center">
-                    <button class="btn btn-link p-0 text-danger fs-5 unlink-btn" title="Remove link" data-id="${link.id}">
-                        <i class="bi bi-x-circle-fill"></i>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        }
-        tbody.querySelectorAll('.unlink-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm('Remove this parent-student link?')) return;
-                const result = await authedFetch(`/api/users/parent-links/${btn.dataset.id}`, token, { method: 'DELETE' });
-                if (result.success) loadParentLinks();
-            });
-        });
-    }
-
-    linkParentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const parentId = linkParentSelect.value;
-        const studentId = linkStudentSelect.value;
-        if (!parentId || !studentId) return;
-
-        const result = await authedFetch('/api/users/parent-links', token, {
-            method: 'POST',
-            body: JSON.stringify({ parentId, studentId }),
-        });
-        if (result.success) {
-            linkParentForm.reset();
-            loadParentLinks();
-        } else {
-            alert(result.message);
-        }
-    });
 
     loadParentOptions();
-    loadStudentOptionsForLinking();
-    loadParentLinks();
+    updateStudentSuggestions();
 
     // --- Section, Promotion & Graduation Manager ---
     const manageStrandFilter = document.getElementById('manageStrandFilter');

@@ -139,3 +139,35 @@
 .action-link-btn:hover {
     transform: scale(1.15);
 }
+
+/* Role Form Specifics */
+.btn-xs {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    line-height: 1.2;
+}
+
+.subject-tag-btn {
+    transition: all 0.15s ease-in-out;
+}
+.subject-tag-btn:hover {
+    background-color: var(--mentorae-green) !important;
+    color: #fff !important;
+    border-color: var(--mentorae-green) !important;
+}
+
+.role-specific-block {
+    animation: fadeInRoleBlock 0.25s ease-in-out;
+}
+
+.role-helper-box {
+    min-height: 38px;
+    height: 38px;
+    box-sizing: border-box;
+}
+
+@keyframes fadeInRoleBlock {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}

@@ -5,7 +5,7 @@ const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
 
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_MINUTES = 5;
+const LOCK_MINUTES = 15;
 
 function fullName(user) {
   const mi = user.middle_initial ? ` ${user.middle_initial}` : '';
