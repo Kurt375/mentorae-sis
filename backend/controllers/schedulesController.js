@@ -1,13 +1,13 @@
 const pool = require('../config/db');
-
+ 
 const SCHOOL_OPEN = '07:00:00';
 const SCHOOL_CLOSE = '15:30:00';
-
+ 
 function toMinutes(t) {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 }
-
+ 
 /** GET /api/schedules — full schedule table (admin), optionally ?search= */
 async function listSchedules(req, res) {
   try {
@@ -22,14 +22,14 @@ async function listSchedules(req, res) {
       JOIN subjects sub ON sub.id = sch.subject_id
       JOIN sections sec ON sec.id = sch.section_id
       JOIN strands st ON st.id = sec.strand_id`;
-
+ 
     if (req.query.search) {
       sql += ` WHERE t.first_name LIKE ? OR t.last_name LIKE ? OR sub.name LIKE ? OR sec.name LIKE ? OR sch.day_of_week LIKE ?`;
       const like = `%${req.query.search}%`;
       params.push(like, like, like, like, like);
     }
     sql += ' ORDER BY FIELD(sch.day_of_week, "Monday","Tuesday","Wednesday","Thursday","Friday"), sch.start_time';
-
+ 
     const [rows] = await pool.query(sql, params);
     const schedules = rows.map((r) => ({
       id: r.id,
@@ -42,28 +42,28 @@ async function listSchedules(req, res) {
       endTime: r.end_time,
       quarter: r.quarter,
     }));
-
+ 
     return res.json({ success: true, schedules });
   } catch (err) {
     console.error('listSchedules error:', err);
     return res.status(500).json({ success: false, message: 'Could not load schedules.' });
   }
 }
-
+ 
 /** POST /api/schedules  { teacherId, subjectId, sectionId, days: [], startTime, endTime } */
 async function createSchedule(req, res) {
   const { teacherId, subjectId, sectionId, days, startTime, endTime, quarter } = req.body;
   const validQuarters = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
   const scheduleQuarter = validQuarters.includes(quarter) ? quarter : '1st Quarter';
-
+ 
   if (!teacherId || !subjectId || !sectionId || !Array.isArray(days) || !days.length || !startTime || !endTime) {
     return res.status(400).json({ success: false, message: 'All fields are required.' });
   }
-
-  if (startTime < SCHOOL_OPEN) {
+ 
+  if (toMinutes(startTime) < toMinutes(SCHOOL_OPEN)) {
     return res.status(400).json({ success: false, message: 'Schedule cannot start before 7:00 AM.' });
   }
-  if (endTime > SCHOOL_CLOSE) {
+  if (toMinutes(endTime) > toMinutes(SCHOOL_CLOSE)) {
     return res.status(400).json({ success: false, message: 'Schedule cannot end after 3:30 PM.' });
   }
   if (toMinutes(startTime) >= toMinutes(endTime)) {
@@ -76,7 +76,7 @@ async function createSchedule(req, res) {
   if (duration > 120) {
     return res.status(400).json({ success: false, message: 'Duration cannot exceed 2 hours.' });
   }
-
+ 
   try {
     const created = [];
     for (const day of days) {
@@ -92,21 +92,21 @@ async function createSchedule(req, res) {
           message: `Conflict: this teacher already has a class on ${day} that overlaps ${startTime}-${endTime}.`,
         });
       }
-
+ 
       const [result] = await pool.query(
         'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [teacherId, subjectId, sectionId, scheduleQuarter, day, startTime, endTime]
       );
       created.push(result.insertId);
     }
-
+ 
     return res.json({ success: true, message: `Schedule(s) created for ${days.join(', ')}.`, ids: created });
   } catch (err) {
     console.error('createSchedule error:', err);
     return res.status(500).json({ success: false, message: 'Could not create schedule.' });
   }
 }
-
+ 
 /** DELETE /api/schedules/:id */
 async function deleteSchedule(req, res) {
   try {
@@ -120,7 +120,7 @@ async function deleteSchedule(req, res) {
     return res.status(500).json({ success: false, message: 'Could not delete schedule.' });
   }
 }
-
+ 
 /** GET /api/schedules/mine — the logged-in teacher's weekly grid */
 async function getMySchedule(req, res) {
   try {
@@ -150,5 +150,6 @@ async function getMySchedule(req, res) {
     return res.status(500).json({ success: false, message: 'Could not load your schedule.' });
   }
 }
-
+ 
 module.exports = { listSchedules, createSchedule, deleteSchedule, getMySchedule };
+ 
