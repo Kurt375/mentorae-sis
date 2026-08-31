@@ -65,7 +65,7 @@ async function generateEmail(req, res) {
 
 /** POST /api/users — create a user account. Uses the admin-supplied password if given, otherwise auto-generates a temporary one. */
 async function createUser(req, res) {
-  const { firstName, middleInitial, lastName, contactNumber, idNumber, email, role, sectionId, password, program } = req.body;
+  const { firstName, middleInitial, lastName, contactNumber, idNumber, email, role, sectionId, password, program, parentName } = req.body;
 
   const validRoles = ['Student', 'Teacher', 'Parent', 'Admin', 'Security'];
   const validPrograms = ['none', '4ps', 'aral'];
@@ -111,12 +111,37 @@ async function createUser(req, res) {
       message: `Your ${role} account has been created. Go to your Profile to review your details and add a personal email for real-time updates.`,
     });
 
+    // Student accounts can optionally be auto-linked to an existing Parent
+    // account by matching the typed name -- this is how enrollment links
+    // parent/child accounts now, instead of a separate manual-linking panel.
+    let parentLinkMessage = null;
+    if (role === 'Student' && parentName && parentName.trim()) {
+      const typedName = parentName.trim().toLowerCase().replace(/\s+/g, ' ');
+      const [parentMatches] = await pool.query(
+        `SELECT id, first_name, last_name FROM users
+         WHERE role = 'parent' AND LOWER(TRIM(CONCAT(first_name, ' ', last_name))) = ?`,
+        [typedName]
+      );
+      if (parentMatches.length === 1) {
+        await pool.query(
+          'INSERT IGNORE INTO parent_student_links (parent_id, student_id) VALUES (?, ?)',
+          [parentMatches[0].id, result.insertId]
+        );
+        parentLinkMessage = `Linked to parent account: ${parentMatches[0].first_name} ${parentMatches[0].last_name}.`;
+      } else if (parentMatches.length === 0) {
+        parentLinkMessage = `No parent account matching "${parentName.trim()}" was found -- the student was created, but not linked. Check the spelling, create the parent account first, or fix this later in the Parent-Student Links table.`;
+      } else {
+        parentLinkMessage = `More than one parent account matches "${parentName.trim()}" -- the student was created, but not automatically linked to avoid linking the wrong one. Resolve this manually in the Parent-Student Links table.`;
+      }
+    }
+
     return res.json({
       success: true,
       message: `${firstName} ${lastName} created as ${role}.`,
       // Only sent back when auto-generated — shown once, admin must share it with the new user.
       // When the admin set the password manually, nothing is echoed back.
       ...(usingManualPassword ? {} : { tempPassword }),
+      ...(parentLinkMessage ? { parentLinkMessage } : {}),
     });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {

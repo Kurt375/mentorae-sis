@@ -3,7 +3,7 @@
 -- topic requests, and student quiz attempts.
 -- Run after 004_leaderboard.sql. Safe to re-run.
 -- =========================================================
-USE railway;
+USE mentorae_sis;
 
 -- ---------------------------------------------------------
 -- 1. Topics: a unit of content under a subject (parallel to

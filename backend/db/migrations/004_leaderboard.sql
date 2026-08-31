@@ -2,7 +2,7 @@
 -- MENTORAE SIS - Migration 004: badge points + leaderboard support
 -- Run after 003_lesson_modules.sql.
 -- =========================================================
-USE railway;
+USE mentorae_sis;
 
 ALTER TABLE badge_catalog
   ADD COLUMN IF NOT EXISTS points INT NOT NULL DEFAULT 10 AFTER name;

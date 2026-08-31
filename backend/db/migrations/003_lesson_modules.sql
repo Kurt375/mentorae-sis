@@ -2,7 +2,7 @@
 -- MENTORAE SIS - Migration 003: learning resources (lesson modules)
 -- Run after 002_feature_additions.sql.
 -- =========================================================
-USE railway;
+USE mentorae_sis;
 
 -- A "module" is one lesson posting (title/description/subject/section/quarter).
 -- It can hold several files (handouts, slides, worksheets, etc.).
