@@ -48,9 +48,18 @@
                 </div>
                 <form id="announcementForm">
                     <div class="row g-3">
-                        <div class="col-12 col-md-8">
+                        <div class="col-12 col-md-5">
                             <label for="inputEvent" class="form-label text-dark fw-semibold text-sm">Event</label>
-                            <input type="text" class="form-control custom-input" id="inputEvent" placeholder="E.g., Quarterly Exam" required>
+                            <input type="text" class="form-control custom-input" id="inputEvent" placeholder="E.g., Quarterly Assessment" required>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label for="inputAudience" class="form-label text-dark fw-semibold text-sm">Target Audience</label>
+                            <select class="form-select custom-input" id="inputAudience">
+                                <option value="all" selected>All Users (System-Wide)</option>
+                                <option value="student">Students Only</option>
+                                <option value="teacher">Teachers Only</option>
+                                <option value="parent">Parents Only</option>
+                            </select>
                         </div>
                         <div class="col-12 col-md-4">
                             <label for="inputDate" class="form-label text-dark fw-semibold text-sm">Date</label>
@@ -58,7 +67,7 @@
                         </div>
                         <div class="col-12">
                             <label for="inputDesc" class="form-label text-dark fw-semibold text-sm">Brief Description</label>
-                            <textarea class="form-control custom-textarea" id="inputDesc" rows="2" placeholder="E.g., Quarterly Exam" required></textarea>
+                            <textarea class="form-control custom-textarea" id="inputDesc" rows="2" placeholder="E.g., 1st Quarter Assessment Schedule" required></textarea>
                         </div>
                         <div class="col-12 d-flex justify-content-end">
                             <button type="submit" class="btn btn-create-announcement d-flex align-items-center gap-2 px-4 py-2 fw-semibold">

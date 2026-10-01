@@ -4,7 +4,7 @@
 -- =========================================================
 
 CREATE DATABASE IF NOT EXISTS mentorae_sis;
-USE railway;
+USE mentorae_sis;
 
 -- ---------------------------------------------------------
 -- STRANDS (Academic/TVL tracks: STEM, ABM, HUMSS, ICT, etc.)
@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS users (
   first_name       VARCHAR(100) NOT NULL,
   middle_initial   VARCHAR(5),
   last_name        VARCHAR(100) NOT NULL,
+  sex              ENUM('Male','Female','Other') NULL,
   contact_number   VARCHAR(30),
   email            VARCHAR(150) NOT NULL UNIQUE,
   password_hash    VARCHAR(255) NOT NULL,

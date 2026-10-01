@@ -1,28 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mentorae - Class Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- SheetJS for Parsing DepEd E-Class Record (.xlsx / .xlsm) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="class_management_teacher.css">
 </head>
+
 <body class="dashboard-bg">
 
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        
-        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
+
+        <header
+            class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="d-flex align-items-center gap-3">
-                <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4 link-transition" id="backToDashboardBtn" aria-label="Go Back">
+                <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4 link-transition"
+                    id="backToDashboardBtn" aria-label="Go Back">
                     <i class="bi bi-chevron-left"></i>
                 </a>
                 <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
                     <img src="TSHS_image.png" alt="School Logo" class="school-logo-img">
                 </div>
                 <div>
-                    <h1 class="m-0 fs-4 fw-bold tracking-wide d-inline-block">Class Management</h1>
-                    <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Sections Handled</p>
+                    <h1 class="m-0 fs-4 fw-bold tracking-wide">Class Management</h1>
+                    <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Roster, e-Class Record & Grading</p>
                 </div>
             </div>
             <div class="text-white text-end dashboard-time">
@@ -32,15 +38,16 @@
         </header>
 
         <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
-            
+
             <section class="row g-3 mb-4">
                 <div class="col-6 col-md-3">
                     <div class="card stat-metric-card border-0 shadow-sm p-3 h-100 bg-white">
                         <div class="d-flex align-items-start gap-2">
                             <div class="metric-icon text-primary"><i class="bi bi-people-fill fs-4"></i></div>
                             <div>
-                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Total Student</span>
-                                <h2 class="fw-bold m-0 text-dark mt-1">60</h2>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Total
+                                    Students Handled</span>
+                                <h2 class="fw-bold m-0 text-dark mt-1" id="counterTotalStudent">0</h2>
                             </div>
                         </div>
                     </div>
@@ -50,8 +57,9 @@
                         <div class="d-flex align-items-start gap-2">
                             <div class="metric-icon text-success"><i class="bi bi-person-check-fill fs-4"></i></div>
                             <div>
-                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Present Today</span>
-                                <h2 class="fw-bold m-0 text-dark mt-1">57</h2>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Present
+                                    Today</span>
+                                <h2 class="fw-bold m-0 text-dark mt-1" id="counterPresentToday">0</h2>
                             </div>
                         </div>
                     </div>
@@ -61,8 +69,9 @@
                         <div class="d-flex align-items-start gap-2">
                             <div class="metric-icon text-danger"><i class="bi bi-person-x-fill fs-4"></i></div>
                             <div>
-                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Absent Today</span>
-                                <h2 class="fw-bold m-0 text-dark mt-1">1</h2>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Absent
+                                    Today</span>
+                                <h2 class="fw-bold m-0 text-dark mt-1" id="counterAbsentToday">0</h2>
                             </div>
                         </div>
                     </div>
@@ -72,31 +81,88 @@
                         <div class="d-flex align-items-start gap-2">
                             <div class="metric-icon text-purple"><i class="bi bi-person-plus-fill fs-4"></i></div>
                             <div>
-                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Excused Today</span>
-                                <h2 class="fw-bold m-0 text-dark mt-1">2</h2>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Excused
+                                    Today</span>
+                                <h2 class="fw-bold m-0 text-dark mt-1" id="counterExcusedToday">0</h2>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section class="row g-2 mb-3">
+            <!-- Filter Controls Row (Search & Dropdowns) -->
+            <section class="row g-2 mb-3 align-items-center">
                 <div class="col-12 col-md-4">
                     <div class="input-group search-box shadow-sm rounded-3">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control border-start-0 ps-0" id="searchBar" placeholder="Search by name or student ID...">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i
+                                class="bi bi-search"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" id="searchBar"
+                            placeholder="Search by name or student ID...">
                     </div>
                 </div>
-                <div class="col-4 col-md-2">
+                <div class="col-6 col-md-2">
                     <select class="form-select custom-filter-select shadow-sm rounded-3" id="filterYear">
-                        <option value="2025" selected>2025 - 2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
                     </select>
                 </div>
-                <div class="col-8 col-md-5">
+                <div class="col-6 col-md-3">
                     <select class="form-select custom-filter-select shadow-sm rounded-3" id="filterSection">
+                        <option value="">Loading sections...</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <select class="form-select custom-filter-select shadow-sm rounded-3" id="filterSubject">
+                        <option value="">Loading subjects...</option>
                     </select>
                 </div>
             </section>
+
+            <!-- Dedicated Action Row (Class Roster count) -->
+            <section class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+                id="rosterActionRow">
+                <div class="d-flex align-items-center gap-2 text-muted small flex-wrap">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-people-fill text-secondary"></i>
+                        <span>Class Roster &bull; <strong id="rosterCountText" class="text-dark">0 students</strong></span>
+                    </div>
+                    <span id="rosterSubjectBadge" class="badge rounded-pill bg-light text-success border border-success-subtle px-2.5 py-1 fw-semibold d-none">
+                        <i class="bi bi-book me-1"></i><span id="rosterSubjectBadgeText"></span>
+                    </span>
+                </div>
+            </section>
+
+            <!-- Advisory Class Notice Banner Card -->
+            <div id="advisoryBanner" class="card border-0 shadow-sm rounded-3 mb-3 p-3 advisory-card-banner d-none">
+                <div
+                    class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div
+                            class="advisory-badge-icon rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-award-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span class="badge rounded-pill px-2.5 py-1 text-white fw-bold badge-advisory-dark">
+                                    <i class="bi bi-shield-check me-1"></i>Official Advisory Class
+                                </span>
+                                <span class="fw-bold text-dark" id="advisoryBannerSectionName"></span>
+                            </div>
+                            <div class="small text-muted" id="advisoryBannerText">
+                                You are the Class Adviser for this section. You can generate and bulk print their
+                                official DepEd SF9 report cards.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <button type="button"
+                            class="btn btn-dark-green px-3.5 py-2 fw-bold d-inline-flex align-items-center gap-2 shadow-sm text-nowrap"
+                            id="btnAdvisoryBannerPrint" title="Print All Advisory Report Cards in One Consolidated PDF">
+                            <i class="bi bi-printer-fill fs-6"></i> Print All in One PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div class="card border-0 shadow-sm overflow-hidden rounded-3 bg-white mb-4">
                 <div class="table-responsive">
@@ -108,75 +174,97 @@
                                 <th class="px-4 py-3 fw-semibold text-center">Current Grade</th>
                                 <th class="px-4 py-3 fw-semibold text-center">Attendance</th>
                                 <th class="px-4 py-3 fw-semibold text-center">Status</th>
+                                <th class="px-4 py-3 fw-semibold text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody id="studentRosterBody">
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm p-3 mb-4">
-                <h6 class="fw-bold mb-3"><i class="bi bi-trophy text-success"></i> Section Leaderboard</h6>
-                <div id="sectionLeaderboardList">
-                    <p class="text-muted small">Select a section to see rankings.</p>
+            <!-- Section Leaderboard Table -->
+            <div class="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white mb-4" id="sectionLeaderboardCard">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="leaderboard-trophy-icon rounded-3 d-flex align-items-center justify-content-center">
+                            <i class="bi bi-trophy-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold m-0 text-dark d-flex align-items-center gap-2"
+                                style="font-size: 1.1rem; letter-spacing: -0.2px;">
+                                Section Leaderboard
+                            </h6>
+                            <span class="small text-muted" id="leaderboardSectionLabel" style="font-size: 0.82rem;">
+                                Live Academic Standings
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span
+                            class="badge section-header-badge px-3 py-2 rounded-pill d-inline-flex align-items-center gap-1.5"
+                            id="leaderboardTotalStudents">
+                            <i class="bi bi-people-fill"></i> <span>0 Students</span>
+                        </span>
+                    </div>
+                </div>
+                <div id="sectionLeaderboardList" class="d-flex flex-column gap-2">
+                    <p class="text-muted small py-3 text-center mb-0">Select a section to see rankings.</p>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-end gap-3 flex-wrap">
-                <button type="button" class="btn btn-action-secondary px-4 py-2.5 fw-bold" id="btnGiveBadge">
-                    Give Badge
-                </button>
-                <button type="button" class="btn btn-action-primary px-4 py-2.5 fw-bold" id="btnEncodeGrades">
-                    View/ Encode Grades
-                </button>
-            </div>
 
             <!-- Give Badges Content -->
-            <div class="row mt-5" id="giveBadgesSection">
-                <section class="activity-sidebar p-4 border-end bg-white col-12 col-md-3 d-flex flex-column shadow-sm rounded-3">
-                    <h2 class="h6 fw-bold text-dark mb-4 text-uppercase tracking-sm border-bottom pb-2">Recent Activity</h2>
-                    
+            <div class="row mt-4" id="giveBadgesSection">
+                <section
+                    class="activity-sidebar p-4 border-end bg-white col-12 col-md-3 d-flex flex-column shadow-sm rounded-3">
+                    <h2 class="h6 fw-bold text-dark mb-4 text-uppercase tracking-sm border-bottom pb-2">Recent Activity
+                    </h2>
+
                     <div class="timeline-stream d-flex flex-column gap-4 position-relative" id="activityTimeline">
                         <div class="timeline-item d-flex gap-3 align-items-start position-relative">
-                            <div class="badge-icon-status flex-shrink-0 bg-success text-white rounded-circle d-flex align-items-center justify-content-center">
+                            <div
+                                class="badge-icon-status flex-shrink-0 bg-success text-white rounded-circle d-flex align-items-center justify-content-center">
                                 <i class="bi bi-hand-thumbs-up-fill micro-text"></i>
                             </div>
                             <div>
-                                <p class="m-0 text-sm text-dark"><strong>Sofia Cruz:</strong> Awarded "Active Student" badge</p>
-                                <span class="micro-text text-muted">Time 18, 2026</span>
+                                <p class="m-0 text-sm text-dark"><strong>Sofia Cruz:</strong> Awarded "Active Student"
+                                    badge</p>
+                                <span class="micro-text text-muted">Just now</span>
                             </div>
                         </div>
                         <div class="timeline-item d-flex gap-3 align-items-start position-relative">
-                            <div class="badge-icon-status flex-shrink-0 bg-warning text-white rounded-circle d-flex align-items-center justify-content-center">
+                            <div
+                                class="badge-icon-status flex-shrink-0 bg-warning text-white rounded-circle d-flex align-items-center justify-content-center">
                                 <i class="bi bi-award-fill micro-text"></i>
                             </div>
                             <div>
-                                <p class="m-0 text-sm text-dark"><strong>Sofia Cruz:</strong> Awarded "Top Scorer" badge</p>
-                                <span class="micro-text text-muted">Time 18, 2026</span>
-                            </div>
-                        </div>
-                        <div class="timeline-item d-flex gap-3 align-items-start position-relative">
-                            <div class="badge-icon-status flex-shrink-0 bg-success text-white rounded-circle d-flex align-items-center justify-content-center">
-                                <i class="bi bi-hand-thumbs-up-fill micro-text"></i>
-                            </div>
-                            <div>
-                                <p class="m-0 text-sm text-dark"><strong>Sofia Cruz:</strong> Awarded "Most Active" badge</p>
-                                <span class="micro-text text-muted">Time 18, 2026</span>
+                                <p class="m-0 text-sm text-dark"><strong>Juan Dela Cruz:</strong> Awarded "Top Scorer"
+                                    badge</p>
+                                <span class="micro-text text-muted">2 hours ago</span>
                             </div>
                         </div>
                     </div>
                 </section>
-    
-                <section class="workspace-panel p-4 flex-grow-1 col-12 col-md-9 d-flex flex-column justify-content-between bg-white shadow-sm rounded-3">
-                    
+
+                <section
+                    class="workspace-panel p-4 flex-grow-1 col-12 col-md-9 d-flex flex-column justify-content-between bg-white shadow-sm rounded-3">
+
                     <div class="form-content-area">
-                        <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                        <div
+                            class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom flex-wrap gap-2">
                             <h2 class="h5 fw-bold m-0 text-dark">Award Student with Badges</h2>
+                            <button type="button"
+                                class="btn btn-outline-danger btn-sm rounded-pill fw-semibold px-3 d-inline-flex align-items-center gap-1.5 shadow-sm"
+                                id="btnOpenTeacherResetModal" data-bs-toggle="modal"
+                                data-bs-target="#teacherResetBadgesModal">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset Term Badges
+                            </button>
                         </div>
-    
+
                         <div class="mb-4">
-                            <label for="studentSelectBadge" class="form-label text-muted text-sm fw-medium mb-2">Select Student</label>
+                            <label for="studentSelectBadge" class="form-label text-muted text-sm fw-medium mb-2">Select
+                                Student</label>
                             <select class="form-select shadow-sm rounded-3" id="studentSelectBadge">
                                 <option value="Juan Dela Cruz" selected>Juan Dela Cruz</option>
                                 <option value="Maria Santos">Maria Santos</option>
@@ -184,181 +272,673 @@
                                 <option value="Ana Reyes">Ana Reyes</option>
                             </select>
                         </div>
-    
+
                         <div class="mb-4">
                             <h3 class="h6 fw-bold text-dark mb-3">Available Badges</h3>
-                            
+
                             <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-3" id="badgesSelectionGrid">
                                 <p class="text-muted"><i>Loading badges...</i></p>
-                                </div>
+                            </div>
                         </div>
                     </div>
-    
+
                     <div class="d-flex justify-content-end align-items-center gap-3 pt-3 border-top mt-4 flex-wrap">
-                        <button type="button" class="btn btn-secondary px-5 py-2.5 fw-semibold shadow-sm" id="btnCancelAction">
+                        <button type="button" class="btn btn-secondary px-5 py-2.5 fw-semibold shadow-sm"
+                            id="btnCancelAction">
                             Cancel
                         </button>
-                        <button type="button" class="btn btn-success px-5 py-2.5 fw-semibold shadow-sm" id="btnAwardBadges">
+                        <button type="button" class="btn btn-success px-5 py-2.5 fw-semibold shadow-sm"
+                            id="btnAwardBadges">
                             Award Badge(s)
                         </button>
                     </div>
-    
+
                 </section>
             </div>
 
             <!-- Enter Grades Content -->
-            <section id="enterGradesSection" class="card border-0 rounded-3 p-4 shadow-sm bg-white mt-5">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 pb-2 border-bottom">
+            <section id="enterGradesSection" class="card border-0 rounded-3 p-4 shadow-sm bg-white mt-4">
+                <div
+                    class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 pb-2 border-bottom">
                     <div>
-                        <h3 class="h4 fw-bold m-0 text-dark">Enter Grades</h3>
-                        <p class="m-0 micro-text text-secondary mt-1">Select a subject and enter the grades for each student.</p>
+                        <div class="d-flex align-items-center gap-2">
+                            <h3 class="h4 fw-bold m-0 text-dark">Enter Grades</h3>
+                            <span
+                                class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2.5 py-1"
+                                id="badgeEcrSyncStatus">
+                                <i class="bi bi-check-circle-fill me-1"></i> ECR Synced
+                            </span>
+                        </div>
+                        <p class="m-0 micro-text text-secondary mt-1">Select a subject and enter or synchronize student
+                            scores directly from DepEd E-Class Records.</p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
-                        <select class="form-select form-select-sm grade-filter-dropdown" id="gradeSectionSelect" aria-label="Section select"></select>
-                        <select class="form-select form-select-sm grade-filter-dropdown" id="gradeTermSelect" aria-label="Term select">
-                            <option>1st Semester</option>
-                            <option>2nd Semester</option>
+                        <select class="form-select form-select-sm grade-filter-dropdown" id="encodeSectionFilter"
+                            aria-label="Section select">
+                            <option value="Medical Sciences" selected>Medical Sciences</option>
+                            <option value="Arts & Social Sciences 1">Arts & Social Sciences 1</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Sigma Technocrats">Sigma Technocrats</option>
                         </select>
-                        <select class="form-select form-select-sm grade-filter-dropdown" id="gradeSubjectSelect" aria-label="Subject select"></select>
+                        <select class="form-select form-select-sm grade-filter-dropdown" id="encodeTermFilter"
+                            aria-label="Term select">
+                            <option value="t1" selected>1st Term</option>
+                            <option value="t2">2nd Term</option>
+                            <option value="t3">3rd Term</option>
+                        </select>
+                        <select class="form-select form-select-sm grade-filter-dropdown" id="encodeSubjectFilter"
+                            aria-label="Subject select">
+                            <option value="core" selected>Core Subject (General Mathematics)</option>
+                            <option value="effective_comm">Effective Communication</option>
+                            <option value="academic_elective">Academic Elective</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="table align-middle m-0 text-sm encode-matrix-table text-center text-md-start">
-                        <thead>
-                            <tr class="table-header-row text-white text-center">
-                                <th class="px-3 py-2.5 text-start">Student ID</th>
-                                <th class="px-3 py-2.5 text-start">Name</th>
-                                <th class="px-2 py-2.5" style="max-width: 90px;">Quiz (30%)<br><span class="micro-text opacity-75">/30</span></th>
-                                <th class="px-2 py-2.5" style="max-width: 90px;">Activity (20%)<br><span class="micro-text opacity-75">/20</span></th>
-                                <th class="px-2 py-2.5" style="max-width: 90px;">Exam (50%)<br><span class="micro-text opacity-75">/50</span></th>
-                                <th class="px-2 py-2.5" style="max-width: 80px;">Average<br><span class="micro-text opacity-75">/100</span></th>
-                                <th class="px-3 py-2.5">Remarks</th>
-                                <th class="px-3 py-2.5 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="gradeEncodingEntriesBody">
-                            </tbody>
-                    </table>
+                <!-- Navigation Tabs for Grade Matrix & Dedicated Component Tables (Full Width & Bottom Weight Badge) -->
+                <div class="mb-3 border-bottom pb-3">
+                    <ul class="nav nav-pills nav-justified grade-component-tabs gap-2 w-100 mb-2" id="gradeMatrixTabs"
+                        role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link grade-tab-pill active fw-bold py-2.5 px-2 rounded-3 text-nowrap d-flex align-items-center justify-content-center gap-1.5 w-100"
+                                id="tab-summary-btn" data-bs-toggle="pill" data-bs-target="#pane-grades-summary"
+                                type="button" role="tab" aria-selected="true">
+                                <i class="bi bi-grid-3x3-gap-fill text-success"></i> Summary & Final Grades
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link grade-tab-pill fw-bold py-2.5 px-2 rounded-3 text-nowrap d-flex align-items-center justify-content-center gap-1.5 w-100"
+                                id="tab-ww-btn" data-bs-toggle="pill" data-bs-target="#pane-grades-ww" type="button"
+                                role="tab" aria-selected="false">
+                                <i class="bi bi-pencil-square text-primary"></i> Written Works (<span
+                                    class="tab-ww-weight-label">20%</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link grade-tab-pill fw-bold py-2.5 px-2 rounded-3 text-nowrap d-flex align-items-center justify-content-center gap-1.5 w-100"
+                                id="tab-pt-btn" data-bs-toggle="pill" data-bs-target="#pane-grades-pt" type="button"
+                                role="tab" aria-selected="false">
+                                <i class="bi bi-palette-fill text-warning"></i> Performance Tasks (<span
+                                    class="tab-pt-weight-label">50%</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link grade-tab-pill fw-bold py-2.5 px-2 rounded-3 text-nowrap d-flex align-items-center justify-content-center gap-1.5 w-100"
+                                id="tab-qa-btn" data-bs-toggle="pill" data-bs-target="#pane-grades-qa" type="button"
+                                role="tab" aria-selected="false">
+                                <i class="bi bi-file-earmark-check-fill text-info"></i> Summative & Exams (<span
+                                    class="tab-qa-weight-label">30%</span>)
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Active Category Weight Policy Summary (Positioned at Bottom of Buttons) -->
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-1"
+                        id="activeCategoryBadgeContainer">
+                        <span
+                            class="badge bg-light text-dark border px-3 py-1.5 rounded-pill small fw-semibold text-nowrap"
+                            id="activeCategoryWeightSummary">
+                            <i class="bi bi-info-circle text-primary me-1"></i> Core Subject (WW 20% • PT 50% • QA 30%)
+                        </span>
+                        <span class="micro-text text-muted">
+                            <i class="bi bi-shield-check text-success me-1"></i> Auto-synced with DepEd Grading Weights
+                            Policy
+                        </span>
+                    </div>
                 </div>
 
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 border-top pt-3">
-                    <button type="button" class="btn btn-encode-excel fw-bold d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm" id="btnSaveGrades">
-                        <i class="bi bi-save-fill fs-5"></i> Save Grades
-                    </button>
-                    <div class="d-flex gap-2 w-100 w-sm-auto justify-content-end">
-                        <button type="button" class="btn btn-outline-secondary px-4 fw-semibold border-secondary-subtle">Cancel</button>
-                        <div class="input-group shadow-sm auto-width border rounded-2 px-3 bg-white d-flex align-items-center" style="max-width: 175px;">
-                            <div class="form-check d-flex align-items-center gap-2 m-0 py-2">
-                                <input class="form-check-input mt-0" type="checkbox" id="checkSaveAllGrades" checked>
-                                <label class="form-check-label small fw-semibold text-primary user-select-none" for="checkSaveAllGrades" style="font-size:0.82rem;">
-                                    Save All Grades
-                                </label>
+                <!-- Tab Panes Containing Dedicated Tables -->
+                <div class="tab-content" id="gradeMatrixTabContent">
+                    <!-- 1. SUMMARY MATRIX TABLE -->
+                    <div class="tab-pane fade show active" id="pane-grades-summary" role="tabpanel">
+                        <div
+                            class="alert alert-light border d-flex align-items-center justify-content-between p-2.5 mb-3 rounded-3 small">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-calculator-fill text-success fs-5"></i>
+                                <span><strong>Transmuted DepEd Summary:</strong> Scores entered here or in the breakdown
+                                    tabs live-calculate Weighted Scores (WS) and Initial/Transmuted Grades per DepEd DO
+                                    15.</span>
                             </div>
                         </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle m-0 text-sm encode-matrix-table text-center text-md-start">
+                                <thead>
+                                    <tr class="table-header-row text-white text-center">
+                                        <th class="px-3 py-2.5 text-start">Student ID</th>
+                                        <th class="px-3 py-2.5 text-start">Learner's Name</th>
+                                        <th class="px-2 py-2.5" style="max-width: 110px;" id="thWrittenWorks">Written
+                                            Works (20%)<br><span class="micro-text opacity-75"
+                                                id="thWrittenWorksMax">/20</span></th>
+                                        <th class="px-2 py-2.5" style="max-width: 110px;" id="thPerfTasks">Perf. Tasks
+                                            (50%)<br><span class="micro-text opacity-75" id="thPerfTasksMax">/50</span>
+                                        </th>
+                                        <th class="px-2 py-2.5" style="max-width: 110px;" id="thQuarterlyExam">
+                                            Summative/Exam (30%)<br><span class="micro-text opacity-75"
+                                                id="thQuarterlyExamMax">/30</span></th>
+                                        <th class="px-2 py-2.5" style="max-width: 90px;">Transmuted<br><span
+                                                class="micro-text opacity-75">DepEd DO 15</span></th>
+                                        <th class="px-2 py-2.5" style="max-width: 90px;"
+                                            title="General Weighted Average across all enrolled subjects">
+                                            Overall<br><span class="micro-text opacity-75">GWA</span></th>
+                                        <th class="px-3 py-2.5">Remarks</th>
+                                        <th class="px-3 py-2.5 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gradeEncodingEntriesBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 2. WRITTEN WORKS TABLE -->
+                    <div class="tab-pane fade" id="pane-grades-ww" role="tabpanel">
+                        <div
+                            class="d-flex justify-content-between align-items-center component-header-banner mb-3 flex-wrap gap-2">
+                            <div>
+                                <h5 class="fw-bold text-dark m-0 d-inline-flex align-items-center gap-2">
+                                    <i class="bi bi-pencil-square text-primary"></i> Written Works Table
+                                    <span
+                                        class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small tab-ww-weight-label">20%
+                                        Weight</span>
+                                </h5>
+                                <p class="text-secondary micro-text m-0 mt-0.5">Input raw scores for quizzes and written
+                                    activities. Total, Percentage Score (PS %), and Weighted Score (WS) compute live.
+                                </p>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-primary fw-semibold rounded-pill px-3 shadow-xs"
+                                    id="btnAddWwColumn">
+                                    <i class="bi bi-plus-circle-fill me-1"></i> Add Written Work
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle m-0 text-sm encode-matrix-table text-center text-md-start"
+                                id="tableWrittenWorks">
+                                <thead id="theadWrittenWorks">
+                                    </tbody>
+                                <tbody id="tbodyWrittenWorks">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 3. PERFORMANCE TASKS TABLE -->
+                    <div class="tab-pane fade" id="pane-grades-pt" role="tabpanel">
+                        <div
+                            class="d-flex justify-content-between align-items-center component-header-banner mb-3 flex-wrap gap-2">
+                            <div>
+                                <h5 class="fw-bold text-dark m-0 d-inline-flex align-items-center gap-2">
+                                    <i class="bi bi-palette-fill text-warning"></i> Performance Tasks Table
+                                    <span
+                                        class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill small tab-pt-weight-label">50%
+                                        Weight</span>
+                                </h5>
+                                <p class="text-secondary micro-text m-0 mt-0.5">Record performance outputs, laboratory
+                                    works, and projects with real-time DepEd percentage computation.</p>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-warning fw-semibold rounded-pill px-3 shadow-xs text-dark"
+                                    id="btnAddPtColumn">
+                                    <i class="bi bi-plus-circle-fill me-1 text-warning"></i> Add Performance Task
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle m-0 text-sm encode-matrix-table text-center text-md-start"
+                                id="tablePerformanceTasks">
+                                <thead id="theadPerformanceTasks">
+                                    </tbody>
+                                <tbody id="tbodyPerformanceTasks">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 4. SUMMATIVE TESTS & TERM EXAM TABLE -->
+                    <div class="tab-pane fade" id="pane-grades-qa" role="tabpanel">
+                        <div
+                            class="d-flex justify-content-between align-items-center component-header-banner mb-3 flex-wrap gap-2">
+                            <div>
+                                <h5 class="fw-bold text-dark m-0 d-inline-flex align-items-center gap-2">
+                                    <i class="bi bi-file-earmark-check-fill text-info"></i> Summative Assessments & Term
+                                    Examination Table
+                                    <span
+                                        class="badge bg-info-subtle text-info border border-info-subtle rounded-pill small tab-qa-weight-label">30%
+                                        Weight</span>
+                                </h5>
+                                <p class="text-secondary micro-text m-0 mt-0.5">Includes 1st Summative Test, 2nd
+                                    Summative Test, and Term Examination per DepEd guidelines.</p>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-info fw-semibold rounded-pill px-3 shadow-xs text-dark"
+                                    id="btnAddQaColumn">
+                                    <i class="bi bi-plus-circle-fill me-1 text-info"></i> Add Summative Test
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle m-0 text-sm encode-matrix-table text-center text-md-start"
+                                id="tableQuarterlyExams">
+                                <thead id="theadQuarterlyExams">
+                                    </tbody>
+                                <tbody id="tbodyQuarterlyExams">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 border-top pt-3 flex-wrap">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button"
+                            class="btn btn-outline-success fw-bold d-inline-flex align-items-center gap-2 px-3 py-2 shadow-sm"
+                            data-bs-toggle="modal" data-bs-target="#modalUploadECR">
+                            <i class="bi bi-cloud-arrow-up-fill fs-5"></i> Upload / Sync ECR (.xlsm)
+                        </button>
+                        <a href="/api/grades/template?format=xlsm" download="ASSH 11 - 2-e-CLASS-RECORD.xlsm"
+                            class="btn btn-light border fw-semibold d-inline-flex align-items-center gap-2 px-3 py-2 text-secondary text-decoration-none shadow-xs"
+                            title="Download official DepEd blank template">
+                            <i class="bi bi-download"></i> Blank Template (.xlsm)
+                        </a>
+                    </div>
+                    <div class="d-flex gap-2 w-100 w-sm-auto justify-content-end align-items-center flex-wrap">
+                        <button type="button"
+                            class="btn btn-outline-secondary px-3 py-2 fw-semibold border-secondary-subtle"
+                            id="btnResetGrades">Reset</button>
+                        <button type="button"
+                            class="btn btn-success px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            id="btnSaveAllGradesNow">
+                            <i class="bi bi-floppy-fill"></i> Save All Grades
+                        </button>
                     </div>
                 </div>
             </section>
         </main>
     </div>
-    
-    
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- =========================================================================
+         MODAL 1: Upload E-Class Record (.xlsx / .xlsm / Google Sheets)
+         ========================================================================= -->
+    <div class="modal fade" id="modalUploadECR" tabindex="-1" aria-labelledby="modalUploadECRLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
+                <div class="modal-header bg-success text-white py-3 px-4">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <div class="bg-white text-success rounded-circle p-2 d-flex align-items-center justify-content-center"
+                            style="width: 38px; height: 38px;">
+                            <i class="bi bi-file-earmark-spreadsheet-fill fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold m-0" id="modalUploadECRLabel">Upload DepEd E-Class Record
+                            </h5>
+                            <p class="micro-text text-white-50 m-0">Synchronize student roster, component scores, and
+                                transmuted grades</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <!-- Nav Tabs -->
+                    <ul class="nav nav-pills nav-fill mb-3 p-1 bg-light rounded-2" id="uploadTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-sm" id="tab-file-upload" data-bs-toggle="pill"
+                                data-bs-target="#content-file-upload" type="button" role="tab">
+                                <i class="bi bi-file-earmark-arrow-up-fill me-1"></i> Upload Excel File (.xlsm / .xlsx)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-sm" id="tab-google-sheets" data-bs-toggle="pill"
+                                data-bs-target="#content-google-sheets" type="button" role="tab">
+                                <i class="bi bi-google me-1"></i> Google Sheets / Cloud Link
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="uploadTabContent">
+                        <!-- Tab 1: File Upload -->
+                        <div class="tab-pane fade show active" id="content-file-upload" role="tabpanel">
+                            <div class="ecr-dropzone" id="ecrDropzone">
+                                <div class="ecr-dropzone-icon">
+                                    <i class="bi bi-cloud-arrow-up-fill"></i>
+                                </div>
+                                <h6 class="fw-bold text-dark mb-1">Drag and drop your DepEd E-Class Record here</h6>
+                                <p class="small text-muted mb-3">Supports official DepEd formats: <strong>.xlsm, .xlsx,
+                                        .xls</strong></p>
+                                <button type="button" class="btn btn-outline-success px-4 py-2 fw-bold"
+                                    id="btnBrowseFile">
+                                    <i class="bi bi-folder2-open me-1"></i> Browse Files on Computer
+                                </button>
+                                <input type="file" id="ecrFileInput" accept=".xlsm,.xlsx,.xls" class="d-none">
+                            </div>
+
+                            <div
+                                class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="micro-text text-muted">Need sample file?</span>
+                                    <button type="button"
+                                        class="btn btn-sm btn-light border fw-semibold text-success micro-text"
+                                        id="btnLoadSampleXlsm">
+                                        <i class="bi bi-lightning-charge-fill me-1"></i> Load ASSH 11 - 2 ECR Sample
+                                    </button>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="/api/grades/template?format=xlsm"
+                                        download="ASSH 11 - 2-e-CLASS-RECORD.xlsm"
+                                        class="btn btn-sm btn-outline-success micro-text text-decoration-none fw-semibold">
+                                        <i class="bi bi-download me-1"></i> Download Blank Template (.xlsm)
+                                    </a>
+                                    <a href="/api/grades/template?format=xlsx"
+                                        download="ASSH 11 - 2-e-CLASS-RECORD.xlsx"
+                                        class="btn btn-sm btn-light border micro-text text-secondary text-decoration-none fw-semibold">
+                                        .xlsx
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Google Sheets Link -->
+                        <div class="tab-pane fade" id="content-google-sheets" role="tabpanel">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <label class="form-label fw-bold text-dark text-sm mb-1">
+                                    <i class="bi bi-link-45deg me-1"></i> Google Sheets Shareable URL
+                                </label>
+                                <p class="micro-text text-muted mb-2">Paste the link to your online DepEd E-Class Record
+                                    Google Sheet (ensure link sharing is set to "Anyone with the link can view").</p>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white text-muted"><i
+                                            class="bi bi-globe"></i></span>
+                                    <input type="url" class="form-control" id="googleSheetsUrlInput"
+                                        placeholder="https://docs.google.com/spreadsheets/d/...">
+                                    <button class="btn btn-success fw-bold px-3" type="button"
+                                        id="btnFetchGoogleSheets">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Fetch & Sync
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="alert alert-info py-2 px-3 micro-text m-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-info-circle-fill fs-6"></i>
+                                <span>Tip: Any edits made on your online Google Sheet will be automatically mapped to
+                                    student scores and transmuted grades upon syncing.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light py-2.5 px-4 border-top">
+                    <button type="button" class="btn btn-secondary px-4 fw-semibold"
+                        data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         MODAL 2: ECR Verification & Context Validation Preview
+         ========================================================================= -->
+    <div class="modal fade" id="modalECRValidation" tabindex="-1" aria-labelledby="modalECRValidationLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
+                <div class="modal-header bg-dark text-white py-3 px-4">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <div class="bg-success text-white rounded-circle p-2 d-flex align-items-center justify-content-center"
+                            style="width: 38px; height: 38px;">
+                            <i class="bi bi-shield-check fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold m-0" id="modalECRValidationLabel">Verify & Match E-Class
+                                Record</h5>
+                            <p class="micro-text text-white-50 m-0">Confirm classroom metadata and student grade updates
+                                before applying</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <!-- Context Validation Card -->
+                    <div class="validation-card mb-4">
+                        <div
+                            class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 border-bottom pb-2">
+                            <span class="fw-bold text-dark text-sm"><i
+                                    class="bi bi-file-earmark-text-fill me-1 text-success"></i> Detected File
+                                Metadata</span>
+                            <div id="validationStatusBadge">
+                                <!-- Status Badge Rendered dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-6 col-md-4">
+                                <div class="validation-meta-item">
+                                    <div class="validation-meta-label">Grade Level & Section</div>
+                                    <div class="validation-meta-val text-primary" id="valGradeSection">Grade 11 - ASSH
+                                        11 - 2</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <div class="validation-meta-item">
+                                    <div class="validation-meta-label">Strand / Track</div>
+                                    <div class="validation-meta-val" id="valStrandTrack">Arts and Social Sciences</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <div class="validation-meta-item">
+                                    <div class="validation-meta-label">Subject Teacher</div>
+                                    <div class="validation-meta-val" id="valTeacherName">Mr. M. Santos</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <div class="validation-meta-item">
+                                    <div class="validation-meta-label">Subject Area</div>
+                                    <div class="validation-meta-val" id="valSubjectArea">Core Subject (General
+                                        Mathematics)</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <div class="validation-meta-item">
+                                    <div class="validation-meta-label">School Year & Term</div>
+                                    <div class="validation-meta-val" id="valSchoolYear">SY 2026-2027 (1st Term)</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <div class="validation-meta-item">
+                                    <div class="validation-meta-label">Learners Detected</div>
+                                    <div class="validation-meta-val text-success" id="valLearnersCount">51 (40 M, 11 F)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Context Match Alert -->
+                    <div id="contextValidationNotice">
+                        <!-- Rendered dynamically -->
+                    </div>
+
+                    <!-- Learner Sample Preview Table -->
+                    <div class="border rounded-3 overflow-hidden mb-2">
+                        <div class="bg-light px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-dark text-sm"><i class="bi bi-people me-1"></i> Learner Records
+                                Preview (First 5 Students)</span>
+                            <span class="micro-text text-muted" id="valPreviewTotalText">Showing 5 of 51 records</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table validation-preview-table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>No.</th>
+                                        <th>Learner Name</th>
+                                        <th class="text-center">WW (20%)</th>
+                                        <th class="text-center">PT (50%)</th>
+                                        <th class="text-center">QA (30%)</th>
+                                        <th class="text-center">Transmuted Grade</th>
+                                        <th class="text-center">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="valPreviewTableBody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light py-3 px-4 border-top d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary px-4 fw-semibold"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="button"
+                        class="btn btn-success px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-2"
+                        id="btnConfirmApplyECR">
+                        <i class="bi bi-check2-circle fs-5"></i> Confirm & Synchronize to Mentorae
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teacher Reset Term Badges Modal -->
+    <div class="modal fade" id="teacherResetBadgesModal" tabindex="-1" aria-labelledby="teacherResetBadgesModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header bg-danger text-white py-3 px-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                        <h5 class="modal-title fw-bold fs-6 m-0" id="teacherResetBadgesModalLabel">Reset Term Badges &
+                            Points</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-dark fw-bold mb-1">Starting a New Academic Term?</p>
+                    <p class="text-muted text-sm mb-3">Resetting will archive existing badge accomplishments and
+                        re-initialize student badge counts to zero (0) for the new term.</p>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark fw-bold text-sm mb-1">Reset Scope:</label>
+                        <select class="form-select shadow-sm rounded-3" id="teacherResetScopeSelect">
+                            <option value="selected" selected>Reset Selected Student Only (<span
+                                    id="resetScopeStudentName">Juan Dela Cruz</span>)</option>
+                            <option value="section">Reset Entire Class Section (Grade 12 - STEM Sigma Technocrats)
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="chkTeacherArchiveBadges" checked>
+                        <label class="form-check-label text-dark small fw-semibold" for="chkTeacherArchiveBadges">
+                            Archive badge records before resetting (Recommended)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2.5 px-4 justify-content-between">
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-danger rounded-pill px-4 fw-bold shadow-sm"
+                        id="btnConfirmTeacherResetBadges">
+                        <i class="bi bi-arrow-repeat me-1"></i> Confirm & Reset for New Term
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Profile Details Modal -->
+    <div class="modal fade" id="studentRosterProfileModal" tabindex="-1"
+        aria-labelledby="studentRosterProfileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+                <div class="modal-header bg-success text-white py-3 px-4 border-0">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="position-relative" style="cursor: pointer;" id="modalStudentAvatarTrigger"
+                            title="Click to upload/change official school ID photo">
+                            <div class="rounded-circle bg-white text-success d-flex align-items-center justify-content-center fw-bold fs-4 overflow-hidden border border-2 border-white shadow-sm"
+                                style="width: 52px; height: 52px;" id="modalStudentAvatar">
+                                <i class="bi bi-person-fill" id="modalStudentAvatarIcon"></i>
+                                <img id="modalStudentAvatarImg" class="d-none w-100 h-100 object-fit-cover"
+                                    alt="Student photo">
+                            </div>
+                            <span
+                                class="position-absolute bottom-0 end-0 bg-dark text-white rounded-circle d-flex align-items-center justify-content-center shadow-xs"
+                                style="width: 20px; height: 20px; font-size: 10px;" title="Upload School ID Photo">
+                                <i class="bi bi-camera-fill"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white m-0" id="modalStudentName">—</h5>
+                            <span class="micro-text text-white-50" id="modalStudentId">ID: —</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="card border-0 shadow-sm p-3 mb-3 bg-white rounded-3">
+                        <h6 class="fw-bold text-dark micro-text text-uppercase mb-2">Academic & Attendance Summary</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <span class="text-muted tiny-text d-block">Current Grade</span>
+                                <span class="fw-bold fs-5" id="modalStudentGrade">—</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted tiny-text d-block">Attendance Rate</span>
+                                <span class="fw-bold fs-5 text-dark" id="modalStudentAttendance">—</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted tiny-text d-block">Today's Status</span>
+                                <span id="modalStudentStatus">—</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted tiny-text d-block">Section</span>
+                                <span class="fw-semibold text-dark small" id="modalStudentSection">—</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card border-0 shadow-sm p-3 bg-white rounded-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-dark micro-text text-uppercase m-0">Student Badges</h6>
+                            <span class="badge bg-success-subtle text-success small" id="modalStudentBadgeCount">0
+                                Badges</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1.5" id="modalStudentBadges">
+                            <span class="text-muted small">Loading badges…</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-0 py-2.5 px-4 d-flex justify-content-between">
+                    <input type="file" id="modalStudentPhotoInput" accept="image/png,image/jpeg,image/webp"
+                        class="d-none">
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
+                        id="modalUploadIdPhotoBtn">
+                        <i class="bi bi-camera-fill me-1.5"></i>Update Official ID Photo
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle JS & Main Logic -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../avatar_cropper.js"></script>
     <script src="class_management_teacher.js"></script>
-    <script>
-        // This script's content was moved from view_encode_grade.js to make this page self-contained.
-        document.addEventListener('DOMContentLoaded', () => {
-
-            // Mock student data for grade encoding
-            const gradeStudentDatabase = [
-                { id: "2024-12345", name: "Juan Dela Cruz" },
-                { id: "2024-12346", name: "Maria Santos" },
-                { id: "2024-12347", name: "Pedro Garcia" },
-                { id: "2024-12348", name: "Ana Reyes" },
-                { id: "2024-12349", name: "Carlos Torres" },
-                { id: "2024-12340", name: "Sofia Cruz" },
-                { id: "2024-12351", name: "Miguel Ramos" },
-                { id: "2024-12352", name: "Isabella Flores" }
-            ];
-
-            const gradeTableBody = document.getElementById('gradeEncodingEntriesBody');
-
-            function calculateAverage(quiz, activity, exam) {
-                const q = parseFloat(quiz) || 0;
-                const a = parseFloat(activity) || 0;
-                const e = parseFloat(exam) || 0;
-                
-                const totalScore = q + a + e;
-                
-                return Math.round(totalScore);
-            }
-
-            function getRemarks(average) {
-                if (average >= 90) return { text: 'Outstanding', class: 'txt-outstanding' };
-                if (average >= 85) return { text: 'Very Satisfactory', class: 'txt-verysatisfactory' };
-                if (average >= 80) return { text: 'Satisfactory', class: 'txt-satisfactory' };
-                if (average >= 75) return { text: 'Fairly Satisfactory', class: 'txt-satisfactory' };
-                return { text: 'Did Not Meet Expectations', class: 'txt-dnme' };
-            }
-
-            function renderGradeSheet(records) {
-                if (!gradeTableBody) return;
-                gradeTableBody.innerHTML = '';
-
-                records.forEach(student => {
-                    const row = document.createElement('tr');
-                    row.setAttribute('data-student-id', student.id);
-                    
-                    row.innerHTML = `
-                        <td class="px-3 py-2.5 text-start text-secondary tracking-sm">${student.id}</td>
-                        <td class="px-3 py-2.5 text-start text-dark fw-medium">${student.name}</td>
-                        <td class="px-2 py-2.5 text-center"><input type="number" class="form-control grade-input-cell quiz-grade" min="0" max="30"></td>
-                        <td class="px-2 py-2.5 text-center"><input type="number" class="form-control grade-input-cell activity-grade" min="0" max="20"></td>
-                        <td class="px-2 py-2.5 text-center"><input type="number" class="form-control grade-input-cell exam-grade" min="0" max="50"></td>
-                        <td class="px-2 py-2.5 text-center"><div class="computed-avg-cell-box average-grade">0</div></td>
-                        <td class="px-3 py-2.5 remark-matrix-pill remarks-text"></td>
-                        <td class="px-3 py-2.5 text-center">
-                            <button class="btn btn-link p-0 fs-5 save-record-floppy-btn" title="Save Record">
-                                <i class="bi bi-floppy-fill"></i>
-                            </button>
-                        </td>
-                    `;
-                    gradeTableBody.appendChild(row);
-                });
-            }
-
-            function addRowEventListeners() {
-                if (!gradeTableBody) return;
-
-                gradeTableBody.addEventListener('input', (e) => {
-                    if (e.target.classList.contains('grade-input-cell')) {
-                        const row = e.target.closest('tr');
-                        const quizInput = row.querySelector('.quiz-grade').value;
-                        const activityInput = row.querySelector('.activity-grade').value;
-                        const examInput = row.querySelector('.exam-grade').value;
-
-                        const average = calculateAverage(quizInput, activityInput, examInput);
-                        
-                        const averageCell = row.querySelector('.average-grade');
-                        averageCell.textContent = average;
-
-                        const remarks = getRemarks(average);
-                        const remarksCell = row.querySelector('.remarks-text');
-                        remarksCell.textContent = remarks.text;
-                        remarksCell.className = 'px-3 py-2.5 remark-matrix-pill remarks-text ' + remarks.class;
-                    }
-                });
-            }
-
-            // Initialize grade encoding section if it exists on the page
-            if (gradeTableBody) {
-                renderGradeSheet(gradeStudentDatabase);
-                addRowEventListeners();
-            }
-        });
-    </script>
 </body>
+
 </html>

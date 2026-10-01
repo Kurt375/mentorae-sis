@@ -32,10 +32,20 @@
         </header>
 
         <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
-            <div class="d-flex justify-content-end mb-3">
-                <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#subjectModal" id="addSubjectBtn">
-                    <i class="bi bi-plus-circle-fill me-2"></i>Create New Subject
-                </button>
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success-subtle text-success border px-3 py-2 fs-6">
+                        <i class="bi bi-shield-check me-1"></i> Admin Grading Weights & Category Control
+                    </span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-success fw-bold d-flex align-items-center gap-2 shadow-xs" id="btnManageGradingWeights" data-bs-toggle="modal" data-bs-target="#gradingWeightsModal">
+                        <i class="bi bi-sliders2 fs-6"></i> Grading Weights Policy
+                    </button>
+                    <button class="btn btn-success fw-bold d-flex align-items-center gap-2 shadow-xs" data-bs-toggle="modal" data-bs-target="#subjectModal" id="addSubjectBtn">
+                        <i class="bi bi-plus-circle-fill"></i> Create New Subject
+                    </button>
+                </div>
             </div>
 
             <div class="mb-3">
@@ -64,10 +74,10 @@
                 </div>
                 <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border">
                     <select class="form-select border-0 py-2" id="quarterFilter">
-                        <option value="All">All Quarters</option>
-                        <option value="1">1st Quarter</option>
-                        <option value="2">2nd Quarter</option>
-                        <option value="3">3rd Quarter</option>
+                        <option value="All">All Terms</option>
+                        <option value="1">1st Term</option>
+                        <option value="2">2nd Term</option>
+                        <option value="3">3rd Term</option>
                     </select>
                 </div>
                  <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border">
@@ -86,8 +96,9 @@
                                 <th class="p-3">Code</th>
                                 <th class="p-3">Category</th>
                                 <th class="p-3">Grade</th>
-                                <th class="p-3">Quarter</th>
-                                <th class="p-3">Strand/Section</th>
+                                <th class="p-3">Term</th>
+                                <th class="p-3">Section</th>
+                                <th class="p-3">Strand</th>
                                 <th class="p-3 text-end">Actions</th>
                             </tr>
                         </thead>
@@ -100,7 +111,7 @@
     </div>
 
     <!-- Subject Modal (for Add/Edit) -->
-    <div class="modal fade" id="subjectModal" tabindex="-1" aria-labelledby="subjectModalLabel" aria-hidden="true">
+    <div class="modal fade" id="subjectModal" tabindex="-1" aria-labelledby="subjectModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -140,30 +151,31 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label for="subjectQuarter" class="form-label">Quarter</label>
+                                <label for="subjectQuarter" class="form-label">Term</label>
                                 <select id="subjectQuarter" class="form-select" required>
-                                    <option value="1">1st Quarter</option>
-                                    <option value="2">2nd Quarter</option>
-                                    <option value="3">3rd Quarter</option>
+                                    <option value="0">All Terms</option>
+                                    <option value="1">1st Term</option>
+                                    <option value="2">2nd Term</option>
+                                    <option value="3">3rd Term</option>
                                 </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="subjectStrandSection" class="form-label">Strand/Section</label>
-                                <input type="text" class="form-control" id="subjectStrandSection" placeholder="E.g., STEM 11 - ENGINEERING" required>
                             </div>
                             <div class="col-md-6">
                                 <label for="subjectStrand" class="form-label">Strand</label>
                                 <select id="subjectStrand" class="form-select" required>
                                     <option value="Common">Common</option>
-                                    <option value="STEM">STEM</option>
-                                    <option value="HUMSS">HUMSS</option>
-                                    <option value="ABM">ABM</option>
                                     <option value="BAE">BAE</option>
                                     <option value="ASSH">ASSH</option>
-                                    <option value="SHAW">SHAW</option>
-                                    <option value="H&T">H&T</option>
+                                    <option value="STEM">STEM</option>
+                                    <option value="HUMSS">HUMSS</option>
                                     <option value="HE">HE</option>
-                                    <option value="ICT">ICT</option>
+                                    <option value="H&T">H&T</option>
+                                    <option value="ABM">ABM</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="subjectStrandSection" class="form-label">Section</label>
+                                <select class="form-select" id="subjectStrandSection" required>
+                                    <option value="All Sections">All Sections</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -175,6 +187,51 @@
                                     <option value="bg-card-purple">Purple</option>
                                     <option value="bg-card-red">Red</option>
                                 </select>
+                            </div>
+
+                            <!-- DepEd Grading Percentage Weights (Admin Controlled) -->
+                            <div class="col-12 mt-2">
+                                <div class="card border border-success-subtle bg-light p-3 rounded-3 shadow-xs">
+                                    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-percent fs-5 text-success"></i>
+                                            <h6 class="fw-bold text-dark m-0">Grading Component Weights (%)</h6>
+                                        </div>
+                                        <span class="badge bg-success" id="subjectWeightsSumBadge">Sum: 100% (Valid)</span>
+                                    </div>
+                                    <p class="text-muted micro-text mb-2">
+                                        Admin controls weights for DepEd transmuted computation. Sum must equal exactly 100%.
+                                    </p>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label for="subjectWwWeight" class="form-label small fw-semibold text-secondary mb-1">
+                                                Written Works (WW %)
+                                            </label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control fw-bold" id="subjectWwWeight" min="0" max="100" step="1" value="20" required>
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="subjectPtWeight" class="form-label small fw-semibold text-secondary mb-1">
+                                                Performance Tasks (PT %)
+                                            </label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control fw-bold" id="subjectPtWeight" min="0" max="100" step="1" value="50" required>
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="subjectQaWeight" class="form-label small fw-semibold text-secondary mb-1">
+                                                Quarterly Assessment (QA %)
+                                            </label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control fw-bold" id="subjectQaWeight" min="0" max="100" step="1" value="30" required>
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -255,7 +312,7 @@
     </div>
 
     <!-- Quiz Editor Modal (for staged topics) -->
-    <div class="modal fade" id="stagedQuizEditorModal" tabindex="-1" aria-labelledby="stagedQuizEditorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="stagedQuizEditorModal" tabindex="-1" aria-labelledby="stagedQuizEditorModalLabel" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -302,7 +359,7 @@
     </div>
 
     <!-- Flashcard Editor Modal (for staged topics) -->
-    <div class="modal fade" id="stagedFlashcardEditorModal" tabindex="-1" aria-labelledby="stagedFlashcardEditorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="stagedFlashcardEditorModal" tabindex="-1" aria-labelledby="stagedFlashcardEditorModalLabel" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -338,7 +395,7 @@
     </div>
 
     <!-- Topic Editor Modal -->
-    <div class="modal fade" id="topicEditorModal" tabindex="-1" aria-labelledby="topicEditorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="topicEditorModal" tabindex="-1" aria-labelledby="topicEditorModalLabel" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog">
         <div class="modal-content">
           <form id="topicEditorForm">
@@ -373,7 +430,8 @@
               </div>
               <!-- File upload section -->
               <div id="topicEditorFileContainer" class="mt-3 d-none">
-                  <label for="topicEditorFileInput" class="form-label text-sm fw-medium">Upload File</label>
+                  <div id="topicEditorCurrentFilesContainer" class="mb-2"></div>
+                  <label for="topicEditorFileInput" class="form-label text-sm fw-medium">Upload New File</label>
                   <input class="form-control form-control-sm" type="file" id="topicEditorFileInput">
               </div>
               <!-- Quiz management section -->
@@ -395,7 +453,7 @@
     </div>
 
     <!-- Existing Quiz Editor Modal -->
-    <div class="modal fade" id="existingQuizEditorModal" tabindex="-1" aria-labelledby="existingQuizEditorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="existingQuizEditorModal" tabindex="-1" aria-labelledby="existingQuizEditorModalLabel" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -442,7 +500,7 @@
     </div>
 
     <!-- Existing Flashcard Editor Modal -->
-    <div class="modal fade" id="existingFlashcardEditorModal" tabindex="-1" aria-labelledby="existingFlashcardEditorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="existingFlashcardEditorModal" tabindex="-1" aria-labelledby="existingFlashcardEditorModalLabel" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -478,7 +536,7 @@
     </div>
 
     <!-- Existing File Editor Modal -->
-    <div class="modal fade" id="existingFileEditorModal" tabindex="-1" aria-labelledby="existingFileEditorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="existingFileEditorModal" tabindex="-1" aria-labelledby="existingFileEditorModalLabel" aria-hidden="true" data-bs-backdrop="static">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -507,7 +565,79 @@
       </div>
     </div>
 
+    <!-- Modal: Manage Grading Weights Policy -->
+    <div class="modal fade" id="gradingWeightsModal" tabindex="-1" aria-labelledby="gradingWeightsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-success text-white py-3 px-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-sliders2 fs-4"></i>
+                        <div>
+                            <h5 class="modal-title fw-bold m-0" id="gradingWeightsModalLabel">Subject Categories & Grading Percentages</h5>
+                            <span class="micro-text text-white-50">DepEd Institutional Grading Weights Policy Configuration</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="alert alert-success bg-white border border-success-subtle py-2 px-3 small d-flex align-items-center gap-2 mb-3 rounded-3 shadow-xs">
+                        <i class="bi bi-shield-lock-fill fs-5 text-success"></i>
+                        <div>
+                            As the <strong>School Administrator</strong>, you have full control over subject categories and their percentage weights (Written Works, Performance Tasks, Quarterly Assessment).
+                        </div>
+                    </div>
+
+                    <div id="categoryWeightsContainer" class="d-flex flex-column gap-3 mb-3">
+                        <!-- Rendered dynamically by subject_management_admin.js -->
+                    </div>
+
+                    <div class="card border border-primary-subtle bg-white p-3 rounded-3 shadow-xs">
+                        <h6 class="fw-bold text-primary mb-2"><i class="bi bi-plus-circle me-1"></i> Add Custom Subject Category</h6>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-semibold">Category Name</label>
+                                <input type="text" class="form-control form-control-sm" id="newCategoryName" placeholder="e.g., Tech-Voc / TVL Track">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">WW %</label>
+                                <input type="number" class="form-control form-control-sm" id="newCategoryWw" value="20" min="0" max="100">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">PT %</label>
+                                <input type="number" class="form-control form-control-sm" id="newCategoryPt" value="60" min="0" max="100">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">QA %</label>
+                                <input type="number" class="form-control form-control-sm" id="newCategoryQa" value="20" min="0" max="100">
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-sm btn-primary w-100" id="btnAddCustomCategory" title="Add Category">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="chkApplyToAllExistingSubjects" checked>
+                        <label class="form-check-label small fw-semibold text-dark" for="chkApplyToAllExistingSubjects">
+                            Apply new percentage weights to all existing subjects in each respective category
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-0 py-2.5 px-4 justify-content-between">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success fw-bold rounded-pill px-4 shadow-sm" id="btnSaveCategoryWeightsPolicy">
+                        <i class="bi bi-floppy-fill me-1.5"></i> Save & Apply Policy
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="config.js"></script>
+    <script src="session.js"></script>
     <script src="subject_management_admin.js"></script>
 </body>
 </html>

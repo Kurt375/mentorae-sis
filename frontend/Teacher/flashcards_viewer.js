@@ -27,35 +27,88 @@ document.addEventListener('DOMContentLoaded', () => {
     let flashcards = [];
     let currentIndex = 0;
 
-    function loadData() {
+    async function loadData() {
         const storedSubjects = localStorage.getItem(SUBJECTS_STORAGE_KEY);
         allSubjects = storedSubjects ? JSON.parse(storedSubjects) : [];
 
         const urlParams = new URLSearchParams(window.location.search);
-        const subjectName = decodeURIComponent(urlParams.get('subject') || '');
-        const topicName = decodeURIComponent(urlParams.get('topic') || '');
+        const subjectName = decodeURIComponent(urlParams.get('subject') || '').trim();
+        const topicName = decodeURIComponent(urlParams.get('topic') || '').trim();
         const source = urlParams.get('source');
 
-        currentSubject = allSubjects.find(s => s.name === subjectName);
+        currentSubject = allSubjects.find(s => s.name && s.name.trim().toLowerCase() === subjectName.toLowerCase());
         if (currentSubject) {
-            if (source === 'recommendation') {
-                currentTopic = (currentSubject.recommendations || []).find(t => t.title === topicName);
-            } else {
-                currentTopic = (currentSubject.topics || []).find(t => t.title === topicName);
-            }
+            const list = source === 'recommendation' ? (currentSubject.recommendations || []) : (currentSubject.topics || []);
+            currentTopic = list.find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase());
+        }
 
-            if (currentTopic) {
-                flashcards = currentTopic.flashcards || [];
+        // Always attempt live fetch if token is available OR if currentTopic has no cards
+        const token = localStorage.getItem('mentorae_token');
+        if (token && subjectName) {
+            try {
+                const data = await authedFetch(`/api/content/topics?subjectName=${encodeURIComponent(subjectName)}`, token);
+                if (data && data.success) {
+                    const list = source === 'recommendation' ? (data.recommendations || []) : (data.topics || []);
+                    const matchedTopic = list.find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase()) ||
+                                         (data.topics || []).find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase()) ||
+                                         (data.recommendations || []).find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase());
+                    if (matchedTopic) {
+                        currentTopic = matchedTopic;
+                        if (!currentSubject) {
+                            currentSubject = { name: subjectName, topics: data.topics || [], recommendations: data.recommendations || [] };
+                            allSubjects.push(currentSubject);
+                        } else {
+                            if (source === 'recommendation') {
+                                currentSubject.recommendations = data.recommendations || [];
+                            } else {
+                                currentSubject.topics = data.topics || [];
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load flashcards from database:', e);
             }
         }
 
+        if (currentTopic) {
+            flashcards = (currentTopic.flashcards || []).map(card => ({
+                term: (card.term || card.question || card.front || '').trim(),
+                definition: (card.definition || card.answer || card.back || '').trim()
+            })).filter(c => c.term !== '' || c.definition !== '');
+        } else {
+            flashcards = [];
+        }
+
         // Update UI with details
-        document.title = `Mentorae - Flashcards: ${currentTopic?.title || 'Not Found'}`;
-        if (pageSubtitle) pageSubtitle.textContent = `Topic: ${currentTopic?.title || 'N/A'}`;
-        if (flashcardSetTitle) flashcardSetTitle.textContent = `Flashcard Set for ${currentTopic?.title || 'N/A'}`;
-        if (subjectNameDisplay) subjectNameDisplay.textContent = currentSubject?.name || 'N/A';
-        if (topicTitleDisplay) topicTitleDisplay.textContent = currentTopic?.title || 'N/A';
-        if (topicDescriptionDisplay) topicDescriptionDisplay.textContent = currentTopic?.description || 'N/A';
+        document.title = `Mentorae - Flashcards: ${currentTopic?.title || topicName || 'Not Found'}`;
+        if (pageSubtitle) pageSubtitle.textContent = `Topic: ${currentTopic?.title || topicName || 'N/A'}`;
+        if (flashcardSetTitle) flashcardSetTitle.textContent = `Flashcard Set for ${currentTopic?.title || topicName || 'N/A'}`;
+        if (subjectNameDisplay) subjectNameDisplay.textContent = currentSubject?.name || subjectName || 'N/A';
+        if (topicTitleDisplay) topicTitleDisplay.textContent = currentTopic?.title || topicName || 'N/A';
+        if (topicDescriptionDisplay) {
+            const desc = (currentTopic?.description || '').trim();
+            topicDescriptionDisplay.textContent = desc && desc !== 'N/A' ? desc : 'No description provided for this topic.';
+        }
+
+        if (flashcards.length > 0) {
+            totalCardsDisplay.textContent = flashcards.length;
+            displayCard(currentIndex);
+            if (shuffleBtn) shuffleBtn.disabled = false;
+        } else {
+            if (flashcardTerm) flashcardTerm.textContent = 'No flashcards in this set.';
+            if (flashcardDefinition) flashcardDefinition.textContent = 'Please add flashcards to this topic.';
+            if (currentCardIndexDisplay) currentCardIndexDisplay.textContent = 0;
+            if (totalCardsDisplay) totalCardsDisplay.textContent = 0;
+            if (flipCardBtn) flipCardBtn.disabled = true;
+            if (prevCardBtn) prevCardBtn.disabled = true;
+            if (nextCardBtn) nextCardBtn.disabled = true;
+            if (shuffleBtn) shuffleBtn.disabled = true;
+            if (flashcardProgress) {
+                flashcardProgress.style.width = '0%';
+                flashcardProgress.setAttribute('aria-valuenow', 0);
+            }
+        }
     }
 
     function displayCard(index) {
@@ -100,17 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function init() {
         loadData();
-
-        if (flashcards.length > 0) {
-            displayCard(currentIndex);
-            if (shuffleBtn) shuffleBtn.disabled = false;
-        } else {
-            currentCardIndexDisplay.textContent = 0;
-            totalCardsDisplay.textContent = 0;
-            flipCardBtn.disabled = true;
-            nextCardBtn.disabled = true;
-            if (shuffleBtn) shuffleBtn.disabled = true;
-        }
 
         // Allow flipping by clicking the card itself
         flashcard.addEventListener('click', () => {

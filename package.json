@@ -1,0 +1,12 @@
+{
+  "name": "mentorae-sis",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "npm run dev --prefix backend"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "jszip": "^3.10.1"
+  }
+}

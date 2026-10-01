@@ -20,8 +20,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Populate profile banner with the real logged-in student
     document.getElementById('studentNameDisplay').textContent = user.full_name;
     authedFetch('/api/auth/profile', token).then((data) => {
-        if (data.success && data.profile.section) {
-            document.getElementById('studentSectionDisplay').textContent = data.profile.section;
+        if (data.success && data.profile) {
+            if (data.profile.section) {
+                document.getElementById('studentSectionDisplay').textContent = data.profile.section;
+            }
+            if (data.profile.profilePictureUrl) {
+                const img = document.getElementById('dashboardAvatarImg');
+                const icon = document.getElementById('dashboardAvatarIcon');
+                if (img && icon) {
+                    img.src = data.profile.profilePictureUrl;
+                    img.classList.remove('d-none');
+                    icon.classList.add('d-none');
+                }
+            }
         }
     }).catch(() => {});
 
@@ -40,7 +51,76 @@ document.addEventListener('DOMContentLoaded', () => {
         if (termEl) {
             termEl.textContent = [data.summary.semester, data.summary.schoolYear].filter(Boolean).join(' • ') || '—';
         }
+
+        // Live Overview Metrics
+        if (data.summary.metrics) {
+            const { overallGrade, attendanceRate, badgePoints, badgeCount } = data.summary.metrics;
+            const gradeEl = document.getElementById('metricOverallGrade');
+            const attEl = document.getElementById('metricAttendanceRate');
+            const ptsEl = document.getElementById('metricPointsEarned');
+            const badgeEl = document.getElementById('metricBadgesCount');
+
+            if (gradeEl && overallGrade != null) gradeEl.textContent = `${overallGrade}%`;
+            if (attEl && attendanceRate != null) attEl.textContent = `${attendanceRate}%`;
+            if (ptsEl && badgePoints != null) ptsEl.textContent = badgePoints;
+            if (badgeEl && badgeCount != null) badgeEl.textContent = badgeCount;
+        }
+
+        // Live Recent Activity
+        if (Array.isArray(data.summary.recentActivity) && data.summary.recentActivity.length > 0) {
+            const listEl = document.getElementById('studentRecentActivityList');
+            if (listEl) {
+                listEl.innerHTML = '';
+                data.summary.recentActivity.forEach((act, idx) => {
+                    const isLast = idx === data.summary.recentActivity.length - 1;
+                    const li = document.createElement('li');
+                    li.className = `timeline-stream-item d-flex align-items-start gap-3 ${isLast ? 'pt-3' : 'pb-3 border-bottom-dashed'}`;
+                    
+                    let dotColor = 'bg-success';
+                    if (act.type === 'attendance') dotColor = 'bg-primary';
+                    else if (act.type === 'badge') dotColor = 'bg-warning';
+                    else if (act.type === 'excuse') dotColor = 'bg-info';
+
+                    let timeDisplay = act.date ? new Date(act.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent';
+                    li.innerHTML = `
+                        <div class="activity-marker-dot ${dotColor} mt-1.5 flex-shrink-0"></div>
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
+                            <p class="m-0 text-sm text-dark">${act.title} - <span class="text-muted">${act.description}</span></p>
+                            <span class="micro-text text-muted">${timeDisplay}</span>
+                        </div>
+                    `;
+                    listEl.appendChild(li);
+                });
+            }
+        }
     }).catch(() => {});
+
+    // 2c. Load Active Announcements Count for Quick Access Badge
+    async function loadAnnouncementsBadge() {
+        const badge = document.getElementById('announcementsCardBadge');
+        if (!badge) return;
+        try {
+            const data = await authedFetch('/api/announcements', token);
+            if (data && data.success && Array.isArray(data.announcements)) {
+                const unseenCount = typeof getUnseenAnnouncementsCount === 'function'
+                    ? getUnseenAnnouncementsCount(data.announcements)
+                    : 0;
+                if (unseenCount > 0) {
+                    badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+            } else {
+                badge.classList.add('d-none');
+            }
+        } catch (e) {
+            badge.classList.add('d-none');
+        }
+    }
+    loadAnnouncementsBadge();
+    window.addEventListener('pageshow', loadAnnouncementsBadge);
+    window.addEventListener('focus', loadAnnouncementsBadge);
 
     // 3. Logout — now actually logs out
     wireLogout('logoutBtn', '../login.html', token);

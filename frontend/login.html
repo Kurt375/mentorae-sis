@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,12 +8,15 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="login.css">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
+
 <body class="bg-light d-flex flex-column min-vh-100">
 
     <header class="portal-header text-center text-white py-4 position-relative">
         <div class="container d-flex flex-column align-items-center justify-content-center">
-            <img src="TSHS_image.png" alt="School" class="rounded-circle shadow-sm border border-3 border-white mb-3" style="width: 90px; height: 90px; object-fit: cover;">
+            <img src="TSHS_image.png" alt="School" class="rounded-circle shadow-sm border border-3 border-white mb-3"
+                style="width: 90px; height: 90px; object-fit: cover;">
             <h1 class="fw-bold tracking-wide m-0">MENTORAE</h1>
             <p class="small text-uppercase tracking-wider opacity-75 m-0">Analytics-Driven Student Portal</p>
         </div>
@@ -26,35 +30,38 @@
             <div class="card login-card shadow-sm border-0 w-100">
                 <div class="card-body p-4 p-md-5">
                     <h5 class="card-title text-secondary border-bottom pb-3 mb-4">Please Login</h5>
-                    
+
+                    <div id="loginAlertBox" class="alert alert-warning d-none alert-dismissible fade show mb-4"
+                        role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <span id="loginAlertMessage"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+
                     <form id="loginForm" novalidate>
                         <div class="mb-3">
-                            <label for="loginEmail" class="form-label fw-semibold text-muted small">Email or Student ID</label>
-                            <input type="text" class="form-control custom-input" id="loginEmail" placeholder="Enter your email or ID" required>
+                            <label for="loginEmail" class="form-label fw-semibold text-muted small">Email or Student
+                                ID</label>
+                            <input type="text" class="form-control custom-input" id="loginEmail"
+                                placeholder="Enter your email or ID" required>
                         </div>
 
                         <div class="mb-3">
                             <label for="loginPassword" class="form-label fw-semibold text-muted small">Password</label>
                             <div class="input-group">
-                                <input type="password" class="form-control custom-input border-end-0" id="loginPassword" placeholder="Enter your password" required>
-                                <button class="btn btn-outline-secondary custom-input border-start-0 bg-white text-muted" type="button" id="togglePassword">
+                                <input type="password" class="form-control custom-input border-end-0" id="loginPassword"
+                                    placeholder="Enter your password" required>
+                                <button
+                                    class="btn btn-outline-secondary custom-input border-start-0 bg-white text-muted"
+                                    type="button" id="togglePassword">
                                     <i class="bi bi-eye-slash" id="toggleIcon"></i>
                                 </button>
                             </div>
                             <div class="form-text text-muted micro-text mt-1">* Password is case sensitive</div>
                         </div>
 
-                        <div class="captcha-box d-flex align-items-center justify-content-between p-3 mb-4 bg-light rounded border">
-                            <div class="form-check d-flex align-items-center gap-2">
-                                <input class="form-check-input" type="checkbox" id="captchaCheck" required>
-                                <label class="form-check-label small text-muted user-select-none" for="captchaCheck">
-                                    I'm not a robot
-                                </label>
-                            </div>
-                            <div class="captcha-logo text-center">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/a/ad/RecaptchaLogo.svg" alt="reCAPTCHA" width="30">
-                                <div class="micro-text text-muted mt-1">reCAPTCHA</div>
-                            </div>
+                        <div class="mb-4 d-flex justify-content-center">
+                            <div class="g-recaptcha" data-sitekey="6LeLpcYtAAAAAGHZ-Lmiss7U0RHJaoCZRGVDPbkN"></div>
                         </div>
 
                         <button type="submit" class="btn btn-portal w-100 py-2.5 fw-semibold mb-4">
@@ -62,8 +69,10 @@
                         </button>
 
                         <div class="d-flex justify-content-between align-items-center border-top pt-3 small">
-                            <a href="#" id="forgotPasswordLink" class="text-decoration-none text-success link-hover"><i class="bi bi-question-circle me-1"></i>Forgot password? Click here</a>
-                            <a href="#" class="text-decoration-none text-success link-hover"><i class="bi bi-envelope me-1"></i>Contact Us</a>
+                            <a href="#" id="forgotPasswordLink" class="text-decoration-none text-success link-hover"><i
+                                    class="bi bi-question-circle me-1"></i>Forgot password? Click here</a>
+                            <a href="#" id="contactUsLink" class="text-decoration-none text-success link-hover"><i
+                                    class="bi bi-envelope me-1"></i>Contact Us</a>
                         </div>
                     </form>
                 </div>
@@ -74,13 +83,15 @@
                     <h6 class="card-title text-secondary border-bottom pb-3 mb-4">Scanner Access</h6>
                     <p class="small text-muted mb-3">Enter a valid code to access the QR scanner page directly.</p>
                     <div class="input-group">
-                        <input type="text" class="form-control custom-input" id="scannerCode" placeholder="Enter Code for Scanner...">
-                        <button class="btn btn-success" type="button" id="submitScannerCode"><i class="bi bi-arrow-right"></i> Go</button>
+                        <input type="text" class="form-control custom-input" id="scannerCode"
+                            placeholder="Enter Code for Scanner...">
+                        <button class="btn btn-success" type="button" id="submitScannerCode"><i
+                                class="bi bi-arrow-right"></i> Go</button>
                     </div>
                 </div>
             </div>
         </div>
-    </main> 
+    </main>
 
     <footer class="bg-dark text-white-50 text-center py-3 mt-auto small">
         <div class="container">
@@ -89,7 +100,8 @@
     </footer>
 
     <!-- Forgot Password Modal -->
-    <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+    <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel"
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header border-0">
@@ -99,11 +111,14 @@
                 <div class="modal-body p-4">
                     <!-- Step 1: Enter Email -->
                     <div id="resetStep1">
-                        <p class="small text-muted">Enter the email address associated with your account, and we'll send you a verification code.</p>
+                        <p class="small text-muted">Enter the email address associated with your account, and we'll send
+                            you a verification code.</p>
                         <form id="sendCodeForm">
                             <div class="mb-3">
-                                <label for="resetEmail" class="form-label fw-semibold text-muted small">Email Address</label>
-                                <input type="email" class="form-control custom-input" id="resetEmail" placeholder="your.email@example.com" required>
+                                <label for="resetEmail" class="form-label fw-semibold text-muted small">Email
+                                    Address</label>
+                                <input type="email" class="form-control custom-input" id="resetEmail"
+                                    placeholder="your.email@example.com" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Send Verification Code</button>
                         </form>
@@ -111,11 +126,14 @@
 
                     <!-- Step 2: Enter OTP -->
                     <div id="resetStep2" class="d-none">
-                        <p class="small text-muted">A 6-digit verification code has been sent to <strong id="userEmailForOtp" class="text-dark"></strong>. Please enter it below.</p>
+                        <p class="small text-muted">A 6-digit verification code has been sent to <strong
+                                id="userEmailForOtp" class="text-dark"></strong>. Please enter it below.</p>
                         <form id="verifyCodeForm">
                             <div class="mb-3">
-                                <label for="otpCode" class="form-label fw-semibold text-muted small">Verification Code</label>
-                                <input type="text" class="form-control custom-input" id="otpCode" placeholder="Enter 6-digit code" required>
+                                <label for="otpCode" class="form-label fw-semibold text-muted small">Verification
+                                    Code</label>
+                                <input type="text" class="form-control custom-input" id="otpCode"
+                                    placeholder="Enter 6-digit code" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Verify Code</button>
                         </form>
@@ -125,11 +143,115 @@
                     <div id="resetStep3" class="d-none">
                         <p class="small text-muted">Verification successful. Please create a new password.</p>
                         <form id="resetPasswordForm">
-                            <div class="mb-3"><label for="newPassword" class="form-label fw-semibold text-muted small">New Password</label><input type="password" class="form-control custom-input" id="newPassword" required></div>
-                            <div class="mb-3"><label for="confirmNewPassword" class="form-label fw-semibold text-muted small">Confirm New Password</label><input type="password" class="form-control custom-input" id="confirmNewPassword" required></div>
+                            <div class="mb-3"><label for="newPassword"
+                                    class="form-label fw-semibold text-muted small">New Password</label><input
+                                    type="password" class="form-control custom-input" id="newPassword" required></div>
+                            <div class="mb-3"><label for="confirmNewPassword"
+                                    class="form-label fw-semibold text-muted small">Confirm New Password</label><input
+                                    type="password" class="form-control custom-input" id="confirmNewPassword" required>
+                            </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Reset Password</button>
                         </form>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forced Password Change Modal — shown after login when the account's
+         password is still its auto-generated temporary one (e.g. the ID number),
+         so it never stays in place unnoticed. Cannot be dismissed without changing it. -->
+    <div class="modal fade" id="forcePasswordChangeModal" tabindex="-1" aria-labelledby="forcePasswordChangeModalLabel"
+        aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-secondary" id="forcePasswordChangeModalLabel"><i
+                            class="bi bi-shield-exclamation text-warning me-2"></i>Change Your Password</h5>
+                </div>
+                <div class="modal-body p-4 pt-0">
+                    <p class="small text-muted">For your security, this account is still using its temporary starting
+                        password. Please set a new password to continue.</p>
+                    <form id="forcePasswordChangeForm">
+                        <div class="mb-3">
+                            <label for="fpcCurrentPassword" class="form-label fw-semibold text-muted small">Current
+                                (Temporary) Password</label>
+                            <input type="password" class="form-control custom-input" id="fpcCurrentPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="fpcNewPassword" class="form-label fw-semibold text-muted small">New
+                                Password</label>
+                            <input type="password" class="form-control custom-input" id="fpcNewPassword" minlength="8"
+                                required>
+                            <div class="form-text micro-text">Minimum 8 characters.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="fpcConfirmPassword" class="form-label fw-semibold text-muted small">Confirm New
+                                Password</label>
+                            <input type="password" class="form-control custom-input" id="fpcConfirmPassword"
+                                minlength="8" required>
+                        </div>
+                        <button type="submit" class="btn btn-portal w-100 py-2">Change Password &amp; Continue</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Us Modal -->
+    <div class="modal fade" id="contactUsModal" tabindex="-1" aria-labelledby="contactUsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-success text-white border-0">
+                    <h5 class="modal-title d-flex align-items-center gap-2" id="contactUsModalLabel">
+                        <i class="bi bi-headset"></i> School Support &amp; Contact
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center mb-4">
+                        <img src="TSHS_image.png" alt="TSHS" class="rounded-circle shadow-sm mb-2"
+                            style="width: 70px; height: 70px; object-fit: cover;">
+                        <h6 class="fw-bold mb-0">Talisay Senior High School</h6>
+                        <small class="text-muted">Student Information System (SIS) Support</small>
+                    </div>
+
+                    <div class="list-group list-group-flush border rounded mb-3">
+                        <div class="list-group-item d-flex align-items-start gap-3 py-3">
+                            <i class="bi bi-telephone-fill text-success fs-5"></i>
+                            <div>
+                                <div class="fw-semibold small">School Administration Hotline</div>
+                                <div class="text-muted small">(043) 778-1234</div>
+                            </div>
+                        </div>
+                        <div class="list-group-item d-flex align-items-start gap-3 py-3">
+                            <i class="bi bi-envelope-at-fill text-success fs-5"></i>
+                            <div>
+                                <div class="fw-semibold small">Official Email Inquiries</div>
+                                <div class="text-muted small">tshs.talisay@deped.gov.ph</div>
+                            </div>
+                        </div>
+                        <div class="list-group-item d-flex align-items-start gap-3 py-3">
+                            <i class="bi bi-geo-alt-fill text-success fs-5"></i>
+                            <div>
+                                <div class="fw-semibold small">Campus Address</div>
+                                <div class="text-muted small">Talisay, Batangas, Philippines 4220</div>
+                            </div>
+                        </div>
+                        <div class="list-group-item d-flex align-items-start gap-3 py-3">
+                            <i class="bi bi-clock-fill text-success fs-5"></i>
+                            <div>
+                                <div class="fw-semibold small">Office Support Hours</div>
+                                <div class="text-muted small">Monday – Friday: 7:30 AM – 5:00 PM</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="small text-muted mb-0 text-center">For account access, password assistance, or student
+                        record verification, please coordinate with your strand adviser or school registrar.</p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -139,4 +261,5 @@
     <script src="config.js"></script>
     <script src="login.js"></script>
 </body>
+
 </html>

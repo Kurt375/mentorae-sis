@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,10 +9,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="dashboard_student.css">
 </head>
+
 <body class="dashboard-bg">
 
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        
+
         <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
             <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-3">
@@ -31,30 +33,53 @@
         </nav>
 
         <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
-            
+
             <div class="card profile-banner border-0 text-white p-4 mb-4 shadow-sm">
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-4">
+                <div
+                    class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-4">
                     <div class="d-flex align-items-center gap-4">
-                        <div class="avatar-photo-wrap rounded-circle border border-2 border-white overflow-hidden bg-light flex-shrink-0">
-                            <i class="bi bi-person-fill text-secondary display-6 d-flex align-items-center justify-content-center h-100"></i>
+                        <div class="avatar-badge-wrap position-relative flex-shrink-0">
+                            <a href="profile_student.html"
+                                class="avatar-clickable-circle avatar-photo-wrap rounded-circle border border-2 border-white overflow-hidden bg-light shadow-sm position-relative d-flex align-items-center justify-content-center text-decoration-none"
+                                title="Click to view and edit your profile">
+                                <i class="bi bi-person-fill text-secondary display-6 d-flex align-items-center justify-content-center h-100"
+                                    id="dashboardAvatarIcon"></i>
+                                <img id="dashboardAvatarImg" class="w-100 h-100 d-none" style="object-fit: cover;"
+                                    alt="Profile photo">
+                                <div
+                                    class="avatar-hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-white">
+                                    <i class="bi bi-camera-fill fs-5"></i>
+                                </div>
+                            </a>
+                            <span class="avatar-edit-badge" title="Edit profile photo" aria-hidden="true">
+                                <i class="bi bi-pencil-fill"></i>
+                            </span>
                         </div>
                         <div>
-                            <h2 class="fw-bold m-0 fs-4 text-white" id="studentNameDisplay">Loading…</h2>
-                            <p class="m-0 text-white-50 small mt-0.5" id="studentSectionDisplay">—</p>
-                            <p class="m-0 text-white-50 small" id="studentTermDisplay">—</p>
-                            <span class="badge bg-light text-success fw-bold micro-text mt-2 px-2.5 py-1 rounded-pill">
-                                <span class="status-dot-mini bg-success me-1"></span><span id="studentStatusDisplay">Present</span>
+                            <a href="profile_student.html" class="profile-name-link" title="View & Edit Profile">
+                                <h2 class="fw-bold m-0 fs-4 text-white" id="studentNameDisplay">Loading…</h2>
+                            </a>
+                            <p class="m-0 text-white-50 small mt-0.5"><span id="studentSectionDisplay">—</span> <span
+                                    class="opacity-50 mx-1">•</span> <span id="studentTermDisplay">—</span></p>
+                            <span
+                                class="badge bg-light text-success fw-bold micro-text mt-2 px-2.5 py-1 rounded-pill shadow-xs">
+                                <span class="status-dot-mini bg-success me-1"></span><span
+                                    id="studentStatusDisplay">Present</span>
                             </span>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-3 align-self-end align-self-sm-center">
-                        <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2" id="btnShowQrHome">
+                        <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2"
+                            id="btnShowQrHome">
                             <i class="bi bi-qr-code"></i> Show QR Code
                         </button>
-                        <button class="btn btn-light rounded-3 p-2.5 notification-trigger position-relative" aria-label="Notifications Panel Trigger" id="notifBellBtn">
+                        <button class="btn btn-light rounded-3 p-2.5 notification-trigger position-relative"
+                            aria-label="Notifications Panel Trigger" id="notifBellBtn">
                             <i class="bi bi-bell-fill text-success fs-5"></i>
                         </button>
-                        <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn" id="logoutBtn">
+                        <button
+                            class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn"
+                            id="logoutBtn">
                             <i class="bi bi-box-arrow-right"></i> Logout
                         </button>
                     </div>
@@ -65,45 +90,54 @@
                 <h3 class="section-title fw-bold mb-3">Overview</h3>
                 <div class="row g-3 row-cols-2 row-cols-md-4">
                     <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
+                        <div
+                            class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
                             <div class="d-flex flex-column flex-sm-row align-items-center gap-2">
                                 <i class="bi bi-bullseye text-success fs-4"></i>
                                 <div>
-                                    <h4 class="fw-bold m-0 fs-4 text-success">92%</h4>
-                                    <span class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Overall Grade</span>
+                                    <h4 class="fw-bold m-0 fs-4 text-dark" id="metricOverallGrade">92%</h4>
+                                    <span class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Overall
+                                        Grade</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
+                        <div
+                            class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
                             <div class="d-flex flex-column flex-sm-row align-items-center gap-2">
                                 <i class="bi bi-calendar-check text-primary fs-4"></i>
                                 <div>
-                                    <h4 class="fw-bold m-0 fs-4 text-primary">95%</h4>
-                                    <span class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Attendance Rate</span>
+                                    <h4 class="fw-bold m-0 fs-4 text-dark" id="metricAttendanceRate">0%</h4>
+                                    <span
+                                        class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Attendance
+                                        Rate</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
+                        <div
+                            class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
                             <div class="d-flex flex-column flex-sm-row align-items-center gap-2">
                                 <i class="bi bi-trophy text-warning fs-4"></i>
                                 <div>
-                                    <h4 class="fw-bold m-0 fs-4 text-warning">850</h4>
-                                    <span class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Points Earned</span>
+                                    <h4 class="fw-bold m-0 fs-4 text-dark" id="metricPointsEarned">0</h4>
+                                    <span class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Points
+                                        Earned</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
+                        <div
+                            class="card stat-metric-card border p-3 h-100 shadow-sm bg-white text-center text-sm-start">
                             <div class="d-flex flex-column flex-sm-row align-items-center gap-2">
                                 <i class="bi bi-award text-purple fs-4"></i>
                                 <div>
-                                    <h4 class="fw-bold m-0 fs-4 text-purple">4</h4>
-                                    <span class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Badges</span>
+                                    <h4 class="fw-bold m-0 fs-4 text-dark" id="metricBadgesCount">0</h4>
+                                    <span
+                                        class="text-muted tiny-text fw-medium text-uppercase d-block mt-0.5">Badges</span>
                                 </div>
                             </div>
                         </div>
@@ -115,135 +149,99 @@
                 <h3 class="section-title fw-bold mb-3">Quick Access</h3>
                 <div class="row g-3">
                     <div class="col-12 col-sm-6">
-                        <a href="attendance_student.html" class="text-decoration-none text-dark">
+                        <a href="attendance_student.html"
+                            class="text-decoration-none text-dark d-flex flex-column h-100">
                             <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
                                 <div class="d-flex align-items-start gap-3">
                                     <div class="access-icon-wrapper bg-primary-subtle rounded-3 p-2.5 text-primary">
                                         <i class="bi bi-qr-code-scan fs-4"></i>
                                     </div>
-                                    <div class="flex-grow-1">
+                                    <div class="flex-grow-1 min-w-0">
                                         <h5 class="fw-bold m-0 fs-6 text-dark">Attendance</h5>
                                         <div class="text-muted micro-text mb-1.5">QR Code Scan</div>
-                                        <p class="small text-secondary m-0 card-desc-text">Track your classroom attendance logs history logs seamlessly.</p>
+                                        <p class="small text-secondary m-0 card-desc-text">Track your daily classroom
+                                            check-ins and attendance logs.</p>
                                     </div>
                                 </div>
                             </div>
                         </a>
                     </div>
                     <div class="col-12 col-sm-6">
-                        <a href="grades_student.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-success-subtle rounded-3 p-2.5 text-success">
-                                    <i class="bi bi-graph-up-arrow fs-4"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">Grade & Performance</h5>
-                                    <div class="text-muted micro-text mb-1.5">Academic Records</div>
-                                    <p class="small text-secondary m-0 card-desc-text">View your active semester score parameters analytics tracks reports.</p>
+                        <a href="grade_performance_student.html"
+                            class="text-decoration-none text-dark d-flex flex-column h-100">
+                            <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="access-icon-wrapper bg-success-subtle rounded-3 p-2.5 text-success">
+                                        <i class="bi bi-graph-up-arrow fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <h5 class="fw-bold m-0 fs-6 text-dark">Grade & Performance</h5>
+                                        <div class="text-muted micro-text mb-1.5">Academic Records</div>
+                                        <p class="small text-secondary m-0 card-desc-text">View your active term grades,
+                                            GPA, and subject analytics.</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
                         </a>
                     </div>
                     <div class="col-12 col-sm-6">
-                        <a href="../announcements.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white position-relative">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-info-subtle rounded-3 p-2.5 text-info">
-                                    <i class="bi bi-bell fs-4"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">Announcements</h5>
-                                    <div class="text-muted micro-text mb-1.5">Stay Updated</div>
-                                    <p class="small text-secondary m-0 card-desc-text">Review school bulletins, alerts, and calendar notifications.</p>
+                        <a href="learning_resources_student.html"
+                            class="text-decoration-none text-dark d-flex flex-column h-100">
+                            <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="access-icon-wrapper bg-purple-subtle rounded-3 p-2.5 text-purple">
+                                        <i class="bi bi-book fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <h5 class="fw-bold m-0 fs-6 text-dark">Learning Resources</h5>
+                                        <div class="text-muted micro-text mb-1.5">Study Materials</div>
+                                        <p class="small text-secondary m-0 card-desc-text">Access subject learning
+                                            modules, quizzes, and flashcards.</p>
+                                    </div>
                                 </div>
                             </div>
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                4
-                                <span class="visually-hidden">new announcements</span>
-                            </span>
-                        </div>
                         </a>
                     </div>
                     <div class="col-12 col-sm-6">
-                        <a href="resources_student.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-purple-subtle rounded-3 p-2.5 text-purple">
-                                    <i class="bi bi-book fs-4"></i>
+                        <a href="../announcements.html" class="text-decoration-none text-dark d-flex flex-column h-100">
+                            <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white position-relative">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="access-icon-wrapper bg-info-subtle rounded-3 p-2.5 text-info">
+                                        <i class="bi bi-bell fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <h5 class="fw-bold m-0 fs-6 text-dark">Announcements</h5>
+                                        <div class="text-muted micro-text mb-1.5">Stay Updated</div>
+                                        <p class="small text-secondary m-0 card-desc-text">Review school bulletins,
+                                            event notices, and calendar alerts.</p>
+                                    </div>
                                 </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">Learning Resources</h5>
-                                    <div class="text-muted micro-text mb-1.5">Study Materials</div>
-                                    <p class="small text-secondary m-0 card-desc-text">Access modules, practice diagnostic evaluation scripts sheets elements.</p>
-                                </div>
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                    id="announcementsCardBadge">
+                                    0
+                                    <span class="visually-hidden">new announcements</span>
+                                </span>
                             </div>
-                        </div>
                         </a>
                     </div>
+
                     <div class="col-12 col-sm-6">
-                        <a href="quiz_taker_student.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-info-subtle rounded-3 p-2.5 text-info">
-                                    <i class="bi bi-patch-question fs-4"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">Practice Quizzes & Flashcards</h5>
-                                    <div class="text-muted micro-text mb-1.5">Study Tools</div>
-                                    <p class="small text-secondary m-0 card-desc-text">Take practice quizzes and review flashcards by subject.</p>
+                        <a href="achievements_student.html"
+                            class="text-decoration-none text-dark d-flex flex-column h-100">
+                            <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="access-icon-wrapper bg-warning-subtle rounded-3 p-2.5 text-warning">
+                                        <i class="bi bi-patch-check fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <h5 class="fw-bold m-0 fs-6 text-dark">Achievements</h5>
+                                        <div class="text-muted micro-text mb-1.5">Points & Badges</div>
+                                        <p class="small text-secondary m-0 card-desc-text">Monitor earned badges,
+                                            achievement points, and milestones.</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        </a>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                        <a href="achievements_student.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-warning-subtle rounded-3 p-2.5 text-warning">
-                                    <i class="bi bi-patch-check fs-4"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">Achievements</h5>
-                                    <div class="text-muted micro-text mb-1.5">Points & Badges</div>
-                                    <p class="small text-secondary m-0 card-desc-text">Monitor accumulated institutional badge targets matrix metrics.</p>
-                                </div>
-                            </div>
-                        </div>
-                        </a>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                        <a href="leaderboard_student.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-success-subtle rounded-3 p-2.5 text-success">
-                                    <i class="bi bi-trophy fs-4"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">Leaderboard</h5>
-                                    <div class="text-muted micro-text mb-1.5">Section Rankings</div>
-                                    <p class="small text-secondary m-0 card-desc-text">See how your badge points stack up against your section.</p>
-                                </div>
-                            </div>
-                        </div>
-                        </a>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                        <a href="profile_student.html" class="text-decoration-none text-dark">
-                        <div class="card access-routing-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="access-icon-wrapper bg-secondary-subtle rounded-3 p-2.5 text-secondary">
-                                    <i class="bi bi-person-bounding-box fs-4"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h5 class="fw-bold m-0 fs-6 text-dark">My Profile</h5>
-                                    <div class="text-muted micro-text mb-1.5">Personal Info</div>
-                                    <p class="small text-secondary m-0 card-desc-text">Modify personal variables configurations safely securely.</p>
-                                </div>
-                            </div>
-                        </div>
                         </a>
                     </div>
                 </div>
@@ -252,25 +250,30 @@
             <section>
                 <h3 class="section-title fw-bold mb-3">Recent Activity</h3>
                 <div class="card border-0 shadow-sm p-4 bg-white rounded-3">
-                    <ul class="timeline-stream-list list-unstyled m-0 position-relative">
+                    <ul class="timeline-stream-list list-unstyled m-0 position-relative" id="studentRecentActivityList">
                         <li class="timeline-stream-item d-flex align-items-start gap-3 pb-3 border-bottom-dashed">
                             <div class="activity-marker-dot bg-success mt-1.5 flex-shrink-0"></div>
-                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
-                                <p class="m-0 text-sm text-dark">Complete Math Quiz - Score: <strong class="text-success">95%</strong></p>
+                            <div
+                                class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
+                                <p class="m-0 text-sm text-dark">Complete Math Quiz - Score: <strong
+                                        class="text-success">95%</strong></p>
                                 <span class="micro-text text-muted">2 hours ago</span>
                             </div>
                         </li>
                         <li class="timeline-stream-item d-flex align-items-start gap-3 py-3 border-bottom-dashed">
                             <div class="activity-marker-dot bg-primary mt-1.5 flex-shrink-0"></div>
-                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
+                            <div
+                                class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
                                 <p class="m-0 text-sm text-dark">Attendance recorded via QR code</p>
                                 <span class="micro-text text-muted">Today at 7:30 AM</span>
                             </div>
                         </li>
                         <li class="timeline-stream-item d-flex align-items-start gap-3 pt-3">
                             <div class="activity-marker-dot bg-warning mt-1.5 flex-shrink-0"></div>
-                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
-                                <p class="m-0 text-sm text-dark">Earned <span class="fw-bold text-dark">"Perfect Attendance"</span> badge</p>
+                            <div
+                                class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center w-100 gap-1">
+                                <p class="m-0 text-sm text-dark">Earned <span class="fw-bold text-dark">"Perfect
+                                        Attendance"</span> badge</p>
                                 <span class="micro-text text-muted">Yesterday</span>
                             </div>
                         </li>
@@ -281,11 +284,13 @@
         </main>
     </div>
 
-    <div class="qr-modal-overlay d-none" id="qrModalHome" style="position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1050; display:flex; align-items:center; justify-content:center;">
+    <div class="qr-modal-overlay d-none" id="qrModalHome"
+        style="position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1050; display:flex; align-items:center; justify-content:center;">
         <div class="bg-white rounded-4 p-4 text-center shadow-lg" style="max-width:340px; width:90%;">
             <h5 class="fw-bold mb-1">My Attendance QR Code</h5>
             <p class="text-muted small mb-3">Face this toward the scanner camera at the gate.</p>
-            <div class="bg-light p-3 rounded border border-2 d-inline-block mx-auto mb-3" id="qrCodeContainerHome"></div>
+            <div class="bg-light p-3 rounded border border-2 d-inline-block mx-auto mb-3" id="qrCodeContainerHome">
+            </div>
             <div class="d-flex gap-2 justify-content-center">
                 <button type="button" class="btn btn-outline-secondary flex-grow-1" id="btnCloseQrHome">Close</button>
             </div>
@@ -300,4 +305,5 @@
     <script>initNotificationBell('notifBellBtn', requireSession('../login.html').token);</script>
     <script src="dashboard_student.js"></script>
 </body>
+
 </html>

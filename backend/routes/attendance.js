@@ -11,6 +11,9 @@ const {
   confirmAttendanceOut,
   getSummary,
   getHistory,
+  submitExcuseNote,
+  listExcuseNotes,
+  reviewExcuseNote,
 } = require('../controllers/attendanceController');
 
 router.get('/my-qr', requireAuth, requireRole('student'), getMyQrCode);
@@ -22,5 +25,10 @@ router.post('/confirm', requireAuth, requireRole('teacher'), confirmAttendance);
 router.post('/confirm-out', requireAuth, requireRole('teacher'), confirmAttendanceOut);
 router.get('/summary', requireAuth, getSummary);
 router.get('/history', requireAuth, getHistory);
+
+// Excuse notes
+router.post('/excuse-note', requireAuth, requireRole('parent'), submitExcuseNote);
+router.get('/excuse-notes', requireAuth, listExcuseNotes);
+router.patch('/excuse-notes/:id', requireAuth, requireRole('teacher', 'admin'), reviewExcuseNote);
 
 module.exports = router;

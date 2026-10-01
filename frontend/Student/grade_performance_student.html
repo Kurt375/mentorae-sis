@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Grade & Performance</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- SheetJS for Report Card Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS Link -->
+    <link rel="stylesheet" href="grade_performance_student.css">
+</head>
+
+<body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper -->
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+
+        <!-- Header Ribbon Navbar -->
+        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <a href="dashboard_student.html" class="text-white text-decoration-none fs-4 link-transition"
+                    id="backToDashboardBtn" aria-label="Go Back to Dashboard">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                    <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                </div>
+                <div>
+                    <h1 class="m-0 fs-4 fw-bold tracking-wide d-inline-block">Grade & Performance</h1>
+                    <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Academic Progress Tracking</p>
+                </div>
+            </div>
+            <div class="text-white text-end dashboard-time">
+                <div class="small opacity-75" id="liveDate"></div>
+                <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+
+            <!-- Student Context & Report Card Action Banner -->
+            <div class="card border-0 rounded-4 p-3 mb-4 shadow-sm bg-white">
+                <div
+                    class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar-mini-wrap rounded-circle bg-light border border-2 d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0"
+                            style="width: 44px; height: 44px;">
+                            <i class="bi bi-mortarboard-fill text-success fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <h2 class="fw-bold m-0 fs-5 text-dark" id="studentHeaderName">Student</h2>
+                                <span
+                                    class="badge bg-success-subtle text-success fw-bold micro-text px-2 py-0.5 rounded-pill text-nowrap">Standing:
+                                    Active Student</span>
+                            </div>
+                            <p class="m-0 text-muted small mt-0.5 text-nowrap" id="studentHeaderMeta">Senior High School</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-nowrap flex-shrink-0">
+                        <button type="button"
+                            class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1.5 text-nowrap"
+                            id="btnViewReportCard">
+                            <i class="bi bi-eye-fill"></i> View Report Card
+                        </button>
+                        <button type="button"
+                            class="btn btn-sm btn-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1.5 text-nowrap"
+                            id="btnDownloadReportBanner">
+                            <i class="bi bi-printer-fill"></i> Print / Download SF9
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Metric Stat Cards -->
+            <section class="row g-3 mb-2">
+                <div class="col-6 col-lg-3">
+                    <div class="card stat-metric-card border-0 shadow-sm p-3 h-100 bg-white">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Average
+                                    GWA</span>
+                                <h2 class="fw-bold m-0 fs-3 text-dark mt-1" id="statGwaVal">92.5</h2>
+                                <span class="micro-text text-muted d-block mt-1" id="statGwaDesc">Excellent Performance</span>
+                            </div>
+                            <div class="metric-icon text-success fs-3"><i class="bi bi-award-fill"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <div class="card stat-metric-card border-0 shadow-sm p-3 h-100 bg-white">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Total
+                                    Subjects</span>
+                                <h2 class="fw-bold m-0 fs-3 text-dark mt-1" id="statTotalSubjectsVal">6</h2>
+                            </div>
+                            <div class="metric-icon text-primary fs-3"><i class="bi bi-book"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <div class="card stat-metric-card border-0 shadow-sm p-3 h-100 bg-white">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Improving</span>
+                                <h2 class="fw-bold m-0 fs-3 text-dark mt-1" id="statImprovingVal">4</h2>
+                            </div>
+                            <div class="metric-icon text-success fs-3"><i class="bi bi-graph-up-arrow"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <div class="card stat-metric-card border-0 shadow-sm p-3 h-100 bg-white">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted fw-semibold micro-text text-uppercase d-block">Class Rank based
+                                    on Points</span>
+                                <h2 class="fw-bold m-0 fs-3 text-dark mt-1" id="statRankVal">5th</h2>
+                                <span class="micro-text text-muted d-block mt-1" id="statRankSub">Out of 60 students</span>
+                            </div>
+                            <div class="metric-icon text-warning fs-3"><i class="bi bi-patch-check"></i></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <p class="fst-italic text-muted micro-text mb-4">Note: This General Weighted Average is preliminary and
+                subject to change upon final verification.</p>
+
+            <!-- Circular Gauge Charts Section (Clickable triggers for Modal) -->
+            <section class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                <div class="row g-4 text-center justify-content-around align-items-center">
+                    <div class="col-6 col-md-3 d-flex flex-column align-items-center cursor-pointer gauge-trigger"
+                        data-gauge-type="average">
+                        <div class="radial-progress-wrapper" id="gaugeWrapAverage" style="--val: 92.5; --stroke-color: #0a5c2c;">
+                            <div class="radial-inner">
+                                <span class="fw-bold fs-4 text-dark" id="gaugeValAverage">92.5</span>
+                            </div>
+                        </div>
+                        <span class="fw-bold text-dark text-sm mt-2">Average Grade</span>
+                    </div>
+
+                    <div class="col-6 col-md-3 d-flex flex-column align-items-center cursor-pointer gauge-trigger"
+                        data-gauge-type="performance">
+                        <div class="radial-progress-wrapper" id="gaugeWrapPT" style="--val: 95; --stroke-color: #0a5c2c;">
+                            <div class="radial-inner">
+                                <span class="fw-bold fs-4 text-dark" id="gaugeValPT">95%</span>
+                            </div>
+                        </div>
+                        <span class="fw-bold text-dark text-sm mt-2">Performance Task</span>
+                    </div>
+
+                    <div class="col-6 col-md-3 d-flex flex-column align-items-center cursor-pointer gauge-trigger"
+                        data-gauge-type="written">
+                        <div class="radial-progress-wrapper" id="gaugeWrapWW" style="--val: 98; --stroke-color: #0a5c2c;">
+                            <div class="radial-inner">
+                                <span class="fw-bold fs-4 text-dark" id="gaugeValWW">98%</span>
+                            </div>
+                        </div>
+                        <span class="fw-bold text-dark text-sm mt-2">Written Work</span>
+                    </div>
+
+                    <div class="col-6 col-md-3 d-flex flex-column align-items-center cursor-pointer gauge-trigger"
+                        data-gauge-type="exam">
+                        <div class="radial-progress-wrapper" id="gaugeWrapExam" style="--val: 88; --stroke-color: #0a5c2c;">
+                            <div class="radial-inner">
+                                <span class="fw-bold fs-4 text-dark" id="gaugeValExam">88%</span>
+                            </div>
+                        </div>
+                        <span class="fw-bold text-dark text-sm mt-2">Quarterly Assessment</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Subject Grades Section -->
+            <section class="card border-0 rounded-4 p-4 shadow-sm bg-white mb-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h2 class="h5 fw-bold m-0 text-dark">Subject Grades</h2>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1" id="subjectCountBadge" style="font-size: 0.75rem;">Loading...</span>
+                        </div>
+                        <span class="micro-text text-muted">Click any subject card to view breakdown and target calculator</span>
+                    </div>
+
+                    <!-- Filter Controls: Search Bar & Term Dropdown -->
+                    <div class="d-flex flex-wrap align-items-center gap-2 w-100 w-md-auto justify-content-md-end">
+                        <!-- Live Search Bar -->
+                        <div class="position-relative flex-grow-1 flex-md-grow-0" style="min-width: 200px; max-width: 260px;">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light border-end-0 text-muted">
+                                    <i class="bi bi-search"></i>
+                                </span>
+                                <input type="text" class="form-control form-control-sm border-start-0 border-end-0 bg-light shadow-none" id="subjectSearchInput" placeholder="Search subject or teacher..." autocomplete="off">
+                                <button class="btn btn-sm btn-light border border-start-0 text-muted d-none" type="button" id="clearSubjectSearchBtn" title="Clear search">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Term Dropdown -->
+                        <div class="input-group input-group-sm" style="width: auto; min-width: 140px;">
+                            <span class="input-group-text bg-light border-end-0 text-muted">
+                                <i class="bi bi-calendar3"></i>
+                            </span>
+                            <select class="form-select form-select-sm border-start-0 bg-light fw-semibold text-dark shadow-none" id="termFilterSelect" aria-label="Filter by Term">
+                                <option value="1st Term" selected>1st Term</option>
+                                <option value="2nd Term">2nd Term</option>
+                                <option value="3rd Term">3rd Term</option>
+                                <option value="4th Term">4th Term</option>
+                                <option value="all">All Terms</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column gap-3" id="subjectGradesList">
+
+                    <!-- EAPP Card -->
+                    <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer"
+                        data-subject-id="eapp">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h3 class="fw-bold fs-6 text-dark m-0">EAPP - English for Academic and Professional
+                                    Purposes</h3>
+                                <span class="micro-text text-muted">Mr. Santos</span>
+                            </div>
+                            <div class="text-end d-flex align-items-center gap-2">
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark d-block">95</span>
+                                    <span class="micro-text text-muted">Current Grade</span>
+                                </div>
+                                <span class="badge bg-success-subtle text-success p-2 rounded-3"><i
+                                        class="bi bi-graph-up-arrow"></i></span>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 95%;"
+                                aria-valuenow="95" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-eapp">
+                            <div class="row g-4 align-items-center">
+                                <div class="col-12 col-lg-7">
+                                    <div class="chart-box p-2">
+                                        <canvas id="chart-eapp" class="subject-analytics-canvas"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
+                                        <h4 class="fw-bold fs-6 text-dark mb-3">Target Grade Calculator</h4>
+                                        <div class="mb-3">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center mx-auto"
+                                                placeholder="Grade Goal" min="75" max="100" value="96"
+                                                id="goal-input-eapp">
+                                        </div>
+                                        <button type="button"
+                                            class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                            data-target-input="goal-input-eapp">
+                                            Check
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GenPhy1 Card -->
+                    <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer"
+                        data-subject-id="genphy1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h3 class="fw-bold fs-6 text-dark m-0">GenPhy1 - General Physics 1</h3>
+                                <span class="micro-text text-muted">Ms. Garcia</span>
+                            </div>
+                            <div class="text-end d-flex align-items-center gap-2">
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark d-block">92</span>
+                                    <span class="micro-text text-muted">Current Grade</span>
+                                </div>
+                                <span class="badge bg-success-subtle text-success p-2 rounded-3"><i
+                                        class="bi bi-graph-up-arrow"></i></span>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 92%;"
+                                aria-valuenow="92" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-genphy1">
+                            <div class="row g-4 align-items-center">
+                                <div class="col-12 col-lg-7">
+                                    <div class="chart-box p-2">
+                                        <canvas id="chart-genphy1" class="subject-analytics-canvas"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
+                                        <h4 class="fw-bold fs-6 text-dark mb-3">Target Grade Calculator</h4>
+                                        <div class="mb-3">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center mx-auto"
+                                                placeholder="Grade Goal" min="75" max="100" value="95"
+                                                id="goal-input-genphy1">
+                                        </div>
+                                        <button type="button"
+                                            class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                            data-target-input="goal-input-genphy1">
+                                            Check
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GenChem1 Card -->
+                    <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer"
+                        data-subject-id="genchem1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h3 class="fw-bold fs-6 text-dark m-0">GenChem1 - General Chemistry 1</h3>
+                                <span class="micro-text text-muted">Mrs. Reyes</span>
+                            </div>
+                            <div class="text-end d-flex align-items-center gap-2">
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark d-block">90</span>
+                                    <span class="micro-text text-muted">Current Grade</span>
+                                </div>
+                                <span class="badge bg-secondary-subtle text-secondary p-2 rounded-3"><i
+                                        class="bi bi-dash-lg"></i></span>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 90%;"
+                                aria-valuenow="90" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-genchem1">
+                            <div class="row g-4 align-items-center">
+                                <div class="col-12 col-lg-7">
+                                    <div class="chart-box p-2">
+                                        <canvas id="chart-genchem1" class="subject-analytics-canvas"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
+                                        <h4 class="fw-bold fs-6 text-dark mb-3">Target Grade Calculator</h4>
+                                        <div class="mb-3">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center mx-auto"
+                                                placeholder="Grade Goal" min="75" max="100" value="94"
+                                                id="goal-input-genchem1">
+                                        </div>
+                                        <button type="button"
+                                            class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                            data-target-input="goal-input-genchem1">
+                                            Check
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GenBio1 Card -->
+                    <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer"
+                        data-subject-id="genbio1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h3 class="fw-bold fs-6 text-dark m-0">GenBio1 - General Biology 1</h3>
+                                <span class="micro-text text-muted">Mr. Cruz</span>
+                            </div>
+                            <div class="text-end d-flex align-items-center gap-2">
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark d-block">88</span>
+                                    <span class="micro-text text-muted">Current Grade</span>
+                                </div>
+                                <span class="badge bg-danger-subtle text-danger p-2 rounded-3"><i
+                                        class="bi bi-graph-down-arrow"></i></span>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 88%;"
+                                aria-valuenow="88" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-genbio1">
+                            <div class="row g-4 align-items-center">
+                                <div class="col-12 col-lg-7">
+                                    <div class="chart-box p-2">
+                                        <canvas id="chart-genbio1" class="subject-analytics-canvas"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
+                                        <h4 class="fw-bold fs-6 text-dark mb-3">Target Grade Calculator</h4>
+                                        <div class="mb-3">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center mx-auto"
+                                                placeholder="Grade Goal" min="75" max="100" value="92"
+                                                id="goal-input-genbio1">
+                                        </div>
+                                        <button type="button"
+                                            class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                            data-target-input="goal-input-genbio1">
+                                            Check
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- IPHP Card -->
+                    <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer"
+                        data-subject-id="iphp">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h3 class="fw-bold fs-6 text-dark m-0">IPHP - Introduction to the Philosophy of the
+                                    Human Person</h3>
+                                <span class="micro-text text-muted">Ms. Torres</span>
+                            </div>
+                            <div class="text-end d-flex align-items-center gap-2">
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark d-block">94</span>
+                                    <span class="micro-text text-muted">Current Grade</span>
+                                </div>
+                                <span class="badge bg-success-subtle text-success p-2 rounded-3"><i
+                                        class="bi bi-graph-up-arrow"></i></span>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 94%;"
+                                aria-valuenow="94" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-iphp">
+                            <div class="row g-4 align-items-center">
+                                <div class="col-12 col-lg-7">
+                                    <div class="chart-box p-2">
+                                        <canvas id="chart-iphp" class="subject-analytics-canvas"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
+                                        <h4 class="fw-bold fs-6 text-dark mb-3">Target Grade Calculator</h4>
+                                        <div class="mb-3">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center mx-auto"
+                                                placeholder="Grade Goal" min="75" max="100" value="96"
+                                                id="goal-input-iphp">
+                                        </div>
+                                        <button type="button"
+                                            class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                            data-target-input="goal-input-iphp">
+                                            Check
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Physical Education Card -->
+                    <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer"
+                        data-subject-id="pe">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h3 class="fw-bold fs-6 text-dark m-0">Physical Education</h3>
+                                <span class="micro-text text-muted">Coach Martinez</span>
+                            </div>
+                            <div class="text-end d-flex align-items-center gap-2">
+                                <div>
+                                    <span class="fw-bold fs-5 text-dark d-block">96</span>
+                                    <span class="micro-text text-muted">Current Grade</span>
+                                </div>
+                                <span class="badge bg-success-subtle text-success p-2 rounded-3"><i
+                                        class="bi bi-graph-up-arrow"></i></span>
+                            </div>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 96%;"
+                                aria-valuenow="96" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-pe">
+                            <div class="row g-4 align-items-center">
+                                <div class="col-12 col-lg-7">
+                                    <div class="chart-box p-2">
+                                        <canvas id="chart-pe" class="subject-analytics-canvas"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-5">
+                                    <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
+                                        <h4 class="fw-bold fs-6 text-dark mb-3">Target Grade Calculator</h4>
+                                        <div class="mb-3">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center mx-auto"
+                                                placeholder="Grade Goal" min="75" max="100" value="98"
+                                                id="goal-input-pe">
+                                        </div>
+                                        <button type="button"
+                                            class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                            data-target-input="goal-input-pe">
+                                            Check
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Bottom Split: Quarterly Progress & Academic Insights -->
+            <div class="row g-4 mb-2">
+                <div class="col-12 col-md-6">
+                    <div class="card border-0 rounded-4 p-4 shadow-sm bg-white h-100">
+                        <h2 class="h6 fw-bold text-dark mb-4">Quarterly Progress</h2>
+
+                        <div class="d-flex flex-column gap-3">
+                            <div>
+                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
+                                    <span class="text-secondary fw-semibold">Q1 2025 - 2026</span>
+                                    <span class="text-dark fw-bold">91.5</span>
+                                </div>
+                                <div class="progress progress-quarterly bg-light">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 91.5%;"
+                                        aria-valuenow="91.5" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
+                                    <span class="text-secondary fw-semibold">Q2 2025 - 2026</span>
+                                    <span class="text-dark fw-bold">92.0</span>
+                                </div>
+                                <div class="progress progress-quarterly bg-light">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 92%;"
+                                        aria-valuenow="92" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
+                                    <span class="text-secondary fw-semibold">Q3 2025 - 2026 (Current)</span>
+                                    <span class="text-success fw-bold" id="qpCurrentVal">92.5</span>
+                                </div>
+                                <div class="progress progress-quarterly bg-light">
+                                    <div class="progress-bar bg-success" id="qpCurrentBar" role="progressbar" style="width: 92.5%;"
+                                        aria-valuenow="92.5" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card border-0 rounded-4 p-4 shadow-sm bg-white h-100">
+                        <h2 class="h6 fw-bold text-dark mb-3">Academic Insights</h2>
+
+                        <div class="d-flex flex-column gap-2" id="academicInsightsContainer">
+                            <div class="alert alert-success border-0 m-0 p-3 rounded-4 d-flex align-items-center gap-3">
+                                <div
+                                    class="insight-icon bg-white text-success rounded-circle p-2 shadow-sm flex-shrink-0">
+                                    <i class="bi bi-graph-up-arrow"></i>
+                                </div>
+                                <div>
+                                    <h3 class="fw-bold fs-6 text-dark m-0">Improving Trend</h3>
+                                    <p class="micro-text text-secondary m-0">Your grades are consistently improving</p>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-primary border-0 m-0 p-3 rounded-4 d-flex align-items-center gap-3">
+                                <div
+                                    class="insight-icon bg-white text-primary rounded-circle p-2 shadow-sm flex-shrink-0">
+                                    <i class="bi bi-award"></i>
+                                </div>
+                                <div>
+                                    <h3 class="fw-bold fs-6 text-dark m-0">Honor Roll Eligible</h3>
+                                    <p class="micro-text text-secondary m-0">Keep up the excellent work!</p>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-warning border-0 m-0 p-3 rounded-4 d-flex align-items-center gap-3">
+                                <div
+                                    class="insight-icon bg-white text-warning rounded-circle p-2 shadow-sm flex-shrink-0">
+                                    <i class="bi bi-book"></i>
+                                </div>
+                                <div>
+                                    <h3 class="fw-bold fs-6 text-dark m-0">Focus Area: Filipino</h3>
+                                    <p class="micro-text text-secondary m-0">Consider using AI study tools for
+                                        improvement</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Gauge Trend Analytics Modal (Exact Replica of image_677466.png) -->
+    <div class="modal fade" id="gaugeAnalyticsModal" tabindex="-1" aria-labelledby="gaugeAnalyticsModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg bg-white">
+
+                <!-- Modal Top Header -->
+                <div class="custom-navbar text-white py-3 px-3 d-flex align-items-center">
+                    <button type="button" class="btn btn-link text-white p-0 fs-4 text-decoration-none"
+                        data-bs-dismiss="modal" aria-label="Return">
+                        <i class="bi bi-arrow-return-left"></i>
+                    </button>
+                    <h2 class="fs-4 fw-bold m-0 flex-grow-1 text-center pe-4 text-white" id="modalHeaderTitle">
+                        Average Grade
+                    </h2>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="modal-body p-4 bg-white">
+
+                    <!-- Top Green Score Box (image_677466.png) -->
+                    <div class="gauge-score-box text-white text-center py-2.5 rounded-4 mb-4 shadow-sm">
+                        <span class="display-5 fw-bold" id="modalScoreDisplay">92.5</span>
+                    </div>
+
+                    <!-- Line Trend Chart Box -->
+                    <div class="position-relative mb-4 pb-2 border-bottom">
+                        <div style="height: 220px; width: 100%;">
+                            <canvas id="gaugeTrendCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Summary Stats Footer Row -->
+                    <div
+                        class="d-flex justify-content-between align-items-center micro-text fw-semibold text-dark px-1">
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="stat-bullet bg-success"></span>
+                            <span>High: <strong id="modalHighStat">85%</strong></span>
+                        </div>
+                        <div class="text-secondary">
+                            <span>Low: <strong class="text-dark" id="modalLowStat">82%</strong></span>
+                        </div>
+                        <div>
+                            <span>Average: <strong class="text-dark" id="modalAvgStat">95%</strong></span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="stat-bullet bg-success"></span>
+                            <span id="modalLegendLabel">Average Grade</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prescriptive Path to Goal Modal (From Target Calculator) -->
+    <div class="modal fade" id="prescriptiveGoalModal" tabindex="-1" aria-labelledby="prescriptiveGoalModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
+
+                <div class="modal-header custom-navbar text-white py-3 px-4 border-0">
+                    <h5 class="modal-title fw-bold fs-5 mx-auto ps-4 text-center text-white"
+                        id="prescriptiveGoalModalLabel">
+                        Prescriptive Path to Goal
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4 bg-white">
+                    <div class="goal-target-banner text-center py-2.5 px-3 rounded-3 mb-4">
+                        <span class="fs-5 text-dark fw-medium">Your Goal: <strong class="fs-3 fw-bold text-dark"
+                                id="displayGoalScore">96</strong></span>
+                    </div>
+
+                    <div class="row g-3 text-center justify-content-center align-items-center mb-4">
+                        <div class="col-4 d-flex flex-column align-items-center">
+                            <span class="micro-text fw-bold text-dark mb-2" id="goalPtWeightLabel">Performance Task</span>
+                            <div class="radial-progress-wrapper" id="gaugePT"
+                                style="--val: 98; --stroke-color: #0a5c2c;">
+                                <div class="radial-inner">
+                                    <span class="fw-bold fs-4 text-dark" id="valPT">98%</span>
+                                </div>
+                            </div>
+                            <span class="fw-bold text-dark text-sm mt-2">Target</span>
+                        </div>
+
+                        <div class="col-4 d-flex flex-column align-items-center">
+                            <span class="micro-text fw-bold text-dark mb-2" id="goalWwWeightLabel">Written Work</span>
+                            <div class="radial-progress-wrapper" id="gaugeWW"
+                                style="--val: 95; --stroke-color: #0a5c2c;">
+                                <div class="radial-inner">
+                                    <span class="fw-bold fs-4 text-dark" id="valWW">95%</span>
+                                </div>
+                            </div>
+                            <span class="fw-bold text-dark text-sm mt-2">Target</span>
+                        </div>
+
+                        <div class="col-4 d-flex flex-column align-items-center">
+                            <span class="micro-text fw-bold text-dark mb-2" id="goalExamWeightLabel">Quarterly Assessment</span>
+                            <div class="radial-progress-wrapper" id="gaugeExam"
+                                style="--val: 94; --stroke-color: #0a5c2c;">
+                                <div class="radial-inner">
+                                    <span class="fw-bold fs-4 text-dark" id="valExam">94%</span>
+                                </div>
+                            </div>
+                            <span class="fw-bold text-dark text-sm mt-2">Target</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-column gap-3 mb-4 px-2">
+                        <div>
+                            <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderPtLabel">Goal Adjustment: Performance Task</label>
+                            <input type="range" class="form-range custom-green-range" id="sliderPT" min="70" max="100"
+                                value="98">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderWwLabel">Goal Adjustment: Written Work</label>
+                            <input type="range" class="form-range custom-green-range" id="sliderWW" min="70" max="100"
+                                value="95">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderExamLabel">Goal Adjustment: Quarterly Assessment</label>
+                            <input type="range" class="form-range custom-green-range" id="sliderExam" min="70" max="100"
+                                value="94">
+                        </div>
+                    </div>
+
+                    <hr class="my-4 text-muted opacity-25">
+
+                    <div>
+                        <h6 class="fw-bold text-dark fs-6 mb-3">Recommended Practice Path</h6>
+                        <div class="row g-3">
+                            <div class="col-12 col-sm-6">
+                                <span class="fw-bold text-dark text-sm d-block mb-2">Quizzes</span>
+                                <a href="quiz_taker_student.html"
+                                    class="btn btn-outline-practice w-100 py-2 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none">
+                                    <i class="bi bi-cpu-fill text-success fs-5"></i>
+                                    <span class="fw-bold text-dark text-sm">Practice with Quizzes</span>
+                                </a>
+                            </div>
+
+                            <div class="col-12 col-sm-6">
+                                <span class="fw-bold text-dark text-sm d-block mb-2">Quarterly Assessment</span>
+                                <a href="learning_resources_student.html"
+                                    class="btn btn-outline-practice w-100 py-2 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none">
+                                    <i class="bi bi-journal-text text-success fs-5"></i>
+                                    <span class="fw-bold text-dark text-sm">Review Lessons</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Official DepEd SF9-SHS Report Card Viewer Modal -->
+    <div class="modal fade" id="reportCardModal" tabindex="-1" aria-labelledby="reportCardModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg bg-white">
+
+                <!-- Modal Header Ribbon -->
+                <div
+                    class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-person-fill fs-5 text-white"></i>
+                        <h5 class="modal-title fw-bold fs-6 m-0 text-white" id="reportCardModalLabel">
+                            Official Progress Report Card (DepEd SF9-SHS)
+                        </h5>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button"
+                            class="btn btn-sm btn-light fw-bold text-success d-inline-flex align-items-center gap-1.5 px-3 py-1.5 shadow-sm"
+                            id="btnModalPrintReport">
+                            <i class="bi bi-printer-fill"></i> Print / Save PDF
+                        </button>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-light fw-semibold d-inline-flex align-items-center gap-1.5 px-3 py-1.5"
+                            id="btnModalExportExcel">
+                            <i class="bi bi-file-earmark-spreadsheet-fill"></i> Export .xlsx
+                        </button>
+                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                </div>
+
+                <!-- Modal Body with DepEd SF9 Document Layout -->
+                <div class="modal-body p-4 report-card-modal-body">
+
+                    <!-- Official School & DepEd Header -->
+                    <div class="report-card-header-box text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-3 mb-2">
+                            <img src="../TSHS_image.png" alt="School Seal"
+                                style="width: 48px; height: 48px; object-fit: contain;">
+                            <div>
+                                <p class="report-card-deped-sub m-0">Republic of the Philippines &bull; Department of
+                                    Education</p>
+                                <p class="report-card-deped-sub m-0">Region IV-A CALABARZON &bull; Division of Batangas
+                                </p>
+                                <h2 class="report-card-school-title my-0.5">TALISAY SENIOR HIGH SCHOOL</h2>
+                            </div>
+                        </div>
+                        <div class="report-card-main-title">Senior High School Student Progress Report Card (SF9-SHS)
+                        </div>
+                        <p class="report-card-deped-sub mt-1 mb-0" id="rcHeaderAcademicYear">Academic Year 2026-2027 &bull; 1st Term</p>
+                    </div>
+
+                    <!-- 4-Column Student Information Grid -->
+                    <table class="report-card-meta-table">
+                        <tr>
+                            <td class="report-card-meta-label">Learner Name:</td>
+                            <td class="report-card-meta-val" id="rcLearnerName">Dela Cruz, Juan C.</td>
+                            <td class="report-card-meta-label">Learner Reference No. (LRN):</td>
+                            <td class="report-card-meta-val" id="rcLrn">123456789012</td>
+                        </tr>
+                        <tr>
+                            <td class="report-card-meta-label">Grade & Section:</td>
+                            <td class="report-card-meta-val" id="rcGradeSection">Grade 12 - STEM Sigma Technocrats</td>
+                            <td class="report-card-meta-label">Track & Strand:</td>
+                            <td class="report-card-meta-val" id="rcTrackStrand">Academic Track - STEM</td>
+                        </tr>
+                        <tr>
+                            <td class="report-card-meta-label">General Average (GWA):</td>
+                            <td class="report-card-meta-val fw-bold text-success" id="rcGwa">92.50 (With High Honors)</td>
+                            <td class="report-card-meta-label">Grading Period:</td>
+                            <td class="report-card-meta-val" id="rcGradingPeriod">Academic Year 2026-2027 &bull; 1st Term</td>
+                        </tr>
+                    </table>
+
+                    <!-- Academic Subjects Evaluation Table -->
+                    <table class="report-card-grade-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 38%; text-align: left;">Learning Areas (Subject Code & Description)</th>
+                                <th style="width: 13%;">Written Works</th>
+                                <th style="width: 13%;">Performance Tasks</th>
+                                <th style="width: 13%;">Quarterly Assessment</th>
+                                <th style="width: 11%;">Final Grade</th>
+                                <th style="width: 12%;">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rcTableBody">
+                            <tr>
+                                <td><strong>EAPP</strong> - English for Academic and Professional Purposes</td>
+                                <td class="text-center">94</td>
+                                <td class="text-center">96</td>
+                                <td class="text-center fw-bold">95</td>
+                                <td class="text-center fw-bold text-success">Passed</td>
+                            </tr>
+                            <tr>
+                                <td><strong>GenPhy1</strong> - General Physics 1</td>
+                                <td class="text-center">90</td>
+                                <td class="text-center">94</td>
+                                <td class="text-center fw-bold">92</td>
+                                <td class="text-center fw-bold text-success">Passed</td>
+                            </tr>
+                            <tr>
+                                <td><strong>GenChem1</strong> - General Chemistry 1</td>
+                                <td class="text-center">89</td>
+                                <td class="text-center">93</td>
+                                <td class="text-center fw-bold">90</td>
+                                <td class="text-center fw-bold text-success">Passed</td>
+                            </tr>
+                            <tr>
+                                <td><strong>GenBio1</strong> - General Biology 1</td>
+                                <td class="text-center">86</td>
+                                <td class="text-center">90</td>
+                                <td class="text-center fw-bold">88</td>
+                                <td class="text-center fw-bold text-success">Passed</td>
+                            </tr>
+                            <tr>
+                                <td><strong>IPHP</strong> - Introduction to the Philosophy of the Human Person</td>
+                                <td class="text-center">93</td>
+                                <td class="text-center">95</td>
+                                <td class="text-center fw-bold">94</td>
+                                <td class="text-center fw-bold text-success">Passed</td>
+                            </tr>
+                            <tr>
+                                <td><strong>PE</strong> - Physical Education and Health 3</td>
+                                <td class="text-center">98</td>
+                                <td class="text-center">96</td>
+                                <td class="text-center fw-bold">96</td>
+                                <td class="text-center fw-bold text-success">Passed</td>
+                            </tr>
+                            <tr class="report-card-gwa-row">
+                                <td class="text-end">GENERAL WEIGHTED AVERAGE (GWA):</td>
+                                <td class="text-center fw-bold">91.67</td>
+                                <td class="text-center fw-bold">94.00</td>
+                                <td class="text-center fw-bold fs-6 text-success">92.50</td>
+                                <td class="text-center fw-bold text-success">Passed (Promoted)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Bottom Row: Grading Scale and Signatures -->
+                    <div class="row align-items-center mt-3 pt-1">
+                        <div class="col-12 col-md-6 mb-3 mb-md-0">
+                            <div class="report-card-grading-scale-box">
+                                <span class="fw-bold d-block mb-1 text-dark">DepEd Grading Scale (DepEd Order No. 8, s.
+                                    2015):</span>
+                                <table class="w-100" style="font-size: 0.73rem;">
+                                    <tr>
+                                        <td><strong>90 - 100:</strong> Outstanding</td>
+                                        <td><strong>80 - 84:</strong> Satisfactory</td>
+                                        <td><strong>Below 75:</strong> Did Not Meet Expectations</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>85 - 89:</strong> Very Satisfactory</td>
+                                        <td><strong>75 - 79:</strong> Fairly Satisfactory</td>
+                                        <td><strong>Passing Grade:</strong> 75</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 text-center">
+                            <div class="report-card-signature-line"></div>
+                            <span class="fw-bold d-block small text-dark" id="rcAdviserName">Mrs. A. Cruz</span>
+                            <span class="text-muted micro-text">Class Adviser</span>
+                        </div>
+                        <div class="col-6 col-md-3 text-center">
+                            <div class="report-card-signature-line"></div>
+                            <span class="fw-bold d-block small text-dark">Dr. R. Garcia</span>
+                            <span class="text-muted micro-text">Senior High School Principal</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-footer bg-light px-4 py-2.5 d-flex justify-content-between">
+                    <span class="micro-text text-muted"><i class="bi bi-shield-check text-success me-1"></i> Official
+                        System-Generated DepEd Form 138 / SF9-SHS Record</span>
+                    <button type="button" class="btn btn-secondary px-4 py-1.5 rounded-pill fw-semibold"
+                        data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
+    <script src="grade_performance_student.js"></script>
+</body>
+
+</html>

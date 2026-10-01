@@ -35,16 +35,29 @@
             <div class="card profile-banner text-white p-4 mb-4 shadow-sm">
                 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-4">
                     <div class="d-flex align-items-center gap-4">
-                        <div class="avatar-circle rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold fs-3">
-                            AD
+                        <div class="avatar-badge-wrap position-relative flex-shrink-0">
+                            <a href="profile_admin.html"
+                                class="avatar-clickable-circle avatar-circle rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold fs-3 text-decoration-none shadow-sm position-relative overflow-hidden"
+                                title="Click to view and edit your profile">
+                                <span id="dashboardAvatarInitials">AD</span>
+                                <img id="dashboardAvatarImg" class="w-100 h-100 d-none" style="object-fit: cover;" alt="Profile photo">
+                                <div class="avatar-hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-white">
+                                    <i class="bi bi-camera-fill fs-5"></i>
+                                </div>
+                            </a>
+                            <span class="avatar-edit-badge" title="Edit profile photo" aria-hidden="true">
+                                <i class="bi bi-pencil-fill"></i>
+                            </span>
                         </div>
                         <div>
-                            <h2 class="fw-bold m-0 fs-4 text-white" id="adminNameDisplay">Loading…</h2>
-                            <p class="m-0 text-white opacity-75 mt-1 small">School Administrator</p>
+                            <a href="profile_admin.html" class="profile-name-link" title="View & Edit Profile">
+                                <h2 class="fw-bold m-0 fs-4 text-white" id="adminNameDisplay">Loading…</h2>
+                            </a>
+                            <p class="m-0 text-white opacity-75 mt-0.5 small">School Administrator</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-3 align-self-end align-self-sm-center">
-                        <button class="btn btn-light rounded-3 p-2.5 notification-trigger position-relative" aria-label="Notifications" onclick="window.location.href='announcements.html'">
+                        <button class="btn btn-light rounded-3 p-2.5 notification-trigger position-relative" aria-label="Notifications" id="notifBellBtn">
                             <i class="bi bi-bell-fill text-success fs-5"></i>
                         </button>
                         <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn" id="logoutBtn">
@@ -56,33 +69,46 @@
 
             <div class="overviews-group-container">
                 <section class="overview-separator">
-                    <h3 class="section-title fw-bold mb-3">Overview</h3>
+                    <h3 class="section-title fw-bold mb-3">Institutional Overview</h3>
                     <div class="row g-3">
-                        <div class="col-12 col-sm-4">
-                            <div class="card stat-card border p-3 shadow-sm">
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card stat-card border p-3 shadow-sm h-100">
                                 <div class="d-flex align-items-center gap-2 mb-1">
-                                    <i class="bi bi-people fs-5 text-primary"></i>
-                                    <span class="text-muted fw-semibold small">Total Users</span>
+                                    <i class="bi bi-mortarboard-fill fs-5 text-primary"></i>
+                                    <span class="text-muted fw-semibold small">Enrolled Students</span>
                                 </div>
-                                <h4 class="fw-bold m-0 fs-3" id="totalUsersVal">—</h4>
+                                <h4 class="fw-bold m-0 fs-3 text-dark" id="dashboardEnrolledStudents">—</h4>
+                                <div class="micro-text text-muted mt-1">Active SHS Learners</div>
                             </div>
                         </div>
-                        <div class="col-12 col-sm-4">
-                            <div class="card stat-card border p-3 shadow-sm">
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card stat-card border p-3 shadow-sm h-100">
                                 <div class="d-flex align-items-center gap-2 mb-1">
-                                    <i class="bi bi-person-video3 fs-5 text-success"></i>
-                                    <span class="text-muted fw-semibold small">Students</span>
+                                    <i class="bi bi-diagram-3-fill fs-5 text-success"></i>
+                                    <span class="text-muted fw-semibold small">Active Sections</span>
                                 </div>
-                                <h4 class="fw-bold m-0 fs-3" id="studentsVal">—</h4>
+                                <h4 class="fw-bold m-0 fs-3 text-dark" id="dashboardActiveSections">—</h4>
+                                <div class="micro-text text-muted mt-1">Grade 11 &amp; 12 Cohorts</div>
                             </div>
                         </div>
-                        <div class="col-12 col-sm-4">
-                            <div class="card stat-card border p-3 shadow-sm">
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card stat-card border p-3 shadow-sm h-100">
                                 <div class="d-flex align-items-center gap-2 mb-1">
-                                    <i class="bi bi-person-workspace fs-5 text-purple"></i>
-                                    <span class="text-muted fw-semibold small">Teachers</span>
+                                    <i class="bi bi-qr-code-scan fs-5 text-purple"></i>
+                                    <span class="text-muted fw-semibold small">Attendance Rate</span>
                                 </div>
-                                <h4 class="fw-bold m-0 fs-3" id="teachersVal">—</h4>
+                                <h4 class="fw-bold m-0 fs-3 text-dark" id="dashboardAttendanceRate">—</h4>
+                                <div class="micro-text text-muted mt-1">Campus Gate QR Scanner</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-xl-3">
+                            <div class="card stat-card border p-3 shadow-sm h-100">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <i class="bi bi-award-fill fs-5 text-warning"></i>
+                                    <span class="text-muted fw-semibold small">School Average</span>
+                                </div>
+                                <h4 class="fw-bold m-0 fs-3 text-dark" id="dashboardSchoolGpa">—</h4>
+                                <div class="micro-text text-muted mt-1">General Transmuted GPA</div>
                             </div>
                         </div>
                     </div>
@@ -119,6 +145,22 @@
                                         <h5 class="fw-bold m-0 fs-6">Schedule Management</h5>
                                         <div class="text-muted micro-text mb-1">Assign Schedules</div>
                                         <p class="small text-secondary m-0 card-desc">Create and manage teacher and class schedules.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <a href="subject_management_admin.html" class="text-decoration-none text-dark">
+                            <div class="card access-card border p-3 h-100 shadow-sm">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="icon-box bg-success-subtle rounded-3 p-2">
+                                        <i class="bi bi-journal-bookmark fs-5 text-success"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold m-0 fs-6">Subject Management</h5>
+                                        <div class="text-muted micro-text mb-1">Topics, Quizzes & Flashcards</div>
+                                        <p class="small text-secondary m-0 card-desc">Manage subjects, topics, and staged learning content.</p>
                                     </div>
                                 </div>
                             </div>
@@ -185,42 +227,10 @@
                                         <p class="small text-secondary m-0 card-desc">Send system-wide announcements to all users.</p>
                                     </div>
                                 </div>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                    2
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="announcementsCardBadge">
+                                    0
                                     <span class="visually-hidden">new announcements</span>
                                 </span>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <a href="subject_management_admin.html" class="text-decoration-none text-dark">
-                            <div class="card access-card border p-3 h-100 shadow-sm">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="icon-box bg-success-subtle rounded-3 p-2">
-                                        <i class="bi bi-journal-bookmark fs-5 text-success"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="fw-bold m-0 fs-6">Subject Management</h5>
-                                        <div class="text-muted micro-text mb-1">Topics, Quizzes & Flashcards</div>
-                                        <p class="small text-secondary m-0 card-desc">Manage subjects, topics, and staged learning content.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <a href="topic_requests_admin.html" class="text-decoration-none text-dark">
-                            <div class="card access-card border p-3 h-100 shadow-sm">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="icon-box bg-teal-subtle rounded-3 p-2">
-                                        <i class="bi bi-inbox fs-5 text-teal"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="fw-bold m-0 fs-6">Topic Requests</h5>
-                                        <div class="text-muted micro-text mb-1">Teacher Submissions</div>
-                                        <p class="small text-secondary m-0 card-desc">Review and approve teacher-submitted topic requests.</p>
-                                    </div>
-                                </div>
                             </div>
                         </a>
                     </div>
@@ -233,10 +243,10 @@
                     <div class="col-12 col-md-4">
                         <div class="card status-card border p-3 shadow-sm">
                             <div class="d-flex align-items-center gap-3">
-                                <span class="status-dot bg-success animate-pulse"></span>
+                                <span class="status-dot bg-success animate-pulse" id="serverStatusDot"></span>
                                 <div>
                                     <h6 class="fw-bold m-0 small">Server Status</h6>
-                                    <p class="micro-text text-muted m-0 mt-1">All systems operational</p>
+                                    <p class="micro-text text-muted m-0 mt-1" id="serverStatusDesc">Operational • Uptime: calculating...</p>
                                 </div>
                             </div>
                         </div>
@@ -244,10 +254,10 @@
                     <div class="col-12 col-md-4">
                         <div class="card status-card border p-3 shadow-sm">
                             <div class="d-flex align-items-center gap-3">
-                                <span class="status-dot bg-primary"></span>
+                                <span class="status-dot bg-primary" id="dbStatusDot"></span>
                                 <div>
                                     <h6 class="fw-bold m-0 small">Database Connection</h6>
-                                    <p class="micro-text text-muted m-0 mt-1">Connected - 45ms latency</p>
+                                    <p class="micro-text text-muted m-0 mt-1" id="dbStatusDesc">Connected • Ping: ...</p>
                                 </div>
                             </div>
                         </div>
@@ -255,10 +265,10 @@
                     <div class="col-12 col-md-4">
                         <div class="card status-card border p-3 shadow-sm">
                             <div class="d-flex align-items-center gap-3">
-                                <span class="status-dot bg-purple"></span>
+                                <span class="status-dot bg-purple" id="storageStatusDot"></span>
                                 <div>
                                     <h6 class="fw-bold m-0 small">Storage Size</h6>
-                                    <p class="micro-text text-muted m-0 mt-1">325 GB used of 1 TB</p>
+                                    <p class="micro-text text-muted m-0 mt-1" id="storageStatusDesc">Calculating storage size...</p>
                                 </div>
                             </div>
                         </div>
@@ -272,6 +282,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="config.js"></script>
     <script src="session.js"></script>
+    <script src="notifications-widget.js"></script>
     <script src="dashboard_admin.js"></script>
 </body>
 </html>

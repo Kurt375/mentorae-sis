@@ -10,6 +10,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleIcon = document.getElementById('toggleIcon');
     const submitScannerCodeBtn = document.getElementById('submitScannerCode');
     const scannerCodeInput = document.getElementById('scannerCode');
+    const contactUsLink = document.getElementById('contactUsLink');
+    const contactUsModalEl = document.getElementById('contactUsModal');
+    const contactUsModal = contactUsModalEl ? new bootstrap.Modal(contactUsModalEl) : null;
+
+    // Check URL parameters for alerts (e.g. ?reason=timeout, ?reason=maintenance)
+    const urlParams = new URLSearchParams(window.location.search);
+    const reason = urlParams.get('reason');
+    const loginAlertBox = document.getElementById('loginAlertBox');
+    const loginAlertMessage = document.getElementById('loginAlertMessage');
+
+    if (reason && loginAlertBox && loginAlertMessage) {
+        if (reason === 'timeout') {
+            loginAlertMessage.textContent = 'Your session has expired due to inactivity. Please log in again to continue.';
+            loginAlertBox.classList.remove('d-none');
+            loginAlertBox.className = 'alert alert-warning alert-dismissible fade show mb-4';
+        } else if (reason === 'maintenance') {
+            loginAlertMessage.textContent = 'Mentorae SIS is currently undergoing scheduled system maintenance. Portal access is temporarily restricted to administrators.';
+            loginAlertBox.classList.remove('d-none');
+            loginAlertBox.className = 'alert alert-danger alert-dismissible fade show mb-4';
+        } else if (reason === 'logout') {
+            loginAlertMessage.textContent = 'You have been safely signed out of your account.';
+            loginAlertBox.classList.remove('d-none');
+            loginAlertBox.className = 'alert alert-info alert-dismissible fade show mb-4';
+        }
+    }
+
+    if (contactUsLink && contactUsModal) {
+        contactUsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            contactUsModal.show();
+        });
+    }
 
     // Redirect destinations by role, once logged in
     const destinations = {
@@ -38,16 +70,31 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
 
         const identity = document.getElementById('loginEmail').value.trim();
-        const password = passwordInput.value;
-        const captchaChecked = document.getElementById('captchaCheck').checked;
+        const password = passwordInput ? passwordInput.value : '';
+        const isLocalEnv =
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === '' ||
+            window.location.protocol === 'file:' ||
+            window.location.hostname.startsWith('192.168.') ||
+            window.location.hostname.startsWith('10.');
+
+        let captchaResponse = (typeof grecaptcha !== 'undefined' && typeof grecaptcha.getResponse === 'function')
+            ? grecaptcha.getResponse()
+            : '';
 
         if (!identity || !password) {
             alert('Please fill out all the input fields correctly.');
             return;
         }
-        if (!captchaChecked) {
-            alert('Please verify you are not a robot by checking the security box.');
-            return;
+
+        if (!captchaResponse) {
+            if (isLocalEnv) {
+                captchaResponse = 'dev-bypass-token';
+            } else {
+                alert('Please verify you are not a robot by completing the reCAPTCHA challenge.');
+                return;
+            }
         }
 
         const submitBtn = loginForm.querySelector('button[type="submit"]');
@@ -58,21 +105,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`${API_BASE}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identity, password }),
+                body: JSON.stringify({ identity, password, captchaToken: captchaResponse }),
             });
             const data = await res.json();
 
             if (!data.success) {
                 alert(data.message || 'Login failed.');
+                if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
                 return;
             }
 
             localStorage.setItem('mentorae_token', data.token);
             localStorage.setItem('mentorae_user', JSON.stringify(data.user));
+
+            if (data.user.mustChangePassword) {
+                // Don't navigate away yet -- force the password change first.
+                showForcePasswordChange(data.token, () => {
+                    window.location.href = destinations[data.user.role] || 'login.html';
+                });
+                return;
+            }
+
             window.location.href = destinations[data.user.role] || 'login.html';
         } catch (err) {
             console.error('Fetch error:', err);
             alert('Could not reach the server. Please try again.');
+            if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
         } finally {
             submitBtn.disabled = false;
         }
@@ -110,6 +168,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 3b. Forced first-login password change — shown when the account is still
+    // on its auto-generated temporary password (see mustChangePassword above).
+    const forcePasswordChangeModalEl = document.getElementById('forcePasswordChangeModal');
+    const forcePasswordChangeModal = new bootstrap.Modal(forcePasswordChangeModalEl);
+    const forcePasswordChangeForm = document.getElementById('forcePasswordChangeForm');
+
+    function showForcePasswordChange(authToken, onDone) {
+        forcePasswordChangeForm.reset();
+        forcePasswordChangeModal.show();
+
+        forcePasswordChangeForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('fpcCurrentPassword').value;
+            const newPassword = document.getElementById('fpcNewPassword').value;
+            const confirmPassword = document.getElementById('fpcConfirmPassword').value;
+
+            if (newPassword.length < 8) {
+                alert('New password must be at least 8 characters.');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                alert('New password and confirmation do not match.');
+                return;
+            }
+
+            const submitBtn = forcePasswordChangeForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+                    body: JSON.stringify({ currentPassword, newPassword }),
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    alert(data.message || 'Could not change your password.');
+                    return;
+                }
+
+                // Keep the stored session in sync so the prompt doesn't show again this session.
+                const storedUser = JSON.parse(localStorage.getItem('mentorae_user') || 'null');
+                if (storedUser) {
+                    storedUser.mustChangePassword = false;
+                    localStorage.setItem('mentorae_user', JSON.stringify(storedUser));
+                }
+
+                forcePasswordChangeModal.hide();
+                onDone();
+            } catch (err) {
+                console.error(err);
+                alert('Could not reach the server. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        };
+    }
+
     // 4. Forgot Password Modal — real OTP flow
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const forgotPasswordModalEl = document.getElementById('forgotPasswordModal');
@@ -131,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let userEmail = null;
     let resetToken = null; 
+    let isResetSaving = false; 
 
     if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', (e) => {
@@ -224,6 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 alert(data.message);
                 if (data.success) {
+                    isResetSaving = true;
                     forgotPasswordModal.hide();
                 }
             } catch (err) {
@@ -233,9 +352,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Reset modal to step 1 when it's hidden
+    // Reset modal to step 1 when it's hidden, and warn if canceling active progress
     if (forgotPasswordModalEl) {
+        forgotPasswordModalEl.addEventListener('hide.bs.modal', (event) => {
+            if (isResetSaving) return;
+
+            const isBeyondStep1 = (resetStep2 && !resetStep2.classList.contains('d-none')) || (resetStep3 && !resetStep3.classList.contains('d-none'));
+            const hasTypedEmail = resetEmailInput && resetEmailInput.value.trim() !== '';
+
+            if (isBeyondStep1 || hasTypedEmail) {
+                const confirmCancel = confirm('Are you sure you want to cancel the password reset process? Any entered information will be discarded.');
+                if (!confirmCancel) {
+                    event.preventDefault();
+                }
+            }
+        });
+
         forgotPasswordModalEl.addEventListener('hidden.bs.modal', () => {
+            isResetSaving = false;
             resetStep1.classList.remove('d-none');
             resetStep2.classList.add('d-none');
             resetStep3.classList.add('d-none');
@@ -246,4 +380,17 @@ document.addEventListener('DOMContentLoaded', () => {
             resetToken = null;
         });
     }
+
+    // If running locally or offline and reCAPTCHA is not loaded, show helpful indicator
+    setTimeout(() => {
+        const captchaEl = document.querySelector('.g-recaptcha');
+        const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname) ||
+            window.location.protocol === 'file:' ||
+            window.location.hostname.startsWith('192.168.') ||
+            window.location.hostname.startsWith('10.');
+
+        if (captchaEl && isLocal && (typeof grecaptcha === 'undefined' || !captchaEl.children.length)) {
+            captchaEl.innerHTML = '<div style="font-size: 11px; color: #166534; background: #f0fdf4; border: 1px dashed #86efac; border-radius: 6px; padding: 6px 10px; margin-top: 6px; text-align: center;">✅ Local/Offline Mode: reCAPTCHA auto-bypassed for testing</div>';
+        }
+    }, 2000);
 });

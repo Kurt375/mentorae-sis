@@ -188,6 +188,76 @@ async function checkSessionLock(teacherId, sectionId, subjectId) {
   const today = dayNames[now.getDay()];
   const nowStr = now.toTimeString().slice(0, 8);
 
+  // Check if this teacher is the official section adviser
+  const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
+  const isAdviser = Boolean(sec && sec.adviser_id === teacherId);
+
+  // Helper to format HH:MM:SS to 12-hour format (e.g. 8:30 AM)
+  const formatTime12 = (t) => {
+    if (!t) return '';
+    const [hStr, mStr] = t.split(':');
+    let h = parseInt(hStr, 10);
+    const m = mStr ? mStr.padStart(2, '0') : '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  };
+
+  // If this is the teacher's advisory class and no specific subject period was requested:
+  // Advisory attendance validation starts at 7:00 AM and ends when the first subject ends.
+  if (isAdviser && !subjectId) {
+    if (today === 'Saturday' || today === 'Sunday') {
+      return { isAllowed: false, reason: 'Advisory attendance validation cannot be performed on weekends.' };
+    }
+
+    // Find the first scheduled subject of the day for this section
+    const [firstSubRows] = await pool.query(
+      'SELECT start_time, end_time FROM schedules WHERE section_id = ? AND day_of_week = ? ORDER BY start_time ASC LIMIT 1',
+      [sectionId, today]
+    );
+
+    // Use the first subject's end time, or 08:30:00 default if no schedule is registered for today
+    const firstSubEndTime = firstSubRows[0]?.end_time || '08:30:00';
+    const formattedEnd = formatTime12(firstSubEndTime);
+
+    if (nowStr < '07:00:00') {
+      return {
+        isAllowed: false,
+        reason: `Advisory attendance validation begins at 7:00 AM and closes when the first subject ends (${formattedEnd}).`,
+      };
+    }
+
+    if (nowStr > firstSubEndTime) {
+      // Allow if the teacher has an active subject period right now
+      const [schedRows] = await pool.query(
+        'SELECT * FROM schedules WHERE teacher_id = ? AND section_id = ? AND day_of_week = ? ORDER BY start_time',
+        [teacherId, sectionId, today]
+      );
+      const toMinutes = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      const nowMin = toMinutes(nowStr);
+      const activeSchedule = schedRows.find(
+        (s) => nowMin >= toMinutes(s.start_time) - 5 && nowMin <= toMinutes(s.end_time) + 5
+      );
+
+      if (activeSchedule) {
+        return { isAllowed: true, reason: 'Subject Session Active. You can confirm attendance for this period.' };
+      }
+
+      return {
+        isAllowed: false,
+        reason: `Advisory attendance validation closed when the first subject ended at ${formattedEnd}.`,
+      };
+    }
+
+    return {
+      isAllowed: true,
+      reason: `Advisory Session Active (7:00 AM – ${formattedEnd}). You can validate your class daily attendance.`,
+    };
+  }
+
   const params = subjectId ? [teacherId, sectionId, subjectId, today] : [teacherId, sectionId, today];
   const sql = subjectId
     ? `SELECT * FROM schedules WHERE teacher_id = ? AND section_id = ? AND subject_id = ? AND day_of_week = ?`
@@ -256,10 +326,13 @@ async function getConfirmationRoster(req, res) {
   }
 
   try {
+    const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
+    const isAdviser = Boolean(sec && sec.adviser_id === req.user.id);
+
     if (req.user.role === 'teacher') {
       const teaches = await teacherTeachesSection(req.user.id, sectionId);
-      if (!teaches) {
-        return res.status(403).json({ success: false, message: 'You do not teach this section.' });
+      if (!teaches && !isAdviser) {
+        return res.status(403).json({ success: false, message: 'You do not teach or advise this section.' });
       }
     }
 
@@ -290,7 +363,7 @@ async function getConfirmationRoster(req, res) {
       timeOutStatus: r.time_out_status,
     }));
 
-    return res.json({ success: true, roster });
+    return res.json({ success: true, roster, isAdvisory: isAdviser });
   } catch (err) {
     console.error('getConfirmationRoster error:', err);
     return res.status(500).json({ success: false, message: 'Could not load the attendance roster.' });
@@ -480,6 +553,150 @@ async function resolveStudentId(req) {
   return { id: studentId };
 }
 
+/** POST /api/attendance/excuse-note — Parent submits excuse note for child */
+async function submitExcuseNote(req, res) {
+  const { studentId, absenceDate, reason, remarks } = req.body;
+  if (!studentId || !absenceDate || !reason) {
+    return res.status(400).json({ success: false, message: 'Student, date, and reason are required.' });
+  }
+
+  try {
+    const gate = await canViewStudent(req.user, studentId);
+    if (!gate.ok) return res.status(gate.status).json({ success: false, message: gate.message });
+
+    const [stRows] = await pool.query('SELECT section_id FROM users WHERE id = ?', [studentId]);
+    const sectionId = stRows[0]?.section_id || null;
+
+    const [result] = await pool.query(
+      `INSERT INTO excuse_notes (student_id, parent_id, section_id, absence_date, reason, remarks, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+      [studentId, req.user.id, sectionId, absenceDate, reason, remarks || null]
+    );
+
+    const adviserId = await getAdviserIdForStudent(studentId);
+    if (adviserId) {
+      await notify({
+        recipientId: adviserId,
+        type: 'attendance_excused',
+        title: 'Excuse Note Submitted',
+        message: `A parent has submitted an excuse note for ${absenceDate} (${reason}). Please review.`,
+        relatedStudentId: studentId,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Excuse note submitted successfully to the adviser for verification.',
+      noteId: result.insertId,
+    });
+  } catch (err) {
+    console.error('submitExcuseNote error:', err);
+    return res.status(500).json({ success: false, message: 'Could not submit excuse note.' });
+  }
+}
+
+/** GET /api/attendance/excuse-notes?studentId=&status= */
+async function listExcuseNotes(req, res) {
+  try {
+    let where = [];
+    let params = [];
+
+    if (req.user.role === 'parent') {
+      where.push('en.parent_id = ?');
+      params.push(req.user.id);
+    } else if (req.user.role === 'teacher') {
+      // Find sections where teacher is adviser or instructor
+      const [secRows] = await pool.query(
+        'SELECT id FROM sections WHERE adviser_id = ? UNION SELECT DISTINCT section_id FROM schedules WHERE teacher_id = ?',
+        [req.user.id, req.user.id]
+      );
+      const secIds = secRows.map((s) => s.id);
+      if (!secIds.length) {
+        return res.json({ success: true, notes: [] });
+      }
+      where.push(`en.section_id IN (${secIds.map(() => '?').join(',')})`);
+      params.push(...secIds);
+    }
+
+    if (req.query.studentId) {
+      where.push('en.student_id = ?');
+      params.push(req.query.studentId);
+    }
+    if (req.query.status) {
+      where.push('en.status = ?');
+      params.push(req.query.status);
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const [rows] = await pool.query(
+      `SELECT en.id, en.student_id, en.parent_id, en.section_id, DATE_FORMAT(en.absence_date, '%Y-%m-%d') AS absence_date,
+              en.reason, en.remarks, en.status, en.created_at, en.reviewed_at,
+              CONCAT(st.first_name, ' ', st.last_name) AS student_name, st.id_number AS student_lrn,
+              CONCAT(p.first_name, ' ', p.last_name) AS parent_name,
+              sec.name AS section_name
+       FROM excuse_notes en
+       JOIN users st ON st.id = en.student_id
+       JOIN users p ON p.id = en.parent_id
+       LEFT JOIN sections sec ON sec.id = en.section_id
+       ${whereClause}
+       ORDER BY en.created_at DESC`,
+      params
+    );
+
+    return res.json({ success: true, notes: rows });
+  } catch (err) {
+    console.error('listExcuseNotes error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load excuse notes.' });
+  }
+}
+
+/** PATCH /api/attendance/excuse-notes/:id — Teacher/Admin review (approve/reject) */
+async function reviewExcuseNote(req, res) {
+  const { id } = req.params;
+  const { status, reviewRemarks } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ success: false, message: "Status must be 'approved' or 'rejected'." });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM excuse_notes WHERE id = ?', [id]);
+    const note = rows[0];
+    if (!note) return res.status(404).json({ success: false, message: 'Excuse note not found.' });
+
+    await pool.query(
+      `UPDATE excuse_notes SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
+      [status, req.user.id, id]
+    );
+
+    const absenceDateStr = new Date(note.absence_date).toISOString().slice(0, 10);
+
+    if (status === 'approved') {
+      // Mark or update attendance log as excused
+      await pool.query(
+        `INSERT INTO attendance_logs (student_id, scan_date, status, confirmed_by, confirmed_at)
+         VALUES (?, ?, 'excused', ?, NOW())
+         ON DUPLICATE KEY UPDATE status = 'excused', confirmed_by = VALUES(confirmed_by), confirmed_at = NOW()`,
+        [note.student_id, absenceDateStr, req.user.id]
+      );
+    }
+
+    // Notify parent
+    await notify({
+      recipientId: note.parent_id,
+      type: status === 'approved' ? 'attendance_excused' : 'attendance_update',
+      title: `Excuse Note ${status === 'approved' ? 'Approved' : 'Declined'}`,
+      message: `Your excuse note for ${absenceDateStr} has been ${status} by the school.`,
+      relatedStudentId: note.student_id,
+    });
+
+    return res.json({ success: true, message: `Excuse note has been ${status}.` });
+  } catch (err) {
+    console.error('reviewExcuseNote error:', err);
+    return res.status(500).json({ success: false, message: 'Could not review excuse note.' });
+  }
+}
+
 module.exports = {
   getMyQrCode,
   scanAttendance,
@@ -490,4 +707,7 @@ module.exports = {
   confirmAttendanceOut,
   getSummary,
   getHistory,
+  submitExcuseNote,
+  listExcuseNotes,
+  reviewExcuseNote,
 };

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Parent Profile</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard_parent.css">
+</head>
+<body class="dashboard-bg">
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <!-- Standard Portal Header (Matching Other Pages) -->
+        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <a href="dashboard_parent.html" class="text-white text-decoration-none fs-4" id="backToDashboardBtn" aria-label="Go Back to Dashboard">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                    <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                </div>
+                <div>
+                    <h1 class="m-0 fs-4 fw-bold tracking-wide d-inline-block">My Profile</h1>
+                    <p class="m-0 micro-text text-white opacity-75 d-none d-sm-block">Parent / Guardian Information</p>
+                </div>
+            </div>
+            <div class="text-white text-end dashboard-time">
+                <div class="small opacity-75" id="liveDate"></div>
+                <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+            </div>
+        </header>
+
+        <!-- Main Content Area: Design Placed Below Header -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+            
+            <div class="profile-card-wrapper">
+                <!-- Top Colored Profile Card Banner -->
+                <div class="profile-card-banner"></div>
+
+                <!-- White Profile Card Body -->
+                <div class="profile-card-body">
+                    <!-- Centered Circular Avatar with Concentric Rings Overlapping Boundary -->
+                    <div class="profile-avatar-anchor">
+                        <div class="avatar-concentric-wrap" id="avatarTrigger" title="Click to upload and align profile picture" role="button" tabindex="0">
+                            <div class="avatar-main-circle">
+                                <i class="bi bi-person-fill-check text-success display-5 d-flex align-items-center justify-content-center h-100" id="avatarIcon"></i>
+                                <img id="avatarImg" class="d-none" alt="Profile photo">
+                            </div>
+                            <!-- Camera Badge -->
+                            <div class="avatar-camera-badge" title="Change photo">
+                                <i class="bi bi-camera-fill"></i>
+                            </div>
+                        </div>
+                        <!-- Hidden file input -->
+                        <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" class="d-none">
+                    </div>
+
+                    <!-- Centered Parent Name & Role -->
+                    <h2 class="profile-user-name" id="profileName">Loading…</h2>
+                    <div class="profile-user-subtitle d-flex align-items-center justify-content-center gap-2 flex-wrap">
+                        <span class="badge bg-success-subtle text-success px-3 py-1.5 rounded-pill fw-bold">
+                            <i class="bi bi-shield-check me-1"></i>Verified Parent / Guardian
+                        </span>
+                    </div>
+
+                    <!-- Section 1: Account Information (Clean List-Cards) -->
+                    <div class="profile-section-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-dark m-0"><i class="bi bi-person-badge-fill text-success me-2"></i>Parent Account Information</h6>
+                        </div>
+                        
+                        <div class="profile-item-row">
+                            <div class="profile-item-icon">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            <div class="profile-item-content">
+                                <div class="profile-item-label">Full Name</div>
+                                <div class="profile-item-val" id="fullNameVal">—</div>
+                            </div>
+                        </div>
+
+                        <div class="profile-item-row">
+                            <div class="profile-item-icon">
+                                <i class="bi bi-envelope-at-fill"></i>
+                            </div>
+                            <div class="profile-item-content">
+                                <div class="profile-item-label">Account Email</div>
+                                <div class="profile-item-val" id="emailVal">—</div>
+                            </div>
+                        </div>
+
+                        <div class="profile-item-row">
+                            <div class="profile-item-icon">
+                                <i class="bi bi-telephone-fill"></i>
+                            </div>
+                            <div class="profile-item-content">
+                                <div class="profile-item-label">Contact Number</div>
+                                <div class="profile-item-val" id="contactVal">—</div>
+                            </div>
+                        </div>
+
+                        <div class="profile-item-row">
+                            <div class="profile-item-icon">
+                                <i class="bi bi-shield-lock-fill"></i>
+                            </div>
+                            <div class="profile-item-content">
+                                <div class="profile-item-label">Account Role</div>
+                                <div class="profile-item-val"><span class="badge bg-success text-white fw-semibold">Parent / Guardian</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Contact & Notification Settings -->
+                    <div class="profile-section-card">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-bell-fill text-primary me-2"></i>School Alerts & Notification Email</h6>
+                        <form id="editProfileForm">
+                            <div class="mb-3">
+                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted">Personal / Alternative Email</label>
+                                <input type="email" class="form-control rounded-3" id="personalEmailInput" placeholder="parent.personal@example.com">
+                                <div class="form-text micro-text text-muted">Used for urgent notifications, attendance alerts, and password recovery.</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="submit" class="btn btn-success fw-semibold px-4 rounded-3" id="saveEmailBtn">
+                                    <i class="bi bi-check2 me-1"></i>Update Email
+                                </button>
+                                <span class="small text-success fw-bold d-none" id="saveConfirm">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Saved!
+                                </span>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Prominent Log Out Action Button -->
+                    <div class="text-center mt-4 mb-3">
+                        <button type="button" class="profile-logout-btn" id="profileLogoutBtn">
+                            <i class="bi bi-box-arrow-right fs-5"></i> Log Out
+                        </button>
+                    </div>
+
+                    <div class="text-center mt-2 mb-2">
+                        <a href="../login.html" class="small text-muted text-decoration-none">
+                            <i class="bi bi-key me-1"></i>Need to change your password? Use "Forgot Password" on the login portal.
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
+    <script src="../avatar_cropper.js"></script>
+    <script>
+        const { token, user } = requireSession('../login.html');
+        document.getElementById('profileName').textContent = user.full_name || 'Parent';
+        document.getElementById('fullNameVal').textContent = user.full_name || '—';
+
+        // Live Clock matching other pages
+        function updateClock() {
+            const now = new Date();
+            const dateEl = document.getElementById('liveDate');
+            const timeEl = document.getElementById('liveTime');
+            if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            if (timeEl) timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // Initialize Avatar Cropper for interactive photo upload, pan, and alignment
+        setupAvatarCropper({
+            triggerEl: document.getElementById('avatarTrigger'),
+            fileInputEl: document.getElementById('avatarFileInput'),
+            avatarImgEl: document.getElementById('avatarImg'),
+            avatarIconEl: document.getElementById('avatarIcon'),
+            token,
+            onUpdated: (newBase64) => {
+                console.log('Parent avatar updated & cropped successfully!');
+            }
+        });
+
+        // Allow keyboard activation of avatar upload
+        document.getElementById('avatarTrigger').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                document.getElementById('avatarFileInput').click();
+            }
+        });
+
+        // Logout action
+        document.getElementById('profileLogoutBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to log out of your Mentorae account?')) {
+                clearSession();
+                window.location.href = '../login.html';
+            }
+        });
+
+        async function loadProfile() {
+            try {
+                const data = await authedFetch('/api/auth/profile', token);
+                if (data.success && data.profile) {
+                    const p = data.profile;
+                    document.getElementById('emailVal').textContent = p.email || '—';
+                    document.getElementById('contactVal').textContent = p.contactNumber || '—';
+                    document.getElementById('personalEmailInput').value = p.personalEmail || '';
+                    if (p.profilePictureUrl) {
+                        const img = document.getElementById('avatarImg');
+                        img.src = p.profilePictureUrl;
+                        img.classList.remove('d-none');
+                        document.getElementById('avatarIcon').classList.add('d-none');
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading parent profile:', err);
+            }
+        }
+        loadProfile();
+
+        document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('saveEmailBtn');
+            btn.disabled = true;
+            try {
+                const personalEmail = document.getElementById('personalEmailInput').value.trim();
+                const data = await authedFetch('/api/auth/profile', token, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ personalEmail }),
+                });
+                if (!data.success) {
+                    alert(data.message || 'Could not save profile changes.');
+                    return;
+                }
+                const confirm = document.getElementById('saveConfirm');
+                confirm.classList.remove('d-none');
+                setTimeout(() => confirm.classList.add('d-none'), 2500);
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred while saving profile.');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

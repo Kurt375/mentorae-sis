@@ -53,30 +53,32 @@
                     </div>
                 </div>
                 <!-- Toolbar: Search & Filters -->
-                <div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
-                    <div class="input-group search-box shadow-sm rounded-3 flex-grow-1" style="max-width: 450px;">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control border-start-0 ps-0" id="searchBar" placeholder="Search by ID, name, strand, or status...">
+                <div class="attendance-toolbar d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <div id="sectionTypeBadgeWrap" class="d-flex align-items-center">
+                        <!-- Populated dynamically (Advisory Class vs Subject Class) -->
                     </div>
-                    <select class="form-select custom-filter-dropdown shadow-sm d-none" id="filterStrand" aria-label="Filter Strand">
-                    </select>
-                    <select class="form-select custom-filter-dropdown shadow-sm" id="filterSection" aria-label="Filter Section">
-                        <!-- Sections are populated dynamically by JavaScript -->
-                    </select>
+                    <div class="d-flex align-items-center gap-2 toolbar-controls">
+                        <div class="input-group search-box shadow-sm rounded-3">
+                            <span class="input-group-text bg-white border-end-0 text-muted ps-3 pe-2"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-1" id="searchBar" placeholder="Search student or ID...">
+                        </div>
+                        <select class="form-select custom-filter-dropdown shadow-sm" id="filterSection" aria-label="Filter Section">
+                            <!-- Sections are populated dynamically by JavaScript -->
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Attendance Table Sheet Matrix -->
                 <div class="card border-0 shadow-sm overflow-hidden rounded-3 bg-white mb-4">
                     <div class="table-responsive">
                         <table class="table align-middle m-0 text-sm db-record-table" id="attendanceConfirmationTable">
-                            <thead>
+                            <thead id="attendanceConfirmationHead">
                                 <tr class="table-header-row text-white">
                                     <th class="px-4 py-3 fw-semibold">Student ID</th>
                                     <th class="px-4 py-3 fw-semibold">Name</th>
                                     <th class="px-4 py-3 fw-semibold">Strand</th>
                                     <th class="px-4 py-3 fw-semibold">Section</th>
                                     <th class="px-4 py-3 fw-semibold text-center">Status</th>
-                                    <th class="px-4 py-3 fw-semibold text-center">Time Out</th>
                                     <th class="px-4 py-3 fw-semibold text-center">Action</th>
                                 </tr>
                             </thead>

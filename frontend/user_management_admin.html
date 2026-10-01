@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,13 +9,15 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="user_management_admin.css"> <!-- Keep for specific user management styles -->
 </head>
+
 <body class="dashboard-bg">
 
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        
+
         <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-3">
-                <a href="dashboard_admin.html" class="text-white text-decoration-none fs-4" id="backToDashboardBtn" aria-label="Go Back">
+                <a href="dashboard_admin.html" class="text-white text-decoration-none fs-4" id="backToDashboardBtn"
+                    aria-label="Go Back">
                     <i class="bi bi-chevron-left"></i>
                 </a>
                 <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
@@ -32,7 +35,7 @@
         </header>
 
         <main class="container-fluid px-4 py-4 flex-grow-1">
-            
+
             <section class="row gx-3 gy-2 overview-separator">
                 <div class="col">
                     <div class="card stat-block p-2 text-center border-0 shadow-sm">
@@ -40,7 +43,7 @@
                             <i class="bi bi-people-fill text-dark-blue fs-5"></i>
                             <span class="fw-semibold tiny-text text-dark">Total Users</span>
                         </div>
-                        <h2 class="fw-bold m-0 fs-3 text-dark">850</h2>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalUsers">...</h2>
                     </div>
                 </div>
                 <div class="col">
@@ -49,7 +52,7 @@
                             <i class="bi bi-person-fill text-primary fs-5"></i>
                             <span class="fw-semibold tiny-text text-dark">Students</span>
                         </div>
-                        <h2 class="fw-bold m-0 fs-3 text-dark">800</h2>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalStudents">...</h2>
                     </div>
                 </div>
                 <div class="col">
@@ -58,7 +61,7 @@
                             <i class="bi bi-person-workspace text-success fs-5"></i>
                             <span class="fw-semibold tiny-text text-dark">Teachers</span>
                         </div>
-                        <h2 class="fw-bold m-0 fs-3 text-dark">50</h2>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalTeachers">...</h2>
                     </div>
                 </div>
                 <div class="col">
@@ -67,7 +70,7 @@
                             <i class="bi bi-person-heart text-purple fs-5"></i>
                             <span class="fw-semibold tiny-text text-dark">Parents</span>
                         </div>
-                        <h2 class="fw-bold m-0 fs-3 text-dark">800</h2>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalParents">...</h2>
                     </div>
                 </div>
                 <div class="col">
@@ -76,106 +79,230 @@
                             <i class="bi bi-shield-check text-danger fs-5"></i>
                             <span class="fw-semibold tiny-text text-dark">Staff</span>
                         </div>
-                        <h2 class="fw-bold m-0 fs-3 text-dark">10</h2>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalStaff">...</h2>
                     </div>
                 </div>
             </section>
 
             <section class="card border-0 rounded-3 p-3 mb-4 shadow-sm">
-                <span class="badge bg-mentorae-green text-white align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-medium">Generate Unique Key for QR Scanner</span>
+                <span
+                    class="badge section-header-badge align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-semibold">Generate
+                    Unique Key for QR Scanner</span>
                 <div class="row g-2 align-items-center">
                     <div class="col-auto">
-                        <button type="button" class="btn btn-success fw-semibold px-3 py-2 btn-action" id="btnGenerateKey">Generate Now</button>
+                        <button type="button" class="btn btn-success fw-semibold px-3 py-2 btn-action"
+                            id="btnGenerateKey">Generate Now</button>
                     </div>
                     <div class="col">
-                        <input type="text" class="form-control py-2 text-muted bg-light" id="generatedKeyField" placeholder="E.g., 12jo435vgi9igef57gb78b..." readonly>
+                        <input type="text" class="form-control py-2 text-muted bg-light" id="generatedKeyField"
+                            placeholder="E.g., 12jo435vgi9igef57gb78b..." readonly>
                     </div>
                 </div>
             </section>
 
             <section class="card border-0 rounded-3 p-3 mb-4 shadow-sm">
-                <span class="badge bg-mentorae-green text-white align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-medium">Create Account</span>
-                
-                <form id="createUserForm" novalidate>
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-md-4">
-                            <label for="firstName" class="form-label text-dark fw-bold micro-text mb-1">First Name</label>
-                            <input type="text" class="form-control form-input" id="firstName" placeholder="E.g., Gil" required>
-                        </div>
-                        <div class="col-12 col-sm-2 col-md-1">
-                            <label for="middleInitial" class="form-label text-dark fw-bold micro-text mb-1">M.I.</label>
-                            <input type="text" class="form-control form-input text-center" id="middleInitial" placeholder="S." maxlength="2">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label for="lastName" class="form-label text-dark fw-bold micro-text mb-1">Last Name</label>
-                            <input type="text" class="form-control form-input" id="lastName" placeholder="E.g., Tuazon" required>
-                        </div>
-                        <div class="col-12 col-md-3">
-                            <label for="contactNumber" class="form-label text-dark fw-bold micro-text mb-1">Contact Number</label>
-                            <input type="tel" class="form-control form-input" id="contactNumber" placeholder="Contact number..." required>
-                        </div>
-                    </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge section-header-badge px-3 py-2 fs-6 rounded-2 fw-semibold">Create
+                        Account</span>
+                    <button type="button"
+                        class="btn btn-outline-primary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-2 btn-action text-sm"
+                        data-bs-toggle="modal" data-bs-target="#bulkImportModal">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Bulk Import
+                    </button>
+                </div>
 
-                    <div class="row g-3 align-items-end">
-                        <div class="col-12 col-md-4">
-                            <label class="form-label text-dark fw-bold micro-text mb-1">Role</label>
-                            <select class="form-select form-input" id="userRoleSelect" required>
+                <form id="createUserForm" novalidate>
+                    <!-- Upper Role Selector -->
+                    <div class="row g-3 mb-3 pb-3 border-bottom align-items-end">
+                        <div class="col-12 col-md-5">
+                            <label for="userRoleSelect" class="form-label text-dark fw-bold micro-text mb-1">
+                                <i class="bi bi-person-badge-fill me-1 text-success"></i> Select Account Role <span
+                                    class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-input fw-semibold" id="userRoleSelect" required>
                                 <option value="Student" selected>Student</option>
-                                <option value="Teacher">Teacher</option>
                                 <option value="Parent">Parent</option>
+                                <option value="Teacher">Teacher</option>
                                 <option value="Admin">Admin</option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-4" id="userProgramWrap">
-                            <label for="userProgramSelect" class="form-label text-dark fw-bold micro-text mb-1">Program</label>
-                            <select class="form-select form-input" id="userProgramSelect">
-                                <option value="none" selected>None</option>
-                                <option value="4ps">4Ps</option>
-                                <option value="aral">ARAL Program</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-4" id="userSectionWrap">
-                            <label for="userSectionSelect" class="form-label text-dark fw-bold micro-text mb-1">Section</label>
-                            <select class="form-select form-input" id="userSectionSelect">
-                                <option value="">— No section yet —</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-4" id="userParentNameWrap">
-                            <label for="userParentNameInput" class="form-label text-dark fw-bold micro-text mb-1">Parent's Full Name (optional)</label>
-                            <input type="text" class="form-control form-input" id="userParentNameInput" placeholder="e.g. Allan Castillo" list="parentNameSuggestions">
-                            <datalist id="parentNameSuggestions"></datalist>
-                            <div id="parentMatchStatus" class="micro-text mt-1"></div>
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label for="generatedId" class="form-label text-dark fw-bold micro-text mb-1">ID</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control form-input" id="generatedId" placeholder="Generate ID..." readonly required>
-                                <button class="btn btn-success border" type="button" id="btnTriggerId">Generate</button>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label for="generatedEmail" class="form-label text-dark fw-bold micro-text mb-1">Email</label>
-                            <div class="input-group">
-                                <input type="email" class="form-control form-input" id="generatedEmail" placeholder="Generate Email..." readonly required>
-                                <button class="btn btn-success border" type="button" id="btnTriggerEmail">Generate</button>
+                        <div class="col-12 col-md-7">
+                            <div
+                                class="role-helper-box px-3 py-2 rounded bg-light-green border border-success-subtle d-flex align-items-center gap-2">
+                                <span class="badge section-header-badge py-1 px-2.5 fw-semibold"
+                                    id="activeRoleBadge">Student
+                                    Account</span>
+                                <span class="micro-text text-muted m-0" id="activeRoleDescription">Fill out student
+                                    details and academic information below.</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row g-3 align-items-end mt-1">
-                        <div class="col-12 col-md-8">
-                            <label for="createUserPassword" class="form-label text-dark fw-bold micro-text mb-1">Password <span class="text-muted fw-normal">(optional — leave blank to auto-generate)</span></label>
-                            <div class="input-group">
-                                <input type="password" class="form-control form-input" id="createUserPassword" placeholder="Leave blank to auto-generate a temporary password" minlength="8" autocomplete="new-password">
-                                <button class="btn btn-outline-secondary border" type="button" id="btnTogglePassword" title="Show/Hide password"><i class="bi bi-eye"></i></button>
-                                <button class="btn btn-success border" type="button" id="btnGeneratePassword">Generate</button>
+                    <!-- Personal Information (Common to All Roles) -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4">
+                            <label for="firstName" class="form-label text-dark fw-bold micro-text mb-1">First Name <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-input" id="firstName" placeholder="E.g., Gil"
+                                required>
+                        </div>
+                        <div class="col-12 col-sm-3 col-md-1">
+                            <label for="middleInitial" class="form-label text-dark fw-bold micro-text mb-1">M.I.</label>
+                            <input type="text" class="form-control form-input text-center" id="middleInitial"
+                                placeholder="S." maxlength="4">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label for="lastName" class="form-label text-dark fw-bold micro-text mb-1">Last Name <span
+                                    class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-input" id="lastName" placeholder="E.g., Tuazon"
+                                required>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label for="contactNumber" class="form-label text-dark fw-bold micro-text mb-1">Contact
+                                Number</label>
+                            <input type="tel" class="form-control form-input" id="contactNumber"
+                                placeholder="Contact number...">
+                        </div>
+                    </div>
+
+                    <!-- 1. STUDENT FIELDS -->
+                    <div id="studentRoleFields" class="role-specific-block">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-3">
+                                <label for="studentGradeLevelSelect"
+                                    class="form-label text-dark fw-bold micro-text mb-1">Grade Level</label>
+                                <select class="form-select form-input" id="studentGradeLevelSelect">
+                                    <option value="">All Grade Levels</option>
+                                    <option value="11">Grade 11</option>
+                                    <option value="12">Grade 12</option>
+                                </select>
                             </div>
-                            <div class="form-text micro-text">Minimum 8 characters if set manually.</div>
+                            <div class="col-12 col-md-3">
+                                <label for="studentStrandSelect"
+                                    class="form-label text-dark fw-bold micro-text mb-1">Strand</label>
+                                <select class="form-select form-input" id="studentStrandSelect">
+                                    <option value="">All Strands</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <label for="userSectionSelect"
+                                    class="form-label text-dark fw-bold micro-text mb-1">Section</label>
+                                <select class="form-select form-input" id="userSectionSelect">
+                                    <option value="">— No section yet —</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <label for="studentStatusSelect"
+                                    class="form-label text-dark fw-bold micro-text mb-1">Status</label>
+                                <select class="form-select form-input" id="studentStatusSelect">
+                                    <option value="none" selected>Regular Student</option>
+                                    <option value="4ps">4Ps</option>
+                                    <option value="aral">ARAL Program</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="studentParentFullName" class="form-label text-dark fw-bold micro-text mb-1">
+                                    Parent Full Name <span class="text-muted fw-normal">(Type to see matching
+                                        suggestions)</span>
+                                </label>
+                                <input type="text" class="form-control form-input" id="studentParentFullName"
+                                    list="parentSuggestionsList" placeholder="E.g., Maria Dela Cruz" autocomplete="off">
+                                <datalist id="parentSuggestionsList"></datalist>
+                                <div class="form-text micro-text text-muted">Suggestions update as you type names of
+                                    registered parents. This links the two accounts for grades and attendance updates.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. PARENT FIELDS -->
+                    <div id="parentRoleFields" class="role-specific-block d-none">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <label for="parentChildrenNames" class="form-label text-dark fw-bold micro-text mb-1">
+                                    Child / Children's Name <span class="text-muted fw-normal">(Type to see student
+                                        suggestions)</span>
+                                </label>
+                                <input type="text" class="form-control form-input" id="parentChildrenNames"
+                                    list="studentSuggestionsList" placeholder="E.g., Juan Dela Cruz" autocomplete="off">
+                                <datalist id="studentSuggestionsList"></datalist>
+                                <div class="form-text micro-text text-muted">Type student name or select from
+                                    suggestions. For multiple children, separate with commas. This links the accounts
+                                    for grades and attendance updates.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. TEACHER FIELDS -->
+                    <div id="teacherRoleFields" class="role-specific-block d-none">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-4">
+                                <label for="userAdviserSectionSelect"
+                                    class="form-label text-dark fw-bold micro-text mb-1">Advisory Section</label>
+                                <select class="form-select form-input" id="userAdviserSectionSelect">
+                                    <option value="">— Not an adviser —</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-8">
+                                <label for="teacherSubjects" class="form-label text-dark fw-bold micro-text mb-1">
+                                    Subjects Handled <span class="text-muted fw-normal">(Type to search and select)</span>
+                                </label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control form-input" id="teacherSubjects"
+                                        placeholder="Type subject name e.g., Biology, Gen Math..." autocomplete="off">
+                                    <div id="subjectSuggestionsDropdown" class="autocomplete-dropdown shadow-sm rounded-2 d-none"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. ADMIN FIELDS -->
+                    <div id="adminRoleFields" class="role-specific-block d-none">
+                        <!-- Admin role uses base fields and credentials only -->
+                    </div>
+
+                    <!-- Credentials & Password (Common to All Roles) -->
+                    <div class="row g-3 credentials-row mb-2 pt-2 border-top">
+                        <div class="col-12 col-md-4">
+                            <label for="generatedId" class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate" id="idFieldLabel" title="Learner Reference Number (LRN)">
+                                Learner Reference Number (LRN) <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" class="form-control form-input rounded-end" id="generatedId"
+                                    placeholder="Enter 12-digit Student LRN..." maxlength="20" required>
+                                <button class="btn btn-success border d-none" type="button" id="btnTriggerId">Generate</button>
+                            </div>
+                            <div class="form-text micro-text text-muted mt-1" id="idFieldHelpText">Enter student's official 12-digit DepEd LRN.</div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label for="generatedEmail" class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate" title="Generated Email">
+                                Generated Email <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="email" class="form-control form-input" id="generatedEmail"
+                                    placeholder="Generate Email..." readonly required>
+                                <button class="btn btn-success border" type="button"
+                                    id="btnTriggerEmail">Generate</button>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label for="createUserPassword" class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate" title="Password (auto-generated if blank)">
+                                Password <span class="text-muted fw-normal">(auto-generated if blank)</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="password" class="form-control form-input" id="createUserPassword"
+                                    placeholder="Temporary password..." minlength="8" autocomplete="new-password">
+                                <button class="btn btn-outline-secondary border" type="button" id="btnTogglePassword"
+                                    title="Show/Hide password"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-success border" type="button"
+                                    id="btnGeneratePassword">Generate</button>
+                            </div>
                         </div>
                     </div>
 
                     <div class="d-flex justify-content-end mt-4">
-                        <button type="submit" class="btn btn-success px-4 py-2 fw-bold fs-5 rounded-3 d-inline-flex align-items-center gap-2 shadow-sm btn-action">
+                        <button type="submit"
+                            class="btn btn-success px-4 py-2 fw-bold fs-5 rounded-3 d-inline-flex align-items-center gap-2 shadow-sm btn-action">
                             <i class="bi bi-plus-lg"></i> Create User
                         </button>
                     </div>
@@ -183,13 +310,49 @@
             </section>
 
             <section class="card border-0 rounded-3 p-3 mb-4 shadow-sm">
-                <span class="badge bg-mentorae-green text-white align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-medium">Parent-Student Links</span>
-                <p class="text-muted text-sm mb-3">
-                    Links are created automatically when a student account is created with a matching
-                    parent name filled in below. This table shows every current link — use the &times; to
-                    remove one if a match was wrong.
-                </p>
-                <div class="table-responsive">
+                <span class="badge section-header-badge align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-semibold">Link
+                    Parent to Student</span>
+                <form id="linkParentForm" class="row g-3 align-items-start">
+                    <div class="col-12 col-md-5">
+                        <label for="linkParentSearch"
+                            class="form-label text-dark fw-bold micro-text mb-1">Parent</label>
+                        <input type="text" class="form-control form-input mb-2" id="linkParentSearch"
+                            placeholder="Search by name or email…">
+                        <div class="link-list-box" id="linkParentSelect" data-selected-id="">
+                            <div class="link-list-empty">Loading parents…</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label for="linkStudentSearch" class="form-label text-dark fw-bold micro-text mb-1">Student
+                            (child)</label>
+                        <div class="row g-1 mb-2">
+                            <div class="col-6">
+                                <select class="form-select form-input form-select-sm" id="linkStudentGradeFilter">
+                                    <option value="">Any grade</option>
+                                    <option value="11">Grade 11</option>
+                                    <option value="12">Grade 12</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <select class="form-select form-input form-select-sm" id="linkStudentSectionFilter">
+                                    <option value="">Any section</option>
+                                </select>
+                            </div>
+                        </div>
+                        <input type="text" class="form-control form-input mb-2" id="linkStudentSearch"
+                            placeholder="Search by name or ID number…">
+                        <div class="link-list-box" id="linkStudentSelect" data-selected-id="">
+                            <div class="link-list-empty">Loading students…</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-2 d-flex align-items-stretch">
+                        <button type="submit" class="btn btn-success w-100 fw-semibold py-2 btn-action align-self-end">
+                            <i class="bi bi-link-45deg"></i> Link
+                        </button>
+                    </div>
+                </form>
+
+                <div class="table-responsive mt-3">
                     <table class="table table-sm text-sm align-middle m-0" id="parentLinksTable">
                         <thead>
                             <tr class="text-muted">
@@ -204,7 +367,9 @@
             </section>
 
             <section class="card border-0 rounded-3 p-3 mb-4 shadow-sm">
-                <span class="badge bg-mentorae-green text-white align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-medium">Section, Promotion &amp; Graduation Manager</span>
+                <span
+                    class="badge section-header-badge align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-semibold">Section,
+                    Promotion &amp; Graduation Manager</span>
 
                 <div class="row g-2 align-items-end mb-2">
                     <div class="col-6 col-md-3">
@@ -265,7 +430,8 @@
                         </select>
                     </div>
                     <div class="col-auto">
-                        <button type="button" class="btn btn-primary fw-semibold px-3 py-2 btn-action" id="btnBulkAssignSection">
+                        <button type="button" class="btn btn-primary fw-semibold px-3 py-2 btn-action"
+                            id="btnBulkAssignSection">
                             <i class="bi bi-diagram-3-fill"></i> Assign Section
                         </button>
                     </div>
@@ -286,7 +452,8 @@
                         </button>
                     </div>
                     <div class="col-auto">
-                        <button type="button" class="btn btn-outline-secondary fw-semibold px-3 py-2 btn-action" id="btnUndoGraduate">
+                        <button type="button" class="btn btn-outline-secondary fw-semibold px-3 py-2 btn-action"
+                            id="btnUndoGraduate">
                             Undo Graduation
                         </button>
                     </div>
@@ -297,7 +464,8 @@
                 <div class="col-12 col-md-6 d-flex gap-2">
                     <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border">
                         <span class="input-group-text bg-white border-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control border-0 py-2 text-sm" id="tableSearchField" placeholder="Search by any column...">
+                        <input type="text" class="form-control border-0 py-2 text-sm" id="tableSearchField"
+                            placeholder="Search by any column...">
                     </div>
                     <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border auto-width-select">
                         <span class="input-group-text bg-white border-0 text-muted"><i class="bi bi-funnel"></i></span>
@@ -311,10 +479,9 @@
                     </div>
                 </div>
                 <div class="col-auto ms-auto d-flex gap-2">
-                    <button type="button" class="btn btn-outline-primary fw-semibold px-3 py-2 d-inline-flex align-items-center gap-2 btn-action" data-bs-toggle="modal" data-bs-target="#bulkImportModal">
-                        <i class="bi bi-file-earmark-spreadsheet"></i> Bulk Import
-                    </button>
-                    <button type="button" class="btn btn-success fw-semibold px-3 py-2 d-inline-flex align-items-center gap-2 shadow-sm btn-action" id="btnDownloadTable">
+                    <button type="button"
+                        class="btn btn-success fw-semibold px-3 py-2 d-inline-flex align-items-center gap-2 shadow-sm btn-action"
+                        id="btnDownloadTable">
                         <i class="bi bi-download"></i> Download
                     </button>
                 </div>
@@ -325,13 +492,15 @@
                     <table class="table table-striped text-sm align-middle m-0" id="usersDirectoryTable">
                         <thead>
                             <tr class="table-header-row text-white">
-                                <th class="px-3 py-2.5">Name</th>
-                                <th class="px-3 py-2.5">Email</th>
-                                <th class="px-3 py-2.5">Phone</th>
-                                <th class="px-3 py-2.5">Role</th>
-                                <th class="px-3 py-2.5">Status</th>
-                                <th class="px-3 py-2.5">Date Added</th>
-                                <th class="px-3 py-2.5 text-center">Actions</th>
+                                <th class="px-3 py-2.5 text-nowrap">Name</th>
+                                <th class="px-3 py-2.5 text-nowrap">LRN / ID Number</th>
+                                <th class="px-3 py-2.5 text-nowrap">Email</th>
+                                <th class="px-3 py-2.5 text-nowrap">Phone</th>
+                                <th class="px-3 py-2.5 text-nowrap">Role</th>
+                                <th class="px-3 py-2.5 text-nowrap">Password</th>
+                                <th class="px-3 py-2.5 text-nowrap">Status</th>
+                                <th class="px-3 py-2.5 text-nowrap">Date Added</th>
+                                <th class="px-3 py-2.5 text-center text-nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody"></tbody>
@@ -343,7 +512,7 @@
     </div>
 
     <!-- Assign/Reassign Section modal (students only) -->
-    <div class="modal fade" id="assignSectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="assignSectionModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -365,29 +534,173 @@
         </div>
     </div>
 
-    <!-- Bulk Import Students modal -->
-    <div class="modal fade" id="bulkImportModal" tabindex="-1" aria-hidden="true">
+    <!-- Edit User modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Bulk Import Students</h5>
+                    <h5 class="modal-title">Edit Account</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted text-sm">
-                        Upload an Excel (.xlsx/.xls) or CSV file to create many student accounts at once.
-                        Each row's Strand + Grade Level + Section Name must already exist -- rows with
-                        a section that isn't found will be skipped and listed below, not auto-created.
-                    </p>
-                    <a href="#" id="btnDownloadTemplate" class="d-inline-flex align-items-center gap-1 text-sm mb-3">
-                        <i class="bi bi-download"></i> Download template file
-                    </a>
-                    <input type="file" id="bulkImportFileInput" accept=".xlsx,.xls,.csv" class="form-control mb-3">
-                    <button type="button" class="btn btn-primary" id="btnRunBulkImport">
-                        <i class="bi bi-upload"></i> Import
-                    </button>
-                    <div id="bulkImportProgress" class="text-sm text-muted mt-3"></div>
-                    <div id="bulkImportResults" class="mt-3" style="max-height: 300px; overflow-y: auto;"></div>
+                    <input type="hidden" id="editUserId">
+                    <div class="micro-text text-muted mb-3">Role: <span id="editUserRoleLabel"
+                            class="fw-bold text-dark"></span> (role cannot be changed after creation)</div>
+
+                    <div id="editUserAlert" class="alert alert-danger py-2 micro-text d-none mb-3"></div>
+
+                    <!-- Profile / 2x2 ID Photo (Only visible for Student accounts) -->
+                    <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-light rounded-3 border d-none"
+                        id="editUserAvatarWrap">
+                        <div class="position-relative" style="width: 72px; height: 72px; min-width: 72px;">
+                            <img id="editUserAvatarImg"
+                                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Crect width='72' height='72' fill='%23e9ecef'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='28' fill='%236c757d'%3E👤%3C/text%3E%3C/svg%3E"
+                                class="rounded-circle border border-2 border-white shadow-sm w-100 h-100 object-fit-cover"
+                                alt="Profile Photo">
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1 fw-bold text-dark" id="editUserFullNameLabel">User Name</h6>
+                            <div class="text-muted micro-text mb-2" id="editUserPhotoNotice">Official School 2x2 ID
+                                Photo</div>
+                            <input type="file" id="editUserPhotoInput" accept="image/png,image/jpeg,image/webp"
+                                class="d-none">
+                            <button type="button" class="btn btn-sm btn-outline-success fw-semibold"
+                                id="btnEditUserChangePhoto">
+                                <i class="bi bi-camera-fill me-1"></i> Upload / Change Photo
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label fw-bold micro-text mb-1">First Name</label>
+                            <input type="text" class="form-control form-input" id="editFirstName" required>
+                        </div>
+                        <div class="col-12 col-sm-2 col-md-1">
+                            <label class="form-label fw-bold micro-text mb-1">M.I.</label>
+                            <input type="text" class="form-control form-input text-center" id="editMiddleInitial"
+                                maxlength="2">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label fw-bold micro-text mb-1">Last Name</label>
+                            <input type="text" class="form-control form-input" id="editLastName" required>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label fw-bold micro-text mb-1">Contact Number</label>
+                            <input type="tel" class="form-control form-input" id="editContactNumber" required>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6" id="editLrnWrap">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-bold micro-text mb-0" id="editLrnLabel">LRN / ID Number <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-xs btn-outline-warning py-0 px-2 rounded-pill micro-text fw-semibold" id="btnModalResetPassword" title="Reset password to default (ID/LRN)">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default PW
+                                </button>
+                            </div>
+                            <input type="text" class="form-control form-input" id="editIdNumber" placeholder="LRN / ID Number" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold micro-text mb-1">Email</label>
+                            <input type="email" class="form-control form-input" id="editEmail" required>
+                        </div>
+                        <div class="col-12 col-md-6" id="editProgramWrap">
+                            <label class="form-label fw-bold micro-text mb-1">Program</label>
+                            <select class="form-select form-input" id="editProgramSelect">
+                                <option value="none">None</option>
+                                <option value="4ps">4Ps</option>
+                                <option value="aral">ARAL Program</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12" id="editParentNameWrap">
+                            <label class="form-label fw-bold micro-text mb-1">Parent Full Name</label>
+                            <input type="text" class="form-control form-input" id="editParentName">
+                        </div>
+                        <div class="col-12" id="editChildrenNamesWrap">
+                            <label class="form-label fw-bold micro-text mb-1">Child/Children's Name(s)</label>
+                            <input type="text" class="form-control form-input" id="editChildrenNames">
+                        </div>
+                        <div class="col-12 col-md-6" id="editAdviserSectionWrap">
+                            <label class="form-label fw-bold micro-text mb-1">Advisory Section</label>
+                            <select class="form-select form-input" id="editAdviserSectionSelect">
+                                <option value="">— Not an adviser —</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6" id="editSubjectsHandledWrap">
+                            <label class="form-label fw-bold micro-text mb-1">Subjects Handled</label>
+                            <select class="form-select form-input" id="editSubjectsHandledSelect" multiple
+                                size="4"></select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="btnSaveEditUser">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Import Users modal -->
+    <div class="modal fade" id="bulkImportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom pb-3">
+                    <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-spreadsheet-fill text-success fs-4"></i>
+                        Bulk Import Users (Students, Parents & Teachers)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-light border border-success-subtle rounded-3 p-3 mb-3 text-sm">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                            <span class="fw-bold text-success d-flex align-items-center gap-1.5">
+                                <i class="bi bi-check-circle-fill"></i> Unified Multi-Tab Workbook
+                            </span>
+                            <a href="#" id="btnDownloadTemplate" class="btn btn-sm btn-success fw-semibold d-inline-flex align-items-center gap-1 text-white shadow-xs">
+                                <i class="bi bi-file-earmark-arrow-down"></i> Download Mentorae Template (.xlsx)
+                            </a>
+                        </div>
+                        <p class="text-muted small mb-1">
+                            Upload your Google Sheet export or Mentorae template. The system automatically reads:
+                        </p>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li><strong>Student/Parent Tab:</strong> Creates Student accounts, creates Parent accounts, and links them together automatically.</li>
+                            <li><strong>Teacher Tab:</strong> Creates Teacher accounts, designates Advisory Section, and assigns Subjects Handled.</li>
+                        </ul>
+                    </div>
+
+                    <div class="row g-3 mb-3 align-items-end">
+                        <div class="col-12 col-md-5">
+                            <label for="bulkImportModeSelect" class="form-label text-xs fw-bold text-uppercase text-muted mb-1">
+                                Import Scope
+                            </label>
+                            <select class="form-select form-select-sm fw-semibold" id="bulkImportModeSelect">
+                                <option value="all" selected>All Tabs (Students, Parents & Teachers)</option>
+                                <option value="students">Students & Parents Only</option>
+                                <option value="teachers">Teachers Only</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-7">
+                            <label for="bulkImportFileInput" class="form-label text-xs fw-bold text-uppercase text-muted mb-1">
+                                Select Spreadsheet File (.xlsx, .xls, .csv)
+                            </label>
+                            <input type="file" id="bulkImportFileInput" accept=".xlsx,.xls,.csv" class="form-control form-control-sm">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-success fw-semibold px-4 d-inline-flex align-items-center gap-2" id="btnRunBulkImport">
+                            <i class="bi bi-upload"></i> Start Bulk Import
+                        </button>
+                    </div>
+
+                    <div id="bulkImportProgress" class="text-sm mt-3"></div>
+                    <div id="bulkImportSummaryBadges" class="d-flex flex-wrap gap-2 mt-2"></div>
+                    <div id="bulkImportResults" class="mt-3" style="max-height: 260px; overflow-y: auto;"></div>
                     <div id="bulkImportCredentials" class="mt-3"></div>
                 </div>
             </div>
@@ -397,6 +710,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="config.js"></script>
     <script src="session.js"></script>
+    <script src="avatar_cropper.js"></script>
     <script src="user_management_admin.js"></script>
 </body>
+
 </html>

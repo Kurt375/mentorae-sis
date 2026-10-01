@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectionFilter = document.getElementById('filterSection');
     const searchBar = document.getElementById('searchBar');
     const tbody = document.getElementById('attendanceConfirmationBody');
+    const thead = document.getElementById('attendanceConfirmationHead');
+    const sectionTypeBadgeWrap = document.getElementById('sectionTypeBadgeWrap');
     const lockBanner = document.getElementById('sessionLockBanner');
     const lockBannerIcon = document.getElementById('lockBannerIcon');
     const lockBannerTitle = document.getElementById('lockBannerTitle');
@@ -21,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentRoster = [];
     let sessionAllowed = false;
+    let isCurrentAdvisory = false;
 
     async function loadSections() {
         const data = await authedFetch('/api/classes/my-sections', token);
@@ -28,7 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
             sectionFilter.innerHTML = '<option>No sections assigned</option>';
             return;
         }
-        sectionFilter.innerHTML = data.sections.map(s => `<option value="${s.id}">${s.strandCode} ${s.grade_level} - ${s.name}</option>`).join('');
+        sectionFilter.innerHTML = data.sections.map(s => {
+            const isAdv = Boolean(s.isAdvisory);
+            const icon = isAdv ? '⭐ ' : '';
+            const role = isAdv ? ' (Advisory)' : '';
+            return `<option value="${s.id}" data-advisory="${isAdv ? '1' : '0'}">${icon}${s.name}${role}</option>`;
+        }).join('');
         refresh();
     }
 
@@ -59,40 +67,121 @@ document.addEventListener('DOMContentLoaded', () => {
         excused: 'bg-danger-subtle text-danger',
     };
 
+    function updateSectionHeaderAndView(isAdvisory) {
+        if (sectionTypeBadgeWrap) {
+            if (isAdvisory) {
+                sectionTypeBadgeWrap.innerHTML = `
+                    <div class="section-mode-pill">
+                        <span class="pill-tag bg-success text-white shadow-sm">
+                            <i class="bi bi-star-fill text-warning"></i> Advisory Class
+                        </span>
+                        <span class="pill-desc">Daily Time In &amp; Time Out</span>
+                    </div>
+                `;
+            } else {
+                sectionTypeBadgeWrap.innerHTML = `
+                    <div class="section-mode-pill">
+                        <span class="pill-tag bg-primary text-white shadow-sm">
+                            <i class="bi bi-book-half"></i> Subject Class
+                        </span>
+                        <span class="pill-desc">Period Attendance Only</span>
+                    </div>
+                `;
+            }
+        }
+
+        if (thead) {
+            if (isAdvisory) {
+                thead.innerHTML = `
+                    <tr class="table-header-row text-white">
+                        <th class="px-4 py-3 fw-semibold">Student ID</th>
+                        <th class="px-4 py-3 fw-semibold">Name</th>
+                        <th class="px-4 py-3 fw-semibold">Strand</th>
+                        <th class="px-4 py-3 fw-semibold">Section</th>
+                        <th class="px-4 py-3 fw-semibold text-center">Time In</th>
+                        <th class="px-4 py-3 fw-semibold text-center">Time Out</th>
+                        <th class="px-4 py-3 fw-semibold text-center">Status</th>
+                        <th class="px-4 py-3 fw-semibold text-center">Action</th>
+                    </tr>
+                `;
+            } else {
+                thead.innerHTML = `
+                    <tr class="table-header-row text-white">
+                        <th class="px-4 py-3 fw-semibold">Student ID</th>
+                        <th class="px-4 py-3 fw-semibold">Name</th>
+                        <th class="px-4 py-3 fw-semibold">Strand</th>
+                        <th class="px-4 py-3 fw-semibold">Section</th>
+                        <th class="px-4 py-3 fw-semibold text-center">Status</th>
+                        <th class="px-4 py-3 fw-semibold text-center">Action</th>
+                    </tr>
+                `;
+            }
+        }
+    }
+
     async function loadRoster(sectionId) {
         const data = await authedFetch(`/api/attendance/confirmation?sectionId=${sectionId}`, token);
         currentRoster = data.success ? data.roster : [];
+
+        const selectedOpt = sectionFilter.options[sectionFilter.selectedIndex];
+        isCurrentAdvisory = data.isAdvisory !== undefined ? Boolean(data.isAdvisory) : (selectedOpt?.dataset.advisory === '1');
+
+        updateSectionHeaderAndView(isCurrentAdvisory);
         renderRoster(currentRoster);
     }
 
     function renderRoster(roster) {
         tbody.innerHTML = '';
+        const colSpan = isCurrentAdvisory ? 8 : 6;
         if (!roster.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No students in this section.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-4">No students in this section.</td></tr>`;
             return;
         }
+
         for (const s of roster) {
             const tr = document.createElement('tr');
             const label = s.status.charAt(0).toUpperCase() + s.status.slice(1);
-            const outLabel = s.timeOut ? (s.timeOutStatus === 'excused' ? 'Left early' : 'Out') + ` (${s.timeOut})` : '—';
-            const outConfirmBtn = s.timeOut
-                ? `<button class="btn btn-sm btn-outline-primary confirm-out-btn" data-id="${s.id}">Confirm</button>`
-                : '';
+
+            let timeInCell = '';
+            let timeOutCell = '';
+
+            if (isCurrentAdvisory) {
+                const inFormatted = s.timeIn ? s.timeIn.slice(0, 5) : '—';
+                timeInCell = `
+                    <td class="px-4 py-3 text-center">
+                        <span class="badge ${s.timeIn ? 'bg-light text-dark border' : 'bg-secondary-subtle text-secondary'} font-monospace">
+                            ${inFormatted}
+                        </span>
+                    </td>
+                `;
+
+                const outLabel = s.timeOut ? (s.timeOutStatus === 'excused' ? 'Left early' : 'Out') + ` (${s.timeOut.slice(0, 5)})` : '—';
+                const outConfirmBtn = s.timeOut
+                    ? `<button class="btn btn-sm btn-outline-primary ms-1 py-0 px-2 confirm-out-btn" data-id="${s.id}">Confirm</button>`
+                    : '';
+                timeOutCell = `
+                    <td class="px-4 py-3 text-center">
+                        <span class="badge ${outBadgeClass[s.timeOutStatus] || 'bg-secondary-subtle text-secondary'}" id="out-${s.id}">${outLabel}</span>
+                        ${outConfirmBtn}
+                    </td>
+                `;
+            }
+
             tr.innerHTML = `
                 <td class="px-4 py-3">${s.idNumber}</td>
-                <td class="px-4 py-3">${s.name}</td>
+                <td class="px-4 py-3 fw-medium">${s.name}</td>
                 <td class="px-4 py-3">${s.strand}</td>
                 <td class="px-4 py-3">${s.section}</td>
+                ${timeInCell}
+                ${timeOutCell}
                 <td class="px-4 py-3 text-center"><span class="badge ${statusBadgeClass[s.status] || ''}" id="status-${s.id}">${label}</span></td>
                 <td class="px-4 py-3 text-center">
-                    <span class="badge ${outBadgeClass[s.timeOutStatus] || 'bg-secondary-subtle text-secondary'}" id="out-${s.id}">${outLabel}</span>
-                    ${outConfirmBtn}
-                </td>
-                <td class="px-4 py-3 text-center">
-                    <button class="btn btn-sm btn-outline-success confirm-btn" data-id="${s.id}" data-status="present" ${sessionAllowed ? '' : 'disabled'}>Present</button>
-                    <button class="btn btn-sm btn-outline-warning confirm-btn" data-id="${s.id}" data-status="late" ${sessionAllowed ? '' : 'disabled'}>Late</button>
-                    <button class="btn btn-sm btn-outline-info confirm-btn" data-id="${s.id}" data-status="excused" ${sessionAllowed ? '' : 'disabled'}>Excused</button>
-                    <button class="btn btn-sm btn-outline-danger confirm-btn" data-id="${s.id}" data-status="absent" ${sessionAllowed ? '' : 'disabled'}>Absent</button>
+                    <div class="d-inline-flex flex-wrap justify-content-center gap-1">
+                        <button class="btn btn-sm btn-outline-success confirm-btn" data-id="${s.id}" data-status="present" ${sessionAllowed ? '' : 'disabled'}>Present</button>
+                        <button class="btn btn-sm btn-outline-warning confirm-btn" data-id="${s.id}" data-status="late" ${sessionAllowed ? '' : 'disabled'}>Late</button>
+                        <button class="btn btn-sm btn-outline-info confirm-btn" data-id="${s.id}" data-status="excused" ${sessionAllowed ? '' : 'disabled'}>Excused</button>
+                        <button class="btn btn-sm btn-outline-danger confirm-btn" data-id="${s.id}" data-status="absent" ${sessionAllowed ? '' : 'disabled'}>Absent</button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -101,9 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.querySelectorAll('.confirm-btn').forEach(btn => {
             btn.addEventListener('click', () => setStatus(btn.dataset.id, btn.dataset.status));
         });
-        tbody.querySelectorAll('.confirm-out-btn').forEach(btn => {
-            btn.addEventListener('click', () => confirmOut(btn.dataset.id));
-        });
+        if (isCurrentAdvisory) {
+            tbody.querySelectorAll('.confirm-out-btn').forEach(btn => {
+                btn.addEventListener('click', () => confirmOut(btn.dataset.id));
+            });
+        }
     }
 
     async function confirmOut(studentId) {

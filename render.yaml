@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: mentorae-sis-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_SSL
+        value: "true"
+      - key: MYSQL_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false

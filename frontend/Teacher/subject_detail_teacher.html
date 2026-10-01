@@ -8,6 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts for Presentation Rendering -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="subject_detail_teacher.css">
     <style>
@@ -62,12 +65,14 @@
             <section class="mb-5">
                 <h2 class="h5 fw-bold text-dark mb-3">Topics under GenPhy1</h2>
                 
-                <div class="d-flex flex-column gap-3" id="topicsList"> 
+                <div class="row g-3" id="topicsList"> 
                     <!-- Topics will be dynamically inserted here -->
                     <!-- Add New Topic Button Card -->
-                    <div class="card add-topic-card border-2 border-dashed shadow-sm p-3 text-center cursor-pointer d-flex flex-column align-items-center justify-content-center" id="btnAddItem" style="min-height: 120px;">
-                        <i class="bi bi-plus-lg display-5 text-secondary"></i>
-                        <span class="micro-text text-muted fw-bold text-uppercase mt-1">Add Content</span>
+                    <div class="col-12 col-md-6 d-flex" id="btnAddItemCol">
+                        <div class="card add-topic-card border-2 border-dashed shadow-sm p-3 text-center cursor-pointer d-flex flex-column align-items-center justify-content-center w-100 h-100" id="btnAddItem" style="min-height: 120px;">
+                            <i class="bi bi-plus-lg display-5 text-secondary"></i>
+                            <span class="micro-text text-muted fw-bold text-uppercase mt-1">Add Content</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -76,7 +81,7 @@
             <section class="mb-4">
                 <h2 class="h5 fw-bold text-dark mb-3">Teacher's Recommendation</h2>
 
-                <div class="d-flex flex-column gap-3" id="recommendationsList">
+                <div class="row g-3" id="recommendationsList">
                     <!-- Recommendations will be dynamically inserted here -->
                 </div>
             </section>
@@ -85,7 +90,7 @@
     </div>
 
     <!-- Add Topic Modal -->
-    <div class="modal fade" id="addTopicModal" tabindex="-1" aria-labelledby="addTopicModalLabel" aria-hidden="true">
+    <div class="modal fade" id="addTopicModal" tabindex="-1" aria-labelledby="addTopicModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -155,7 +160,7 @@
     <!-- Modals for Managing Request Content -->
 
     <!-- File Manager Modal for Topic Request -->
-    <div class="modal fade" id="requestContentFileModal" tabindex="-1" aria-labelledby="requestContentFileModalLabel" aria-hidden="true">
+    <div class="modal fade" id="requestContentFileModal" tabindex="-1" aria-labelledby="requestContentFileModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
@@ -176,84 +181,598 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                    <button type="button" class="btn btn-primary fw-semibold px-4" id="filesDoneBtn">Done</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Quiz Editor Modal for Topic Request -->
-    <div class="modal fade" id="requestContentQuizModal" tabindex="-1" aria-labelledby="requestContentQuizModalLabel" aria-hidden="true">
+    <div class="modal fade" id="requestContentQuizModal" tabindex="-1" aria-labelledby="requestContentQuizModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="requestContentQuizModalLabel">Manage Request Quiz</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-question-circle text-success fs-5"></i>
+                        <h5 class="modal-title fw-bold" id="requestContentQuizModalLabel">Manage Practice Quiz</h5>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="requestQuizContainer" class="mb-4"></div>
-                    <div class="card bg-light border p-3">
-                        <h6 class="fw-bold mb-3" id="requestQuizFormLabel">Add New Question</h6>
-                        <form id="requestQuizForm">
-                            <input type="hidden" id="requestQuizQuestionId">
-                            <div class="mb-3">
-                                <label for="requestQuizQuestionText" class="form-label">Question</label>
-                                <textarea class="form-control" id="requestQuizQuestionText" rows="2" required></textarea>
+                    <!-- Current Quiz Questions List -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold mb-0 text-dark">Current Quiz Questions</h6>
+                        <span class="badge bg-secondary-subtle text-dark rounded-pill px-2.5 py-1" id="currentQuizBadge">0 questions</span>
+                    </div>
+                    <div id="requestQuizContainer" class="mb-4" style="max-height: 200px; overflow-y: auto;"></div>
+
+                    <!-- Creation Options Navigation Tabs -->
+                    <div class="card border shadow-sm">
+                        <div class="card-header bg-light border-bottom p-2">
+                            <ul class="nav nav-pills nav-fill gap-1" id="quizModalTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active py-1.5 px-3 fw-semibold small" id="quiz-manual-tab" data-bs-toggle="pill" data-bs-target="#quiz-manual-pane" type="button" role="tab">
+                                        <i class="bi bi-pencil-square me-1"></i> Single Question
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="quiz-paste-tab" data-bs-toggle="pill" data-bs-target="#quiz-paste-pane" type="button" role="tab">
+                                        <i class="bi bi-clipboard-plus me-1"></i> Bulk Paste
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="quiz-file-tab" data-bs-toggle="pill" data-bs-target="#quiz-file-pane" type="button" role="tab">
+                                        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel / CSV Import
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="tab-content" id="quizModalTabContent">
+                                <!-- Tab 1: Single Question Form -->
+                                <div class="tab-pane fade show active" id="quiz-manual-pane" role="tabpanel">
+                                    <h6 class="fw-bold mb-3" id="requestQuizFormLabel">Add New Question</h6>
+                                    <form id="requestQuizForm">
+                                        <input type="hidden" id="requestQuizQuestionId">
+                                        <div class="mb-3">
+                                            <label for="requestQuizQuestionText" class="form-label small fw-semibold">Question</label>
+                                            <textarea class="form-control" id="requestQuizQuestionText" rows="2" placeholder="e.g., What is the unit of force?" required></textarea>
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text fw-bold">A</span>
+                                                    <input type="text" class="form-control" id="requestQuizOptionA" placeholder="Option A" required>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text fw-bold">B</span>
+                                                    <input type="text" class="form-control" id="requestQuizOptionB" placeholder="Option B" required>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text fw-bold">C</span>
+                                                    <input type="text" class="form-control" id="requestQuizOptionC" placeholder="Option C">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text fw-bold">D</span>
+                                                    <input type="text" class="form-control" id="requestQuizOptionD" placeholder="Option D">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="requestQuizCorrectAnswer" class="form-label small fw-semibold">Correct Answer</label>
+                                            <select class="form-select form-select-sm" id="requestQuizCorrectAnswer" required>
+                                                <option value="A">Option A</option>
+                                                <option value="B">Option B</option>
+                                                <option value="C">Option C</option>
+                                                <option value="D">Option D</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-success fw-semibold px-3"><i class="bi bi-plus-lg me-1"></i> Save Question</button>
+                                    </form>
+                                </div>
+
+                                <!-- Tab 2: Bulk Paste -->
+                                <div class="tab-pane fade" id="quiz-paste-pane" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="fw-bold mb-0">Smart Bulk Paste</h6>
+                                            <p class="micro-text text-muted mb-0">Supports numbered format or tab-separated spreadsheet columns.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary micro-text py-0.5" id="insertSampleQuizBtn">Insert Sample</button>
+                                    </div>
+                                    <textarea class="form-control font-monospace small mb-2" id="bulkQuizTextarea" rows="8" placeholder="1. What is the SI unit of force?&#10;A. Joule&#10;B. Newton&#10;C. Watt&#10;D. Pascal&#10;Answer: B&#10;&#10;2. What is the formula for speed?&#10;A. Distance / Time&#10;B. Mass * Acceleration&#10;C. Work / Force&#10;D. Velocity * Time&#10;Answer: A"></textarea>
+                                    
+                                    <!-- Live Preview & Counter -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="micro-text fw-semibold text-secondary">
+                                            Preview: <span id="bulkQuizCountBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0 questions detected</span>
+                                        </span>
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearBulkQuizBtn">Clear</button>
+                                    </div>
+                                    <div id="bulkQuizPreviewContainer" class="border rounded-2 p-2 bg-light mb-3" style="max-height: 140px; overflow-y: auto; font-size: 0.8rem;">
+                                        <span class="text-muted fst-italic">Paste or type questions above to see them parsed live...</span>
+                                    </div>
+
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="addBulkQuizBtn" disabled>
+                                        <i class="bi bi-plus-circle me-1"></i> Add All Questions to Quiz
+                                    </button>
+                                </div>
+
+                                <!-- Tab 3: Excel / CSV Spreadsheet Import -->
+                                <div class="tab-pane fade" id="quiz-file-pane" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <h6 class="fw-bold mb-0">Import from Spreadsheet</h6>
+                                            <p class="micro-text text-muted mb-0">Upload an Excel (.xlsx, .xls) or CSV file with Question, Options A-D, and Correct Answer.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-success fw-semibold text-nowrap" id="downloadQuizTemplateBtn">
+                                            <i class="bi bi-download me-1"></i> Download Template (.xlsx)
+                                        </button>
+                                    </div>
+
+                                    <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3" id="quizDropZone">
+                                        <i class="bi bi-cloud-arrow-up fs-2 text-success"></i>
+                                        <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file here</p>
+                                        <input type="file" class="form-control form-control-sm mx-auto" id="quizFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
+                                    </div>
+
+                                    <!-- Spreadsheet Preview Table -->
+                                    <div id="quizFilePreviewSection" class="d-none mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="micro-text fw-semibold text-secondary">
+                                                Spreadsheet Rows: <span id="fileQuizCountBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0 questions</span>
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearFileQuizBtn">Remove File</button>
+                                        </div>
+                                        <div class="table-responsive border rounded-2" style="max-height: 140px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped mb-0" style="font-size: 0.75rem;">
+                                                <thead class="table-light sticky-top">
+                                                    <tr>
+                                                        <th style="width: 30px;">#</th>
+                                                        <th>Question</th>
+                                                        <th>A</th>
+                                                        <th>B</th>
+                                                        <th>C</th>
+                                                        <th>D</th>
+                                                        <th style="width: 50px;">Ans</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="quizFilePreviewTbody"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="importFileQuizBtn" disabled>
+                                        <i class="bi bi-file-earmark-arrow-down me-1"></i> Import Questions to Quiz
+                                    </button>
+                                </div>
                             </div>
-                            <div class="row g-2 mb-3">
-                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionA" placeholder="Option A" required></div>
-                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionB" placeholder="Option B" required></div>
-                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionC" placeholder="Option C"></div>
-                                <div class="col-md-6"><input type="text" class="form-control" id="requestQuizOptionD" placeholder="Option D"></div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="requestQuizCorrectAnswer" class="form-label">Correct Answer</label>
-                                <select class="form-select" id="requestQuizCorrectAnswer" required>
-                                    <option value="A">Option A</option>
-                                    <option value="B">Option B</option>
-                                    <option value="C">Option C</option>
-                                    <option value="D">Option D</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-success">Save Question</button>
-                        </form>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                    <button type="button" class="btn btn-primary fw-semibold px-4" id="quizDoneBtn">Done</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Flashcard Editor Modal for Topic Request -->
-    <div class="modal fade" id="requestContentFlashcardModal" tabindex="-1" aria-labelledby="requestContentFlashcardModalLabel" aria-hidden="true">
+    <div class="modal fade" id="requestContentFlashcardModal" tabindex="-1" aria-labelledby="requestContentFlashcardModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="requestContentFlashcardModalLabel">Manage Request Flashcards</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-stack text-success fs-5"></i>
+                        <h5 class="modal-title fw-bold" id="requestContentFlashcardModalLabel">Manage Flashcards</h5>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="requestFlashcardsContainer" class="mb-4"></div>
-                    <div class="card bg-light border p-3">
-                        <h6 class="fw-bold mb-3" id="requestFlashcardFormLabel">Add New Card</h6>
-                        <form id="requestFlashcardForm">
-                            <input type="hidden" id="requestFlashcardId">
-                            <div class="mb-3">
-                                <label for="requestFlashcardTerm" class="form-label">Term</label>
-                                <input type="text" class="form-control" id="requestFlashcardTerm" required>
+                    <!-- Current Deck List -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold mb-0 text-dark">Current Flashcard Deck</h6>
+                        <span class="badge bg-secondary-subtle text-dark rounded-pill px-2.5 py-1" id="currentDeckBadge">0 cards</span>
+                    </div>
+                    <div id="requestFlashcardsContainer" class="mb-4" style="max-height: 200px; overflow-y: auto;"></div>
+
+                    <!-- Creation Options Navigation Tabs -->
+                    <div class="card border shadow-sm">
+                        <div class="card-header bg-light border-bottom p-2">
+                            <ul class="nav nav-pills nav-fill gap-1" id="flashcardModalTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active py-1.5 px-3 fw-semibold small" id="fc-manual-tab" data-bs-toggle="pill" data-bs-target="#fc-manual-pane" type="button" role="tab">
+                                        <i class="bi bi-pencil-square me-1"></i> Single Card
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="fc-paste-tab" data-bs-toggle="pill" data-bs-target="#fc-paste-pane" type="button" role="tab">
+                                        <i class="bi bi-clipboard-plus me-1"></i> Bulk Paste
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="fc-file-tab" data-bs-toggle="pill" data-bs-target="#fc-file-pane" type="button" role="tab">
+                                        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel / CSV Import
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="tab-content" id="flashcardModalTabContent">
+                                <!-- Tab 1: Single Card -->
+                                <div class="tab-pane fade show active" id="fc-manual-pane" role="tabpanel">
+                                    <h6 class="fw-bold mb-3" id="requestFlashcardFormLabel">Add New Card</h6>
+                                    <form id="requestFlashcardForm">
+                                        <input type="hidden" id="requestFlashcardId">
+                                        <div class="mb-3">
+                                            <label for="requestFlashcardTerm" class="form-label small fw-semibold">Term / Concept</label>
+                                            <input type="text" class="form-control" id="requestFlashcardTerm" placeholder="e.g., Photosynthesis" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="requestFlashcardDefinition" class="form-label small fw-semibold">Definition / Explanation</label>
+                                            <textarea class="form-control" id="requestFlashcardDefinition" rows="2" placeholder="e.g., The process by which green plants transform light energy into chemical energy." required></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-success fw-semibold px-3"><i class="bi bi-plus-lg me-1"></i> Save Card</button>
+                                    </form>
+                                </div>
+
+                                <!-- Tab 2: Bulk Paste -->
+                                <div class="tab-pane fade" id="fc-paste-pane" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="fw-bold mb-0">Smart Bulk Paste</h6>
+                                            <p class="micro-text text-muted mb-0">Type or paste multiple cards, one per line.</p>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label for="bulkFcDelimiter" class="form-label micro-text mb-0 fw-semibold text-nowrap">Separator:</label>
+                                            <select class="form-select form-select-sm" id="bulkFcDelimiter" style="width: 140px;">
+                                                <option value="auto" selected>Auto-detect</option>
+                                                <option value="dash">Hyphen / Dash ( - )</option>
+                                                <option value="tab">Tab (Spreadsheet)</option>
+                                                <option value="colon">Colon ( : )</option>
+                                                <option value="pipe">Pipe ( | )</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <textarea class="form-control font-monospace small mb-2" id="bulkFcTextarea" rows="6" placeholder="Photosynthesis - Process by which plants produce energy from sunlight&#10;Mitochondria - The powerhouse of the cell producing ATP&#10;Velocity - Speed in a given direction"></textarea>
+                                    
+                                    <!-- Live Preview & Counter -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="micro-text fw-semibold text-secondary">
+                                            Preview: <span id="bulkFcCountBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0 cards detected</span>
+                                        </span>
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearBulkFcBtn">Clear</button>
+                                    </div>
+                                    <div id="bulkFcPreviewContainer" class="border rounded-2 p-2 bg-light mb-3" style="max-height: 120px; overflow-y: auto; font-size: 0.8rem;">
+                                        <span class="text-muted fst-italic">Paste or type above to see cards here...</span>
+                                    </div>
+
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="addBulkFcBtn" disabled>
+                                        <i class="bi bi-plus-circle me-1"></i> Add All Cards to Deck
+                                    </button>
+                                </div>
+
+                                <!-- Tab 3: Excel / CSV Spreadsheet Import -->
+                                <div class="tab-pane fade" id="fc-file-pane" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <h6 class="fw-bold mb-0">Import from Spreadsheet</h6>
+                                            <p class="micro-text text-muted mb-0">Upload an Excel (.xlsx, .xls) or CSV file with Term and Definition columns.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-success fw-semibold text-nowrap" id="downloadFcTemplateBtn">
+                                            <i class="bi bi-download me-1"></i> Download Template (.xlsx)
+                                        </button>
+                                    </div>
+
+                                    <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3" id="fcDropZone">
+                                        <i class="bi bi-cloud-arrow-up fs-2 text-success"></i>
+                                        <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file here</p>
+                                        <input type="file" class="form-control form-control-sm mx-auto" id="fcFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
+                                    </div>
+
+                                    <!-- Spreadsheet Preview Table -->
+                                    <div id="fcFilePreviewSection" class="d-none mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="micro-text fw-semibold text-secondary">
+                                                Spreadsheet Rows: <span id="fileFcCountBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0 cards</span>
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearFileFcBtn">Remove File</button>
+                                        </div>
+                                        <div class="table-responsive border rounded-2" style="max-height: 140px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped mb-0" style="font-size: 0.78rem;">
+                                                <thead class="table-light sticky-top">
+                                                    <tr>
+                                                        <th style="width: 40px;">#</th>
+                                                        <th style="width: 35%;">Term</th>
+                                                        <th>Definition</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="fcFilePreviewTbody"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="importFileFcBtn" disabled>
+                                        <i class="bi bi-file-earmark-arrow-down me-1"></i> Import Cards to Deck
+                                    </button>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="requestFlashcardDefinition" class="form-label">Definition</label>
-                                <textarea class="form-control" id="requestFlashcardDefinition" rows="2" required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-success">Save Card</button>
-                        </form>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+                    <button type="button" class="btn btn-primary fw-semibold px-4" id="flashcardDoneBtn">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Append Content to Existing Topic Modal -->
+    <div class="modal fade" id="quickAppendModal" tabindex="-1" aria-labelledby="quickAppendModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-bold" id="quickAppendModalLabel">Add Content to Topic</h5>
+                        <p class="micro-text text-muted mb-0" id="quickAppendSubtitle">Appending to: <span class="fw-bold text-dark" id="quickAppendTopicTitle">Topic Name</span></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="quickAppendTopicId">
+                    <input type="hidden" id="quickAppendTopicType" value="topic">
+                    <input type="hidden" id="quickAppendRecIndex">
+
+                    <!-- Content Type Selection (Flashcards vs Quiz) -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark">Select Content to Add:</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="quickAppendContentType" id="quickAppendTypeFc" value="flashcards" checked>
+                                <label class="form-check-label fw-semibold" for="quickAppendTypeFc">
+                                    <i class="bi bi-stack text-success me-1"></i> Flashcards
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="quickAppendContentType" id="quickAppendTypeQuiz" value="quiz">
+                                <label class="form-check-label fw-semibold" for="quickAppendTypeQuiz">
+                                    <i class="bi bi-question-circle text-primary me-1"></i> Practice Quiz
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Mode Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="quickAppendTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-semibold small" id="qa-paste-tab" data-bs-toggle="tab" data-bs-target="#qa-paste-pane" type="button" role="tab">
+                                <i class="bi bi-clipboard-plus me-1"></i> Bulk Paste
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-semibold small" id="qa-file-tab" data-bs-toggle="tab" data-bs-target="#qa-file-pane" type="button" role="tab">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel / CSV Import
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="quickAppendTabContent">
+                        <!-- Bulk Paste Tab -->
+                        <div class="tab-pane fade show active" id="qa-paste-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-muted" id="qaPasteHint">Paste cards one per line (Term - Definition).</span>
+                                <div id="qaDelimiterContainer" class="d-flex align-items-center gap-1">
+                                    <span class="micro-text text-muted">Sep:</span>
+                                    <select class="form-select form-select-sm micro-text py-0" id="qaFcDelimiter" style="width: 120px;">
+                                        <option value="auto" selected>Auto-detect</option>
+                                        <option value="dash">Hyphen (-)</option>
+                                        <option value="tab">Tab</option>
+                                        <option value="colon">Colon (:)</option>
+                                        <option value="pipe">Pipe (|)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <textarea class="form-control font-monospace small mb-2" id="qaPasteTextarea" rows="7" placeholder=""></textarea>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="micro-text fw-semibold text-secondary">
+                                    Parsed Items: <span id="qaParsedBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0 detected</span>
+                                </span>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="qaClearPasteBtn">Clear</button>
+                            </div>
+                            <div id="qaPreviewContainer" class="border rounded-2 p-2 bg-light mb-2" style="max-height: 130px; overflow-y: auto; font-size: 0.8rem;">
+                                <span class="text-muted fst-italic">Parsed preview will display here...</span>
+                            </div>
+                        </div>
+
+                        <!-- Spreadsheet Upload Tab -->
+                        <div class="tab-pane fade" id="qa-file-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="small text-muted">Upload an Excel or CSV file to append.</span>
+                                <button type="button" class="btn btn-sm btn-outline-success fw-semibold" id="qaDownloadTemplateBtn">
+                                    <i class="bi bi-download me-1"></i> Download Template (.xlsx)
+                                </button>
+                            </div>
+                            <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3">
+                                <i class="bi bi-cloud-arrow-up fs-2 text-success"></i>
+                                <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file here</p>
+                                <input type="file" class="form-control form-control-sm mx-auto" id="qaFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
+                            </div>
+                            <div id="qaFilePreviewSection" class="d-none mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="micro-text fw-semibold text-secondary">
+                                        Spreadsheet Items: <span id="qaFileParsedBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0 items</span>
+                                    </span>
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="qaClearFileBtn">Remove File</button>
+                                </div>
+                                <div class="table-responsive border rounded-2" style="max-height: 130px; overflow-y: auto;">
+                                    <table class="table table-sm table-striped mb-0" style="font-size: 0.78rem;">
+                                        <tbody id="qaFilePreviewTbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success fw-semibold px-4" id="qaSubmitBtn" disabled>
+                        <i class="bi bi-plus-circle me-1"></i> Append to Topic
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Attached Files Modal (Read-Only) -->
+    <div class="modal fade" id="viewFilesModal" tabindex="-1" aria-labelledby="viewFilesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+                <div class="modal-header bg-success text-white py-3 px-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-folder2-open fs-5"></i>
+                        <h5 class="modal-title fw-bold fs-6 m-0" id="viewFilesModalLabel">Attached Study Materials</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <h6 class="fw-bold text-dark mb-1" id="modalTopicTitle">Topic Title</h6>
+                    <p class="micro-text text-muted mb-3">View or download the attached learning files.</p>
+                    <ul class="list-group list-group-flush border rounded-3" id="modalFilesList">
+                        <!-- Rendered by JS -->
+                    </ul>
+                </div>
+                <div class="modal-footer bg-light py-2 px-4">
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3 fw-semibold" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Classroom Style Full-Screen File Viewer -->
+    <div id="classroomFileViewer" class="classroom-viewer-overlay d-none">
+        <!-- Top App Bar -->
+        <header class="classroom-viewer-header d-flex justify-content-between align-items-center px-4 py-2.5">
+            <div class="d-flex align-items-center gap-3 text-truncate">
+                <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white-50" id="classroomViewerBackBtn" title="Back to Files">
+                    <i class="bi bi-arrow-left fs-5 text-white"></i>
+                </button>
+                <div class="d-flex align-items-center gap-2.5 text-truncate">
+                    <div class="classroom-viewer-icon-box" id="classroomViewerIconBox">
+                        <i class="bi bi-file-earmark-text fs-4 text-warning" id="classroomViewerIcon"></i>
+                    </div>
+                    <div class="text-truncate">
+                        <h1 class="fs-6 fw-bold text-white mb-0 text-truncate" id="classroomViewerFileName">Document.pdf</h1>
+                        <div class="micro-text text-white-50 text-truncate" id="classroomViewerSubtitle">Mentorae Learning Materials</div>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-none d-sm-inline-flex align-items-center gap-1.5" id="classroomViewerPrintBtn" title="Print document">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" id="classroomViewerPopoutBtn" title="Open in new window">
+                    <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-md-inline">Pop-out</span>
+                </a>
+                <a href="#" download class="btn btn-sm btn-primary rounded-pill px-3.5 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm" id="classroomViewerDownloadBtn" title="Download to device">
+                    <i class="bi bi-download"></i> Download
+                </a>
+                <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white ms-1" id="classroomViewerCloseBtn" title="Close">
+                    <i class="bi bi-x-lg fs-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace (Center Document Stage) -->
+        <div class="classroom-viewer-stage" id="classroomViewerStage">
+            <!-- Dynamic high-fidelity content rendered here -->
+        </div>
+    </div>
+
+    <!-- Class Quiz Results & Analytics Modal -->
+    <div class="modal fade" id="classQuizResultsModal" tabindex="-1" aria-labelledby="classQuizResultsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-bottom py-3 px-4 bg-light">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <div class="bg-success-subtle text-success p-2 rounded-3">
+                            <i class="bi bi-bar-chart-line fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark m-0" id="classQuizResultsModalLabel">Practice Quiz Results</h5>
+                            <p class="micro-text text-muted m-0" id="classQuizResultsSubheader">Topic: Loading...</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Stats Grid -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-md-3">
+                            <div class="card border rounded-3 p-3 bg-white shadow-none h-100">
+                                <span class="micro-text text-uppercase text-muted fw-semibold">Students Attempted</span>
+                                <h3 class="fw-bold text-dark m-0 mt-1" id="quizStatStudentsCount">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border rounded-3 p-3 bg-white shadow-none h-100">
+                                <span class="micro-text text-uppercase text-muted fw-semibold">Class Average</span>
+                                <h3 class="fw-bold text-primary m-0 mt-1" id="quizStatAvgPercentage">0%</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border rounded-3 p-3 bg-white shadow-none h-100">
+                                <span class="micro-text text-uppercase text-muted fw-semibold">Pass Rate (&ge;60%)</span>
+                                <h3 class="fw-bold text-success m-0 mt-1" id="quizStatPassRate">0%</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border rounded-3 p-3 bg-white shadow-none h-100">
+                                <span class="micro-text text-uppercase text-muted fw-semibold">Highest Score</span>
+                                <h3 class="fw-bold text-warning-emphasis m-0 mt-1" id="quizStatHighestScore">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search & Filter Bar -->
+                    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2 mb-3">
+                        <div class="input-group input-group-sm" style="max-width: 320px;">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" id="quizStudentSearchInput" placeholder="Search student name or LRN...">
+                        </div>
+                        <span class="micro-text text-muted" id="quizStudentCountDisplay">Showing 0 students</span>
+                    </div>
+
+                    <!-- Students Roster Table -->
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr class="micro-text text-uppercase text-muted">
+                                    <th class="ps-3">Student</th>
+                                    <th>LRN / ID</th>
+                                    <th>Section</th>
+                                    <th>Attempts</th>
+                                    <th>Best Score</th>
+                                    <th>Latest Attempt</th>
+                                    <th class="text-end pe-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classQuizStudentsTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">Loading student results...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer border-top py-2.5 px-4 bg-light d-flex justify-content-between">
+                    <span class="micro-text text-muted"><i class="bi bi-info-circle me-1"></i>Only student practice submissions are displayed here.</span>
+                    <button type="button" class="btn btn-secondary btn-sm px-4 rounded-pill" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -261,6 +780,11 @@
 
     <!-- Bootstrap Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
     <!-- Component Logic Link -->
     <script src="subject_detail_teacher.js"></script>
 </body>

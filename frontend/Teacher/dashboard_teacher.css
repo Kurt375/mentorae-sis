@@ -109,8 +109,31 @@
     background-color: #ffffff;
 }
 
+.access-card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    text-decoration: none !important;
+    color: inherit !important;
+}
+
 .access-card {
+    height: 100%;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.access-card > .d-flex {
+    height: 100%;
+    align-items: flex-start;
+}
+
+.access-card .icon-box {
+    flex-shrink: 0;
 }
 
 .access-card:hover {
@@ -157,3 +180,395 @@
 .activity-row-item:hover {
     background-color: #f1f5f9;
 }
+
+/* Interactive Profile Banner Styling */
+.profile-banner-interactive {
+    cursor: pointer;
+    border-radius: 10px;
+    padding: 6px;
+    margin: -6px;
+    transition: background-color 0.2s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+.profile-banner-interactive:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.profile-banner-interactive:hover .avatar-container {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45);
+    transition: box-shadow 0.2s ease;
+}
+
+.profile-banner-interactive:hover .profile-arrow-hint {
+    color: #ffffff !important;
+    transform: translateX(3px);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.profile-arrow-hint {
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* Clickable Profile Picture Circle */
+.avatar-clickable-circle {
+    width: 64px;
+    height: 64px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration: none;
+    border-radius: 50%;
+}
+
+.avatar-clickable-circle:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.6) !important;
+}
+
+.avatar-hover-overlay {
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.avatar-clickable-circle:hover .avatar-hover-overlay {
+    opacity: 1;
+}
+
+/* Persistent corner edit badge */
+.avatar-badge-wrap {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.avatar-edit-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 24px;
+    height: 24px;
+    background-color: #ffffff;
+    color: #084923;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    border: 2px solid #084923;
+    pointer-events: none;
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.avatar-clickable-circle:hover ~ .avatar-edit-badge,
+.avatar-badge-wrap:hover .avatar-edit-badge {
+    transform: scale(1.15);
+    background-color: #e8f5e9;
+    color: #06381b;
+}
+
+/* Profile header interactive link styling */
+.profile-name-link {
+    color: #ffffff;
+    text-decoration: none;
+    display: inline-block;
+    transition: opacity 0.15s ease;
+}
+
+.profile-name-link:hover {
+    color: #ffffff;
+    opacity: 0.92;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.profile-pill-link {
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #ffffff !important;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+}
+
+.profile-pill-link:hover {
+    background: #ffffff !important;
+    color: #084923 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.profile-pill-link:hover i {
+    color: #084923 !important;
+}
+
+/* ==========================================================================
+   Modern Profile Page Design (Centered Overlapping Avatar, Concentric Rings)
+   Placed below the standard portal header
+   ========================================================================== */
+
+.profile-card-wrapper {
+    max-width: 680px;
+    margin: 0 auto 2rem;
+}
+
+.profile-card-banner {
+    background: linear-gradient(145deg, #084923 0%, #0a5c2c 60%, #12753a 100%);
+    height: 120px;
+    border-radius: 20px 20px 0 0;
+    position: relative;
+    box-shadow: 0 4px 14px rgba(10, 92, 44, 0.15);
+}
+
+.profile-card-body {
+    background: #ffffff;
+    border-radius: 0 0 20px 20px;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    padding: 0 24px 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+/* White Card Container (legacy alias) */
+.profile-card-container {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 0 24px 40px;
+}
+
+/* Avatar centered and overlapping the boundary */
+.profile-avatar-anchor {
+    display: flex;
+    justify-content: center;
+    position: relative;
+    margin-top: -65px;
+    margin-bottom: 16px;
+}
+
+/* Concentric radiating rings around avatar */
+.avatar-concentric-wrap {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    border-radius: 50%;
+    padding: 8px;
+    box-shadow: 
+        0 0 0 5px rgba(255, 255, 255, 0.95),
+        0 0 0 13px rgba(10, 92, 44, 0.12),
+        0 0 0 22px rgba(10, 92, 44, 0.05);
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease;
+    background: #ffffff;
+}
+
+.avatar-concentric-wrap:hover {
+    transform: scale(1.05);
+    box-shadow: 
+        0 0 0 6px rgba(255, 255, 255, 1),
+        0 0 0 16px rgba(10, 92, 44, 0.22),
+        0 0 0 28px rgba(10, 92, 44, 0.09);
+}
+
+.avatar-main-circle {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 3.5px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.avatar-main-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Floating Camera Badge at bottom-right of avatar circle */
+.avatar-camera-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #0a5c2c;
+    color: #ffffff;
+    border: 2.5px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    z-index: 6;
+}
+
+.avatar-concentric-wrap:hover .avatar-camera-badge {
+    transform: scale(1.1);
+    background: #084923;
+}
+
+/* Centered User Name & Role */
+.profile-user-name {
+    font-size: 1.55rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.profile-user-subtitle {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+}
+
+/* Clean List-Card Sections matching reference mockup */
+.profile-section-card {
+    background: #ffffff;
+    border: 1px solid #eef2f6;
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.profile-item-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.profile-item-row:last-child {
+    border-bottom: none;
+    padding-bottom: 4px;
+}
+
+.profile-item-row:first-child {
+    padding-top: 4px;
+}
+
+.profile-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #eef7ee;
+    color: #0a5c2c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.profile-item-content {
+    flex-grow: 1;
+}
+
+.profile-item-label {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-bottom: 2px;
+}
+
+.profile-item-val {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Prominent Log Out button */
+.profile-logout-btn {
+    background: #0a5c2c;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: 14px;
+    padding: 12px 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(10, 92, 44, 0.28);
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.profile-logout-btn:hover {
+    background: #084923;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(10, 92, 44, 0.38);
+}
+
+/* Semi-transparent Glass Pill Badge for Advisory Class */
+.advisory-pill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 4px 14px;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.advisory-pill-badge i.bi-shield-check {
+    color: #86efac; /* bright mint green accent */
+    font-size: 0.95rem;
+}
+
+.advisory-pill-badge strong {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.advisory-pill-badge i.bi-arrow-right-short {
+    font-size: 1.15rem;
+    opacity: 0.75;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    margin-right: -4px;
+}
+
+.advisory-pill-badge:hover {
+    background: rgba(255, 255, 255, 0.26);
+    border-color: rgba(255, 255, 255, 0.45);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+}
+
+.advisory-pill-badge:hover i.bi-arrow-right-short {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+.advisory-pill-badge:active {
+    transform: translateY(0);
+}
+
+

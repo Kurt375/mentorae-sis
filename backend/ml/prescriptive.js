@@ -18,13 +18,17 @@ const ACTIVITY_MAX = 20;
 const EXAM_MAX = 50;
 
 /** Which component is dragging the student down the most, as a % of its own max. */
-function weakestComponent({ quiz_score, activity_score, exam_score, attendanceRate }) {
+function weakestComponent({ quiz_score, activity_score, exam_score, attendanceRate, wwMax = 20, ptMax = 50, qaMax = 30 }) {
+  const wMax = Number(wwMax) || QUIZ_MAX;
+  const pMax = Number(ptMax) || ACTIVITY_MAX;
+  const qMax = Number(qaMax) || EXAM_MAX;
+
   const rates = [
-    { key: 'writtenWork', label: 'Written Work (quizzes)', rate: (Number(quiz_score) || 0) / QUIZ_MAX },
-    { key: 'performanceTask', label: 'Performance Task (activities)', rate: (Number(activity_score) || 0) / ACTIVITY_MAX },
+    { key: 'writtenWork', label: `Written Work (${wMax}%)`, rate: (Number(quiz_score) || 0) / wMax },
+    { key: 'performanceTask', label: `Performance Task (${pMax}%)`, rate: (Number(activity_score) || 0) / pMax },
   ];
   if (exam_score !== null && exam_score !== undefined) {
-    rates.push({ key: 'quarterlyExam', label: 'Quarterly Exam', rate: (Number(exam_score) || 0) / EXAM_MAX });
+    rates.push({ key: 'quarterlyAssessment', label: `Quarterly Assessment (${qMax}%)`, rate: (Number(exam_score) || 0) / qMax });
   }
   if (attendanceRate !== null && attendanceRate !== undefined) {
     rates.push({ key: 'attendance', label: 'Attendance', rate: Number(attendanceRate) / 100 });
@@ -37,8 +41,8 @@ function weakestComponent({ quiz_score, activity_score, exam_score, attendanceRa
  * Build the recommended-actions list for a student, given their raw
  * scores, the model's predicted risk, and the subject name (for copy).
  */
-function buildRecommendations({ subjectName, quiz_score, activity_score, exam_score, attendanceRate, risk }) {
-  const driver = weakestComponent({ quiz_score, activity_score, exam_score, attendanceRate });
+function buildRecommendations({ subjectName, quiz_score, activity_score, exam_score, attendanceRate, risk, wwMax, ptMax, qaMax }) {
+  const driver = weakestComponent({ quiz_score, activity_score, exam_score, attendanceRate, wwMax, ptMax, qaMax });
   const actions = [];
 
   if (driver.key === 'attendance') {
@@ -47,8 +51,8 @@ function buildRecommendations({ subjectName, quiz_score, activity_score, exam_sc
     actions.push(`Written Work scores are the weak point in ${subjectName} — recommend the review lessons and practice quizzes for this subject in Learning Resources.`);
   } else if (driver.key === 'performanceTask') {
     actions.push(`Performance Task scores are the weak point in ${subjectName} — recommend structured activity/lab make-up time or a teacher-guided practice session.`);
-  } else if (driver.key === 'quarterlyExam') {
-    actions.push(`Quarterly Exam performance is the weak point in ${subjectName} — recommend a review lesson and flashcard set focused on exam topics before the next term.`);
+  } else if (driver.key === 'quarterlyAssessment' || driver.key === 'quarterlyExam') {
+    actions.push(`Quarterly Assessment performance is the weak point in ${subjectName} — recommend a review lesson and flashcard set focused on assessment topics before the next term.`);
   }
 
   if (risk === 'High') {
@@ -61,3 +65,4 @@ function buildRecommendations({ subjectName, quiz_score, activity_score, exam_sc
 }
 
 module.exports = { buildRecommendations, weakestComponent, QUIZ_MAX, ACTIVITY_MAX, EXAM_MAX };
+

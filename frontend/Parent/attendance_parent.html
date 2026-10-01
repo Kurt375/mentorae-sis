@@ -30,8 +30,8 @@
                 </div>
             </div>
             <div class="text-white text-end dashboard-time">
-                <div class="small opacity-75" id="liveDate"></div>
-                <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                <div class="small opacity-75" id="liveDate">Loading date…</div>
+                <div class="fs-4 fw-bold m-0" id="liveTime">00:00:00</div>
             </div>
         </header>
 
@@ -47,10 +47,10 @@
                         </div>
                         <div>
                             <div class="d-flex align-items-center gap-2">
-                                <h2 class="fw-bold m-0 fs-5 text-dark">Dela Cruz, Juan C.</h2>
-                                <span class="badge bg-danger-subtle text-danger fw-bold micro-text px-2 py-0.5 rounded-pill">Absent Today</span>
+                                <h2 class="fw-bold m-0 fs-5 text-dark" id="studentHeaderName">Loading student…</h2>
+                                <span class="badge badge-status-empty fw-bold micro-text px-2.5 py-1 rounded-pill" id="studentHeaderStatus">—</span>
                             </div>
-                            <p class="m-0 text-muted small mt-0.5">Grade 12 - STEM | LRN: 123456789012 | Adviser: Mrs. A. Cruz</p>
+                            <p class="m-0 text-muted small mt-0.5" id="studentHeaderMeta">—</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
@@ -68,7 +68,7 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Total School Days</span>
-                                <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricTotalDays">120</h2>
+                                <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricTotalDays">—</h2>
                             </div>
                             <div class="text-primary fs-3"><i class="bi bi-calendar3"></i></div>
                         </div>
@@ -79,7 +79,7 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Present Days</span>
-                                <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricPresentDays">114</h2>
+                                <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricPresentDays">—</h2>
                             </div>
                             <div class="text-success fs-3"><i class="bi bi-check-circle-fill"></i></div>
                         </div>
@@ -90,7 +90,7 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Attendance Rate</span>
-                                <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricAttendanceRate">95%</h2>
+                                <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricAttendanceRate">—</h2>
                             </div>
                             <div class="text-info fs-3"><i class="bi bi-pie-chart-fill"></i></div>
                         </div>
@@ -98,8 +98,8 @@
                 </div>
             </section>
 
-            <!-- Real-time Absence Alert Banner -->
-            <section class="absence-alert-banner p-4 mb-4 shadow-sm text-dark">
+            <!-- Real-time Absence Alert Banner (Conditional) -->
+            <section class="absence-alert-banner p-4 mb-4 shadow-sm text-dark d-none" id="absenceAlertBanner">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                     <div class="d-flex align-items-start gap-3">
                         <div class="bg-danger text-white rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
@@ -107,7 +107,7 @@
                         </div>
                         <div>
                             <h3 class="h6 fw-bold m-0 text-danger text-uppercase">Attendance Alert Recorded Today</h3>
-                            <p class="m-0 small text-dark mt-1">Juan was marked <strong>Absent</strong> during morning homeroom check-in on <strong>May 17, 2026 at 7:30 AM</strong>.</p>
+                            <p class="m-0 small text-dark mt-1" id="absenceAlertText">Student was marked <strong>Absent</strong> during homeroom check-in.</p>
                             <small class="text-muted micro-text">If this is an authorized absence, please submit an excuse letter or contact the adviser.</small>
                         </div>
                     </div>
@@ -132,6 +132,7 @@
                             <option value="present">Present</option>
                             <option value="absent">Absent</option>
                             <option value="late">Late</option>
+                            <option value="excused">Excused</option>
                         </select>
                         <button type="button" class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1" id="btnExportLogs">
                             <i class="bi bi-download"></i> Export
@@ -146,45 +147,12 @@
                                 <th class="px-3 py-2.5">Date</th>
                                 <th class="px-3 py-2.5">Status</th>
                                 <th class="px-3 py-2.5">Time In</th>
-                                <th class="px-3 py-2.5">Remarks</th>
+                                <th class="px-3 py-2.5">Remarks / Source</th>
                             </tr>
                         </thead>
                         <tbody id="attendanceTableBody">
-                            <tr data-status="absent">
-                                <td class="px-3 py-2.5 fw-medium text-dark">Sun, May 17, 2026</td>
-                                <td class="px-3 py-2.5"><span class="badge attendance-pill bg-danger-subtle text-danger">Absent</span></td>
-                                <td class="px-3 py-2.5 text-secondary">-</td>
-                                <td class="px-3 py-2.5 text-muted micro-text">Unexcused Absence (Pending parent note)</td>
-                            </tr>
-                            <tr data-status="present">
-                                <td class="px-3 py-2.5 fw-medium text-dark">Thu, Apr 23, 2026</td>
-                                <td class="px-3 py-2.5"><span class="badge attendance-pill bg-success-subtle text-success">Present</span></td>
-                                <td class="px-3 py-2.5 text-secondary">7:30 AM</td>
-                                <td class="px-3 py-2.5 text-muted micro-text">On Time via Entrance QR Scanner</td>
-                            </tr>
-                            <tr data-status="present">
-                                <td class="px-3 py-2.5 fw-medium text-dark">Wed, Apr 22, 2026</td>
-                                <td class="px-3 py-2.5"><span class="badge attendance-pill bg-success-subtle text-success">Present</span></td>
-                                <td class="px-3 py-2.5 text-secondary">7:28 AM</td>
-                                <td class="px-3 py-2.5 text-muted micro-text">On Time via Entrance QR Scanner</td>
-                            </tr>
-                            <tr data-status="present">
-                                <td class="px-3 py-2.5 fw-medium text-dark">Tue, Apr 21, 2026</td>
-                                <td class="px-3 py-2.5"><span class="badge attendance-pill bg-success-subtle text-success">Present</span></td>
-                                <td class="px-3 py-2.5 text-secondary">7:30 AM</td>
-                                <td class="px-3 py-2.5 text-muted micro-text">On Time via Entrance QR Scanner</td>
-                            </tr>
-                            <tr data-status="absent">
-                                <td class="px-3 py-2.5 fw-medium text-dark">Mon, Apr 20, 2026</td>
-                                <td class="px-3 py-2.5"><span class="badge attendance-pill bg-danger-subtle text-danger">Absent</span></td>
-                                <td class="px-3 py-2.5 text-secondary">-</td>
-                                <td class="px-3 py-2.5 text-muted micro-text">Excused (Medical certificate accepted)</td>
-                            </tr>
-                            <tr data-status="late">
-                                <td class="px-3 py-2.5 fw-medium text-dark">Fri, Apr 17, 2026</td>
-                                <td class="px-3 py-2.5"><span class="badge attendance-pill bg-warning-subtle text-warning">Late</span></td>
-                                <td class="px-3 py-2.5 text-secondary">7:45 AM</td>
-                                <td class="px-3 py-2.5 text-muted micro-text">Late check-in (Traffic delay)</td>
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">Loading attendance history…</td>
                             </tr>
                         </tbody>
                     </table>
@@ -195,49 +163,13 @@
             <div class="row g-3">
                 <div class="col-12 col-md-6">
                     <div class="card border-0 rounded-3 p-3 shadow-sm bg-white h-100">
-                        <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Monthly Attendance Trend</h3>
-                        <div class="d-flex flex-column gap-3 py-1">
-                            <div>
-                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
-                                    <span class="text-dark">May 2026</span>
-                                    <span class="text-success fw-bold">94%</span>
-                                </div>
-                                <div class="progress progress-bar-scale bg-light"><div class="progress-bar bg-success" style="width: 94%;"></div></div>
-                            </div>
-                            <div>
-                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
-                                    <span class="text-dark">April 2026</span>
-                                    <span class="text-success fw-bold">95%</span>
-                                </div>
-                                <div class="progress progress-bar-scale bg-light"><div class="progress-bar bg-success" style="width: 95%;"></div></div>
-                            </div>
-                            <div>
-                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
-                                    <span class="text-dark">March 2026</span>
-                                    <span class="text-success fw-bold">98%</span>
-                                </div>
-                                <div class="progress progress-bar-scale bg-light"><div class="progress-bar bg-success" style="width: 98%;"></div></div>
-                            </div>
-                            <div>
-                                <div class="d-flex justify-content-between text-xs font-semibold mb-1">
-                                    <span class="text-dark">February 2026</span>
-                                    <span class="text-success fw-bold">92%</span>
-                                </div>
-                                <div class="progress progress-bar-scale bg-light"><div class="progress-bar bg-success" style="width: 92%;"></div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-12 col-md-6">
-                    <div class="card border-0 rounded-3 p-3 shadow-sm bg-white h-100">
                         <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Attendance Summary & Notes</h3>
                         <div class="d-flex flex-column gap-2">
                             <div class="alert alert-success border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
                                 <i class="bi bi-shield-check-fill fs-5 mt-0.5"></i>
                                 <div>
-                                    <div class="fw-bold text-xs">Exemplary Quarter Performance</div>
-                                    <div class="micro-text opacity-90 mt-0.5">Juan maintains a 95% overall attendance compliance for the current academic semester.</div>
+                                    <div class="fw-bold text-xs">Official School Record</div>
+                                    <div class="micro-text opacity-90 mt-0.5" id="attendanceSummaryNote">Live record synchronized with school scanner check-ins.</div>
                                 </div>
                             </div>
                             <div class="alert alert-warning border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
@@ -250,48 +182,83 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Filed Excuse Notes Section -->
+                <div class="col-12 mb-3">
+                    <div class="card border-0 rounded-3 p-4 shadow-sm bg-white">
+                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                            <div>
+                                <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Filed Excuse Notes</h3>
+                                <span class="micro-text text-muted">Track status of submitted absence excuses</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#excuseModal">
+                                <i class="bi bi-plus-lg me-1"></i> New Excuse Note
+                            </button>
+                        </div>
+                        <div id="filedExcuseNotesContainer">
+                            <p class="text-muted small m-0">Loading filed excuse notes...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card border-0 rounded-3 p-3 shadow-sm bg-white h-100">
+                        <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Quick Navigation</h3>
+                        <p class="text-muted small mb-3">Jump back to the main overview or review grade performance.</p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="dashboard_parent.html" class="btn btn-sm btn-outline-secondary px-3 rounded-pill">
+                                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                            </a>
+                            <a href="progress_parent.html" id="linkProgressNav" class="btn btn-sm btn-outline-success px-3 rounded-pill">
+                                <i class="bi bi-graph-up-arrow me-1"></i> Grade & Performance
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </main>
     </div>
 
-    <!-- Submit Excuse Note Modal -->
-    <div class="modal fade" id="excuseModal" tabindex="-1" aria-labelledby="excuseModalLabel" aria-hidden="true">
+    <!-- Excuse Note Modal -->
+    <div class="modal fade" id="excuseModal" tabindex="-1" aria-labelledby="excuseModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0 shadow">
-                <div class="modal-header border-bottom pb-3">
-                    <h5 class="modal-title fw-bold fs-6" id="excuseModalLabel">
-                        <i class="bi bi-file-earmark-medical text-success me-2"></i>Submit Absence Excuse Note
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom py-3 px-4">
+                    <h5 class="modal-title fw-bold fs-6 text-dark" id="excuseModalLabel">
+                        <i class="bi bi-envelope-paper-fill text-success me-2"></i>Submit Absence Excuse Note
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <form id="excuseForm">
                         <div class="mb-3">
                             <label class="form-label text-sm fw-semibold text-dark">Student Name</label>
-                            <input type="text" class="form-control form-control-sm bg-light" value="Dela Cruz, Juan C. (Grade 12 - STEM)" readonly>
+                            <input type="text" class="form-control form-control-sm bg-light" id="excuseStudentName" readonly value="Loading…">
                         </div>
-                        <div class="mb-3">
-                            <label for="excuseDate" class="form-label text-sm fw-semibold text-dark">Date of Absence</label>
-                            <input type="date" class="form-control form-control-sm" id="excuseDate" value="2026-05-17" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="excuseReason" class="form-label text-sm fw-semibold text-dark">Reason for Absence</label>
-                            <select class="form-select form-select-sm" id="excuseReason" required>
-                                <option value="" disabled selected>Select a reason</option>
-                                <option value="Medical/Illness">Medical / Illness</option>
-                                <option value="Family Emergency">Family Emergency</option>
-                                <option value="Official School Representation">Official School Representation</option>
-                                <option value="Religious Observance">Religious Observance</option>
-                                <option value="Other">Other Personal Reasons</option>
-                            </select>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label for="excuseDate" class="form-label text-sm fw-semibold text-dark">Date of Absence</label>
+                                <input type="date" class="form-control form-control-sm" id="excuseDate" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="excuseReason" class="form-label text-sm fw-semibold text-dark">Primary Reason</label>
+                                <select class="form-select form-select-sm" id="excuseReason" required>
+                                    <option value="" disabled selected>Select Reason</option>
+                                    <option value="Illness / Medical">Illness / Medical</option>
+                                    <option value="Family Emergency">Family Emergency</option>
+                                    <option value="Dental Appointment">Dental Appointment</option>
+                                    <option value="Official School Event">Official School Event</option>
+                                    <option value="Other">Other Valid Reason</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="excuseRemarks" class="form-label text-sm fw-semibold text-dark">Detailed Explanation / Remarks</label>
                             <textarea class="form-control form-control-sm" id="excuseRemarks" rows="3" placeholder="Please provide specific details regarding the absence..." required></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="excuseFile" class="form-label text-sm fw-semibold text-dark">Attach Supporting Document (e.g. Medical Cert - Optional)</label>
+                            <label for="excuseFile" class="form-label text-sm fw-semibold text-dark">Attach Supporting Document (Optional)</label>
                             <input class="form-control form-control-sm" type="file" id="excuseFile">
                         </div>
                         <div class="d-flex justify-content-end gap-2 mt-4">

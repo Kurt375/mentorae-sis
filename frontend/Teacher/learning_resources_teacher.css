@@ -92,9 +92,13 @@
     border-top-right-radius: 12px;
 }
 
-.bg-card-green { background-color: var(--card-banner-green); }
-.bg-card-orange { background-color: var(--card-banner-orange); }
-.bg-card-blue { background-color: var(--card-banner-blue); }
+.bg-card-green { background-color: var(--card-banner-green, #22c55e) !important; }
+.bg-card-orange { background-color: var(--card-banner-orange, #eab308) !important; }
+.bg-card-blue { background-color: var(--card-banner-blue, #3b82f6) !important; }
+.bg-card-purple { background-color: #8b5cf6 !important; }
+.bg-card-red { background-color: #ef4444 !important; }
+.bg-card-teal { background-color: #14b8a6 !important; }
+.bg-card-gray { background-color: #6b7280 !important; }
 
 .banner-dots {
     display: flex;

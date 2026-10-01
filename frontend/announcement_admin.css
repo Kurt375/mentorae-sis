@@ -4,7 +4,7 @@
     --mentorae-canvas-bg: #f4f6f9;
     --light-green-workspace: #eef7ee;
     --text-dark: #2d3748;
-    
+
     /* Type Badge Mapping Systems */
     --badge-event-bg: #cfe2ff;
     --badge-event-text: #0a58ca;
@@ -39,7 +39,7 @@
 .logo-wrap {
     width: 38px;
     height: 38px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     overflow: hidden;
 }
 
@@ -82,13 +82,15 @@
     border: 1px solid #e2e8f0;
 }
 
-.custom-input, .custom-textarea {
+.custom-input,
+.custom-textarea {
     border: 1px solid #a3b899;
     border-radius: 8px;
     padding: 10px 12px;
 }
 
-.custom-input:focus, .custom-textarea:focus {
+.custom-input:focus,
+.custom-textarea:focus {
     border-color: var(--mentorae-green);
     box-shadow: 0 0 0 0.25rem rgba(10, 92, 44, 0.15);
 }
@@ -103,7 +105,7 @@
 
 .announcement-card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
 }
 
 .pin-icon-box i {
@@ -120,18 +122,38 @@
     text-transform: lowercase;
 }
 
-.type-badge.event { background-color: var(--badge-event-bg); color: var(--badge-event-text); }
-.type-badge.academic { background-color: var(--badge-academic-bg); color: var(--badge-academic-text); }
-.type-badge.seminar { background-color: var(--badge-seminar-bg); color: var(--badge-seminar-text); }
+.type-badge.event {
+    background-color: var(--badge-event-bg);
+    color: var(--badge-event-text);
+}
+
+.type-badge.academic {
+    background-color: var(--badge-academic-bg);
+    color: var(--badge-academic-text);
+}
+
+.type-badge.seminar {
+    background-color: var(--badge-seminar-bg);
+    color: var(--badge-seminar-text);
+}
 
 /* Text Sizing Utilities */
-.micro-text { font-size: 0.75rem; }
-.text-sm { font-size: 0.88rem; }
-.tracking-sm { letter-spacing: 0.3px; }
+.micro-text {
+    font-size: 0.75rem;
+}
+
+.text-sm {
+    font-size: 0.88rem;
+}
+
+.tracking-sm {
+    letter-spacing: 0.3px;
+}
 
 .link-transition {
     transition: opacity 0.15s ease;
 }
+
 .link-transition:hover {
     opacity: 0.8;
 }

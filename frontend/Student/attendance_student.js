@@ -41,10 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.H
             });
+            const studentQrLabel = document.getElementById('studentQrLabel');
+            if (studentQrLabel) {
+                studentQrLabel.textContent = `TSHS ID: ${data.qrText || (user && user.id_number) || 'N/A'}`;
+            }
             qrRendered = true;
         } catch (err) {
             console.error(err);
             qrCodeContainer.innerHTML = '<p class="text-danger small">Could not load your QR code.</p>';
+            const studentQrLabel = document.getElementById('studentQrLabel');
+            if (studentQrLabel && user && user.id_number) {
+                studentQrLabel.textContent = `TSHS ID: ${user.id_number}`;
+            }
         }
     }
 

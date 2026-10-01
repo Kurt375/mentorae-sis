@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Learning Resources (Student)</title>
+    <!-- Bootstrap 5.3.2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Teacher Learning Resources CSS for consistent design architecture -->
+    <link rel="stylesheet" href="../Teacher/learning_resources_teacher.css">
+    <style>
+        .student-pill-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 50rem;
+        }
+        .section-subtext {
+            font-size: 0.825rem;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper -->
+    <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
+        
+        <!-- Header Ribbon Navbar -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="dashboard_student.html" class="text-white text-decoration-none fs-4 link-transition" id="backToDashboardBtn" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-4 fw-bold tracking-wide d-inline-block">Learning Resources</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Study Materials &amp; Subject Lessons</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+
+            <!-- SECTION 1: Student's Enrolled / Target Subjects -->
+            <section class="mb-5">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h2 class="h5 fw-bold m-0 text-dark" id="myEnrolledHeading">My Enrolled Subjects</h2>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" id="activeTermBadge">1st Term</span>
+                            </div>
+                            <p class="section-subtext m-0 mt-1" id="studentEnrollmentSubtext">Subjects you are currently taking this term.</p>
+                        </div>
+                        <span class="badge bg-success student-pill-badge" id="studentSectionPill">Loading Section…</span>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2 mt-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0" id="classSearch" placeholder="Search my subjects...">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterQuarter">
+                                <option value="current" selected>This Term Only</option>
+                                <option value="All">All Terms (My Strand)</option>
+                                <option value="1">1st Term</option>
+                                <option value="2">2nd Term</option>
+                                <option value="3">3rd Term</option>
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterCategory">
+                                <option value="All Categories" selected>All Categories</option>
+                                <option value="Core Subject">Core Subject</option>
+                                <option value="Applied Subject">Applied Subject</option>
+                                <option value="Specialized Subject">Specialized Subject</option>
+                                <option value="Institutional / Non-Academic">Institutional / Non-Academic</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Classroom Cards Grid -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="classroomsGrid">
+                    <div class="col-12 text-center py-4">
+                        <div class="spinner-border text-success spinner-border-sm" role="status"></div>
+                        <span class="ms-2 small text-muted">Loading your subjects…</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: Complete Subject Library -->
+            <section class="mb-4">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h2 class="h5 fw-bold m-0 text-dark">All Subjects Library</h2>
+                                <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" id="libraryCountBadge">Loading subjects…</span>
+                            </div>
+                            <p class="section-subtext m-0 mt-1">Browse all Senior High School curriculum subjects created by the administrator.</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2 mt-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0" id="librarySearch" placeholder="Search subject library...">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterQuarter">
+                                <option value="All" selected>All Terms</option>
+                                <option value="0">All Terms (Year-Long)</option>
+                                <option value="1">1st Term</option>
+                                <option value="2">2nd Term</option>
+                                <option value="3">3rd Term</option>
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterGrade">
+                                <option value="All" selected>All Grades</option>
+                                <option value="11">Grade 11</option>
+                                <option value="12">Grade 12</option>
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterStrand">
+                                <option value="All" selected>All Strands</option>
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterCategory">
+                                <option value="All Categories" selected>All Categories</option>
+                                <option value="Core Subject">Core Subject</option>
+                                <option value="Applied Subject">Applied Subject</option>
+                                <option value="Specialized Subject">Specialized Subject</option>
+                                <option value="Institutional / Non-Academic">Institutional / Non-Academic</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subject Library List -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="subjectLibraryList">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Bootstrap Bundle script -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../config.js"></script>
+    <script src="../session.js"></script>
+    <!-- Component Logic Link -->
+    <script src="learning_resources_student.js"></script>
+</body>
+</html>

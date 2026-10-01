@@ -1,23 +1,34 @@
 /**
  * Achievements & Rewards Student Portal Script
- * Mentorae Platform AY 2025-2026
- * Real-time synchronization with Teacher Class Management Badge Awarding Workflow
- * Duplicate Badge Multiplier / Count Badge Support
+ * Mentorae SIS AY 2025-2026
+ * Real-time synchronization with Backend API:
+ *   - GET /api/badges/catalog
+ *   - GET /api/badges/student/:studentId
+ *   - GET /api/badges/leaderboard?scope=section|school
  */
+
 document.addEventListener('DOMContentLoaded', async () => {
-    // 0. Session Guard & Logout
+    // 0. Session Guard & Authentication
     const { token, user } = requireSession('../login.html', ['student', 'admin']);
     wireLogout('logoutBtn', '../login.html');
 
-    const CURRENT_STUDENT_NAME = user.full_name || "Juan Dela Cruz";
-    const STORAGE_KEY_STUDENT_BADGES = 'mentorae_student_badges';
-    const STORAGE_KEY_ACTIVITIES = 'mentorae_student_activities';
-    const STORAGE_KEY_FEATURED_BADGES = 'mentorae_featured_badges';
-    const STORAGE_KEY_AURA_THEME = 'mentorae_aura_theme';
+    const STUDENT_ID = user.id;
+    const STUDENT_NAME = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Student';
+
+    // Local storage keys scoped to user
+    const STORAGE_KEY_FEATURED_BADGES = `mentorae_featured_badges_${STUDENT_ID}`;
+    const STORAGE_KEY_AURA_THEME = `mentorae_aura_theme_${STUDENT_ID}`;
     const STORAGE_KEY_BADGE_SORT = 'mentorae_badge_sort';
     const STORAGE_KEY_BADGE_CATEGORY = 'mentorae_badge_category';
     const STORAGE_KEY_BADGE_VIEW = 'mentorae_badge_view';
+    const STORAGE_KEY_LEADERBOARD_SCOPE = 'mentorae_lb_scope';
 
+    // State
+    let allCatalogBadges = [];
+    let earnedBadges = [];
+    let studentActivities = [];
+    let leaderboardList = [];
+    let currentScope = localStorage.getItem(STORAGE_KEY_LEADERBOARD_SCOPE) || 'section';
     let currentModalFilter = 'all';
     let currentActiveSlotIndex = 0;
     let tempFeaturedBadgeIds = [];
@@ -38,251 +49,209 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    // 2. Comprehensive Master Badges Catalog
-    const ALL_BADGES_CATALOG = [
-        {
-            id: 'perfect_attendance',
+    // 2. Comprehensive Badge Metadata Dictionary
+    const BADGE_METADATA = {
+        perfect_attendance: {
             title: 'Perfect Attendance',
             icon: '🎯',
             category: 'Attendance',
             description: 'Awarded to students who maintained a 100% on-time attendance record for the entire month without unexcused absences or tardiness.',
             requirement: 'Achieve 100% attendance rate with zero tardiness across all enrolled subject periods.',
-            points: 100
+            points: 100,
+            bg: '#d5ebd5',
+            color: '#1f6e1f'
         },
-        {
-            id: 'honor_student',
+        honor_student: {
             title: 'Honor Student',
             icon: '🏆',
             category: 'Academics',
             description: 'Awarded by subject teachers and class advisers to recognize outstanding academic performance, mastery, and general weighted excellence (GWA 90+).',
             requirement: 'Awarded directly by the teacher upon quarterly honors verification and academic excellence evaluation.',
-            points: 150
+            points: 150,
+            bg: '#fef2cb',
+            color: '#b27a00'
         },
-        {
-            id: 'quiz_master',
+        quiz_master: {
             title: 'Quiz Master',
             icon: '🧠',
             category: 'Academics',
             description: 'Awarded by the subject teacher when a student passes or excels in their face-to-face (F2F) classroom written quizzes and periodic assessments.',
             requirement: 'Passed or scored high marks in face-to-face (F2F) classroom quizzes as evaluated and awarded by the subject teacher.',
-            points: 120
+            points: 120,
+            bg: '#deeaf6',
+            color: '#2f5597'
         },
-        {
-            id: 'early_bird',
+        early_bird: {
             title: 'Early Bird',
             icon: '🌅',
             category: 'Attendance',
             description: 'Consistently logged attendance QR codes before 7:15 AM for 15 consecutive school days.',
             requirement: 'Scan QR attendance before 7:15 AM on 15 consecutive school days.',
-            points: 80
+            points: 80,
+            bg: '#fce4d6',
+            color: '#c65911'
         },
-        {
-            id: 'top_scorer',
+        top_scorer: {
             title: 'Top Scorer',
             icon: '🅰️',
             category: 'Academics',
             description: 'Achieved the highest score on quizzes, periodic exams, or major performance tasks in class.',
             requirement: 'Obtain the top score in a unit examination or major performance task evaluation.',
-            points: 150
+            points: 15,
+            bg: '#e2f0d9',
+            color: '#385723'
         },
-        {
-            id: 'most_active',
+        most_active: {
             title: 'Most Active',
             icon: '👍',
             category: 'Participation',
             description: 'Consistently participates in classroom discussions, raises insightful inquiries, and completes daily interactive modules.',
             requirement: 'Awarded by subject teacher for vibrant classroom recitation and active engagement.',
-            points: 100
+            points: 10,
+            bg: '#d5ebd5',
+            color: '#1f6e1f'
         },
-        {
-            id: 'innovative_thinker',
+        innovative_thinker: {
             title: 'Innovative Thinker',
             icon: '💡',
             category: 'Creativity',
             description: 'Demonstrated creative problem-solving, novel project prototypes, or unique approaches to STEM inquiries.',
             requirement: 'Proposed a unique solution or innovative project design in laboratory or class tasks.',
-            points: 120
+            points: 15,
+            bg: '#fef2cb',
+            color: '#b27a00'
         },
-        {
-            id: 'team_captain',
+        team_captain: {
             title: 'Team Captain',
             icon: '⭐',
             category: 'Leadership',
             description: 'Demonstrated exemplary leadership, communication, and peer coordination in group laboratory projects.',
             requirement: 'Elected group leader who successfully guided a collaborative project to high completion.',
-            points: 100
+            points: 20,
+            bg: '#ebdcf5',
+            color: '#6f30a0'
         },
-        {
-            id: 'resilient_thinker',
+        resilient_thinker: {
             title: 'Resilient Thinker',
             icon: '💎',
-            category: 'Growth Mindset',
+            category: 'Character',
             description: 'Persevered through challenging subject concepts, embraced feedback, and showed outstanding grit.',
             requirement: 'Demonstrated remarkable turnaround and persistent effort in overcoming complex lessons.',
-            points: 100
+            points: 15,
+            bg: '#d9f1f2',
+            color: '#008080'
         },
-        {
-            id: 'completed_grades',
+        completed_grades: {
             title: 'Completed Grades',
             icon: '📅',
-            category: 'Compliance',
+            category: 'Academics',
             description: 'Submitted 100% of all required homework, laboratory reports, and performance tasks on time.',
             requirement: 'Zero missing deliverables or late submissions across all grading terms.',
-            points: 80
+            points: 10,
+            bg: '#e4dff2',
+            color: '#5230a0'
         },
-        {
-            id: 'recitation_master',
+        recitation_master: {
             title: 'Recitation Master',
             icon: '💬',
-            category: 'Communication',
+            category: 'Participation',
             description: 'Consistently articulate, clear, and confident in oral recitations and classroom presentations.',
             requirement: 'Active contributor in subject recitations with articulate, evidence-backed answers.',
-            points: 90
+            points: 10,
+            bg: '#fce4d6',
+            color: '#c65911'
         },
-        {
-            id: 'critical_thinker',
+        critical_thinker: {
             title: 'Critical Thinker',
             icon: '🔍',
-            category: 'Analysis',
+            category: 'Academics',
             description: 'Formulates deep analytical questions, challenges hypotheses with evidence, and applies scientific logic.',
             requirement: 'Demonstrated exceptional logical deduction in laboratory analysis and problem sets.',
-            points: 110
+            points: 15,
+            bg: '#e2f0d9',
+            color: '#228b22'
         },
-        {
-            id: 'coacher',
+        coacher: {
             title: 'Coacher / Peer Tutor',
             icon: '🤝',
-            category: 'Collaboration',
+            category: 'Leadership',
             description: 'Acts as a dedicated peer tutor, patiently assisting fellow students during group study sessions.',
             requirement: 'Recognized for helping classmates review and master difficult subject topics.',
-            points: 120
+            points: 20,
+            bg: '#deeaf6',
+            color: '#2f5597'
         },
-        {
-            id: 'top_performer',
+        top_performer: {
             title: 'Top Performer',
             icon: '🎖️',
-            category: 'Excellence',
+            category: 'Academics',
             description: 'All-around outstanding performance in academic standing, classroom conduct, and school activities.',
             requirement: 'Consistently in top tier academic standing and stellar discipline record.',
-            points: 150
+            points: 25,
+            bg: '#fce4d6',
+            color: '#833c0c'
         },
-        {
-            id: 'most_improved',
+        most_improved: {
             title: 'Most Improved',
             icon: '📈',
-            category: 'Growth',
+            category: 'Academics',
             description: 'Achieved the most significant upward progression in quarterly evaluation grades and performance scores.',
             requirement: 'Boosted General Weighted Average by 5+ points across quarterly evaluation cycles.',
-            points: 130
+            points: 130,
+            bg: '#ebdcf5',
+            color: '#6f30a0'
         },
-        {
-            id: 'deped_values',
+        deped_values: {
             title: 'Core Values Award',
             icon: '🌟',
             category: 'Character',
             description: 'Exemplifies the DepEd Core Values: Maka-Diyos, Makatao, Makakalikasan, and Makabansa.',
             requirement: 'Exemplary demonstration of moral integrity, environmental stewardship, and respect for all.',
-            points: 100
+            points: 100,
+            bg: '#fef2cb',
+            color: '#b27a00'
         },
-        {
-            id: 'punctuality_champ',
+        punctuality_champ: {
             title: 'Punctuality Champ',
             icon: '⏰',
-            category: 'Discipline',
-            description: 'Never late to morning school entry and class period transitions throughout the semester.',
+            category: 'Attendance',
+            description: 'Never late to morning school entry and class period transitions throughout the term.',
             requirement: 'Zero tardiness records across all periods for consecutive 40 school days.',
-            points: 90
+            points: 90,
+            bg: '#deeaf6',
+            color: '#2f5597'
         },
-        {
-            id: 'helping_hand',
+        helping_hand: {
             title: 'Helping Hand',
             icon: '❤️',
-            category: 'Service',
+            category: 'Character',
             description: 'Voluntary service in assisting teachers, organizing laboratory equipment, and supporting campus initiatives.',
             requirement: 'Demonstrated selfless service and volunteerism in campus learning activities.',
-            points: 80
+            points: 80,
+            bg: '#fce4d6',
+            color: '#833c0c'
         }
-    ];
+    };
 
-    // 3. Initial Default Badges for Juan Dela Cruz
-    const DEFAULT_INITIAL_BADGES = [
-        { id: "perfect_attendance", name: "Perfect Attendance", count: 2, date: "4/15/2026", points: 100, awardedBy: "Teacher (Mr. Santos)" },
-        { id: "honor_student", name: "Honor Student", count: 1, date: "3/20/2026", points: 150, awardedBy: "Teacher (Mr. Santos)" },
-        { id: "quiz_master", name: "Quiz Master", count: 3, date: "4/10/2026", points: 120, awardedBy: "Teacher (Mr. Santos)" },
-        { id: "early_bird", name: "Early Bird", count: 1, date: "4/1/2026", points: 80, awardedBy: "Teacher (Mr. Santos)" }
-    ];
-
-    const DEFAULT_INITIAL_ACTIVITIES = [
-        { title: "Quiz Completed", subtitle: "Earned 50 points", time: "2h ago", icon: "bi-patch-check-fill", color: "text-success" },
-        { title: "Badge Unlocked", subtitle: "Perfect Attendance (x2) (+100 pts)", time: "1d ago", icon: "bi-award-fill", color: "text-warning" },
-        { title: "Milestone Reached", subtitle: "800 total points", time: "2d ago", icon: "bi-star-fill", color: "text-purple" }
-    ];
-
-    // 4. Retrieve Badges and Activities from Storage
-    function getStoredBadges() {
-        let allBadges = {};
-        try {
-            allBadges = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENT_BADGES)) || {};
-        } catch (e) {
-            allBadges = {};
-        }
-
-        let updated = false;
-
-        if (allBadges[CURRENT_STUDENT_NAME] === undefined) {
-            allBadges[CURRENT_STUDENT_NAME] = [...DEFAULT_INITIAL_BADGES];
-            updated = true;
-        }
-
-        SECTION_STUDENTS_ROSTER.forEach(st => {
-            if (!st.isCurrentUser && allBadges[st.name] === undefined) {
-                allBadges[st.name] = JSON.parse(JSON.stringify(st.defaultBadges || []));
-                updated = true;
-            }
-        });
-
-        if (updated) {
-            localStorage.setItem(STORAGE_KEY_STUDENT_BADGES, JSON.stringify(allBadges));
-        }
-
-        return allBadges[CURRENT_STUDENT_NAME] || [];
-    }
-
-    function getStoredActivities() {
-        let allActivities = {};
-        try {
-            allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY_ACTIVITIES)) || {};
-        } catch (e) {
-            allActivities = {};
-        }
-
-        if (allActivities[CURRENT_STUDENT_NAME] === undefined) {
-            allActivities[CURRENT_STUDENT_NAME] = [...DEFAULT_INITIAL_ACTIVITIES];
-            localStorage.setItem(STORAGE_KEY_ACTIVITIES, JSON.stringify(allActivities));
-        }
-
-        return allActivities[CURRENT_STUDENT_NAME] || [];
-    }
-
-    // 5. Challenges / Point Goals Database
+    // 3. Challenge / Goals Database
     const CHALLENGES_DATABASE = {
         quiz: {
             title: 'Perfect in Quiz',
             reward: '+70 Points',
             iconClass: 'bi-stars text-success',
             bgClass: 'bg-success-subtle',
-            desc: 'Achieve a perfect 100% score in any subject practice quiz or evaluation module.',
-            actionText: 'Go to Learning Resources, select your subject, and take any practice quiz.',
+            desc: 'Achieve a high or perfect score in subject quizzes and evaluation modules.',
+            actionText: 'Review subject study resources and practice quizzes.',
             btnText: 'Open Learning Resources',
-            btnHref: 'learning_resources_student.html'
+            btnHref: 'resources_student.html'
         },
         attendance: {
             title: 'Perfect Attendance Week',
             reward: '+20 Points',
             iconClass: 'bi-bullseye text-primary',
             bgClass: 'bg-primary-subtle',
-            desc: 'Attend all classes on time from Monday through Friday without any tardiness or absences.',
-            actionText: 'Scan your QR code daily at the classroom gate or during period attendance.',
+            desc: 'Attend all scheduled class sessions on time from Monday through Friday.',
+            actionText: 'Check your current attendance log and QR scan history.',
             btnText: 'View Attendance Logs',
             btnHref: 'attendance_student.html'
         },
@@ -291,39 +260,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             reward: '+15 Points',
             iconClass: 'bi-graph-up-arrow text-purple',
             bgClass: 'bg-purple-subtle',
-            desc: 'Increase your quarterly subject evaluation score compared to the previous quarter.',
-            actionText: 'Review your current subject grades, GWA breakdown, and SF9 progress.',
-            btnText: 'View Grade & Performance',
+            desc: 'Monitor your subject grades, quarterly evaluations, and academic standing.',
+            actionText: 'Review your enrolled subjects, SF9 grades, and adviser remarks.',
+            btnText: 'View Grades & Standing',
             btnHref: 'grade_performance_student.html'
         }
     };
 
-    // 6. Modal Initializations
+    // 4. Modal Initializations
     const badgeModalEl = document.getElementById('badgeModal');
     const challengeModalEl = document.getElementById('challengeModal');
     const allBadgesModalEl = document.getElementById('allBadgesModal');
     const customizeModalEl = document.getElementById('customizeFeaturedBadgesModal');
 
-    let badgeModalInstance = null;
-    let challengeModalInstance = null;
-    let allBadgesModalInstance = null;
-    let customizeModalInstance = null;
+    const badgeModalInstance = badgeModalEl ? new bootstrap.Modal(badgeModalEl) : null;
+    const challengeModalInstance = challengeModalEl ? new bootstrap.Modal(challengeModalEl) : null;
+    const allBadgesModalInstance = allBadgesModalEl ? new bootstrap.Modal(allBadgesModalEl) : null;
+    const customizeModalInstance = customizeModalEl ? new bootstrap.Modal(customizeModalEl) : null;
 
-    if (badgeModalEl && typeof bootstrap !== 'undefined') {
-        badgeModalInstance = new bootstrap.Modal(badgeModalEl);
-    }
-    if (challengeModalEl && typeof bootstrap !== 'undefined') {
-        challengeModalInstance = new bootstrap.Modal(challengeModalEl);
-    }
-    if (allBadgesModalEl && typeof bootstrap !== 'undefined') {
-        allBadgesModalInstance = new bootstrap.Modal(allBadgesModalEl);
-    }
-    if (customizeModalEl && typeof bootstrap !== 'undefined') {
-        customizeModalInstance = new bootstrap.Modal(customizeModalEl);
-    }
-
-    // 7. Showcase & Display Preference Helper Functions
-    function getStoredFeaturedBadges(earnedBadges) {
+    // 5. Showcase & Preferences Helpers
+    function getStoredFeaturedBadges() {
         let stored = null;
         try {
             stored = JSON.parse(localStorage.getItem(STORAGE_KEY_FEATURED_BADGES));
@@ -332,13 +288,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (Array.isArray(stored) && stored.length > 0) {
-            // Keep up to 3 valid slots
             return stored.slice(0, 3);
         }
 
-        // Fallback default: first 3 unlocked badges of current student
-        const defaultFeatured = (earnedBadges || []).slice(0, 3).map(b => b.id);
-        return defaultFeatured;
+        // Fallback default: up to first 3 unlocked badges of current student
+        return earnedBadges.slice(0, 3).map(b => b.id);
     }
 
     function getStoredAuraTheme() {
@@ -357,7 +311,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         return localStorage.getItem(STORAGE_KEY_BADGE_VIEW) || 'carousel';
     }
 
-    // 8. Horizontal Scroll & Toolbar Navigation Controls
+    function formatRelativeTime(dateStr) {
+        if (!dateStr) return 'Recently';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return String(dateStr);
+        const now = new Date();
+        const diffSec = Math.floor((now - date) / 1000);
+        if (diffSec < 60) return 'Just now';
+        if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+        if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+        if (diffSec < 172800) return 'Yesterday';
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // 6. Navigation Controls & View Mode
     const badgesScrollTrack = document.getElementById('badgesScrollTrack');
     const badgesGridContainer = document.getElementById('badgesGridContainer');
     const btnScrollBadgesLeft = document.getElementById('btnScrollBadgesLeft');
@@ -370,7 +337,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnViewModeGrid = document.getElementById('btnViewModeGrid');
     const carouselNavControls = document.getElementById('carouselNavControls');
 
-    // Restore toolbar select states
     if (badgeCategoryFilter) badgeCategoryFilter.value = getStoredCategoryFilter();
     if (badgeSortSelect) badgeSortSelect.value = getStoredSortMode();
 
@@ -393,7 +359,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Category Filter Change
     if (badgeCategoryFilter) {
         badgeCategoryFilter.addEventListener('change', (e) => {
             localStorage.setItem(STORAGE_KEY_BADGE_CATEGORY, e.target.value);
@@ -401,7 +366,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Sort Select Change
     if (badgeSortSelect) {
         badgeSortSelect.addEventListener('change', (e) => {
             localStorage.setItem(STORAGE_KEY_BADGE_SORT, e.target.value);
@@ -409,7 +373,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // View Mode Toggle (Carousel vs Grid)
     function setViewMode(mode) {
         localStorage.setItem(STORAGE_KEY_BADGE_VIEW, mode);
         if (mode === 'grid') {
@@ -449,75 +412,241 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnViewModeGrid.addEventListener('click', () => setViewMode('grid'));
     }
 
-    // 9. Render All Badges Modal Grid with Filters
-    function renderModalBadges() {
-        const allBadgesModalGrid = document.getElementById('allBadgesModalGrid');
-        if (!allBadgesModalGrid) return;
+    // 7. Load Data from Backend API
+    async function loadData() {
+        try {
+            // A. Fetch Catalog
+            const catRes = await authedFetch('/api/badges/catalog', token);
+            if (catRes.success && Array.isArray(catRes.badges)) {
+                allCatalogBadges = catRes.badges.map(b => {
+                    const meta = BADGE_METADATA[b.id] || {};
+                    return {
+                        id: b.id,
+                        title: b.name || meta.title || b.id,
+                        points: Number(b.points) || meta.points || 10,
+                        icon: meta.icon || (b.icon ? `<i class="bi ${b.icon}"></i>` : (b.symbol || '⭐')),
+                        biIcon: b.icon || meta.biIcon,
+                        symbol: b.symbol,
+                        bg: b.bg || meta.bg || '#f1f1f1',
+                        color: b.color || meta.color || '#333',
+                        category: meta.category || 'General',
+                        description: meta.description || 'Awarded for classroom achievement and effort.',
+                        requirement: meta.requirement || 'Awarded by subject teacher upon performance evaluation.'
+                    };
+                });
+            }
 
-        const earnedBadges = getStoredBadges();
-        const earnedMap = new Map(earnedBadges.map(b => [b.id, b]));
+            // B. Fetch Student Badges & Recent Activities
+            const studentRes = await authedFetch(`/api/badges/student/${STUDENT_ID}`, token);
+            if (studentRes.success) {
+                earnedBadges = (studentRes.badges || []).map(b => {
+                    const catItem = allCatalogBadges.find(c => c.id === b.badge_id) || {};
+                    return {
+                        id: b.badge_id,
+                        name: b.name || catItem.title || b.badge_id,
+                        title: b.name || catItem.title || b.badge_id,
+                        points: Number(b.points) || catItem.points || 10,
+                        icon: catItem.icon || (b.icon ? `<i class="bi ${b.icon}"></i>` : (b.symbol || '⭐')),
+                        earnedAt: b.earned_at,
+                        date: formatRelativeTime(b.earned_at),
+                        awardedBy: b.awarded_by_name || 'Subject Teacher',
+                        category: catItem.category || 'General',
+                        description: catItem.description || '',
+                        requirement: catItem.requirement || ''
+                    };
+                });
+                studentActivities = studentRes.activity || [];
+            }
 
-        // Filter catalog
-        let filteredList = ALL_BADGES_CATALOG;
-        if (currentModalFilter === 'earned') {
-            filteredList = ALL_BADGES_CATALOG.filter(b => earnedMap.has(b.id));
-        } else if (currentModalFilter === 'locked') {
-            filteredList = ALL_BADGES_CATALOG.filter(b => !earnedMap.has(b.id));
+            // C. Fetch Leaderboard
+            await loadLeaderboard(currentScope);
+
+            // D. Render UI
+            renderAchievements();
+        } catch (err) {
+            console.error('Error loading data in achievements_student.js:', err);
+        }
+    }
+
+    // 8. Leaderboard Loader (Scoped exclusively to My Section)
+    async function loadLeaderboard() {
+        currentScope = 'section';
+        localStorage.setItem(STORAGE_KEY_LEADERBOARD_SCOPE, 'section');
+
+        const container = document.getElementById('classLeaderboardContainer');
+        if (container) {
+            container.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-arrow-repeat me-2"></i>Loading leaderboard standings...</div>';
         }
 
-        allBadgesModalGrid.innerHTML = '';
+        const lbRes = await authedFetch('/api/badges/leaderboard?scope=section', token);
+        if (lbRes.success && Array.isArray(lbRes.leaderboard)) {
+            leaderboardList = lbRes.leaderboard;
+        } else {
+            leaderboardList = [];
+        }
 
-        if (filteredList.length === 0) {
-            allBadgesModalGrid.innerHTML = `<div class="col-12 text-center text-muted py-4"><i class="bi bi-award fs-2 d-block mb-2 text-secondary"></i>No badges match the selected filter.</div>`;
+        renderLeaderboardUI(lbRes.sectionId);
+    }
+
+    // 9. Render Leaderboard UI
+    function renderLeaderboardUI(sectionId) {
+        const container = document.getElementById('classLeaderboardContainer');
+        const userLiveRankBadge = document.getElementById('userLiveRankBadge');
+        const classRankDisplay = document.getElementById('classRankDisplay');
+        const classRankSubText = document.getElementById('classRankSubText');
+        const totalPointsDisplay = document.getElementById('totalPointsDisplay');
+        const totalPointsSubText = document.getElementById('totalPointsSubText');
+        const leaderboardSubTitle = document.getElementById('leaderboardSubTitle');
+
+        if (!container) return;
+
+        // Find current student in leaderboard
+        const me = leaderboardList.find(s => s.id === STUDENT_ID || s.idNumber === user.id_number);
+        const myRank = me ? me.rank : (leaderboardList.length ? '—' : 1);
+        const myPoints = me ? me.points : earnedBadges.reduce((sum, b) => sum + (b.points || 10), 0);
+
+        if (totalPointsDisplay) totalPointsDisplay.textContent = myPoints;
+        if (totalPointsSubText) totalPointsSubText.textContent = `Based on ${earnedBadges.length} earned badge${earnedBadges.length === 1 ? '' : 's'}`;
+
+        if (classRankDisplay) classRankDisplay.textContent = `#${myRank}`;
+        if (userLiveRankBadge) userLiveRankBadge.textContent = `Your Rank: #${myRank}`;
+        if (classRankSubText) {
+            classRankSubText.textContent = `Out of ${leaderboardList.length} student${leaderboardList.length === 1 ? '' : 's'}`;
+        }
+
+        // Subtitle
+        if (leaderboardSubTitle) {
+            const secName = me && me.section ? me.section : 'My Section';
+            leaderboardSubTitle.textContent = `${secName} • Live Academic Standings`;
+        }
+
+        if (!leaderboardList.length) {
+            container.innerHTML = `
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-trophy display-4 d-block mb-3 opacity-50"></i>
+                    <h6 class="fw-bold">No Leaderboard Standings Yet</h6>
+                    <p class="small m-0">Student badge points will display here once teachers award badges to the class.</p>
+                </div>
+            `;
             return;
         }
 
-        filteredList.forEach(badge => {
-            const isEarned = earnedMap.has(badge.id);
-            const earnedData = isEarned ? earnedMap.get(badge.id) : null;
-            const badgeCount = earnedData ? (parseInt(earnedData.count, 10) || 1) : 0;
-            const earnedDate = earnedData ? (earnedData.date || 'Earned') : 'Locked';
+        container.innerHTML = '';
+        const auraTheme = getStoredAuraTheme();
+        const featuredBadgeIds = getStoredFeaturedBadges();
 
-            const col = document.createElement('div');
-            col.className = 'col';
+        leaderboardList.forEach(student => {
+            const isCurrentUser = student.id === STUDENT_ID || student.idNumber === user.id_number;
+            const rank = student.rank;
 
-            col.innerHTML = `
-                <div class="badge-card h-100 ${isEarned ? '' : 'locked'} position-relative" data-badge-id="${badge.id}" tabindex="0" role="button">
-                    ${isEarned && badgeCount > 1 ? `<span class="badge-count-pill" title="Awarded ${badgeCount} times">×${badgeCount}</span>` : ''}
-                    <div class="badge-icon-wrap">
-                        ${isEarned ? badge.icon : '⭐'}
+            const row = document.createElement('div');
+            const rowAuraClass = isCurrentUser ? `highlighted-user-row ${auraTheme}` : '';
+            row.className = `leaderboard-row d-flex align-items-center justify-content-between gap-3 ${rowAuraClass}`;
+
+            // Rank visual
+            let rankElementHtml = '';
+            if (rank === 1) {
+                rankElementHtml = `<div class="rank-badge-ribbon rank-ribbon-1 shadow-sm" title="Rank 1 - Gold Champion">1</div>`;
+            } else if (rank === 2) {
+                rankElementHtml = `<div class="rank-badge-ribbon rank-ribbon-2 shadow-sm" title="Rank 2 - Silver Leader">2</div>`;
+            } else if (rank === 3) {
+                rankElementHtml = `<div class="rank-badge-ribbon rank-ribbon-3 shadow-sm" title="Rank 3 - Bronze Achiever">3</div>`;
+            } else {
+                rankElementHtml = `<div class="rank-number-plain ${isCurrentUser ? 'text-success fs-5' : ''}">#${rank}</div>`;
+            }
+
+            // Trophy icon
+            let trophyIconHtml = '';
+            if (rank === 1) {
+                trophyIconHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-3" style="color: #f59e0b;" title="Gold Champion"></i>`;
+            } else if (rank === 2) {
+                trophyIconHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-4" style="color: #8b5cf6;" title="Silver Leader"></i>`;
+            } else if (rank === 3) {
+                trophyIconHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-4" style="color: #3b82f6;" title="Bronze Achiever"></i>`;
+            } else {
+                trophyIconHtml = `<i class="bi bi-award-fill text-muted opacity-75 fs-5"></i>`;
+            }
+
+            // Badges showcase dots
+            let badgeDotsHtml = '';
+            if (isCurrentUser) {
+                // Render the 3 custom featured badges
+                featuredBadgeIds.forEach(fid => {
+                    const catMatch = allCatalogBadges.find(b => b.id === fid);
+                    if (catMatch) {
+                        badgeDotsHtml += `
+                            <span class="badge-slot-dot bg-white border shadow-xs position-relative user-badge-clickable" title="${catMatch.title} (Click to customize showcase badges)">
+                                ${catMatch.icon}
+                            </span>
+                        `;
+                    }
+                });
+
+                // Missing slots show "+" button
+                const missingSlots = 3 - featuredBadgeIds.length;
+                for (let s = 0; s < missingSlots; s++) {
+                    badgeDotsHtml += `
+                        <span class="badge-slot-dot user-add" title="Add / Customize Featured Badges">
+                            <i class="bi bi-plus"></i>
+                        </span>
+                    `;
+                }
+
+                badgeDotsHtml = `
+                    <div class="user-badges-showcase-group d-flex align-items-center" role="button" data-bs-toggle="modal" data-bs-target="#customizeFeaturedBadgesModal" title="Click to customize showcase">
+                        ${badgeDotsHtml}
                     </div>
-                    <div class="badge-name text-truncate" title="${badge.title}">${badge.title}</div>
-                    <div class="badge-meta">${isEarned && badgeCount > 1 ? `${badgeCount}x Awarded` : earnedDate}</div>
+                `;
+            } else {
+                // Classmate top badges
+                const stBadges = (student.badges || []).slice(0, 3);
+                stBadges.forEach(b => {
+                    const catMatch = allCatalogBadges.find(c => c.id === b.id) || {};
+                    badgeDotsHtml += `
+                        <span class="badge-slot-dot bg-white border shadow-xs position-relative" title="${b.name || 'Badge'}">
+                            ${catMatch.icon || (b.icon ? `<i class="bi ${b.icon}"></i>` : (b.symbol || '⭐'))}
+                        </span>
+                    `;
+                });
+                badgeDotsHtml = `<div class="d-flex align-items-center">${badgeDotsHtml}</div>`;
+            }
+
+            row.innerHTML = `
+                <div class="d-flex align-items-center gap-3">
+                    ${rankElementHtml}
+                    ${student.profilePictureUrl
+                        ? `<img src="${student.profilePictureUrl}" class="rank-avatar" alt="">`
+                        : `<div class="rank-avatar-icon"><i class="bi bi-person-fill"></i></div>`}
+                    <div>
+                        <div class="fw-bold text-dark fs-6">
+                            ${student.name}
+                            ${isCurrentUser ? '<span class="badge bg-success text-white micro-text fw-bold ms-1.5 px-2 py-0.5 rounded-pill shadow-xs">You</span>' : ''}
+                        </div>
+                        ${student.section ? `<div class="micro-text text-muted">${student.section}</div>` : ''}
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-none d-sm-flex align-items-center">
+                        ${badgeDotsHtml}
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        ${trophyIconHtml}
+                        <div class="text-end">
+                            <span class="fw-bold ${isCurrentUser ? 'text-success fs-5' : 'text-dark fs-6'} text-nowrap">${student.points} pts</span>
+                            <div class="text-muted" style="font-size: 0.7rem;">${student.badgeCount || 0} badge${student.badgeCount === 1 ? '' : 's'}</div>
+                        </div>
+                    </div>
                 </div>
             `;
 
-            col.querySelector('.badge-card').addEventListener('click', () => {
-                openBadgeModal(badge, isEarned, earnedData);
-            });
-
-            allBadgesModalGrid.appendChild(col);
+            container.appendChild(row);
         });
     }
 
-    // Filter Button Click Handlers in All Badges Modal
-    const badgeFilterBtns = document.querySelectorAll('.badge-filter-btn');
-    badgeFilterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            badgeFilterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-success');
-                b.classList.add('btn-light', 'text-muted');
-            });
-            btn.classList.add('active', 'btn-success');
-            btn.classList.remove('btn-light', 'text-muted');
+    // 10. Scope is permanently locked to Section Leaderboard
 
-            currentModalFilter = btn.getAttribute('data-filter');
-            renderModalBadges();
-        });
-    });
-
-    // 10. Render Customizable Badges (Track or Grid)
-    function renderCustomizableBadges(earnedBadges, earnedMap) {
+    // 11. Render Badges (Track or Grid)
+    function renderCustomizableBadges(earnedMap) {
         const categoryFilter = getStoredCategoryFilter();
         const sortMode = getStoredSortMode();
         const viewMode = getStoredViewMode();
@@ -527,8 +656,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!targetContainer) return;
         targetContainer.innerHTML = '';
 
-        // 1. Filter by category
-        let list = [...ALL_BADGES_CATALOG];
+        // Filter by category
+        let list = [...allCatalogBadges];
         if (categoryFilter !== 'all') {
             list = list.filter(b => b.category && (
                 b.category.toLowerCase().includes(categoryFilter.toLowerCase()) || 
@@ -536,21 +665,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             ));
         }
 
-        // 2. Sort list
-        const featuredIds = getStoredFeaturedBadges(earnedBadges);
+        // Sort list
+        const featuredIds = getStoredFeaturedBadges();
 
         if (sortMode === 'points') {
             list.sort((a, b) => b.points - a.points);
-        } else if (sortMode === 'multipliers') {
-            list.sort((a, b) => {
-                const countA = earnedMap.has(a.id) ? (parseInt(earnedMap.get(a.id).count, 10) || 1) : 0;
-                const countB = earnedMap.has(b.id) ? (parseInt(earnedMap.get(b.id).count, 10) || 1) : 0;
-                return countB - countA;
-            });
         } else if (sortMode === 'alphabetical') {
             list.sort((a, b) => a.title.localeCompare(b.title));
         } else {
-            // Default: 'recent' (Earned first, then locked)
+            // 'recent' (Earned first)
             list.sort((a, b) => {
                 const aEarned = earnedMap.has(a.id);
                 const bEarned = earnedMap.has(b.id);
@@ -573,9 +696,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         list.forEach(badge => {
             const isEarned = earnedMap.has(badge.id);
             const earnedData = isEarned ? earnedMap.get(badge.id) : null;
-            const badgeCount = earnedData ? (parseInt(earnedData.count, 10) || 1) : 0;
-            const earnedDate = earnedData ? (earnedData.date || 'Earned') : 'Locked';
             const isFeatured = featuredIds.includes(badge.id);
+            const earnedDate = earnedData ? earnedData.date : 'Locked';
 
             const card = document.createElement('div');
             card.className = `badge-card ${isGridView ? '' : 'badge-card-horizontal'} ${isEarned ? '' : 'locked'} ${isFeatured ? 'featured-badge-glow' : ''} position-relative`;
@@ -585,12 +707,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             card.innerHTML = `
                 ${isFeatured ? `<span class="position-absolute top-0 start-0 translate-middle-y badge rounded-pill bg-warning text-dark border border-white fw-bold shadow-xs ms-2 mt-2" style="font-size:0.6rem; z-index:3;"><i class="bi bi-pin-angle-fill me-0.5"></i>Pinned</span>` : ''}
-                ${isEarned && badgeCount > 1 ? `<span class="badge-count-pill" title="Awarded ${badgeCount} times">×${badgeCount}</span>` : ''}
-                <div class="badge-icon-wrap">
-                    ${isEarned ? badge.icon : '⭐'}
+                <div class="badge-icon-wrap" style="${isEarned ? `background:${badge.bg}; color:${badge.color};` : ''}">
+                    ${badge.icon}
                 </div>
                 <div class="badge-name text-truncate" title="${badge.title}">${badge.title}</div>
-                <div class="badge-meta">${isEarned && badgeCount > 1 ? `${badgeCount}x Awarded` : earnedDate}</div>
+                <div class="badge-meta">${earnedDate}</div>
             `;
 
             card.addEventListener('click', () => {
@@ -601,321 +722,174 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 11. Render Main UI Based on Storage Data
+    // 12. Render Main UI
     function renderAchievements() {
-        const earnedBadges = getStoredBadges();
         const earnedMap = new Map(earnedBadges.map(b => [b.id, b]));
 
-        // Base points: 400 + sum of all earned badge points * their count
-        const badgePointsSum = earnedBadges.reduce((sum, b) => {
-            const cnt = parseInt(b.count, 10) || 1;
-            const pts = parseInt(b.points, 10) || 100;
-            return sum + (pts * cnt);
-        }, 0);
-
-        const totalPoints = 400 + badgePointsSum;
-
-        // Total count of badges including multiples
-        const totalBadgesEarnedCount = earnedBadges.reduce((sum, b) => sum + (parseInt(b.count, 10) || 1), 0);
-
-        // Dynamic Class Section Leaderboard System
-        renderClassLeaderboard(totalPoints, earnedBadges);
-
-        // Update Overview Cards
-        const totalPointsDisplay = document.getElementById('totalPointsDisplay');
+        // Counters
         const badgesEarnedDisplay = document.getElementById('badgesEarnedDisplay');
-        const userLeaderboardPointsDisplay = document.getElementById('userLeaderboardPointsDisplay');
         const badgeCountPill = document.getElementById('badgeCountPill');
+        const badgesEarnedSubText = document.getElementById('badgesEarnedSubText');
 
         const filterCountAll = document.getElementById('filterCountAll');
         const filterCountEarned = document.getElementById('filterCountEarned');
         const filterCountLocked = document.getElementById('filterCountLocked');
 
-        if (totalPointsDisplay) totalPointsDisplay.textContent = totalPoints;
-        if (badgesEarnedDisplay) badgesEarnedDisplay.textContent = totalBadgesEarnedCount;
-        if (userLeaderboardPointsDisplay) userLeaderboardPointsDisplay.textContent = `${totalPoints} pts`;
-        if (badgeCountPill) badgeCountPill.textContent = `${totalBadgesEarnedCount} Unlocked`;
+        if (badgesEarnedDisplay) badgesEarnedDisplay.textContent = earnedBadges.length;
+        if (badgeCountPill) badgeCountPill.textContent = `${earnedBadges.length} Unlocked`;
+        if (badgesEarnedSubText) {
+            const lockedCount = Math.max(0, allCatalogBadges.length - earnedBadges.length);
+            badgesEarnedSubText.textContent = `${lockedCount} more to unlock`;
+        }
 
-        if (filterCountAll) filterCountAll.textContent = ALL_BADGES_CATALOG.length;
+        if (filterCountAll) filterCountAll.textContent = allCatalogBadges.length;
         if (filterCountEarned) filterCountEarned.textContent = earnedBadges.length;
-        if (filterCountLocked) filterCountLocked.textContent = Math.max(0, ALL_BADGES_CATALOG.length - earnedBadges.length);
+        if (filterCountLocked) filterCountLocked.textContent = Math.max(0, allCatalogBadges.length - earnedBadges.length);
 
-        // Render Customizable Badges Track/Grid
-        renderCustomizableBadges(earnedBadges, earnedMap);
+        // Render Customizable Badges
+        renderCustomizableBadges(earnedMap);
 
-        // Render Recent Activities
+        // Render Recent Activities from Backend
         const recentActivitiesList = document.getElementById('recentActivitiesList');
         if (recentActivitiesList) {
-            const activities = getStoredActivities().slice(0, 5); // Take top 5
             recentActivitiesList.innerHTML = '';
 
-            activities.forEach(act => {
-                const actEl = document.createElement('div');
-                actEl.className = 'activity-item-pill d-flex align-items-center justify-content-between gap-3';
-                actEl.innerHTML = `
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="icon-box-lg bg-success-subtle ${act.color || 'text-success'} rounded-circle" style="width: 36px; height: 36px;">
-                            <i class="bi ${act.icon || 'bi-patch-check-fill'} fs-5"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold text-dark small">${act.title}</div>
-                            <div class="micro-text text-muted">${act.subtitle}</div>
-                        </div>
+            if (!studentActivities.length) {
+                recentActivitiesList.innerHTML = `
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-clock-history fs-3 d-block mb-2 opacity-50"></i>
+                        <div class="small fw-semibold">No recent activity yet</div>
+                        <div class="micro-text">Complete quizzes and attend classes to earn badges and points!</div>
                     </div>
-                    <span class="micro-text text-muted text-nowrap">${act.time}</span>
                 `;
-                recentActivitiesList.appendChild(actEl);
-            });
+            } else {
+                studentActivities.slice(0, 5).forEach(act => {
+                    const actEl = document.createElement('div');
+                    actEl.className = 'activity-item-pill d-flex align-items-center justify-content-between gap-3';
+                    actEl.innerHTML = `
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-box-lg bg-success-subtle text-success rounded-circle" style="width: 36px; height: 36px;">
+                                <i class="bi bi-patch-check-fill fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark small">${act.description}</div>
+                                <div class="micro-text text-muted">Achievement Activity</div>
+                            </div>
+                        </div>
+                        <span class="micro-text text-muted text-nowrap">${formatRelativeTime(act.created_at)}</span>
+                    `;
+                    recentActivitiesList.appendChild(actEl);
+                });
+            }
         }
     }
 
-    // 12. Dynamic Class Leaderboard Engine with Custom Showcase Slots & Aura Theme
-    const SECTION_STUDENTS_ROSTER = [
-        { 
-            id: "2024-12346", 
-            name: "Maria Santos", 
-            basePoints: 1320, 
-            defaultBadges: [
-                { id: "honor_student", name: "Honor Student", icon: "🏆", count: 2, points: 150 },
-                { id: "top_scorer", name: "Top Scorer", icon: "🅰️", count: 2, points: 150 },
-                { id: "perfect_attendance", name: "Perfect Attendance", icon: "🎯", count: 2, points: 100 },
-                { id: "quiz_master", name: "Quiz Master", icon: "🧠", count: 1, points: 120 }
-            ] 
-        },
-        { 
-            id: "2024-12349", 
-            name: "Carlos Reyes", 
-            basePoints: 1230, 
-            defaultBadges: [
-                { id: "quiz_master", name: "Quiz Master", icon: "🧠", count: 2, points: 120 },
-                { id: "innovative_thinker", name: "Innovative Thinker", icon: "💡", count: 2, points: 120 },
-                { id: "team_captain", name: "Team Captain", icon: "⭐", count: 2, points: 100 },
-                { id: "top_performer", name: "Top Performer", icon: "🎖️", count: 1, points: 150 }
-            ] 
-        },
-        { 
-            id: "2024-12348", 
-            name: "Ana Reyes", 
-            basePoints: 1040, 
-            defaultBadges: [
-                { id: "coacher", name: "Coacher", icon: "🤝", count: 2, points: 120 },
-                { id: "most_active", name: "Most Active", icon: "👍", count: 2, points: 100 },
-                { id: "resilient_thinker", name: "Resilient Thinker", icon: "💎", count: 2, points: 100 }
-            ] 
-        },
-        { 
-            id: "2024-12347", 
-            name: "Pedro Garcia", 
-            basePoints: 880, 
-            defaultBadges: [
-                { id: "quiz_master", name: "Quiz Master", icon: "🧠", count: 1, points: 120 },
-                { id: "deped_values", name: "Core Values Award", icon: "🌟", count: 2, points: 100 },
-                { id: "early_bird", name: "Early Bird", icon: "🌅", count: 2, points: 80 }
-            ] 
-        },
-        { 
-            id: "2024-12345", 
-            name: "Juan Dela Cruz", 
-            isCurrentUser: true, 
-            basePoints: 400, 
-            defaultBadges: [] 
-        },
-        { 
-            id: "2024-12350", 
-            name: "Patricia Gomez", 
-            basePoints: 720, 
-            defaultBadges: [
-                { id: "helping_hand", name: "Helping Hand", icon: "❤️", count: 2, points: 80 },
-                { id: "completed_grades", name: "Completed Grades", icon: "📅", count: 2, points: 80 }
-            ] 
-        },
-        { 
-            id: "2024-12351", 
-            name: "Miguel Lim", 
-            basePoints: 580, 
-            defaultBadges: [
-                { id: "punctuality_champ", name: "Punctuality Champ", icon: "⏰", count: 2, points: 90 }
-            ] 
-        },
-        { 
-            id: "2024-12352", 
-            name: "Bea De Leon", 
-            basePoints: 480, 
-            defaultBadges: [
-                { id: "early_bird", name: "Early Bird", icon: "🌅", count: 1, points: 80 }
-            ] 
-        }
-    ];
+    // 13. Render All Badges Modal Grid (Directory)
+    function renderModalBadges() {
+        const allBadgesModalGrid = document.getElementById('allBadgesModalGrid');
+        if (!allBadgesModalGrid) return;
 
-    function renderClassLeaderboard(currentUserTotalPoints, currentUserEarnedBadges) {
-        const leaderboardContainer = document.getElementById('classLeaderboardContainer');
-        const classRankDisplay = document.getElementById('classRankDisplay');
-        const userLiveRankBadge = document.getElementById('userLiveRankBadge');
-        if (!leaderboardContainer) return;
+        const earnedMap = new Map(earnedBadges.map(b => [b.id, b]));
 
-        let allStudentBadges = {};
-        try {
-            allStudentBadges = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENT_BADGES)) || {};
-        } catch (e) {
-            allStudentBadges = {};
+        let filteredList = allCatalogBadges;
+        if (currentModalFilter === 'earned') {
+            filteredList = allCatalogBadges.filter(b => earnedMap.has(b.id));
+        } else if (currentModalFilter === 'locked') {
+            filteredList = allCatalogBadges.filter(b => !earnedMap.has(b.id));
         }
 
-        // Build student list with synchronized points & badge awards
-        const studentList = SECTION_STUDENTS_ROSTER.map(student => {
-            if (student.isCurrentUser) {
-                return {
-                    name: student.name,
-                    isCurrentUser: true,
-                    points: currentUserTotalPoints,
-                    badges: currentUserEarnedBadges
-                };
-            }
+        allBadgesModalGrid.innerHTML = '';
 
-            const stored = allStudentBadges[student.name];
-            const badgesList = Array.isArray(stored) ? stored : (student.defaultBadges || []);
+        if (filteredList.length === 0) {
+            allBadgesModalGrid.innerHTML = `<div class="col-12 text-center text-muted py-4"><i class="bi bi-award fs-2 d-block mb-2 text-secondary"></i>No badges match the selected filter.</div>`;
+            return;
+        }
 
-            // Points = 400 (base) + sum of all badges (points * count)
-            const pts = badgesList.reduce((sum, b) => {
-                const p = parseInt(b.points, 10) || 100;
-                const c = parseInt(b.count, 10) || 1;
-                return sum + (p * c);
-            }, 0);
+        filteredList.forEach(badge => {
+            const isEarned = earnedMap.has(badge.id);
+            const earnedData = isEarned ? earnedMap.get(badge.id) : null;
+            const earnedDate = earnedData ? earnedData.date : 'Locked';
 
-            return {
-                name: student.name,
-                isCurrentUser: false,
-                points: 400 + pts,
-                badges: badgesList
-            };
-        });
+            const col = document.createElement('div');
+            col.className = 'col';
 
-        // Sort descending by points
-        studentList.sort((a, b) => b.points - a.points);
-
-        // Find current user's live rank
-        const userRankIndex = studentList.findIndex(s => s.isCurrentUser);
-        const userRank = userRankIndex !== -1 ? (userRankIndex + 1) : 5;
-        const rankStr = `#${userRank}`;
-
-        if (classRankDisplay) classRankDisplay.textContent = rankStr;
-        if (userLiveRankBadge) userLiveRankBadge.textContent = `Your Rank: ${rankStr}`;
-
-        // Get student's custom featured badges & chosen aura theme
-        const featuredBadgeIds = getStoredFeaturedBadges(currentUserEarnedBadges);
-        const auraTheme = getStoredAuraTheme();
-
-        // Clear and render live rows
-        leaderboardContainer.innerHTML = '';
-
-        studentList.forEach((student, index) => {
-            const rank = index + 1;
-            const row = document.createElement('div');
-            const rowAuraClass = student.isCurrentUser ? `highlighted-user-row ${auraTheme}` : '';
-            row.className = `leaderboard-row d-flex align-items-center justify-content-between gap-3 ${rowAuraClass}`;
-
-            // Rank Ribbon or Plain Number
-            let rankElementHtml = '';
-            if (rank === 1) {
-                rankElementHtml = `<div class="rank-badge-ribbon rank-ribbon-1 shadow-sm" title="Rank 1 - Gold Champion">1</div>`;
-            } else if (rank === 2) {
-                rankElementHtml = `<div class="rank-badge-ribbon rank-ribbon-2 shadow-sm" title="Rank 2 - Silver Leader">2</div>`;
-            } else if (rank === 3) {
-                rankElementHtml = `<div class="rank-badge-ribbon rank-ribbon-3 shadow-sm" title="Rank 3 - Bronze Achiever">3</div>`;
-            } else {
-                rankElementHtml = `<div class="rank-number-plain ${student.isCurrentUser ? 'text-success fs-5' : ''}">#${rank}</div>`;
-            }
-
-            // Trophy Icon
-            let trophyIconHtml = '';
-            if (rank === 1) {
-                trophyIconHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-3" style="color: #f59e0b;" title="Gold Champion Trophy"></i>`;
-            } else if (rank === 2) {
-                trophyIconHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-4" style="color: #8b5cf6;" title="Silver Leader Trophy"></i>`;
-            } else if (rank === 3) {
-                trophyIconHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-4" style="color: #3b82f6;" title="Bronze Achiever Trophy"></i>`;
-            } else {
-                trophyIconHtml = `<i class="bi bi-award-fill text-muted opacity-75 fs-5"></i>`;
-            }
-
-            // Badges showcase dots preview
-            let badgeDotsHtml = '';
-
-            if (student.isCurrentUser) {
-                // Render the 3 custom featured badges
-                featuredBadgeIds.forEach(fid => {
-                    const earnedMatch = currentUserEarnedBadges.find(b => b.id === fid);
-                    const catalogMatch = ALL_BADGES_CATALOG.find(b => b.id === fid);
-                    if (earnedMatch || catalogMatch) {
-                        const icon = earnedMatch ? earnedMatch.icon : (catalogMatch ? catalogMatch.icon : '⭐');
-                        const name = earnedMatch ? earnedMatch.name : (catalogMatch ? catalogMatch.title : 'Badge');
-                        const count = earnedMatch ? (parseInt(earnedMatch.count, 10) || 1) : 1;
-                        const countBadge = count > 1 ? `<span class="micro-text fw-bold text-dark position-absolute top-0 end-0 translate-middle badge rounded-pill bg-warning-subtle border border-warning" style="font-size:0.55rem; padding: 1px 3px;">×${count}</span>` : '';
-
-                        badgeDotsHtml += `
-                            <span class="badge-slot-dot bg-white border shadow-xs position-relative user-badge-clickable" title="${name} (Click to customize showcase badges)">
-                                ${icon}
-                                ${countBadge}
-                            </span>
-                        `;
-                    }
-                });
-
-                // If fewer than 3 badges chosen, show "+" button to customize
-                const missingSlots = 3 - featuredBadgeIds.length;
-                for (let s = 0; s < missingSlots; s++) {
-                    badgeDotsHtml += `
-                        <span class="badge-slot-dot user-add" title="Add / Customize Featured Badges">
-                            <i class="bi bi-plus"></i>
-                        </span>
-                    `;
-                }
-
-                badgeDotsHtml = `
-                    <div class="user-badges-showcase-group d-flex align-items-center" role="button" data-bs-toggle="modal" data-bs-target="#customizeFeaturedBadgesModal" title="Click your badges to customize showcase">
-                        ${badgeDotsHtml}
+            col.innerHTML = `
+                <div class="badge-card h-100 ${isEarned ? '' : 'locked'} position-relative" data-badge-id="${badge.id}" tabindex="0" role="button">
+                    <div class="badge-icon-wrap" style="${isEarned ? `background:${badge.bg}; color:${badge.color};` : ''}">
+                        ${badge.icon}
                     </div>
-                `;
-            } else {
-                // Classmates top 3 badges
-                const topBadges = (student.badges || []).slice(0, 3);
-                topBadges.forEach(b => {
-                    const countBadge = b.count > 1 ? `<span class="micro-text fw-bold text-dark position-absolute top-0 end-0 translate-middle badge rounded-pill bg-warning-subtle border border-warning" style="font-size:0.55rem; padding: 1px 3px;">×${b.count}</span>` : '';
-                    badgeDotsHtml += `
-                        <span class="badge-slot-dot bg-white border shadow-xs position-relative" title="${b.name || 'Badge'}">
-                            ${b.icon || '⭐'}
-                            ${countBadge}
-                        </span>
-                    `;
-                });
-                badgeDotsHtml = `<div class="d-flex align-items-center">${badgeDotsHtml}</div>`;
-            }
-
-            row.innerHTML = `
-                <div class="d-flex align-items-center gap-3">
-                    ${rankElementHtml}
-                    <div>
-                        <div class="fw-bold text-dark fs-6">
-                            ${student.name}
-                            ${student.isCurrentUser ? '<span class="badge bg-success text-white micro-text fw-bold ms-1.5 px-2 py-0.5 rounded-pill shadow-xs">You</span>' : ''}
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-3">
-                    <div class="d-none d-sm-flex align-items-center">
-                        ${badgeDotsHtml}
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        ${trophyIconHtml}
-                        <span class="fw-bold ${student.isCurrentUser ? 'text-success fs-5' : 'text-dark fs-6'} text-nowrap">${student.points} pts</span>
-                    </div>
+                    <div class="badge-name text-truncate" title="${badge.title}">${badge.title}</div>
+                    <div class="badge-meta">${earnedDate}</div>
                 </div>
             `;
 
-            leaderboardContainer.appendChild(row);
+            col.querySelector('.badge-card').addEventListener('click', () => {
+                openBadgeModal(badge, isEarned, earnedData);
+            });
+
+            allBadgesModalGrid.appendChild(col);
         });
     }
 
-    // 13. Interactive Customizer Modal Logic (Showcase Slots & Theme)
+    // Filter Buttons in All Badges Modal
+    const badgeFilterBtns = document.querySelectorAll('.badge-filter-btn');
+    badgeFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            badgeFilterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-success');
+                b.classList.add('btn-light', 'text-muted');
+            });
+            btn.classList.add('active', 'btn-success');
+            btn.classList.remove('btn-light', 'text-muted');
+
+            currentModalFilter = btn.getAttribute('data-filter');
+            renderModalBadges();
+        });
+    });
+
+    // 14. Badge Info Modal
+    function openBadgeModal(badge, isEarned, earnedData) {
+        const modalBadgeIcon = document.getElementById('modalBadgeIcon');
+        const modalBadgeTitle = document.getElementById('modalBadgeTitle');
+        const modalBadgeStatus = document.getElementById('modalBadgeStatus');
+        const modalBadgeDesc = document.getElementById('modalBadgeDesc');
+        const modalBadgeReq = document.getElementById('modalBadgeReq');
+
+        if (modalBadgeIcon) {
+            modalBadgeIcon.innerHTML = badge.icon;
+            if (isEarned) {
+                modalBadgeIcon.style.background = badge.bg || '#eef7ee';
+                modalBadgeIcon.style.color = badge.color || '#0a5c2c';
+            } else {
+                modalBadgeIcon.style.background = '#f1f1f1';
+                modalBadgeIcon.style.color = '#888';
+            }
+        }
+        if (modalBadgeTitle) modalBadgeTitle.textContent = badge.title;
+        if (modalBadgeDesc) modalBadgeDesc.textContent = badge.description;
+        if (modalBadgeReq) modalBadgeReq.textContent = badge.requirement;
+
+        if (modalBadgeStatus) {
+            if (isEarned) {
+                const dateStr = earnedData ? earnedData.date : 'Recently';
+                const byStr = earnedData && earnedData.awardedBy ? ` (${earnedData.awardedBy})` : '';
+
+                modalBadgeStatus.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-center">
+                        <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1 fw-bold">
+                            <i class="bi bi-check-circle-fill me-1"></i> Earned ${dateStr}${byStr} (+${badge.points} pts)
+                        </span>
+                    </div>
+                `;
+            } else {
+                modalBadgeStatus.innerHTML = `<span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-1 fw-bold"><i class="bi bi-lock-fill me-1"></i> Locked Badge (+${badge.points} pts upon unlock)</span>`;
+            }
+        }
+
+        if (badgeModalInstance) badgeModalInstance.show();
+    }
+
+    // 15. Showcase Customizer Modal Logic
     if (customizeModalEl) {
         customizeModalEl.addEventListener('show.bs.modal', () => {
             openCustomizerModal();
@@ -923,13 +897,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function openCustomizerModal() {
-        const earnedBadges = getStoredBadges();
-        tempFeaturedBadgeIds = [...getStoredFeaturedBadges(earnedBadges)];
+        tempFeaturedBadgeIds = [...getStoredFeaturedBadges()];
         tempAuraTheme = getStoredAuraTheme();
         currentActiveSlotIndex = 0;
 
         renderCustomizerSlots();
-        renderCustomizerUnlockedList(earnedBadges);
+        renderCustomizerUnlockedList();
         renderCustomizerThemeSelector();
         renderCustomizerPreview();
     }
@@ -948,11 +921,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pointsEl = slotCard.querySelector('.slot-points');
 
             if (badgeId) {
-                const catBadge = ALL_BADGES_CATALOG.find(b => b.id === badgeId);
+                const catBadge = allCatalogBadges.find(b => b.id === badgeId);
                 slotCard.classList.add('equipped');
-                if (iconEl) iconEl.textContent = catBadge ? catBadge.icon : '⭐';
+                if (iconEl) iconEl.innerHTML = catBadge ? catBadge.icon : '⭐';
                 if (nameEl) nameEl.textContent = catBadge ? catBadge.title : badgeId;
-                if (pointsEl) pointsEl.textContent = catBadge ? `+${catBadge.points} pts` : '+100 pts';
+                if (pointsEl) pointsEl.textContent = catBadge ? `+${catBadge.points} pts` : '+10 pts';
             } else {
                 if (iconEl) iconEl.textContent = '⭐';
                 if (nameEl) nameEl.textContent = 'Empty Slot';
@@ -961,20 +934,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function renderCustomizerUnlockedList(earnedBadges) {
+    function renderCustomizerUnlockedList() {
         const listContainer = document.getElementById('customizerUnlockedBadgesList');
         if (!listContainer) return;
 
         listContainer.innerHTML = '';
 
         if (!earnedBadges || earnedBadges.length === 0) {
-            listContainer.innerHTML = `<div class="text-muted small py-2"><i class="bi bi-info-circle me-1"></i>You haven't unlocked any badges yet. Earn badges to feature them here!</div>`;
+            listContainer.innerHTML = `<div class="text-muted small py-2"><i class="bi bi-info-circle me-1"></i>You haven't unlocked any badges yet. Earn badges from your teacher to feature them here!</div>`;
             return;
         }
 
         earnedBadges.forEach(badge => {
             const isEquipped = tempFeaturedBadgeIds.includes(badge.id);
-            const badgeCount = parseInt(badge.count, 10) || 1;
 
             const pill = document.createElement('div');
             pill.className = `equip-badge-pill d-flex align-items-center gap-2 ${isEquipped ? 'is-equipped' : ''}`;
@@ -982,10 +954,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             pill.setAttribute('role', 'button');
 
             pill.innerHTML = `
-                <span class="fs-5">${badge.icon || '⭐'}</span>
+                <span class="fs-5">${badge.icon}</span>
                 <div>
-                    <div class="fw-bold text-dark text-sm">${badge.name || badge.id}</div>
-                    <div class="micro-text text-muted">+${badge.points || 100} pts ${badgeCount > 1 ? `&bull; ×${badgeCount}` : ''}</div>
+                    <div class="fw-bold text-dark text-sm">${badge.title || badge.id}</div>
+                    <div class="micro-text text-muted">+${badge.points} pts</div>
                 </div>
                 ${isEquipped ? '<span class="badge bg-success-subtle text-success micro-text fw-bold rounded-pill ms-1">Featured</span>' : ''}
             `;
@@ -999,17 +971,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function equipBadgeToActiveSlot(badgeId) {
-        // Remove badge from any other slot first to avoid duplicates
         tempFeaturedBadgeIds = tempFeaturedBadgeIds.map(id => id === badgeId ? null : id);
-
-        // Assign to current active slot
         tempFeaturedBadgeIds[currentActiveSlotIndex] = badgeId;
-
-        // Auto-advance active slot to next empty slot or wrap
         currentActiveSlotIndex = (currentActiveSlotIndex + 1) % 3;
 
         renderCustomizerSlots();
-        renderCustomizerUnlockedList(getStoredBadges());
+        renderCustomizerUnlockedList();
         renderCustomizerPreview();
     }
 
@@ -1018,31 +985,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentActiveSlotIndex = slotIndex;
 
         renderCustomizerSlots();
-        renderCustomizerUnlockedList(getStoredBadges());
+        renderCustomizerUnlockedList();
         renderCustomizerPreview();
     }
 
-    // Wire Slot Click & Clear Buttons
     for (let i = 0; i < 3; i++) {
         const slotCard = document.getElementById(`customSlot${i}`);
         if (slotCard) {
             slotCard.addEventListener('click', (e) => {
-                if (e.target.closest('.btn-slot-clear')) return; // Ignore if clear button clicked
+                if (e.target.closest('.btn-slot-clear')) return;
                 currentActiveSlotIndex = i;
                 renderCustomizerSlots();
             });
-        }
 
-        const clearBtn = slotCard ? slotCard.querySelector('.btn-slot-clear') : null;
-        if (clearBtn) {
-            clearBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                clearShowcaseSlot(i);
-            });
+            const clearBtn = slotCard.querySelector('.btn-slot-clear');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearShowcaseSlot(i);
+                });
+            }
         }
     }
 
-    // Theme Selector Handlers
     function renderCustomizerThemeSelector() {
         const themePills = document.querySelectorAll('.theme-pill-option');
         themePills.forEach(pill => {
@@ -1061,71 +1026,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Live Leaderboard Standings Calculator Helper
-    function getLiveLeaderboardStandings() {
-        const earnedBadges = getStoredBadges();
-        const badgePointsSum = earnedBadges.reduce((sum, b) => {
-            const cnt = parseInt(b.count, 10) || 1;
-            const pts = parseInt(b.points, 10) || 100;
-            return sum + (pts * cnt);
-        }, 0);
-        const currentUserTotalPoints = 400 + badgePointsSum;
-
-        let allStudentBadges = {};
-        try {
-            allStudentBadges = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENT_BADGES)) || {};
-        } catch (e) {
-            allStudentBadges = {};
-        }
-
-        const studentList = SECTION_STUDENTS_ROSTER.map(student => {
-            if (student.isCurrentUser) {
-                return {
-                    name: student.name,
-                    isCurrentUser: true,
-                    points: currentUserTotalPoints,
-                    badges: earnedBadges
-                };
-            }
-
-            const stored = allStudentBadges[student.name];
-            const badgesList = Array.isArray(stored) ? stored : (student.defaultBadges || []);
-
-            const pts = badgesList.reduce((sum, b) => {
-                const p = parseInt(b.points, 10) || 100;
-                const c = parseInt(b.count, 10) || 1;
-                return sum + (p * c);
-            }, 0);
-
-            return {
-                name: student.name,
-                isCurrentUser: false,
-                points: 400 + pts,
-                badges: badgesList
-            };
-        });
-
-        studentList.sort((a, b) => b.points - a.points);
-        const userRankIndex = studentList.findIndex(s => s.isCurrentUser);
-        const userRank = userRankIndex !== -1 ? (userRankIndex + 1) : 3;
-
-        return {
-            studentList,
-            userRank,
-            userPoints: currentUserTotalPoints
-        };
-    }
-
-    // Customizer Live Preview
     function renderCustomizerPreview() {
         const previewContainer = document.getElementById('customizerLeaderboardPreview');
         if (!previewContainer) return;
 
-        const { userRank, userPoints } = getLiveLeaderboardStandings();
+        const me = leaderboardList.find(s => s.id === STUDENT_ID || s.idNumber === user.id_number);
+        const userRank = me ? me.rank : 1;
+        const userPoints = me ? me.points : earnedBadges.reduce((sum, b) => sum + (b.points || 10), 0);
 
         let previewBadgeDots = '';
         tempFeaturedBadgeIds.filter(Boolean).forEach(fid => {
-            const badge = ALL_BADGES_CATALOG.find(b => b.id === fid);
+            const badge = allCatalogBadges.find(b => b.id === fid);
             if (badge) {
                 previewBadgeDots += `
                     <span class="badge-slot-dot bg-white border shadow-xs" title="${badge.title}">
@@ -1135,28 +1046,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        // Rank ribbon or plain number based on actual rank
-        let rankBadgeHtml = '';
-        let trophyHtml = '';
+        let rankBadgeHtml = `<div class="rank-number-plain text-success fw-bold" style="width:28px; font-size:0.9rem;">#${userRank}</div>`;
+        let trophyHtml = `<i class="bi bi-award-fill text-muted opacity-75 fs-5"></i>`;
+
         if (userRank === 1) {
-            rankBadgeHtml = `<div class="rank-badge-ribbon rank-ribbon-1 shadow-sm" style="width:28px; height:28px; font-size:0.75rem;" title="Rank 1 - Gold Champion">1</div>`;
+            rankBadgeHtml = `<div class="rank-badge-ribbon rank-ribbon-1 shadow-sm" style="width:28px; height:28px; font-size:0.75rem;" title="Rank 1">1</div>`;
             trophyHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-5" style="color: #f59e0b;"></i>`;
         } else if (userRank === 2) {
-            rankBadgeHtml = `<div class="rank-badge-ribbon rank-ribbon-2 shadow-sm" style="width:28px; height:28px; font-size:0.75rem;" title="Rank 2 - Silver Leader">2</div>`;
+            rankBadgeHtml = `<div class="rank-badge-ribbon rank-ribbon-2 shadow-sm" style="width:28px; height:28px; font-size:0.75rem;" title="Rank 2">2</div>`;
             trophyHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-5" style="color: #8b5cf6;"></i>`;
         } else if (userRank === 3) {
-            rankBadgeHtml = `<div class="rank-badge-ribbon rank-ribbon-3 shadow-sm" style="width:28px; height:28px; font-size:0.75rem;" title="Rank 3 - Bronze Achiever">3</div>`;
+            rankBadgeHtml = `<div class="rank-badge-ribbon rank-ribbon-3 shadow-sm" style="width:28px; height:28px; font-size:0.75rem;" title="Rank 3">3</div>`;
             trophyHtml = `<i class="bi bi-trophy-fill trophy-badge-icon fs-5" style="color: #3b82f6;"></i>`;
-        } else {
-            rankBadgeHtml = `<div class="rank-number-plain text-success fw-bold" style="width:28px; font-size:0.9rem;">#${userRank}</div>`;
-            trophyHtml = `<i class="bi bi-award-fill text-muted opacity-75 fs-5"></i>`;
         }
 
         previewContainer.innerHTML = `
             <div class="leaderboard-row d-flex align-items-center justify-content-between gap-3 highlighted-user-row ${tempAuraTheme} p-2.5 rounded-3">
                 <div class="d-flex align-items-center gap-3">
                     ${rankBadgeHtml}
-                    <div class="fw-bold text-dark text-sm">Juan Dela Cruz <span class="badge bg-success text-white micro-text ms-1">You</span></div>
+                    <div class="fw-bold text-dark text-sm">${STUDENT_NAME} <span class="badge bg-success text-white micro-text ms-1">You</span></div>
                 </div>
                 <div class="d-flex align-items-center gap-3">
                     <div class="d-flex align-items-center">
@@ -1171,23 +1079,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
     }
 
-    // Reset Defaults in Customizer
     const btnResetShowcaseDefaults = document.getElementById('btnResetShowcaseDefaults');
     if (btnResetShowcaseDefaults) {
         btnResetShowcaseDefaults.addEventListener('click', () => {
-            const earnedBadges = getStoredBadges();
             tempFeaturedBadgeIds = earnedBadges.slice(0, 3).map(b => b.id);
             tempAuraTheme = 'aura-emerald';
             currentActiveSlotIndex = 0;
 
             renderCustomizerSlots();
-            renderCustomizerUnlockedList(earnedBadges);
+            renderCustomizerUnlockedList();
             renderCustomizerThemeSelector();
             renderCustomizerPreview();
         });
     }
 
-    // Save Custom Display Preferences
     const btnSaveCustomDisplay = document.getElementById('btnSaveCustomDisplay');
     if (btnSaveCustomDisplay) {
         btnSaveCustomDisplay.addEventListener('click', () => {
@@ -1196,56 +1101,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem(STORAGE_KEY_AURA_THEME, tempAuraTheme);
 
             if (customizeModalInstance) customizeModalInstance.hide();
-
-            // Re-render UI with new featured badges & theme
             renderAchievements();
+            renderLeaderboardUI();
         });
     }
 
-    // 14. Open Badge Modal Function
-    function openBadgeModal(badge, isEarned, earnedData) {
-        const modalBadgeIcon = document.getElementById('modalBadgeIcon');
-        const modalBadgeTitle = document.getElementById('modalBadgeTitle');
-        const modalBadgeStatus = document.getElementById('modalBadgeStatus');
-        const modalBadgeDesc = document.getElementById('modalBadgeDesc');
-        const modalBadgeReq = document.getElementById('modalBadgeReq');
-
-        const badgeCount = earnedData ? (parseInt(earnedData.count, 10) || 1) : 0;
-
-        if (modalBadgeIcon) modalBadgeIcon.textContent = isEarned ? badge.icon : '⭐';
-        if (modalBadgeTitle) modalBadgeTitle.textContent = badge.title;
-        if (modalBadgeDesc) modalBadgeDesc.textContent = badge.description;
-        if (modalBadgeReq) modalBadgeReq.textContent = badge.requirement;
-
-        if (modalBadgeStatus) {
-            if (isEarned) {
-                const dateStr = earnedData ? earnedData.date : 'Recent';
-                const byStr = earnedData && earnedData.awardedBy ? ` (${earnedData.awardedBy})` : '';
-                const countBadgeText = badgeCount > 1 
-                    ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2.5 py-1 fw-bold me-1">Awarded ${badgeCount} times</span>`
-                    : '';
-
-                modalBadgeStatus.innerHTML = `
-                    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-center">
-                        ${countBadgeText}
-                        <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1 fw-bold">
-                            <i class="bi bi-check-circle-fill me-1"></i> Latest: ${dateStr}${byStr} (+${badge.points * badgeCount} pts total)
-                        </span>
-                    </div>
-                `;
-            } else {
-                modalBadgeStatus.innerHTML = `<span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-1 fw-bold"><i class="bi bi-lock-fill me-1"></i> Locked Badge (+${badge.points} pts upon unlock)</span>`;
-            }
-        }
-
-        if (badgeModalInstance) badgeModalInstance.show();
-    }
-
-    // 15. Wire Challenge Clicks
+    // 16. Challenges / Goals Click Handlers
     const challengeItems = document.querySelectorAll('.challenge-item-pill');
     challengeItems.forEach(item => {
         item.addEventListener('click', (e) => {
-            if (e.target.closest('.star-favorite-btn')) return; // Ignore if clicking favorite star
+            if (e.target.closest('.star-favorite-btn')) return;
 
             const challengeKey = item.getAttribute('data-challenge');
             const challenge = CHALLENGES_DATABASE[challengeKey];
@@ -1277,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // 16. Favorite Star Toggle
+    // 17. Favorite Star Toggle
     const starBtns = document.querySelectorAll('.star-favorite-btn');
     starBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1297,17 +1162,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // 17. Real-Time Storage Listener (Sync with Teacher Awarding & Other Tabs)
-    window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_KEY_STUDENT_BADGES || 
-            e.key === STORAGE_KEY_ACTIVITIES || 
-            e.key === STORAGE_KEY_FEATURED_BADGES || 
-            e.key === STORAGE_KEY_AURA_THEME) {
-            renderAchievements();
-        }
-    });
-
-    // Initial View Mode Setup & Render
+    // 18. Initial View Mode Setup & Data Load
     setViewMode(getStoredViewMode());
-    renderAchievements();
+    await loadData();
+
+    // 19. Smooth scroll if navigating directly to leaderboard anchor
+    if (window.location.hash === '#classLeaderboardContainer') {
+        setTimeout(() => {
+            const el = document.getElementById('classLeaderboardContainer');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+    }
 });

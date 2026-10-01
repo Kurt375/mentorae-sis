@@ -45,6 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Mark announcements as seen because admin is viewing the page
+        if (typeof markAnnouncementsAsSeen === 'function') {
+            markAnnouncementsAsSeen(data.announcements);
+        } else {
+            const maxId = Math.max(...data.announcements.map(a => Number(a.id) || 0));
+            if (maxId > 0) {
+                const u = JSON.parse(localStorage.getItem('mentorae_user') || '{}');
+                localStorage.setItem(`mentorae_seen_ann_id_${u.id || u.role || 'admin'}`, String(maxId));
+            }
+        }
+
         for (const a of data.announcements) {
             const card = document.createElement('div');
             card.className = 'card border-0 shadow-sm p-3 announcement-card';
@@ -54,7 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-start">
                             <h5 class="fw-bold m-0">${a.title}</h5>
-                            <span class="badge ${typeClass[a.type] || ''}">${a.type}</span>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge ${typeClass[a.type] || 'bg-primary-subtle text-primary'}">${a.type}</span>
+                                <span class="badge bg-light text-secondary border micro-text">${a.audience === 'all' ? 'All Users' : (a.audience ? a.audience.charAt(0).toUpperCase() + a.audience.slice(1) : 'All Users')}</span>
+                            </div>
                         </div>
                         <p class="text-muted small mb-1"><i class="bi bi-calendar-event"></i> ${formatDate(a.event_date)}</p>
                         <p class="mb-0">${a.description}</p>
@@ -78,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = document.getElementById('inputEvent').value.trim();
         const eventDate = document.getElementById('inputDate').value;
         const description = document.getElementById('inputDesc').value.trim();
+        const audience = document.getElementById('inputAudience') ? document.getElementById('inputAudience').value : 'all';
 
         if (!title || !eventDate || !description) {
             alert('Please fill in all fields.');
@@ -86,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = await authedFetch('/api/announcements', token, {
             method: 'POST',
-            body: JSON.stringify({ title, eventDate, description }),
+            body: JSON.stringify({ title, eventDate, description, audience }),
         });
 
         if (!data.success) {

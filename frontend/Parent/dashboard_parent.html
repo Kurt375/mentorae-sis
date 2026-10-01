@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,145 +9,234 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="dashboard_parent.css">
 </head>
+
 <body class="dashboard-bg">
 
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        
+
+        <!-- Top Navigation Bar -->
         <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
             <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-3">
                     <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
-                        <i class="bi bi-mortarboard-fill text-success fs-5"></i>
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
                     </div>
-                    <span class="navbar-brand m-0 fs-3 fw-semibold tracking-wide">Mentorae</span>
+                    <div>
+                        <h1 class="m-0 fs-4 fw-bold tracking-wide text-white">Mentorae</h1>
+                        <p class="m-0 micro-text text-white opacity-75 d-none d-sm-block">Parent Portal</p>
+                    </div>
                 </div>
                 <div class="text-white text-end dashboard-time">
-                    <div class="small opacity-75" id="liveDate">Sunday, May 17, 2026</div>
-                    <div class="fs-4 fw-bold m-0" id="liveTime">7:30:50 PM</div>
+                    <div class="small opacity-75" id="liveDate">Loading date…</div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime">00:00:00</div>
                 </div>
             </div>
         </nav>
 
+        <!-- Main Content Area -->
         <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
-            
-            <h3 class="section-title fw-bold mb-3 text-secondary" style="font-size: 1.1rem; text-transform: none; border-bottom: none;">Your Children</h3>
 
+            <!-- Card 1: Parent / Guardian Account Banner -->
             <div class="card profile-banner border-0 text-white p-4 mb-4 shadow-sm">
                 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-4">
-                    <div class="d-flex align-items-center gap-4">
-                        <div class="avatar-photo-wrap rounded-circle border border-2 border-white overflow-hidden bg-light flex-shrink-0">
-                            <i class="bi bi-person-fill text-secondary display-6 d-flex align-items-center justify-content-center h-100"></i>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar-badge-wrap position-relative flex-shrink-0">
+                            <a href="profile_parent.html"
+                                class="avatar-clickable-circle avatar-parent-wrap rounded-circle border border-2 border-white overflow-hidden d-flex align-items-center justify-content-center shadow-sm position-relative text-decoration-none"
+                                title="Click to view and edit your profile">
+                                <i class="bi bi-person-fill-check text-success fs-2" id="dashboardAvatarIcon"></i>
+                                <img id="dashboardAvatarImg" class="w-100 h-100 d-none" style="object-fit: cover;" alt="Profile photo">
+                                <div class="avatar-hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-white">
+                                    <i class="bi bi-camera-fill fs-5"></i>
+                                </div>
+                            </a>
+                            <span class="avatar-edit-badge" title="Edit profile photo" aria-hidden="true">
+                                <i class="bi bi-pencil-fill"></i>
+                            </span>
                         </div>
                         <div>
-                            <h2 class="fw-bold m-0 fs-4 text-white" id="childNameDisplay">Loading…</h2>
-                            <p class="m-0 text-white-50 small mt-0.5" id="childSectionDisplay">—</p>
-                            <span class="badge bg-light text-success fw-bold micro-text mt-2 px-2.5 py-1 rounded-pill">
-                                <span class="status-dot-mini bg-success me-1"></span><span id="childStatusDisplay">No record yet</span>
+                            <div class="text-white-50 micro-text text-uppercase fw-semibold tracking-wide">Parent / Guardian Account</div>
+                            <a href="profile_parent.html" class="profile-name-link" title="View & Edit Profile">
+                                <h2 class="fw-bold m-0 fs-4 text-white" id="parentNameDisplay">Loading…</h2>
+                            </a>
+                            <span class="badge bg-white text-success fw-bold micro-text mt-1.5 px-2.5 py-1 rounded-pill shadow-xs d-inline-block">
+                                <i class="bi bi-shield-check me-1"></i>Verified Parent / Guardian
                             </span>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-3 align-self-end align-self-sm-center">
-                        <button class="btn btn-light rounded-3 p-2.5 notification-trigger position-relative" aria-label="Notifications Panel Trigger" id="notifBellBtn">
+                        <button class="btn btn-light rounded-3 p-2.5 notification-trigger position-relative"
+                            type="button" aria-label="Notifications" id="notifBellBtn">
                             <i class="bi bi-bell-fill text-success fs-5"></i>
                         </button>
-                        <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn" id="logoutBtn">
+                        <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn"
+                            id="logoutBtn">
                             <i class="bi bi-box-arrow-right"></i> Logout
                         </button>
                     </div>
                 </div>
             </div>
 
-            <section class="mb-4">
-                <div class="row g-3 row-cols-1 row-cols-md-3">
-                    <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <span class="text-muted tiny-text fw-semibold text-uppercase d-block mb-1">Overall Grade</span>
-                                    <h4 class="fw-bold m-0 display-6 text-dark" id="gradeVal">—</h4>
+            <!-- Card 2: Monitored Student Card & Switcher Header -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h3 class="section-title fw-bold mb-0 text-dark" style="font-size: 1rem; border-bottom: none;">
+                        <i class="bi bi-backpack2-fill text-success me-1"></i> Monitored Student
+                    </h3>
+                    <p class="text-muted micro-text m-0">Live attendance & performance status for your enrolled child</p>
+                </div>
+                <div id="childrenSelectorContainer" class="d-none">
+                    <select id="childSelectDropdown" class="form-select form-select-sm border-success-subtle shadow-sm" style="max-width: 220px; font-weight: 500;">
+                    </select>
+                </div>
+            </div>
+
+            <div class="card student-card p-3 p-sm-4 mb-4 shadow-sm">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+                    <a id="childProfileLink" href="grade_performance_parent.html" class="child-card-interactive text-decoration-none text-dark d-flex align-items-center gap-3" title="Click to view student academic performance and details">
+                        <div class="avatar-student-wrap rounded-circle border border-2 border-success-subtle overflow-hidden d-flex align-items-center justify-content-center flex-shrink-0 shadow-xs">
+                            <i class="bi bi-mortarboard-fill text-success fs-3"></i>
+                        </div>
+                        <div>
+                            <div class="eyebrow-label text-muted mb-0.5">Enrolled Student <i class="bi bi-box-arrow-up-right ms-1 text-success small"></i></div>
+                            <h3 class="fw-bold m-0 fs-5 text-dark" id="childProfileName">Loading…</h3>
+                            <p class="m-0 text-secondary small mt-0.5 fw-medium" id="childProfileMeta">—</p>
+                        </div>
+                    </a>
+                    <div class="d-flex flex-column align-items-start align-items-sm-end gap-1.5">
+                        <span class="eyebrow-label text-muted">Today's Attendance</span>
+                        <span class="badge badge-status-empty fw-bold px-3 py-1.5 rounded-pill d-inline-flex align-items-center gap-1.5" id="childStatusBadge">
+                            <span class="status-dot-mini dot-empty" id="childStatusDot"></span>
+                            <span id="childStatusText">Checking record…</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overview Metrics Grid -->
+            <div class="overviews-group-container">
+                <section class="overview-separator">
+                    <h3 class="section-title fw-bold mb-3">Overview</h3>
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-4">
+                            <div class="card stat-card border p-3 shadow-sm">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <i class="bi bi-bullseye fs-5 text-success"></i>
+                                    <span class="text-muted fw-semibold small">Overall Grade</span>
                                 </div>
-                                <div class="bg-success-subtle text-success rounded-3 p-2.5 fs-4 d-flex align-items-center justify-content-center metric-icon-box">
-                                    <i class="bi bi-bar-chart-line-fill"></i>
+                                <h4 class="fw-bold m-0 fs-3" id="overallGradeVal">—</h4>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <div class="card stat-card border p-3 shadow-sm">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <i class="bi bi-calendar-check fs-5 text-primary"></i>
+                                    <span class="text-muted fw-semibold small">Attendance Rate</span>
                                 </div>
+                                <h4 class="fw-bold m-0 fs-3" id="attendanceRateVal">—</h4>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <div class="card stat-card border p-3 shadow-sm">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <i class="bi bi-graph-up-arrow fs-5 text-purple"></i>
+                                    <span class="text-muted fw-semibold small">Academic Progress</span>
+                                </div>
+                                <h4 class="fw-bold m-0 fs-3 text-purple" id="academicProgressVal">—</h4>
                             </div>
                         </div>
                     </div>
-                    <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <span class="text-muted tiny-text fw-semibold text-uppercase d-block mb-1">Attendance</span>
-                                    <h4 class="fw-bold m-0 display-6 text-dark" id="attendanceVal">—</h4>
-                                </div>
-                                <div class="bg-primary-subtle text-primary rounded-3 p-2.5 fs-4 d-flex align-items-center justify-content-center metric-icon-box">
-                                    <i class="bi bi-calendar3"></i>
+                </section>
+            </div>
+
+            <!-- Quick Access Grid -->
+            <section class="mb-4 mt-4">
+                <h3 class="section-title fw-bold mb-3">Quick Access</h3>
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                        <a href="attendance_parent.html" id="linkAttendance" class="text-decoration-none text-dark">
+                            <div class="card access-card border p-3 h-100 shadow-sm">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="icon-box bg-primary-subtle rounded-3 p-2">
+                                        <i class="bi bi-qr-code-scan fs-5 text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold m-0 fs-6">Attendance</h5>
+                                        <div class="text-muted micro-text mb-1">Real-time Monitoring</div>
+                                        <p class="small text-secondary m-0 card-desc">Track your child's classroom
+                                             attendance logs, check-ins, and absence records.</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     </div>
-                    <div class="col">
-                        <div class="card stat-metric-card border p-3 h-100 shadow-sm bg-white">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <span class="text-muted tiny-text fw-semibold text-uppercase d-block mb-1">Progress</span>
-                                    <h4 class="fw-bold m-0 display-6 text-purple" id="progressVal">—</h4>
-                                </div>
-                                <div class="bg-purple-subtle text-purple rounded-3 p-2.5 fs-4 d-flex align-items-center justify-content-center metric-icon-box">
-                                    <i class="bi bi-graph-up-arrow"></i>
+                    <div class="col-12 col-sm-6">
+                        <a href="grade_performance_parent.html" id="linkGradePerformance" class="text-decoration-none text-dark">
+                            <div class="card access-card border p-3 h-100 shadow-sm">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="icon-box bg-success-subtle rounded-3 p-2">
+                                        <i class="bi bi-graph-up-arrow fs-5 text-success"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold m-0 fs-6">Grade & Performance</h5>
+                                        <div class="text-muted micro-text mb-1">Academic Records</div>
+                                        <p class="small text-secondary m-0 card-desc">Review quarterly grades, subject
+                                             breakdowns, weighted averages, and performance analytics.</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <a href="../announcements.html" class="text-decoration-none text-dark">
+                            <div class="card access-card border p-3 h-100 shadow-sm position-relative">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="icon-box bg-info-subtle rounded-3 p-2">
+                                        <i class="bi bi-bell-fill fs-5 text-info"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold m-0 fs-6">Announcements</h5>
+                                        <div class="text-muted micro-text mb-1">Stay Updated</div>
+                                        <p class="small text-secondary m-0 card-desc">Review school bulletins, alerts,
+                                             grading periods, and calendar notifications.</p>
+                                    </div>
+                                </div>
+                                <span id="announcementsBadge"
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+                                    0
+                                    <span class="visually-hidden">new announcements</span>
+                                </span>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <a href="tel:+63437781234" class="text-decoration-none text-dark">
+                            <div class="card access-card border p-3 h-100 shadow-sm">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="icon-box bg-warning-subtle rounded-3 p-2">
+                                        <i class="bi bi-telephone-fill fs-5 text-warning"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold m-0 fs-6">Contact School</h5>
+                                        <div class="text-muted micro-text mb-1">Direct Hotline</div>
+                                        <p class="small text-secondary m-0 card-desc">Reach out to the school administration
+                                             office at <strong>(043) 778-1234</strong> / <span class="text-success fw-medium">tshs.talisay@deped.gov.ph</span>.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
                     </div>
                 </div>
-            </section>
-
-            <section class="mb-4">
-                <a href="../announcements.html" class="text-decoration-none">
-                <div class="card access-routing-card border p-3 shadow-sm bg-white">
-                    <div class="d-flex align-items-start gap-3">
-                        <div class="access-icon-wrapper bg-info-subtle rounded-3 p-2.5 text-info">
-                            <i class="bi bi-bell-fill fs-4"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h5 class="fw-bold m-0 fs-5 text-dark">School Announcements</h5>
-                            <p class="small text-secondary m-0 card-desc-text mt-1">Stay updated with school news, grading periods, schedules, and official circular announcements.</p>
-                        </div>
-                        <i class="bi bi-chevron-right text-muted ms-auto align-self-center fs-5"></i>
-                    </div>
-                </div>
-                </a>
-            </section>
-
-            <section class="mb-4">
-                <a href="attendance_parent.html" class="text-decoration-none">
-                <div class="card access-routing-card border p-3 shadow-sm bg-white">
-                    <div class="d-flex align-items-start gap-3">
-                        <div class="access-icon-wrapper bg-success-subtle rounded-3 p-2.5 text-success">
-                            <i class="bi bi-calendar-check-fill fs-4"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h5 class="fw-bold m-0 fs-5 text-dark">Attendance</h5>
-                            <p class="small text-secondary m-0 card-desc-text mt-1">View your child's daily attendance record.</p>
-                        </div>
-                        <i class="bi bi-chevron-right text-muted ms-auto align-self-center fs-5"></i>
-                    </div>
-                </div>
-                </a>
-            </section>
-
-            <section class="mt-4">
-                <button type="button" class="btn btn-portal-primary w-100 py-3 fw-bold fs-5 rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2" id="btnViewProgress">
-                    <i class="bi bi-shield-shaded"></i> View Student Progress
-                </button>
             </section>
         </main>
     </div>
 
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
     <script src="../notifications-widget.js"></script>
-    <script>initNotificationBell('notifBellBtn', requireSession('../login.html').token);</script>
     <script src="dashboard_parent.js"></script>
 </body>
+
 </html>

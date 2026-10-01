@@ -63,8 +63,11 @@ async function getStudentBadges(req, res) {
     }
 
     const [badges] = await pool.query(
-      `SELECT sb.badge_id, sb.earned_at, bc.name, bc.icon, bc.symbol, bc.bg, bc.color
-       FROM student_badges sb JOIN badge_catalog bc ON bc.id = sb.badge_id
+      `SELECT sb.badge_id, sb.earned_at, bc.name, bc.icon, bc.symbol, bc.bg, bc.color, bc.points,
+              CONCAT(u.first_name, ' ', u.last_name) AS awarded_by_name
+       FROM student_badges sb 
+       JOIN badge_catalog bc ON bc.id = sb.badge_id
+       LEFT JOIN users u ON u.id = sb.awarded_by
        WHERE sb.student_id = ? ORDER BY sb.earned_at DESC`,
       [req.params.studentId]
     );
@@ -88,14 +91,17 @@ async function getStudentBadges(req, res) {
 async function getLeaderboard(req, res) {
   try {
     let sectionId = req.query.sectionId || null;
-    const scope = req.query.scope === 'school' ? 'school' : 'section';
-    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    let scope = req.query.scope === 'school' ? 'school' : 'section';
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
 
-    if (req.user.role === 'student' && scope !== 'school') {
+    // Students and parents are permanently locked to their specific section cohort
+    if (req.user.role === 'student') {
+      scope = 'section';
       const [rows] = await pool.query('SELECT section_id FROM users WHERE id = ?', [req.user.id]);
       sectionId = rows[0]?.section_id || null;
     }
-    if (req.user.role === 'parent' && scope !== 'school') {
+    if (req.user.role === 'parent') {
+      scope = 'section';
       if (!sectionId) {
         const [rows] = await pool.query(
           `SELECT u.section_id FROM parent_student_links l JOIN users u ON u.id = l.student_id
@@ -126,7 +132,8 @@ async function getLeaderboard(req, res) {
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.profile_picture_url,
               sec.name AS sectionName, st.code AS strandCode, sec.grade_level,
               COALESCE(SUM(bc.points), 0) AS totalPoints,
-              COUNT(sb.badge_id) AS badgeCount
+              COUNT(sb.badge_id) AS badgeCount,
+              GROUP_CONCAT(CASE WHEN bc.id IS NOT NULL THEN CONCAT_WS('::', bc.id, bc.name, COALESCE(bc.icon, ''), COALESCE(bc.symbol, '')) END SEPARATOR ';;') AS badges_str
        FROM users u
        LEFT JOIN sections sec ON sec.id = u.section_id
        LEFT JOIN strands st ON st.id = sec.strand_id
@@ -139,16 +146,26 @@ async function getLeaderboard(req, res) {
       [...params, limit]
     );
 
-    const leaderboard = rows.map((r, i) => ({
-      rank: i + 1,
-      id: r.id,
-      idNumber: r.id_number,
-      name: `${r.first_name} ${r.middle_initial ? r.middle_initial + ' ' : ''}${r.last_name}`,
-      profilePictureUrl: r.profile_picture_url || null,
-      section: r.sectionName ? `Grade ${r.grade_level} - ${r.strandCode} (${r.sectionName})` : null,
-      points: Number(r.totalPoints),
-      badgeCount: r.badgeCount,
-    }));
+    const leaderboard = rows.map((r, i) => {
+      const badges = (r.badges_str && Number(r.badgeCount) > 0)
+        ? r.badges_str.split(';;').map(str => {
+            const [id, name, icon, symbol] = str.split('::');
+            return { id, name, icon, symbol };
+          }).filter(b => b.id && b.id.trim() !== '')
+        : [];
+
+      return {
+        rank: i + 1,
+        id: r.id,
+        idNumber: r.id_number,
+        name: `${r.first_name} ${r.middle_initial ? r.middle_initial + ' ' : ''}${r.last_name}`,
+        profilePictureUrl: r.profile_picture_url || null,
+        section: r.sectionName ? `Grade ${r.grade_level} - ${r.strandCode} (${r.sectionName})` : null,
+        points: Number(r.totalPoints),
+        badgeCount: r.badgeCount,
+        badges
+      };
+    });
 
     return res.json({ success: true, leaderboard, scope, sectionId });
   } catch (err) {
@@ -157,4 +174,33 @@ async function getLeaderboard(req, res) {
   }
 }
 
-module.exports = { getCatalog, awardBadges, getStudentBadges, getLeaderboard };
+/** POST /api/badges/reset — { scope: 'selected' | 'section', studentId, sectionId } */
+async function resetBadges(req, res) {
+  const { scope, studentId, sectionId } = req.body;
+  try {
+    if (scope === 'selected' && studentId) {
+      await pool.query('DELETE FROM student_badges WHERE student_id = ?', [studentId]);
+      await pool.query('INSERT INTO activity_log (student_id, description) VALUES (?, ?)', [
+        studentId,
+        'Badges re-initialized for the new grading period',
+      ]);
+      return res.json({ success: true, message: 'Student badges have been reset for the new term.' });
+    } else if (scope === 'section' && sectionId) {
+      await pool.query(
+        `DELETE sb FROM student_badges sb
+         JOIN users u ON u.id = sb.student_id
+         WHERE u.section_id = ?`,
+        [sectionId]
+      );
+      return res.json({ success: true, message: 'Section badges have been reset for the new term.' });
+    }
+    return res.status(400).json({ success: false, message: 'Invalid reset parameters.' });
+  } catch (err) {
+    console.error('resetBadges error:', err);
+    return res.status(500).json({ success: false, message: 'Could not reset badges.' });
+  }
+}
+
+module.exports = { getCatalog, awardBadges, getStudentBadges, getLeaderboard, resetBadges };
+
+

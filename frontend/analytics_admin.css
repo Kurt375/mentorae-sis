@@ -140,3 +140,53 @@
 .link-transition:hover {
     opacity: 0.8;
 }
+
+/* Dedicated Action Buttons for At-Risk Export & Print matching Mentorae Dark Green brand */
+.btn-export-roster {
+    background-color: var(--mentorae-green) !important;
+    border: 1px solid var(--mentorae-green) !important;
+    color: #ffffff !important;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-export-roster:hover {
+    background-color: var(--mentorae-green-hover) !important;
+    border-color: var(--mentorae-green-hover) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+}
+
+.btn-export-roster:active {
+    transform: translateY(0);
+}
+
+.btn-print-roster {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-print-roster:hover {
+    background-color: #f8fafc !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+    transform: translateY(-1px);
+}

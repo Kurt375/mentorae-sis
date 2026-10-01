@@ -3,95 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mentorae - Learning Resources</title>
+    <title>Mentorae - Learning Resources (Teacher)</title>
+    <!-- Bootstrap 5.3.2 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="dashboard_teacher.css">
-    <style>
-        .file-row { border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 0.6rem 0.9rem; }
-        .file-row + .file-row { margin-top: 0.5rem; }
-        .module-card { border: 1px solid #e9ecef; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; }
-    </style>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="learning_resources_teacher.css">
 </head>
 <body class="dashboard-bg">
+
+    <!-- Bounded Page Wrapper to match target portal frame proportions -->
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        <nav class="custom-navbar text-white py-3 px-4 d-flex align-items-center gap-3">
-            <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4"><i class="bi bi-chevron-left"></i></a>
-            <div>
-                <h1 class="m-0 fs-4 fw-bold">Learning Resources</h1>
-                <p class="m-0 small opacity-75">Post and update study materials for your students</p>
+        
+        <!-- Header Ribbon Navbar -->
+        <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
+            <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4 link-transition" id="backToDashboardBtn" aria-label="Go Back">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
+                        <img src="../TSHS_image.png" alt="School Logo" class="school-logo-img">
+                    </div>
+                    <div>
+                        <h1 class="navbar-brand m-0 fs-4 fw-bold tracking-wide d-inline-block">Learning Resources</h1>
+                        <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Subjects and Course Materials</p>
+                    </div>
+                </div>
+                <div class="text-white text-end dashboard-time">
+                    <div class="small opacity-75" id="liveDate"></div>
+                    <div class="fs-4 fw-bold m-0" id="liveTime"></div>
+                </div>
             </div>
         </nav>
 
-        <main class="container-fluid px-4 py-4 flex-grow-1">
-            <div class="row g-4">
-                <div class="col-12 col-lg-4">
-                    <div class="card border-0 shadow-sm p-4">
-                        <h5 class="fw-bold mb-3">Post New Material</h5>
-                        <form id="uploadForm">
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Title</label>
-                                <input type="text" class="form-control" id="titleInput" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Description <span class="text-muted fw-normal">(optional)</span></label>
-                                <textarea class="form-control" id="descriptionInput" rows="2"></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Section</label>
-                                <select class="form-select" id="sectionSelect" required>
-                                    <option value="">Loading sections…</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Subject</label>
-                                <select class="form-select" id="subjectSelect" required>
-                                    <option value="">Select a section first…</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Quarter</label>
-                                <select class="form-select" id="quarterSelect" required>
-                                    <option value="1st Quarter">1st Quarter</option>
-                                    <option value="2nd Quarter">2nd Quarter</option>
-                                    <option value="3rd Quarter">3rd Quarter</option>
-                                    <option value="4th Quarter">4th Quarter</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Files</label>
-                                <input type="file" class="form-control" id="filesInput" multiple
-                                       accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt" required>
-                                <div class="form-text">PDF, Word, PowerPoint, Excel, images, or text. Up to 10 files, 25MB each.</div>
-                            </div>
-                            <button type="submit" class="btn btn-success fw-semibold w-100" id="uploadBtn">
-                                <i class="bi bi-cloud-upload"></i> Post Material
-                            </button>
-                        </form>
+        <!-- Main Content Area with integrated light green backdrop underlay -->
+        <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+
+            <!-- SECTION 1: Google Classroom-Style Active Classes Grid (From Image 1) -->
+            <section class="mb-5">
+                <div class="mb-3">
+                    <div>
+                        <h2 class="h5 fw-bold m-0 text-dark">Subject to Teach</h2>
+                        <p class="micro-text text-secondary m-0">Subjects you need to teach this term.</p>
+                    </div>
+                    <div class="d-flex flex-column gap-2 mt-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0" id="classSearch" placeholder="Search classes...">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterQuarter">
+                                <option value="All" selected>All Terms</option>
+                                <option value="1">1st Term</option>
+                                <option value="2">2nd Term</option>
+                                <option value="3">3rd Term</option>
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterGrade">
+                                <option value="All" selected>All Grades</option>
+                                <option value="11">Grade 11</option>
+                                <option value="12">Grade 12</option>
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterStrand">
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterSection">
+                            </select>
+                            <select class="form-select form-select-sm custom-filter-select flex-fill" id="classFilterCategory">
+                                <option value="All Categories" selected>All Categories</option>
+                                <option value="Core Subject">Core Subject</option>
+                                <option value="Applied Subject">Applied Subject</option>
+                                <option value="Institutional / Non-Academic">Institutional / Non-Academic</option>
+                                <option value="Specialized Subject">Specialized Subject</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <div class="col-12 col-lg-8">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold m-0">Your Posted Materials</h5>
-                        <select class="form-select form-select-sm w-auto" id="filterSection">
-                            <option value="">All sections</option>
-                        </select>
+                <!-- Classroom Cards Grid -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="classroomsGrid">
+                    
+                    <!-- Class Card 1: Green Theme -->
+                    <div class="col">
+                        <div class="card classroom-card border-0 shadow-sm overflow-hidden h-100">
+                            <div class="classroom-banner bg-card-green p-3 text-white d-flex justify-content-between align-items-start position-relative">
+                                <div class="banner-dots">
+                                    <span class="dot bg-white opacity-75"></span>
+                                    <span class="dot bg-white opacity-50"></span>
+                                    <span class="dot bg-white opacity-75"></span>
+                                </div>
+                                <button class="btn btn-link text-white p-0 fs-5"><i class="bi bi-three-dots"></i></button>
+                            </div>
+                            <div class="card-body p-2.5 bg-white d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h3 class="fw-bold m-0 fs-6 text-dark">GenPhy1</h3>
+                                    <span class="micro-text text-muted fw-semibold">STEM-11: Medical Sciences</span>
+                                </div>
+                                <span class="badge bg-light text-dark border micro-text"><i class="bi bi-people-fill text-success me-1"></i>57</span>
+                            </div>
+                        </div>
                     </div>
-                    <div id="modulesList">
-                        <p class="text-muted small">Loading…</p>
+
+                    <!-- Class Card 2: Orange Theme -->
+                    <div class="col">
+                        <div class="card classroom-card border-0 shadow-sm overflow-hidden h-100">
+                            <div class="classroom-banner bg-card-orange p-3 text-white d-flex justify-content-between align-items-start position-relative">
+                                <div class="banner-dots">
+                                    <span class="dot bg-white opacity-75"></span>
+                                    <span class="dot bg-white opacity-50"></span>
+                                    <span class="dot bg-white opacity-75"></span>
+                                </div>
+                                <button class="btn btn-link text-white p-0 fs-5"><i class="bi bi-three-dots"></i></button>
+                            </div>
+                            <div class="card-body p-2.5 bg-white d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h3 class="fw-bold m-0 fs-6 text-dark">GenPhy1</h3>
+                                    <span class="micro-text text-muted fw-semibold">STEM-11: Engineering</span>
+                                </div>
+                                <span class="badge bg-light text-dark border micro-text"><i class="bi bi-people-fill text-warning me-1"></i>43</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Class Card 3: Blue Theme -->
+                    <div class="col">
+                        <div class="card classroom-card border-0 shadow-sm overflow-hidden h-100">
+                            <div class="classroom-banner bg-card-blue p-3 text-white d-flex justify-content-between align-items-start position-relative">
+                                <div class="banner-dots">
+                                    <span class="dot bg-white opacity-75"></span>
+                                    <span class="dot bg-white opacity-50"></span>
+                                    <span class="dot bg-white opacity-75"></span>
+                                </div>
+                                <button class="btn btn-link text-white p-0 fs-5"><i class="bi bi-three-dots"></i></button>
+                            </div>
+                            <div class="card-body p-2.5 bg-white d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h3 class="fw-bold m-0 fs-6 text-dark">GenPhy1</h3>
+                                    <span class="micro-text text-muted fw-semibold">STEM-12: Sigma Technocrats</span>
+                                </div>
+                                <span class="badge bg-light text-dark border micro-text"><i class="bi bi-people-fill text-primary me-1"></i>48</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <!-- SECTION 3: Subject Library List (From Image 2) -->
+            <section class="mb-2">
+                <div class="mb-3">
+                    <div>
+                        <h2 class="h5 fw-bold m-0 text-dark">Subject Library</h2>
+                        <p class="micro-text text-secondary m-0">View of all the subjects offered by the school.</p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <div class="input-group input-group-sm flex-fill">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0" id="librarySearch" placeholder="Search library...">
+                        </div>
+                        <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterQuarter">
+                            <option value="All" selected>All Terms</option>
+                            <option value="1">1st Term</option>
+                            <option value="2">2nd Term</option>
+                            <option value="3">3rd Term</option>
+                        </select>
+                        <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterGrade">
+                            <option value="All" selected>All Grades</option>
+                            <option value="11">Grade 11</option>
+                            <option value="12">Grade 12</option>
+                        </select>
+                        <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterStrand">
+                        </select>
+                        <select class="form-select form-select-sm custom-filter-select flex-fill" id="libraryFilterCategory">
+                            <option value="All Categories" selected>All Categories</option>
+                            <option value="Core Subject">Core Subject</option>
+                            <option value="Applied Subject">Applied Subject</option>
+                            <option value="Institutional / Non-Academic">Institutional / Non-Academic</option>
+                            <option value="Specialized Subject">Specialized Subject</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Library List -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="subjectLibraryList">
+                    <!-- Subjects will be populated dynamically by JS -->
+                </div>
+            </section>
+
         </main>
     </div>
 
-    <!-- Hidden input used to pick a replacement file for a specific lesson file -->
-    <input type="file" id="replaceFileInput" class="d-none"
-           accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt">
-
+    <!-- Bootstrap Bundle script -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <!-- Component Logic Link -->
     <script src="learning_resources_teacher.js"></script>
 </body>
 </html>

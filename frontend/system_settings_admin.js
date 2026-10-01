@@ -18,8 +18,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Loaded from the server, kept in sync as the admin edits any tab
     let settings = {};
-    const initial = await authedFetch('/api/settings', token);
-    if (initial.success) settings = initial.settings;
+    try {
+        const initial = await authedFetch('/api/settings', token);
+        if (initial && initial.success) settings = initial.settings || {};
+    } catch (err) {
+        console.error('Failed to load system settings from server:', err);
+    }
 
     function bool(v) { return v === '1' || v === 1 || v === true; }
 
@@ -36,7 +40,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
                 <div>
                     <label class="form-label text-dark fw-bold text-sm mb-1">Current School Year</label>
-                    <input type="text" class="form-control custom-form-input w-100" id="cfgSchoolYear" value="${settings.school_year || ''}">
+                    <input type="text" class="form-control custom-form-input w-100" id="cfgSchoolYear" value="${settings.school_year || '2026 - 2027'}">
+                </div>
+                <div>
+                    <label class="form-label text-dark fw-bold text-sm mb-1">Current Academic Term</label>
+                    <select class="form-select custom-form-select w-50" id="cfgCurrentTerm">
+                        <option value="1st Term" ${(settings.current_semester === '1st Term' || !settings.current_semester) ? 'selected' : ''}>1st Term</option>
+                        <option value="2nd Term" ${settings.current_semester === '2nd Term' ? 'selected' : ''}>2nd Term</option>
+                        <option value="3rd Term" ${settings.current_semester === '3rd Term' ? 'selected' : ''}>3rd Term</option>
+                    </select>
                 </div>
                 <div>
                     <label class="form-label text-dark fw-bold text-sm mb-1">Language</label>
@@ -153,6 +165,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </button>
                     <input type="file" id="restoreFileInput" accept=".sql" class="d-none">
                 </div>
+                <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border rounded bg-light">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-table text-success fs-5"></i>
+                        <div>
+                            <h3 class="fs-6 fw-bold text-dark m-0">Database Records &amp; Log Archiving</h3>
+                            <span class="text-muted text-sm">Browse students, subjects, strands, and archive/clean login logs.</span>
+                        </div>
+                    </div>
+                    <a href="database_admin.html" class="btn btn-success btn-sm fw-semibold">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Open Database Records
+                    </a>
+                </div>
                 <div id="restoreStatusMsg" class="text-sm"></div>
                 <div class="alert alert-warning text-sm mb-0">
                     <strong>Restoring overwrites all current data</strong> with the contents of the backup
@@ -164,31 +188,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const fieldsByTab = {
-        general: () => ({
-            school_name: document.getElementById('cfgSchoolName').value,
-            school_year: document.getElementById('cfgSchoolYear').value,
-            language: document.getElementById('cfgLanguage').value,
-            maintenance_mode: document.getElementById('cfgMaintenance').checked ? '1' : '0',
-        }),
-        notifications: () => ({
-            notify_email: document.getElementById('cfgNotifyEmail').checked ? '1' : '0',
-            notify_sms: document.getElementById('cfgNotifySMS').checked ? '1' : '0',
-            notify_push: document.getElementById('cfgNotifyPush').checked ? '1' : '0',
-        }),
-        security: () => ({
-            require_2fa: document.getElementById('cfg2FA').checked ? '1' : '0',
-            session_timeout_minutes: document.getElementById('cfgSessionTimeout').value,
-        }),
-        database: () => ({
-            backup_frequency: document.getElementById('cfgBackupFreq').value,
-        }),
+        general: () => {
+            const elSchool = document.getElementById('cfgSchoolName');
+            const elYear = document.getElementById('cfgSchoolYear');
+            const elTerm = document.getElementById('cfgCurrentTerm');
+            const elLang = document.getElementById('cfgLanguage');
+            const elMaint = document.getElementById('cfgMaintenance');
+            if (!elSchool) return {};
+            return {
+                school_name: elSchool.value,
+                school_year: elYear ? elYear.value : '',
+                current_semester: elTerm ? elTerm.value : '1st Term',
+                current_quarter: elTerm ? elTerm.value : '1st Term',
+                language: elLang ? elLang.value : 'en',
+                maintenance_mode: elMaint && elMaint.checked ? '1' : '0',
+            };
+        },
+        notifications: () => {
+            const elEmail = document.getElementById('cfgNotifyEmail');
+            const elSms = document.getElementById('cfgNotifySMS');
+            const elPush = document.getElementById('cfgNotifyPush');
+            if (!elEmail) return {};
+            return {
+                notify_email: elEmail.checked ? '1' : '0',
+                notify_sms: elSms && elSms.checked ? '1' : '0',
+                notify_push: elPush && elPush.checked ? '1' : '0',
+            };
+        },
+        security: () => {
+            const el2FA = document.getElementById('cfg2FA');
+            const elTimeout = document.getElementById('cfgSessionTimeout');
+            if (!el2FA && !elTimeout) return {};
+            return {
+                require_2fa: el2FA && el2FA.checked ? '1' : '0',
+                session_timeout_minutes: elTimeout ? elTimeout.value : 30,
+            };
+        },
+        database: () => {
+            const elBackup = document.getElementById('cfgBackupFreq');
+            if (!elBackup) return {};
+            return {
+                backup_frequency: elBackup.value,
+            };
+        },
     };
 
     let activeTab = 'general';
 
     function captureActiveTab() {
-        if (fieldsByTab[activeTab]) {
-            Object.assign(settings, fieldsByTab[activeTab]());
+        if (!contentPanel || !contentPanel.children.length) return;
+        try {
+            if (fieldsByTab[activeTab]) {
+                const captured = fieldsByTab[activeTab]();
+                Object.assign(settings, captured);
+            }
+        } catch (err) {
+            console.warn('Could not capture active tab fields:', err);
         }
     }
 
@@ -239,6 +294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function switchTab(targetKey) {
+        if (!templates[targetKey]) return;
         captureActiveTab(); // save whatever the admin typed on the tab they're leaving
         activeTab = targetKey;
         contentPanel.innerHTML = templates[targetKey]();

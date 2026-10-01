@@ -50,14 +50,16 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     }
 
-    scopeTabs.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-scope]');
-        if (!btn) return;
-        scopeTabs.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentScope = btn.dataset.scope;
-        load(currentScope);
-    });
+    if (scopeTabs) {
+        scopeTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-scope]');
+            if (!btn) return;
+            scopeTabs.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentScope = btn.dataset.scope;
+            load(currentScope);
+        });
+    }
 
-    load(currentScope);
+    load('section');
 });

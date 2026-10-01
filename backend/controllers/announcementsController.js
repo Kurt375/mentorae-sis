@@ -10,13 +10,16 @@ function classifyType(title) {
 /** GET /api/announcements — feed visible to the caller's role, most recent first */
 async function listAnnouncements(req, res) {
   try {
-    const [rows] = await pool.query(
-      `SELECT id, title, description, event_date, type, audience, created_by, created_at
-       FROM announcements
-       WHERE audience = 'all' OR audience = ?
-       ORDER BY created_at DESC LIMIT 100`,
-      [req.user.role]
-    );
+    let query = `SELECT id, title, description, event_date, type, audience, created_by, created_at
+                 FROM announcements `;
+    const params = [];
+    if (req.user.role !== 'admin') {
+      query += `WHERE audience = 'all' OR audience = ? `;
+      params.push(req.user.role);
+    }
+    query += `ORDER BY created_at DESC LIMIT 100`;
+
+    const [rows] = await pool.query(query, params);
     return res.json({ success: true, announcements: rows });
   } catch (err) {
     console.error('listAnnouncements error:', err);

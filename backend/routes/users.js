@@ -6,9 +6,11 @@ const {
   generateId,
   generateEmail,
   createUser,
+  getUser,
   listUsers,
   exportUsers,
   updateUser,
+  deleteUser,
   getOverview,
   generateScannerKey,
   listParentLinks,
@@ -21,6 +23,7 @@ const {
   undoGraduateStudents,
   downloadImportTemplate,
   bulkImportStudents,
+  resetDefaultPassword,
 } = require('../controllers/userManagementController');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -44,6 +47,9 @@ router.post('/graduate', graduateStudents);
 router.post('/undo-graduate', undoGraduateStudents);
 router.get('/', listUsers);
 router.post('/', createUser);
+router.get('/:id', getUser);
 router.patch('/:id', updateUser);
+router.post('/:id/reset-default-password', resetDefaultPassword);
+router.delete('/:id', deleteUser);
 
 module.exports = router;

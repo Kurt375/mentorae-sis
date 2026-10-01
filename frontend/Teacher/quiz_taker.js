@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const topicDescriptionDisplay = document.getElementById('topicDescriptionDisplay');
     const pageSubtitle = document.getElementById('pageSubtitle');
     const quizSetTitle = document.getElementById('quizSetTitle');
+    const percentageDisplay = document.getElementById('percentageDisplay');
+    const teacherBestBadge = document.getElementById('teacherBestBadge');
+    const teacherPastAttemptsTableBody = document.getElementById('teacherPastAttemptsTableBody');
 
     // State
     let allSubjects = [];
@@ -46,42 +49,119 @@ document.addEventListener('DOMContentLoaded', () => {
     let userAnswers = [];
     let score = 0;
     let currentIndex = 0;
+    let currentSubjectName = '';
+    let currentTopicName = '';
+    let currentSectionName = '';
 
-    function loadData() {
+    async function loadData() {
         const storedSubjects = localStorage.getItem(SUBJECTS_STORAGE_KEY);
         allSubjects = storedSubjects ? JSON.parse(storedSubjects) : [];
 
         const urlParams = new URLSearchParams(window.location.search);
-        const subjectName = decodeURIComponent(urlParams.get('subject') || '');
-        const topicName = decodeURIComponent(urlParams.get('topic') || '');
+        const subjectName = decodeURIComponent(urlParams.get('subject') || '').trim();
+        const topicName = decodeURIComponent(urlParams.get('topic') || '').trim();
         const source = urlParams.get('source');
+        const sectionName = urlParams.get('section');
 
-        currentSubject = allSubjects.find(s => s.name === subjectName);
+        currentSubjectName = subjectName;
+        currentTopicName = topicName;
+        currentSectionName = sectionName || '';
+
+        currentSubject = allSubjects.find(s => s.name && s.name.trim().toLowerCase() === subjectName.toLowerCase());
         if (currentSubject) {
-            if (source === 'recommendation') {
-                currentTopic = (currentSubject.recommendations || []).find(t => t.title === topicName);
-            } else {
-                currentTopic = (currentSubject.topics || []).find(t => t.title === topicName);
-            }
+            const list = source === 'recommendation' ? (currentSubject.recommendations || []) : (currentSubject.topics || []);
+            currentTopic = list.find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase());
+        }
 
-            if (currentTopic) {
-                questions = currentTopic.quiz || [];
-                userAnswers = new Array(questions.length).fill(null);
+        // Always attempt live fetch if token is available OR if currentTopic has no questions
+        const token = localStorage.getItem('mentorae_token');
+        if (token && subjectName) {
+            try {
+                const data = await authedFetch(`/api/content/topics?subjectName=${encodeURIComponent(subjectName)}`, token);
+                if (data && data.success) {
+                    const list = source === 'recommendation' ? (data.recommendations || []) : (data.topics || []);
+                    const matchedTopic = list.find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase()) ||
+                                         (data.topics || []).find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase()) ||
+                                         (data.recommendations || []).find(t => t.title && t.title.trim().toLowerCase() === topicName.toLowerCase());
+                    if (matchedTopic) {
+                        currentTopic = matchedTopic;
+                        if (!currentSubject) {
+                            currentSubject = { name: subjectName, topics: data.topics || [], recommendations: data.recommendations || [] };
+                            allSubjects.push(currentSubject);
+                        } else {
+                            if (source === 'recommendation') {
+                                currentSubject.recommendations = data.recommendations || [];
+                            } else {
+                                currentSubject.topics = data.topics || [];
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load topic from database:', e);
             }
         }
 
+        if (currentTopic) {
+            questions = (currentTopic.quiz || []).map(q => {
+                let opts = q.options;
+                if (Array.isArray(opts)) {
+                    opts = {
+                        A: opts[0] || '',
+                        B: opts[1] || '',
+                        C: opts[2] || '',
+                        D: opts[3] || ''
+                    };
+                } else if (!opts || typeof opts !== 'object') {
+                    opts = { A: '', B: '', C: '', D: '' };
+                }
+                return {
+                    text: (q.text || q.question || '').trim(),
+                    options: {
+                        A: opts.A || '',
+                        B: opts.B || '',
+                        C: opts.C || '',
+                        D: opts.D || ''
+                    },
+                    answer: q.answer || 'A'
+                };
+            }).filter(q => q.text !== '');
+
+            userAnswers = new Array(questions.length).fill(null);
+        } else {
+            questions = [];
+            userAnswers = [];
+        }
+
         // Update UI with details
-        document.title = `Mentorae - Quiz: ${currentTopic?.title || 'Not Found'}`;
-        if (pageSubtitle) pageSubtitle.textContent = `Topic: ${currentTopic?.title || 'N/A'}`;
-        if (quizSetTitle) quizSetTitle.textContent = `Practice Quiz for ${currentTopic?.title || 'N/A'}`;
-        if (subjectNameDisplay) subjectNameDisplay.textContent = currentSubject?.name || 'N/A';
-        if (topicTitleDisplay) topicTitleDisplay.textContent = currentTopic?.title || 'N/A';
-        if (topicDescriptionDisplay) topicDescriptionDisplay.textContent = currentTopic?.description || 'N/A';
+        document.title = `Mentorae - Quiz: ${currentTopic?.title || topicName || 'Not Found'}`;
+        if (pageSubtitle) pageSubtitle.textContent = `Topic: ${currentTopic?.title || topicName || 'N/A'}`;
+        if (quizSetTitle) quizSetTitle.textContent = `Practice Quiz for ${currentTopic?.title || topicName || 'N/A'}`;
+        if (subjectNameDisplay) subjectNameDisplay.textContent = currentSubject?.name || subjectName || 'N/A';
+        if (topicTitleDisplay) topicTitleDisplay.textContent = currentTopic?.title || topicName || 'N/A';
+        if (topicDescriptionDisplay) {
+            const desc = (currentTopic?.description || '').trim();
+            topicDescriptionDisplay.textContent = desc && desc !== 'N/A' ? desc : 'No description provided for this topic.';
+        }
+
+        displayQuestion(currentIndex);
+        loadTeacherAttempts(currentTopic?.title || currentTopicName, currentSubject?.name || currentSubjectName);
     }
 
     function displayQuestion(index) {
         if (questions.length === 0) {
-            quizContainer.innerHTML = '<p class="text-center text-muted">No questions available for this quiz.</p>';
+            quizContainer.innerHTML = `
+                <div class="card shadow-sm border-0 text-center p-5">
+                    <div class="card-body">
+                        <i class="bi bi-question-circle text-muted fs-1 mb-3 d-block"></i>
+                        <h4 class="h5 fw-bold text-dark">No Questions Available</h4>
+                        <p class="text-muted mb-4">There are no practice questions attached to this topic yet.</p>
+                        <button class="btn btn-outline-secondary px-4 py-2 rounded-pill" onclick="window.history.back(); return false;">
+                            <i class="bi bi-arrow-left me-1"></i> Go Back
+                        </button>
+                    </div>
+                </div>
+            `;
             return;
         }
 
@@ -113,12 +193,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Reset label styles
         document.querySelectorAll('.quiz-option-label').forEach(label => {
-            label.classList.remove('correct-answer', 'wrong-answer');
+            label.classList.remove('selected', 'correct-answer', 'wrong-answer');
         });
         
         // Restore previous answer if exists
         if (userAnswers[index]) {
-            document.querySelector(`input[value="${userAnswers[index]}"]`).checked = true;
+            const answeredRadio = document.querySelector(`input[name="quizOption"][value="${userAnswers[index]}"]`);
+            if (answeredRadio) {
+                answeredRadio.checked = true;
+                if (answeredRadio.nextElementSibling) {
+                    answeredRadio.nextElementSibling.classList.add('selected');
+                }
+            }
         }
 
         submitAnswerBtn.classList.remove('d-none');
@@ -160,10 +246,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Visual feedback on options
         document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
             const label = radio.nextElementSibling;
-            if (radio.value === questions[currentIndex].answer) {
-                label.classList.add('correct-answer');
-            } else if (radio.checked) {
-                label.classList.add('wrong-answer');
+            if (label) {
+                label.classList.remove('selected');
+                if (radio.value === questions[currentIndex].answer) {
+                    label.classList.add('correct-answer');
+                } else if (radio.checked) {
+                    label.classList.add('wrong-answer');
+                }
             }
             radio.disabled = true;
         });
@@ -178,18 +267,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function showResults() {
+    async function loadTeacherAttempts(topicTitle, subjectName) {
+        if (!teacherPastAttemptsTableBody) return;
+        const token = localStorage.getItem('mentorae_token');
+        if (!token) return;
+
+        try {
+            const query = `/api/content/topic-quiz/my-attempts?topicTitle=${encodeURIComponent(topicTitle || '')}&subjectName=${encodeURIComponent(subjectName || '')}`;
+            const data = await authedFetch(query, token);
+            if (data && data.success && Array.isArray(data.attempts)) {
+                renderTeacherAttempts(data.attempts);
+            }
+        } catch (err) {
+            console.warn('Could not load teacher quiz test attempts:', err);
+        }
+    }
+
+    function renderTeacherAttempts(attempts) {
+        if (!teacherPastAttemptsTableBody) return;
+        if (!attempts || attempts.length === 0) {
+            teacherPastAttemptsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-3">No preview runs recorded yet. Complete this test to log your run.</td>
+                </tr>
+            `;
+            if (teacherBestBadge) teacherBestBadge.textContent = 'Latest Test: --';
+            return;
+        }
+
+        const latest = attempts[0];
+        if (teacherBestBadge) {
+            teacherBestBadge.textContent = `Latest Test: ${latest.score}/${latest.totalQuestions} (${Math.round(latest.percentage)}%)`;
+        }
+
+        const totalAttempts = attempts.length;
+        teacherPastAttemptsTableBody.innerHTML = attempts.map((att, idx) => {
+            const attemptNum = totalAttempts - idx;
+            const dt = new Date(att.createdAt);
+            const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+            return `
+                <tr>
+                    <td class="ps-3 fw-bold text-secondary">#${attemptNum}</td>
+                    <td class="small text-muted">${dateStr} <span class="text-secondary opacity-75">(${timeStr})</span></td>
+                    <td><span class="fw-bold text-dark">${att.score}</span> / <span class="text-muted">${att.totalQuestions}</span></td>
+                    <td class="fw-semibold text-primary">${Math.round(att.percentage)}%</td>
+                    <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fw-semibold"><i class="bi bi-eye me-1"></i>Preview Run</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function showResults() {
         score = 0;
         for (let i = 0; i < questions.length; i++) {
             if (userAnswers[i] === questions[i].answer) {
                 score++;
             }
         }
+        const total = questions.length;
+        const pct = total > 0 ? Math.round(((score / total) * 100) * 100) / 100 : 0;
+
         quizContainer.classList.add('d-none');
         quizResults.classList.remove('d-none');
         finalScoreDisplay.textContent = score;
-        maxScoreDisplay.textContent = questions.length;
+        maxScoreDisplay.textContent = total;
         correctAnswersCountDisplay.textContent = score;
+        if (percentageDisplay) {
+            percentageDisplay.textContent = `${Math.round(pct)}%`;
+        }
 
         // Populate review container
         if (reviewContainer) {
@@ -209,11 +356,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 reviewContainer.appendChild(reviewItem);
             });
         }
+
+        // Persist teacher preview attempt to database
+        const token = localStorage.getItem('mentorae_token');
+        if (token) {
+            const answersPayload = questions.map((q, index) => ({
+                question: q.text,
+                userAnswer: userAnswers[index] ? q.options[userAnswers[index]] : 'Not answered',
+                userAnswerKey: userAnswers[index] || null,
+                correctAnswer: q.options[q.answer] || q.answer,
+                correctAnswerKey: q.answer,
+                isCorrect: userAnswers[index] === q.answer
+            }));
+
+            try {
+                await authedFetch('/api/content/topic-quiz/attempt', token, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        topicId: currentTopic?.id || null,
+                        topicTitle: currentTopic?.title || currentTopicName,
+                        subjectName: currentSubject?.name || currentSubjectName,
+                        sectionName: currentSectionName || '',
+                        score: score,
+                        totalQuestions: total,
+                        answers: answersPayload,
+                        isPreview: true
+                    })
+                });
+                await loadTeacherAttempts(currentTopic?.title || currentTopicName, currentSubject?.name || currentSubjectName);
+            } catch (err) {
+                console.error('Failed to record teacher preview attempt:', err);
+            }
+        }
     }
 
     function init() {
         loadData();
-        displayQuestion(currentIndex);
+
+        // Instant visual feedback when clicking an option
+        document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.querySelectorAll('.quiz-option-label').forEach(lbl => lbl.classList.remove('selected'));
+                if (radio.checked) {
+                    const lbl = radio.nextElementSibling;
+                    if (lbl) lbl.classList.add('selected');
+                }
+            });
+        });
 
         submitAnswerBtn.addEventListener('click', handleSubmit);
 

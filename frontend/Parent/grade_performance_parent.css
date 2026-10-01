@@ -1,0 +1,9 @@
+/* Grade Performance Parent specific styling overrides */
+.avatar-mini-wrap {
+    background-color: #e8f5e9 !important;
+}
+
+#childSelector {
+    background-color: #f0fdf4;
+    cursor: pointer;
+}

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "outputDirectory": "frontend",
+  "rewrites": [
+    { "source": "/", "destination": "/login.html" }
+  ]
+}

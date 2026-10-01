@@ -61,6 +61,18 @@
                 document.getElementById('emptyMsg').classList.remove('d-none');
                 return;
             }
+
+            // Mark announcements as seen because user is viewing them
+            if (typeof markAnnouncementsAsSeen === 'function') {
+                markAnnouncementsAsSeen(data.announcements, user);
+            } else {
+                const maxId = Math.max(...data.announcements.map(a => Number(a.id) || 0));
+                if (maxId > 0) {
+                    const key = `mentorae_seen_ann_id_${user?.id || user?.role || 'user'}`;
+                    localStorage.setItem(key, String(maxId));
+                }
+            }
+
             for (const a of data.announcements) {
                 const div = document.createElement('div');
                 div.className = 'announce-card';

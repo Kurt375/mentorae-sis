@@ -22,7 +22,7 @@
 }
 
 .portal-wrapper {
-    max-width: 992px;
+    max-width: 1180px;
     margin: 0 auto;
     border-left: 1px solid #e2e8f0;
     border-right: 1px solid #e2e8f0;
@@ -51,25 +51,99 @@
 }
 
 /* Filter Control Forms Rulesets */
-.search-box .form-control:focus {
-    border-color: #dee2e6;
-    box-shadow: none;
+.attendance-toolbar {
+    margin-bottom: 1.25rem;
 }
 
-.custom-filter-dropdown, .search-box .form-control, .search-box .input-group-text {
-    border: 1px solid #a3b899;
-    padding: 10px 12px;
-    font-size: 0.9rem;
+.toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: nowrap;
+}
+
+.search-box {
+    width: 300px;
+    height: 42px;
+}
+
+.search-box .input-group-text {
+    border: 1px solid #cbd5e1;
+    border-right: none;
+    border-top-left-radius: 8px !important;
+    border-bottom-left-radius: 8px !important;
+    color: #64748b;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+}
+
+.search-box .form-control {
+    border: 1px solid #cbd5e1;
+    border-left: none;
+    border-top-right-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+    height: 42px;
+    font-size: 0.88rem;
     color: var(--text-dark);
 }
 
+.search-box .form-control::placeholder {
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+.search-box .form-control:focus {
+    border-color: #cbd5e1;
+    box-shadow: none;
+}
+
 .custom-filter-dropdown {
-    max-width: 180px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px !important;
+    height: 42px;
+    padding: 8px 36px 8px 14px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-dark);
+    background-color: #ffffff;
+    min-width: 220px;
+    max-width: 320px;
+    cursor: pointer;
 }
 
 .custom-filter-dropdown:focus {
     border-color: var(--mentorae-green);
-    box-shadow: 0 0 0 0.25rem rgba(10, 92, 44, 0.15);
+    box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.15);
+}
+
+/* Badge styling for section type */
+.section-mode-pill {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 50rem;
+    padding: 4px 14px 4px 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-mode-pill .pill-tag {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 50rem;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.section-mode-pill .pill-desc {
+    font-size: 0.82rem;
+    color: #475569;
+    font-weight: 500;
 }
 
 /* Data Table Matrix Layout Rendering Styles */
@@ -99,9 +173,31 @@
 .status-absent { background-color: var(--status-absent-bg); color: var(--status-absent-txt); }
 
 /* Buttons */
-.btn-confirm-action { font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.9rem; }
-.btn-finish-action { background-color: var(--mentorae-green); color: #ffffff; border: none; border-radius: 8px; transition: background-color 0.15s ease; }
-.btn-finish-action:hover { background-color: #084c24; color: #ffffff; }
+.btn-confirm-action,
+.confirm-btn {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.15s ease-in-out;
+}
+
+.confirm-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.btn-finish-action {
+    background-color: var(--mentorae-green);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.btn-finish-action:hover {
+    background-color: #084c24;
+    color: #ffffff;
+}
 
 /* Micro Utilities */
 .text-sm { font-size: 0.88rem; }
@@ -112,10 +208,11 @@
 
 /* Disabled button styling for locked sessions */
 .btn-confirm-action:disabled,
+.confirm-btn:disabled,
 .btn-finish-action:disabled {
-    background-color: #94a3b8 !important;
-    border-color: #94a3b8 !important;
-    color: #ffffff !important;
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #94a3b8 !important;
     cursor: not-allowed !important;
     opacity: 0.65;
     transform: none !important;

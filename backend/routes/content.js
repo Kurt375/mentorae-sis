@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const {
   listTopics,
   createTopic,
+  deleteTopic,
   createTopicRequest,
   listTopicRequests,
   reviewTopicRequest,
@@ -16,14 +17,37 @@ const {
   getFlashcardSet,
   createFlashcardSet,
   saveFlashcardProgress,
+  convertDocument,
+  downloadFlashcardsTemplate,
+  downloadQuizTemplate,
+  appendTopicContent,
+  submitTopicQuizAttempt,
+  getMyTopicQuizAttempts,
+  getStudentSubjectQuizSummary,
+  getClassTopicQuizResults,
 } = require('../controllers/contentController');
+
+// Document conversion (PPTX/DOCX to PDF)
+router.post('/convert-document', requireAuth, convertDocument);
+
+// Templates for bulk content
+router.get('/templates/flashcards', downloadFlashcardsTemplate);
+router.get('/templates/quiz', downloadQuizTemplate);
 
 // Topics
 router.get('/topics', requireAuth, listTopics);
-router.post('/topics', requireAuth, requireRole('admin'), createTopic);
+router.post('/topics', requireAuth, requireRole('teacher', 'admin'), createTopic);
+router.delete('/topics/:id', requireAuth, requireRole('teacher', 'admin'), deleteTopic);
+router.post('/topics/:id/append-content', requireAuth, requireRole('teacher', 'admin'), appendTopicContent);
 
-// Topic requests (teacher submits, admin reviews)
-router.post('/topic-requests', requireAuth, requireRole('teacher'), createTopicRequest);
+// Topic Practice Quiz Attempts & Analytics
+router.post('/topic-quiz/attempt', requireAuth, submitTopicQuizAttempt);
+router.get('/topic-quiz/my-attempts', requireAuth, getMyTopicQuizAttempts);
+router.get('/topic-quiz/student-summary', requireAuth, getStudentSubjectQuizSummary);
+router.get('/topic-quiz/class-results', requireAuth, requireRole('teacher', 'admin'), getClassTopicQuizResults);
+
+// Topic requests (teacher/admin submits, admin reviews)
+router.post('/topic-requests', requireAuth, requireRole('teacher', 'admin'), createTopicRequest);
 router.get('/topic-requests', requireAuth, requireRole('admin'), listTopicRequests);
 router.post('/topic-requests/:id/review', requireAuth, requireRole('admin'), reviewTopicRequest);
 
