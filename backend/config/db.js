@@ -21,6 +21,10 @@ if (cloudUrl) {
     connectTimeout: 4000, // Fast 4-second probe for school firewall detection
     ssl: { rejectUnauthorized: false },
   });
+
+  cloudPool.on('connection', (conn) => {
+    conn.query("SET time_zone = '+08:00'", () => {});
+  });
 }
 
 // 2. Configure Local Pool (Local XAMPP MariaDB / MySQL on port 3306)
@@ -37,6 +41,10 @@ const localPool = mysql.createPool({
   keepAliveInitialDelay: 10000,
   connectTimeout: 5000,
   dateStrings: true,
+});
+
+localPool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+08:00'", () => {});
 });
 
 let currentMode = cloudPool ? 'cloud' : 'local';

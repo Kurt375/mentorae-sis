@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const { classifyRisk, toFeatureVector } = require('../ml/features');
 const riskModel = require('../ml/riskModel');
 const { buildRecommendations } = require('../ml/prescriptive');
+const { getManilaDate } = require('../utils/dateUtils');
 
 /** GET /api/analytics/filter-options — provides available grade levels, strands, and sections */
 async function getFilterOptions(req, res) {
@@ -513,8 +514,10 @@ async function getInstitutionalOverview(req, res) {
     const [[sec]] = await pool.query("SELECT COUNT(id) AS count FROM sections");
     
     // Attendance calculation: check today first, fallback to overall log average
+    const today = getManilaDate();
     const [[attToday]] = await pool.query(
-      "SELECT COUNT(id) AS presentCount FROM attendance_logs WHERE scan_date = CURRENT_DATE() AND status IN ('present', 'late')"
+      "SELECT COUNT(id) AS presentCount FROM attendance_logs WHERE scan_date = ? AND status IN ('present', 'late')",
+      [today]
     );
     let attendanceRate = 0;
     if (st.count > 0 && attToday.presentCount > 0) {

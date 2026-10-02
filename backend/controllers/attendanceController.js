@@ -5,6 +5,13 @@ const pool = require('../config/db');
 const { parsePagination, paginatedMeta } = require('../utils/pagination');
 const { teacherTeachesSection, canViewStudent, getParentIdsForStudent, getAdviserIdForStudent } = require('../utils/authz');
 const { notify, notifyMany } = require('../utils/notifications');
+const {
+  getManilaDate,
+  getManilaTime,
+  getManilaDayOfWeek,
+  isTimeWithinWindow,
+  timeToMinutes,
+} = require('../utils/dateUtils');
 
 async function logActivity(studentId, description) {
   try {
@@ -80,9 +87,8 @@ async function scanAttendance(req, res) {
       }
     }
 
-    const now = new Date();
-    const scanDate = now.toISOString().slice(0, 10);
-    const scanTime = now.toTimeString().slice(0, 8);
+    const scanDate = getManilaDate();
+    const scanTime = getManilaTime();
     const { lateCutoff, timeOutCutoff } = await getAttendanceSettings();
 
     const [existing] = await pool.query(
@@ -99,7 +105,7 @@ async function scanAttendance(req, res) {
 
     if (!existing[0]) {
       // First scan today = time in
-      const status = scanTime > lateCutoff ? 'late' : 'present';
+      const status = timeToMinutes(scanTime) > timeToMinutes(lateCutoff) ? 'late' : 'present';
       await pool.query(
         'INSERT INTO attendance_logs (student_id, scanned_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?)',
         [student.id, req.user?.id || null, status, scanDate, scanTime]
@@ -122,7 +128,7 @@ async function scanAttendance(req, res) {
     }
 
     // Second scan today = time out
-    const timeOutStatus = scanTime >= timeOutCutoff ? 'out' : 'excused';
+    const timeOutStatus = timeToMinutes(scanTime) >= timeToMinutes(timeOutCutoff) ? 'out' : 'excused';
     await pool.query('UPDATE attendance_logs SET time_out = ?, time_out_status = ? WHERE id = ?', [
       scanTime,
       timeOutStatus,
@@ -153,7 +159,7 @@ async function verifyScannerKey(req, res) {
   }
 
   try {
-    const nowStr = new Date().toTimeString().slice(0, 8);
+    const nowStr = getManilaTime();
     const { scannerWindowStart, scannerWindowEnd } = await getAttendanceSettings();
 
     const [rows] = await pool.query('SELECT * FROM scanner_keys WHERE is_active = 1');
@@ -161,7 +167,7 @@ async function verifyScannerKey(req, res) {
       if (await bcrypt.compare(key, row.key_hash)) {
         const windowStart = row.valid_from || scannerWindowStart;
         const windowEnd = row.valid_until || scannerWindowEnd;
-        if (nowStr < windowStart || nowStr > windowEnd) {
+        if (!isTimeWithinWindow(nowStr, windowStart, windowEnd)) {
           return res.status(403).json({
             success: false,
             message: `This scanner code is only valid between ${windowStart.slice(0, 5)} and ${windowEnd.slice(0, 5)}.`,
@@ -183,10 +189,8 @@ async function verifyScannerKey(req, res) {
  * section today (used by the Attendance Confirmation page, which doesn't
  * ask the teacher to pick a subject). */
 async function checkSessionLock(teacherId, sectionId, subjectId) {
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const now = new Date();
-  const today = dayNames[now.getDay()];
-  const nowStr = now.toTimeString().slice(0, 8);
+  const today = getManilaDayOfWeek();
+  const nowStr = getManilaTime();
 
   // Check if this teacher is the official section adviser
   const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
@@ -336,7 +340,7 @@ async function getConfirmationRoster(req, res) {
       }
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getManilaDate();
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
               st.code AS strandCode, sec.grade_level, sec.name AS sectionName,
@@ -390,8 +394,8 @@ async function confirmAttendance(req, res) {
       return res.status(403).json({ success: false, message: session.reason });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date().toTimeString().slice(0, 8);
+    const today = getManilaDate();
+    const now = getManilaTime();
 
     const [existing] = await pool.query('SELECT id FROM attendance_logs WHERE student_id = ? AND scan_date = ?', [
       studentId,
@@ -452,7 +456,7 @@ async function confirmAttendanceOut(req, res) {
       }
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getManilaDate();
     const [rows] = await pool.query(
       'SELECT * FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
       [studentId, today]
@@ -669,7 +673,7 @@ async function reviewExcuseNote(req, res) {
       [status, req.user.id, id]
     );
 
-    const absenceDateStr = new Date(note.absence_date).toISOString().slice(0, 10);
+    const absenceDateStr = getManilaDate(new Date(note.absence_date));
 
     if (status === 'approved') {
       // Mark or update attendance log as excused

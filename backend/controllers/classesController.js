@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent } = require('../utils/authz');
+const { getManilaDate } = require('../utils/dateUtils');
 
 /**
  * GET /api/classes/roster?sectionId=
@@ -13,7 +14,7 @@ async function getRosterOverview(req, res) {
   }
 
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getManilaDate();
     const parsedSubId = (subjectId && subjectId !== 'all' && !isNaN(parseInt(subjectId, 10))) ? parseInt(subjectId, 10) : null;
     const gradeSubquery = parsedSubId
       ? `(SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id AND subject_id = ${parsedSubId})`

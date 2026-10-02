@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
+const { getManilaDate } = require('../utils/dateUtils');
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -509,7 +510,7 @@ async function getStatusSummary(req, res) {
     let advisoryClass = null;
 
     if (req.user.role === 'student') {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getManilaDate();
       const [attRows] = await pool.query(
         'SELECT status, time_out_status FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
         [req.user.id, today]
