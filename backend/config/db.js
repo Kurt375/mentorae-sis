@@ -18,7 +18,7 @@ if (cloudUrl) {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
-    connectTimeout: 4000, // Fast 4-second probe for school firewall detection
+    connectTimeout: 10000,
     ssl: { rejectUnauthorized: false },
   });
 
@@ -64,6 +64,18 @@ async function probeCloud() {
   }
 }
 
+async function probeLocal() {
+  if (!localPool) return false;
+  try {
+    const conn = await localPool.getConnection();
+    await conn.ping();
+    conn.release();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 // Initial connection check on startup
 (async () => {
   if (cloudPool) {
@@ -73,9 +85,16 @@ async function probeCloud() {
       currentMode = 'cloud';
       console.log('🌐 [DATABASE] Cloud Database (TiDB Cloud) is reachable! Prioritizing CLOUD database.');
     } else {
-      activePool = localPool;
-      currentMode = 'local';
-      console.warn('🏠 [DATABASE] Cloud Database unreachable (port 4000 blocked by firewall or offline). Automatically falling back to LOCAL MySQL (127.0.0.1:3306).');
+      const localOk = await probeLocal();
+      if (localOk) {
+        activePool = localPool;
+        currentMode = 'local';
+        console.warn('🏠 [DATABASE] Cloud Database unreachable. Falling back to LOCAL MySQL (127.0.0.1:3306).');
+      } else {
+        activePool = cloudPool;
+        currentMode = 'cloud';
+        console.warn('⚠️ [DATABASE] Initial Cloud Database probe timed out and Local MySQL is not running. Retaining CLOUD database.');
+      }
     }
   } else {
     activePool = localPool;

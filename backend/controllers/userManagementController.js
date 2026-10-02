@@ -101,7 +101,7 @@ async function generateEmail(req, res) {
 async function createUser(req, res) {
   const {
     firstName, middleInitial, lastName, contactNumber, idNumber, email, role, sectionId, password, program, parentName,
-    childNames, advisorySectionId, subjectIds,
+    childNames, advisorySectionId, subjectIds, parentContactNumber,
   } = req.body;
 
   const validRoles = ['Student', 'Teacher', 'Parent', 'Admin', 'Security'];
@@ -163,27 +163,91 @@ async function createUser(req, res) {
       message: `Your ${role} account has been created. Go to your Profile to review your details and add a personal email for real-time updates.`,
     });
 
-    // Student accounts can optionally be auto-linked to an existing Parent
-    // account by matching the typed name -- this is how enrollment links
-    // parent/child accounts now, instead of a separate manual-linking panel.
+    // Student accounts: Auto-link to existing Parent account (Smart Sibling Linking),
+    // or automatically create a new Parent Portal account if not registered yet.
     let parentLinkMessage = null;
+    let createdParent = null;
+
     if (role === 'Student' && parentName && parentName.trim()) {
       const typedName = parentName.trim().toLowerCase().replace(/\s+/g, ' ');
-      const [parentMatches] = await pool.query(
-        `SELECT id, first_name, last_name FROM users
-         WHERE role = 'parent' AND LOWER(TRIM(CONCAT(first_name, ' ', last_name))) = ?`,
-        [typedName]
-      );
-      if (parentMatches.length === 1) {
+      const cleanParentPhone = parentContactNumber ? cleanPhone(parentContactNumber) : '';
+
+      // 1. Search for existing parent by phone OR full name
+      let existingParent = null;
+      if (cleanParentPhone) {
+        const [byPhone] = await pool.query(
+          `SELECT id, id_number, first_name, last_name, email, contact_number FROM users
+           WHERE role = 'parent' AND contact_number = ?`,
+          [cleanParentPhone]
+        );
+        if (byPhone.length >= 1) existingParent = byPhone[0];
+      }
+
+      if (!existingParent) {
+        const [byName] = await pool.query(
+          `SELECT id, id_number, first_name, last_name, email, contact_number FROM users
+           WHERE role = 'parent' AND LOWER(TRIM(CONCAT(first_name, ' ', last_name))) = ?`,
+          [typedName]
+        );
+        if (byName.length >= 1) existingParent = byName[0];
+      }
+
+      if (existingParent) {
+        // Smart Sibling Linking: Link to existing registered parent without duplicating
         await pool.query(
           'INSERT IGNORE INTO parent_student_links (parent_id, student_id) VALUES (?, ?)',
-          [parentMatches[0].id, result.insertId]
+          [existingParent.id, result.insertId]
         );
-        parentLinkMessage = `Linked to parent account: ${parentMatches[0].first_name} ${parentMatches[0].last_name}.`;
-      } else if (parentMatches.length === 0) {
-        parentLinkMessage = `No parent account matching "${parentName.trim()}" was found -- the student was created, but not linked. Check the spelling, create the parent account first, or fix this later in the Parent-Student Links table.`;
+        if (cleanParentPhone && !existingParent.contact_number) {
+          await pool.query('UPDATE users SET contact_number = ? WHERE id = ?', [cleanParentPhone, existingParent.id]);
+        }
+        parentLinkMessage = `Linked to existing parent account: ${existingParent.first_name} ${existingParent.last_name} (${existingParent.id_number}).`;
       } else {
-        parentLinkMessage = `More than one parent account matches "${parentName.trim()}" -- the student was created, but not automatically linked to avoid linking the wrong one. Resolve this manually in the Parent-Student Links table.`;
+        // Auto-create new parent account
+        const parsedP = parseFullName(parentName);
+        if (parsedP.firstName && parsedP.lastName) {
+          const parentIdNumber = await nextIdNumber();
+          const parentEmail = await uniqueEmail(parsedP.firstName, parsedP.lastName, 'Parent');
+          const parentTempPassword = parentIdNumber; // Default temporary password = ID number
+          const parentHash = await bcrypt.hash(parentTempPassword, 10);
+
+          const [newParentRes] = await pool.query(
+            `INSERT INTO users (role, program, id_number, first_name, middle_initial, last_name, contact_number, email, password_hash, must_change_password, temp_password)
+             VALUES ('parent', 'none', ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+            [
+              parentIdNumber,
+              parsedP.firstName,
+              parsedP.middleInitial || null,
+              parsedP.lastName,
+              cleanParentPhone || null,
+              parentEmail,
+              parentHash,
+              parentTempPassword,
+            ]
+          );
+
+          await pool.query(
+            'INSERT IGNORE INTO parent_student_links (parent_id, student_id) VALUES (?, ?)',
+            [newParentRes.insertId, result.insertId]
+          );
+
+          await notify({
+            recipientId: newParentRes.insertId,
+            type: 'account_created',
+            title: 'Welcome to Mentorae',
+            message: `Your Parent account has been created and linked to student ${firstName} ${lastName}. Go to your Profile to review your details and add a personal email for real-time updates.`,
+          });
+
+          createdParent = {
+            idNumber: parentIdNumber,
+            name: `${parsedP.firstName} ${parsedP.middleInitial ? parsedP.middleInitial + ' ' : ''}${parsedP.lastName}`.trim(),
+            email: parentEmail,
+            tempPassword: parentTempPassword,
+            contactNumber: cleanParentPhone || '—',
+          };
+
+          parentLinkMessage = `New Parent account automatically created for ${createdParent.name} (${parentIdNumber}) and linked to ${firstName}.`;
+        }
       }
     }
 
@@ -238,6 +302,7 @@ async function createUser(req, res) {
       // When the admin set the password manually, nothing is echoed back.
       ...(usingManualPassword ? {} : { tempPassword }),
       ...(parentLinkMessage ? { parentLinkMessage } : {}),
+      ...(createdParent ? { createdParent } : {}),
       ...(childLinkMessages.length ? { childLinkMessages } : {}),
       ...(advisoryMessage ? { advisoryMessage } : {}),
     });

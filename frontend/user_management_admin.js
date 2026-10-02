@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userSectionSelect = document.getElementById('userSectionSelect');
     const studentStatusSelect = document.getElementById('studentStatusSelect');
     const studentParentFullName = document.getElementById('studentParentFullName');
+    const studentParentContactNumber = document.getElementById('studentParentContactNumber');
     const parentChildrenNames = document.getElementById('parentChildrenNames');
     const userAdviserSectionSelect = document.getElementById('userAdviserSectionSelect');
     const teacherSubjects = document.getElementById('teacherSubjects');
@@ -93,6 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
             userSectionSelect.value = '';
             studentStatusSelect.value = 'none';
             studentParentFullName.value = '';
+            if (studentParentContactNumber) studentParentContactNumber.value = '';
+            updateParentLinkBadge();
         }
         if (!isParent) parentChildrenNames.value = '';
         if (!isTeacher) {
@@ -102,6 +105,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     syncRoleFieldVisibility();
     userRoleSelect.addEventListener('change', syncRoleFieldVisibility);
+
+    // Dynamic badge indicating if typed parent name matches an existing parent or will be auto-created
+    function updateParentLinkBadge() {
+        const statusWrap = document.getElementById('parentLinkStatusWrap');
+        if (!statusWrap) return;
+        const nameVal = studentParentFullName ? studentParentFullName.value.trim().toLowerCase() : '';
+        if (!nameVal) {
+            statusWrap.innerHTML = '<div class="form-text micro-text text-muted" id="parentLinkHelpText">Type parent name. If already registered, it links them; if new, a Parent account will be automatically created.</div>';
+            return;
+        }
+
+        const matchedParent = parentsCache.find(p => {
+            const pFull = `${p.first_name} ${p.last_name}`.trim().toLowerCase();
+            const pFullWithMi = `${p.first_name} ${p.middle_initial || ''} ${p.last_name}`.trim().toLowerCase().replace(/\s+/g, ' ');
+            return pFull === nameVal || pFullWithMi === nameVal;
+        });
+
+        if (matchedParent) {
+            statusWrap.innerHTML = `
+                <div class="d-inline-flex align-items-center gap-1.5 px-2 py-1 rounded-2 bg-success-subtle text-success border border-success-subtle micro-text fw-semibold">
+                    <i class="bi bi-link-45deg fs-6"></i> Existing registered parent: ${matchedParent.first_name} ${matchedParent.last_name} (${matchedParent.id_number}) — will link without creating duplicate
+                </div>`;
+            if (studentParentContactNumber && !studentParentContactNumber.value.trim() && matchedParent.contact_number) {
+                studentParentContactNumber.value = matchedParent.contact_number;
+            }
+        } else {
+            statusWrap.innerHTML = `
+                <div class="d-inline-flex align-items-center gap-1.5 px-2 py-1 rounded-2 bg-primary-subtle text-primary border border-primary-subtle micro-text fw-semibold">
+                    <i class="bi bi-person-plus-fill"></i> New parent — a Parent Portal account will be automatically created & linked
+                </div>`;
+        }
+    }
+
+    if (studentParentFullName) {
+        studentParentFullName.addEventListener('input', updateParentLinkBadge);
+        studentParentFullName.addEventListener('change', updateParentLinkBadge);
+    }
 
     // --- Sections & Strands (used across Create form, Assign Section modal, Link Parent filters, and Manager card) ---
     let sectionsCache = [];
@@ -451,6 +491,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userRoleSelect.value === 'Student') {
             if (userSectionSelect.value) payload.sectionId = userSectionSelect.value;
             if (studentParentFullName.value.trim()) payload.parentName = studentParentFullName.value.trim();
+            if (studentParentContactNumber && studentParentContactNumber.value.trim()) {
+                payload.parentContactNumber = studentParentContactNumber.value.trim();
+            }
         }
         if (userRoleSelect.value === 'Parent' && parentChildrenNames.value.trim()) {
             payload.childrenNames = parentChildrenNames.value.trim();
@@ -483,17 +526,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (data.tempPassword) {
-            alert(`${data.message}\n\nTemporary password (share this with the user securely):\n${data.tempPassword}`);
-        } else {
-            alert(`${data.message}\n\nThe password you set has been saved for this account.`);
+        let alertMsg = `✅ ${data.message}`;
+        if (data.parentLinkMessage) {
+            alertMsg += `\n\n🔗 ${data.parentLinkMessage}`;
         }
+        if (data.tempPassword) {
+            alertMsg += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 STUDENT LOGIN CREDENTIALS:\n• ID / LRN: ${payload.idNumber}\n• Email: ${payload.email}\n• Temp Password: ${data.tempPassword}`;
+        }
+        if (data.createdParent) {
+            alertMsg += `\n\n👨‍👩‍👧 NEW PARENT LOGIN CREDENTIALS:\n• Parent Name: ${data.createdParent.name}\n• Parent ID: ${data.createdParent.idNumber}\n• Email: ${data.createdParent.email}\n• Temp Password: ${data.createdParent.tempPassword}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPlease share these credentials securely with the student and parent.`;
+        } else if (!data.tempPassword && !data.createdParent) {
+            alertMsg += `\n\nThe password you set has been saved for this account.`;
+        }
+        alert(alertMsg);
+
         createUserForm.reset();
         generatedId.value = '';
         generatedEmail.value = '';
         userSectionSelect.value = '';
         userAdviserSectionSelect.value = '';
         teacherSubjects.value = '';
+        if (studentParentContactNumber) studentParentContactNumber.value = '';
+        updateParentLinkBadge();
         if (window.hideTeacherSubjectSuggestions) window.hideTeacherSubjectSuggestions();
         syncRoleFieldVisibility();
         loadUsers();
@@ -1144,6 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
             parentsCache = data.users;
             renderParentOptions(parentsCache);
             updateParentSuggestions(parentsCache);
+            updateParentLinkBadge();
         }
     }
 

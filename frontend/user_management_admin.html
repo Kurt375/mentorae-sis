@@ -77,9 +77,9 @@
                     <div class="card stat-block p-2 text-center border-0 shadow-sm">
                         <div class="d-flex align-items-center justify-content-center gap-2 text-secondary mb-1">
                             <i class="bi bi-shield-check text-danger fs-5"></i>
-                            <span class="fw-semibold tiny-text text-dark">Staff</span>
+                            <span class="fw-semibold tiny-text text-dark">Admin</span>
                         </div>
-                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalStaff">...</h2>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="overviewTotalAdmins">...</h2>
                     </div>
                 </div>
             </section>
@@ -200,16 +200,27 @@
                                     <option value="aral">ARAL Program</option>
                                 </select>
                             </div>
-                            <div class="col-12">
+                            <div class="col-12 col-md-7">
                                 <label for="studentParentFullName" class="form-label text-dark fw-bold micro-text mb-1">
-                                    Parent Full Name <span class="text-muted fw-normal">(Type to see matching
-                                        suggestions)</span>
+                                    Parent Full Name <span class="text-muted fw-normal">(Type to search or add new)</span>
                                 </label>
                                 <input type="text" class="form-control form-input" id="studentParentFullName"
                                     list="parentSuggestionsList" placeholder="E.g., Maria Dela Cruz" autocomplete="off">
                                 <datalist id="parentSuggestionsList"></datalist>
-                                <div class="form-text micro-text text-muted">Suggestions update as you type names of
-                                    registered parents. This links the two accounts for grades and attendance updates.
+                                <div class="mt-1" id="parentLinkStatusWrap">
+                                    <div class="form-text micro-text text-muted" id="parentLinkHelpText">
+                                        Type parent name. If already registered, it links them; if new, a Parent account will be automatically created.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-5">
+                                <label for="studentParentContactNumber" class="form-label text-dark fw-bold micro-text mb-1">
+                                    Parent Contact Number <span class="text-muted fw-normal">(Optional)</span>
+                                </label>
+                                <input type="text" class="form-control form-input" id="studentParentContactNumber"
+                                    placeholder="E.g., 0912 345 6789">
+                                <div class="form-text micro-text text-muted">
+                                    Used for school SMS/gate notifications and parent login.
                                 </div>
                             </div>
                         </div>
@@ -245,12 +256,14 @@
                             </div>
                             <div class="col-12 col-md-8">
                                 <label for="teacherSubjects" class="form-label text-dark fw-bold micro-text mb-1">
-                                    Subjects Handled <span class="text-muted fw-normal">(Type to search and select)</span>
+                                    Subjects Handled <span class="text-muted fw-normal">(Type to search and
+                                        select)</span>
                                 </label>
                                 <div class="position-relative">
                                     <input type="text" class="form-control form-input" id="teacherSubjects"
                                         placeholder="Type subject name e.g., Biology, Gen Math..." autocomplete="off">
-                                    <div id="subjectSuggestionsDropdown" class="autocomplete-dropdown shadow-sm rounded-2 d-none"></div>
+                                    <div id="subjectSuggestionsDropdown"
+                                        class="autocomplete-dropdown shadow-sm rounded-2 d-none"></div>
                                 </div>
                             </div>
                         </div>
@@ -264,18 +277,24 @@
                     <!-- Credentials & Password (Common to All Roles) -->
                     <div class="row g-3 credentials-row mb-2 pt-2 border-top">
                         <div class="col-12 col-md-4">
-                            <label for="generatedId" class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate" id="idFieldLabel" title="Learner Reference Number (LRN)">
+                            <label for="generatedId"
+                                class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate"
+                                id="idFieldLabel" title="Learner Reference Number (LRN)">
                                 Learner Reference Number (LRN) <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
                                 <input type="text" class="form-control form-input rounded-end" id="generatedId"
                                     placeholder="Enter 12-digit Student LRN..." maxlength="20" required>
-                                <button class="btn btn-success border d-none" type="button" id="btnTriggerId">Generate</button>
+                                <button class="btn btn-success border d-none" type="button"
+                                    id="btnTriggerId">Generate</button>
                             </div>
-                            <div class="form-text micro-text text-muted mt-1" id="idFieldHelpText">Enter student's official 12-digit DepEd LRN.</div>
+                            <div class="form-text micro-text text-muted mt-1" id="idFieldHelpText">Enter student's
+                                official 12-digit DepEd LRN.</div>
                         </div>
                         <div class="col-12 col-md-4">
-                            <label for="generatedEmail" class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate" title="Generated Email">
+                            <label for="generatedEmail"
+                                class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate"
+                                title="Generated Email">
                                 Generated Email <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
@@ -286,7 +305,9 @@
                             </div>
                         </div>
                         <div class="col-12 col-md-4">
-                            <label for="createUserPassword" class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate" title="Password (auto-generated if blank)">
+                            <label for="createUserPassword"
+                                class="form-label text-dark fw-bold micro-text mb-1 d-block text-truncate"
+                                title="Password (auto-generated if blank)">
                                 Password <span class="text-muted fw-normal">(auto-generated if blank)</span>
                             </label>
                             <div class="input-group">
@@ -593,12 +614,16 @@
                     <div class="row g-3 mb-3">
                         <div class="col-12 col-md-6" id="editLrnWrap">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label fw-bold micro-text mb-0" id="editLrnLabel">LRN / ID Number <span class="text-danger">*</span></label>
-                                <button type="button" class="btn btn-xs btn-outline-warning py-0 px-2 rounded-pill micro-text fw-semibold" id="btnModalResetPassword" title="Reset password to default (ID/LRN)">
+                                <label class="form-label fw-bold micro-text mb-0" id="editLrnLabel">LRN / ID Number
+                                    <span class="text-danger">*</span></label>
+                                <button type="button"
+                                    class="btn btn-xs btn-outline-warning py-0 px-2 rounded-pill micro-text fw-semibold"
+                                    id="btnModalResetPassword" title="Reset password to default (ID/LRN)">
                                     <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default PW
                                 </button>
                             </div>
-                            <input type="text" class="form-control form-input" id="editIdNumber" placeholder="LRN / ID Number" required>
+                            <input type="text" class="form-control form-input" id="editIdNumber"
+                                placeholder="LRN / ID Number" required>
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-bold micro-text mb-1">Email</label>
@@ -660,7 +685,8 @@
                             <span class="fw-bold text-success d-flex align-items-center gap-1.5">
                                 <i class="bi bi-check-circle-fill"></i> Unified Multi-Tab Workbook
                             </span>
-                            <a href="#" id="btnDownloadTemplate" class="btn btn-sm btn-success fw-semibold d-inline-flex align-items-center gap-1 text-white shadow-xs">
+                            <a href="#" id="btnDownloadTemplate"
+                                class="btn btn-sm btn-success fw-semibold d-inline-flex align-items-center gap-1 text-white shadow-xs">
                                 <i class="bi bi-file-earmark-arrow-down"></i> Download Mentorae Template (.xlsx)
                             </a>
                         </div>
@@ -668,14 +694,17 @@
                             Upload your Google Sheet export or Mentorae template. The system automatically reads:
                         </p>
                         <ul class="text-muted small mb-0 ps-3">
-                            <li><strong>Student/Parent Tab:</strong> Creates Student accounts, creates Parent accounts, and links them together automatically.</li>
-                            <li><strong>Teacher Tab:</strong> Creates Teacher accounts, designates Advisory Section, and assigns Subjects Handled.</li>
+                            <li><strong>Student/Parent Tab:</strong> Creates Student accounts, creates Parent accounts,
+                                and links them together automatically.</li>
+                            <li><strong>Teacher Tab:</strong> Creates Teacher accounts, designates Advisory Section, and
+                                assigns Subjects Handled.</li>
                         </ul>
                     </div>
 
                     <div class="row g-3 mb-3 align-items-end">
                         <div class="col-12 col-md-5">
-                            <label for="bulkImportModeSelect" class="form-label text-xs fw-bold text-uppercase text-muted mb-1">
+                            <label for="bulkImportModeSelect"
+                                class="form-label text-xs fw-bold text-uppercase text-muted mb-1">
                                 Import Scope
                             </label>
                             <select class="form-select form-select-sm fw-semibold" id="bulkImportModeSelect">
@@ -685,15 +714,19 @@
                             </select>
                         </div>
                         <div class="col-12 col-md-7">
-                            <label for="bulkImportFileInput" class="form-label text-xs fw-bold text-uppercase text-muted mb-1">
+                            <label for="bulkImportFileInput"
+                                class="form-label text-xs fw-bold text-uppercase text-muted mb-1">
                                 Select Spreadsheet File (.xlsx, .xls, .csv)
                             </label>
-                            <input type="file" id="bulkImportFileInput" accept=".xlsx,.xls,.csv" class="form-control form-control-sm">
+                            <input type="file" id="bulkImportFileInput" accept=".xlsx,.xls,.csv"
+                                class="form-control form-control-sm">
                         </div>
                     </div>
 
                     <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-success fw-semibold px-4 d-inline-flex align-items-center gap-2" id="btnRunBulkImport">
+                        <button type="button"
+                            class="btn btn-success fw-semibold px-4 d-inline-flex align-items-center gap-2"
+                            id="btnRunBulkImport">
                             <i class="bi bi-upload"></i> Start Bulk Import
                         </button>
                     </div>
