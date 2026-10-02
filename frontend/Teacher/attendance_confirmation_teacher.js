@@ -20,6 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const lockBannerIcon = document.getElementById('lockBannerIcon');
     const lockBannerTitle = document.getElementById('lockBannerTitle');
     const lockBannerMessage = document.getElementById('lockBannerMessage');
+    const finishBanner = document.getElementById('confirmationFinishedBanner');
+    const finishBannerMessage = document.getElementById('finishBannerMessage');
+    const closeFinishBannerBtn = document.getElementById('closeFinishBannerBtn');
+    const btnFinish = document.getElementById('btnFinishAttendance');
+
+    if (closeFinishBannerBtn) {
+        closeFinishBannerBtn.addEventListener('click', () => {
+            if (finishBanner) finishBanner.classList.add('d-none');
+        });
+    }
 
     let currentRoster = [];
     let sessionAllowed = false;
@@ -119,6 +129,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function resetFinishButton() {
+        if (!btnFinish) return;
+        btnFinish.disabled = false;
+        btnFinish.className = 'btn btn-finish-action px-5 py-2.5 fw-bold fs-5 shadow-sm';
+        btnFinish.innerHTML = 'Finish';
+    }
+
+    function setFinishedButtonState() {
+        if (!btnFinish) return;
+        btnFinish.disabled = false;
+        btnFinish.className = 'btn btn-success px-5 py-2.5 fw-bold fs-5 shadow-sm';
+        btnFinish.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Confirmed &amp; Finished';
+    }
+
     async function loadRoster(sectionId) {
         const data = await authedFetch(`/api/attendance/confirmation?sectionId=${sectionId}`, token);
         currentRoster = data.success ? data.roster : [];
@@ -128,6 +152,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateSectionHeaderAndView(isCurrentAdvisory);
         renderRoster(currentRoster);
+
+        if (data.allTimeOutsConfirmed) {
+            setFinishedButtonState();
+        } else {
+            resetFinishButton();
+        }
     }
 
     function renderRoster(roster) {
@@ -155,14 +185,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                 `;
 
-                const outLabel = s.timeOut ? (s.timeOutStatus === 'excused' ? 'Left early' : 'Out') + ` (${s.timeOut.slice(0, 5)})` : '—';
-                const outConfirmBtn = s.timeOut
-                    ? `<button class="btn btn-sm btn-outline-primary ms-1 py-0 px-2 confirm-out-btn" data-id="${s.id}">Confirm</button>`
-                    : '';
+                let outContent = '—';
+                if (s.timeOut) {
+                    const outLabel = (s.timeOutStatus === 'excused' ? 'Left early' : 'Out') + ` (${s.timeOut.slice(0, 5)})`;
+                    const badgeClass = outBadgeClass[s.timeOutStatus] || 'bg-secondary-subtle text-secondary';
+                    const confirmedBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2" title="Time-out confirmed"><i class="bi bi-check-circle-fill me-1"></i>Confirmed</span>`;
+                    const confirmBtn = `<button class="btn btn-sm btn-outline-primary py-0 px-2 confirm-out-btn" data-id="${s.id}" ${sessionAllowed ? '' : 'disabled'}>Confirm</button>`;
+
+                    outContent = `
+                        <div class="d-inline-flex align-items-center justify-content-center gap-1 flex-wrap">
+                            <span class="badge ${badgeClass}" id="out-${s.id}">${outLabel}</span>
+                            ${s.timeOutConfirmed ? confirmedBadge : confirmBtn}
+                        </div>
+                    `;
+                }
                 timeOutCell = `
                     <td class="px-4 py-3 text-center">
-                        <span class="badge ${outBadgeClass[s.timeOutStatus] || 'bg-secondary-subtle text-secondary'}" id="out-${s.id}">${outLabel}</span>
-                        ${outConfirmBtn}
+                        ${outContent}
                     </td>
                 `;
             }
@@ -199,16 +238,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function confirmOut(studentId) {
         const sectionId = sectionFilter.value;
-        const data = await authedFetch('/api/attendance/confirm-out', token, {
-            method: 'POST',
-            body: JSON.stringify({ studentId, sectionId }),
-        });
-        if (!data.success) {
-            alert(data.message);
-            return;
-        }
         const btn = tbody.querySelector(`.confirm-out-btn[data-id="${studentId}"]`);
-        if (btn) btn.remove();
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span>`;
+        }
+        try {
+            const data = await authedFetch('/api/attendance/confirm-out', token, {
+                method: 'POST',
+                body: JSON.stringify({ studentId, sectionId }),
+            });
+            if (!data.success) {
+                alert(data.message || 'Could not confirm time-out.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Confirm';
+                }
+                return;
+            }
+
+            // Update in-memory roster so search/filtering and re-renders keep confirmed state
+            const student = currentRoster.find(s => s.id == studentId);
+            if (student) {
+                student.timeOutConfirmed = true;
+            }
+
+            // Replace button with Confirmed badge
+            if (btn) {
+                const confirmedBadge = document.createElement('span');
+                confirmedBadge.className = 'badge bg-success-subtle text-success border border-success-subtle py-1 px-2';
+                confirmedBadge.title = 'Time-out confirmed';
+                confirmedBadge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Confirmed';
+                btn.replaceWith(confirmedBadge);
+            }
+
+            const hasPending = currentRoster.some(s => s.timeOut && !s.timeOutConfirmed);
+            if (!hasPending && currentRoster.some(s => s.timeOut)) {
+                setFinishedButtonState();
+            }
+        } catch (err) {
+            console.error('confirmOut error:', err);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Confirm';
+            }
+            alert('An error occurred while confirming time-out.');
+        }
     }
 
     async function setStatus(studentId, status) {
@@ -218,13 +293,17 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({ studentId, status, sectionId }),
         });
         if (!data.success) {
-            alert(data.message);
+            alert(data.message || 'Could not update attendance.');
             return;
         }
         const badge = document.getElementById(`status-${studentId}`);
         if (badge) {
             badge.className = `badge ${statusBadgeClass[status] || ''}`;
             badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+        const student = currentRoster.find(s => s.id == studentId);
+        if (student) {
+            student.status = status;
         }
     }
 
@@ -245,12 +324,73 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadRoster(sectionId);
     }
 
-    sectionFilter.addEventListener('change', refresh);
-
-    document.getElementById('btnFinishAttendance').addEventListener('click', () => {
-        alert('Attendance confirmation complete for this session.');
-        window.location.href = 'dashboard_teacher.html';
+    sectionFilter.addEventListener('change', () => {
+        if (finishBanner) finishBanner.classList.add('d-none');
+        resetFinishButton();
+        refresh();
     });
+
+    if (btnFinish) {
+        btnFinish.addEventListener('click', async () => {
+            const sectionId = sectionFilter.value;
+            if (!sectionId) return;
+
+            const secName = sectionFilter.options[sectionFilter.selectedIndex]?.text || 'this section';
+
+            btnFinish.disabled = true;
+            btnFinish.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span>Finalizing...`;
+
+            try {
+                const data = await authedFetch('/api/attendance/finish-section', token, {
+                    method: 'POST',
+                    body: JSON.stringify({ sectionId }),
+                });
+
+                if (!data.success) {
+                    alert(data.message || 'Could not finalize attendance confirmation.');
+                    resetFinishButton();
+                    return;
+                }
+
+                // Mark all time-outs as confirmed in local state
+                currentRoster.forEach(s => {
+                    if (s.timeOut) {
+                        s.timeOutConfirmed = true;
+                    }
+                });
+
+                // Re-render so all buttons change to Confirmed badges immediately
+                const term = searchBar.value.toLowerCase();
+                if (term) {
+                    renderRoster(currentRoster.filter(s =>
+                        s.name.toLowerCase().includes(term) ||
+                        s.idNumber.toLowerCase().includes(term) ||
+                        s.strand.toLowerCase().includes(term) ||
+                        s.status.toLowerCase().includes(term)
+                    ));
+                } else {
+                    renderRoster(currentRoster);
+                }
+
+                setFinishedButtonState();
+
+                if (finishBanner) {
+                    finishBanner.classList.remove('d-none');
+                    if (finishBannerMessage) {
+                        const extra = data.confirmedOutsCount > 0
+                            ? ` Attendance verified and ${data.confirmedOutsCount} student time-out scan(s) confirmed.`
+                            : ' All student attendance and time-outs are up to date.';
+                        finishBannerMessage.innerHTML = `Attendance confirmation for <strong>${secName}</strong> is finished and saved for today.${extra}`;
+                    }
+                    finishBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            } catch (err) {
+                console.error('finishSection error:', err);
+                alert('An error occurred while finalizing attendance confirmation.');
+                resetFinishButton();
+            }
+        });
+    }
 
     wireLogout('logoutBtn', '../login.html', token);
 

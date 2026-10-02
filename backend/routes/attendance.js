@@ -9,6 +9,7 @@ const {
   getConfirmationRoster,
   confirmAttendance,
   confirmAttendanceOut,
+  finishSectionConfirmation,
   getSummary,
   getHistory,
   submitExcuseNote,
@@ -23,6 +24,7 @@ router.get('/session-status', requireAuth, requireRole('teacher'), getSessionSta
 router.get('/confirmation', requireAuth, requireRole('teacher', 'admin'), getConfirmationRoster);
 router.post('/confirm', requireAuth, requireRole('teacher'), confirmAttendance);
 router.post('/confirm-out', requireAuth, requireRole('teacher'), confirmAttendanceOut);
+router.post('/finish-section', requireAuth, requireRole('teacher'), finishSectionConfirmation);
 router.get('/summary', requireAuth, getSummary);
 router.get('/history', requireAuth, getHistory);
 

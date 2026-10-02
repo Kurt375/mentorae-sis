@@ -344,11 +344,10 @@ async function getConfirmationRoster(req, res) {
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
               st.code AS strandCode, sec.grade_level, sec.name AS sectionName,
-              a.status, a.scan_time, a.time_out, a.time_out_status
+              a.status, a.scan_time, a.time_out, a.time_out_status, a.confirmed_at, a.confirmed_by
        FROM users u
-       JOIN sections s ON s.id = u.section_id
        JOIN sections sec ON sec.id = u.section_id
-       JOIN strands st ON st.id = s.strand_id
+       JOIN strands st ON st.id = sec.strand_id
        LEFT JOIN attendance_logs a ON a.student_id = u.id AND a.scan_date = ?
        WHERE u.role = 'student' AND u.section_id = ?
        ORDER BY u.last_name`,
@@ -365,9 +364,14 @@ async function getConfirmationRoster(req, res) {
       timeIn: r.scan_time,
       timeOut: r.time_out,
       timeOutStatus: r.time_out_status,
+      timeOutConfirmed: Boolean(r.confirmed_at || r.confirmed_by),
+      confirmedAt: r.confirmed_at,
     }));
 
-    return res.json({ success: true, roster, isAdvisory: isAdviser });
+    const hasTimeOuts = rows.some((r) => r.time_out);
+    const allTimeOutsConfirmed = hasTimeOuts && rows.filter((r) => r.time_out).every((r) => r.confirmed_at || r.confirmed_by);
+
+    return res.json({ success: true, roster, isAdvisory: isAdviser, allTimeOutsConfirmed });
   } catch (err) {
     console.error('getConfirmationRoster error:', err);
     return res.status(500).json({ success: false, message: 'Could not load the attendance roster.' });
@@ -466,6 +470,10 @@ async function confirmAttendanceOut(req, res) {
       return res.status(400).json({ success: false, message: 'This student has no time-out scan to confirm yet.' });
     }
 
+    if (record.confirmed_at || record.confirmed_by) {
+      return res.json({ success: true, message: 'Time-out already confirmed.' });
+    }
+
     await pool.query('UPDATE attendance_logs SET confirmed_by = ?, confirmed_at = NOW() WHERE id = ?', [
       req.user.id,
       record.id,
@@ -498,6 +506,92 @@ async function confirmAttendanceOut(req, res) {
   } catch (err) {
     console.error('confirmAttendanceOut error:', err);
     return res.status(500).json({ success: false, message: 'Could not confirm the time-out scan.' });
+  }
+}
+
+/**
+ * POST /api/attendance/finish-section  { sectionId }
+ * Teacher finalizes attendance confirmation for a section for today.
+ * Confirms any remaining unconfirmed time-out scans and ensures daily absent records exist.
+ */
+async function finishSectionConfirmation(req, res) {
+  const { sectionId } = req.body;
+  if (!sectionId) {
+    return res.status(400).json({ success: false, message: 'sectionId is required.' });
+  }
+
+  try {
+    if (req.user.role === 'teacher') {
+      const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
+      const isAdviser = Boolean(sec && sec.adviser_id === req.user.id);
+      const teaches = await teacherTeachesSection(req.user.id, sectionId);
+      if (!teaches && !isAdviser) {
+        return res.status(403).json({ success: false, message: 'You do not teach or advise this section.' });
+      }
+    }
+
+    const today = getManilaDate();
+
+    // 1. Confirm any pending unconfirmed time-out scans for students in this section today
+    const [pendingOuts] = await pool.query(
+      `SELECT a.id, a.student_id, a.time_out, a.time_out_status
+       FROM attendance_logs a
+       JOIN users u ON u.id = a.student_id
+       WHERE u.section_id = ? AND a.scan_date = ? AND a.time_out IS NOT NULL AND a.confirmed_at IS NULL`,
+      [sectionId, today]
+    );
+
+    for (const record of pendingOuts) {
+      await pool.query('UPDATE attendance_logs SET confirmed_by = ?, confirmed_at = NOW() WHERE id = ?', [
+        req.user.id,
+        record.id,
+      ]);
+      await logActivity(record.student_id, `Time-out scan (${record.time_out_status}) confirmed upon finishing attendance.`);
+
+      const parentIds = await getParentIdsForStudent(record.student_id);
+      const isEarly = record.time_out_status === 'excused';
+      await notifyMany(parentIds, {
+        type: isEarly ? 'attendance_excused' : 'attendance_out',
+        title: 'Attendance update',
+        message: isEarly
+          ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
+          : 'Your child has checked out for the day, confirmed by their teacher.',
+        relatedStudentId: record.student_id,
+      });
+
+      if (isEarly) {
+        const adviserId = await getAdviserIdForStudent(record.student_id);
+        await notify({
+          recipientId: adviserId,
+          type: 'adviser_early_leave',
+          title: 'Student left early',
+          message: `A student from your section left campus early today (${record.time_out}).`,
+          relatedStudentId: record.student_id,
+        });
+      }
+    }
+
+    // 2. Ensure all students in this section have a record for today (default absent if not scanned)
+    const [students] = await pool.query(
+      `SELECT id FROM users WHERE section_id = ? AND role = 'student'`,
+      [sectionId]
+    );
+    for (const s of students) {
+      await pool.query(
+        `INSERT IGNORE INTO attendance_logs (student_id, scanned_by, overridden_by, status, scan_date)
+         VALUES (?, ?, ?, 'absent', ?)`,
+        [s.id, req.user.id, req.user.id, today]
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'Attendance confirmation completed for this section.',
+      confirmedOutsCount: pendingOuts.length,
+    });
+  } catch (err) {
+    console.error('finishSectionConfirmation error:', err);
+    return res.status(500).json({ success: false, message: 'Could not finalize attendance confirmation.' });
   }
 }
 
@@ -709,6 +803,7 @@ module.exports = {
   getConfirmationRoster,
   confirmAttendance,
   confirmAttendanceOut,
+  finishSectionConfirmation,
   getSummary,
   getHistory,
   submitExcuseNote,
