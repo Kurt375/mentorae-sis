@@ -595,6 +595,101 @@ async function finishSectionConfirmation(req, res) {
   }
 }
 
+/**
+ * GET /api/attendance/section-daily-history?sectionId=&date=
+ * Returns the attendance log records for a section on a given date (defaults to today in Manila),
+ * with aggregated summary statistics (present, late, excused, absent, attendance rate).
+ */
+async function getSectionDailyHistory(req, res) {
+  const { sectionId, date } = req.query;
+  if (!sectionId) {
+    return res.status(400).json({ success: false, message: 'sectionId is required.' });
+  }
+
+  try {
+    if (req.user.role === 'teacher') {
+      const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
+      const isAdviser = Boolean(sec && sec.adviser_id === req.user.id);
+      const teaches = await teacherTeachesSection(req.user.id, sectionId);
+      if (!teaches && !isAdviser) {
+        return res.status(403).json({ success: false, message: 'You do not teach or advise this section.' });
+      }
+    }
+
+    const targetDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : getManilaDate();
+
+    const [rows] = await pool.query(
+      `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
+              st.code AS strandCode, sec.grade_level, sec.name AS sectionName,
+              a.status, a.scan_time, a.time_out, a.time_out_status, a.confirmed_at,
+              COALESCE(u_conf.first_name, u_over.first_name) AS verifier_first_name,
+              COALESCE(u_conf.last_name, u_over.last_name) AS verifier_last_name
+       FROM users u
+       JOIN sections sec ON sec.id = u.section_id
+       JOIN strands st ON st.id = sec.strand_id
+       LEFT JOIN attendance_logs a ON a.student_id = u.id AND a.scan_date = ?
+       LEFT JOIN users u_conf ON u_conf.id = a.confirmed_by
+       LEFT JOIN users u_over ON u_over.id = a.overridden_by
+       WHERE u.role = 'student' AND u.section_id = ?
+       ORDER BY u.last_name`,
+      [targetDate, sectionId]
+    );
+
+    let presentCount = 0;
+    let lateCount = 0;
+    let excusedCount = 0;
+    let absentCount = 0;
+
+    const records = rows.map((r) => {
+      const status = r.status || 'absent';
+      if (status === 'present') presentCount++;
+      else if (status === 'late') lateCount++;
+      else if (status === 'excused') excusedCount++;
+      else absentCount++;
+
+      const verifier = r.verifier_first_name
+        ? `${r.verifier_first_name} ${r.verifier_last_name}`
+        : null;
+
+      return {
+        id: r.id,
+        idNumber: r.id_number,
+        name: `${r.first_name} ${r.middle_initial ? r.middle_initial + ' ' : ''}${r.last_name}`,
+        strand: `Grade${r.grade_level}-${r.strandCode}`,
+        section: r.sectionName,
+        scanDate: targetDate,
+        timeIn: r.scan_time,
+        timeOut: r.time_out,
+        timeOutStatus: r.time_out_status,
+        status,
+        timeOutConfirmed: Boolean(r.confirmed_at),
+        verifier,
+      };
+    });
+
+    const totalStudents = records.length;
+    const attended = presentCount + lateCount;
+    const rate = totalStudents ? Math.round((attended / totalStudents) * 100) : 0;
+
+    return res.json({
+      success: true,
+      date: targetDate,
+      records,
+      stats: {
+        totalStudents,
+        presentCount,
+        lateCount,
+        excusedCount,
+        absentCount,
+        rate,
+      },
+    });
+  } catch (err) {
+    console.error('getSectionDailyHistory error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load section daily history.' });
+  }
+}
+
 /** GET /api/attendance/summary?studentId= */
 async function getSummary(req, res) {
   try {
@@ -804,6 +899,7 @@ module.exports = {
   confirmAttendance,
   confirmAttendanceOut,
   finishSectionConfirmation,
+  getSectionDailyHistory,
   getSummary,
   getHistory,
   submitExcuseNote,

@@ -10,6 +10,7 @@ const {
   confirmAttendance,
   confirmAttendanceOut,
   finishSectionConfirmation,
+  getSectionDailyHistory,
   getSummary,
   getHistory,
   submitExcuseNote,
@@ -25,6 +26,7 @@ router.get('/confirmation', requireAuth, requireRole('teacher', 'admin'), getCon
 router.post('/confirm', requireAuth, requireRole('teacher'), confirmAttendance);
 router.post('/confirm-out', requireAuth, requireRole('teacher'), confirmAttendanceOut);
 router.post('/finish-section', requireAuth, requireRole('teacher'), finishSectionConfirmation);
+router.get('/section-daily-history', requireAuth, requireRole('teacher', 'admin'), getSectionDailyHistory);
 router.get('/summary', requireAuth, getSummary);
 router.get('/history', requireAuth, getHistory);
 

@@ -106,10 +106,87 @@
             </div>
 
             <!-- Bottom Finish Action Button -->
-            <div class="d-flex justify-content-end mt-3 pb-2">
+            <div class="d-flex justify-content-end mt-3 pb-3 border-bottom">
                 <button type="button" class="btn btn-finish-action px-5 py-2.5 fw-bold fs-5 shadow-sm" id="btnFinishAttendance">
                     Finish
                 </button>
+            </div>
+
+            <!-- Daily Attendance Records & History (Stacked Below) -->
+            <div class="card border-0 shadow-sm rounded-3 bg-white mt-4 mb-4" id="dailyAttendanceHistorySection">
+                <div class="card-header bg-white border-bottom py-3 px-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="p-2 rounded-2 bg-success-subtle text-success">
+                                <i class="bi bi-calendar3 fs-5"></i>
+                            </span>
+                            <div>
+                                <h5 class="fw-bold m-0 text-dark">Daily Attendance Records &amp; History</h5>
+                                <p class="text-muted small m-0">Filter and view verified student attendance records by date</p>
+                            </div>
+                        </div>
+
+                        <!-- Date Controls -->
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <div class="d-flex align-items-center gap-1 bg-light border rounded-3 px-2 py-1">
+                                <label for="historyDateInput" class="small text-muted fw-semibold me-1 mb-0">
+                                    <i class="bi bi-calendar-event"></i> Date:
+                                </label>
+                                <input type="date" id="historyDateInput" class="form-control form-control-sm border-0 bg-transparent fw-medium" style="width: 140px;">
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnHistoryToday">Today</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnHistoryYesterday">Yesterday</button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats Bar & Filters -->
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 mt-3 border-top">
+                        <!-- Quick Stats Pills -->
+                        <div class="d-flex align-items-center gap-2 flex-wrap" id="historyStatsContainer">
+                            <span class="badge bg-secondary-subtle text-secondary py-1.5 px-3">Total: <strong id="statTotalStudents">0</strong></span>
+                            <span class="badge bg-success-subtle text-success py-1.5 px-3"><i class="bi bi-check-circle me-1"></i>Present: <strong id="statPresent">0</strong></span>
+                            <span class="badge bg-warning-subtle text-warning py-1.5 px-3"><i class="bi bi-clock me-1"></i>Late: <strong id="statLate">0</strong></span>
+                            <span class="badge bg-info-subtle text-info py-1.5 px-3"><i class="bi bi-info-circle me-1"></i>Excused: <strong id="statExcused">0</strong></span>
+                            <span class="badge bg-danger-subtle text-danger py-1.5 px-3"><i class="bi bi-x-circle me-1"></i>Absent: <strong id="statAbsent">0</strong></span>
+                            <span class="badge bg-primary-subtle text-primary py-1.5 px-3"><i class="bi bi-pie-chart me-1"></i>Rate: <strong id="statRate">0%</strong></span>
+                        </div>
+
+                        <!-- Search & Status Filter for History -->
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <div class="input-group input-group-sm" style="width: 200px;">
+                                <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="historySearchInput" placeholder="Filter student...">
+                            </div>
+                            <select class="form-select form-select-sm" id="historyStatusFilter" style="width: 140px;">
+                                <option value="all">All Statuses</option>
+                                <option value="present">Present</option>
+                                <option value="late">Late</option>
+                                <option value="excused">Excused</option>
+                                <option value="absent">Absent</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle m-0 text-sm db-record-table" id="attendanceHistoryTable">
+                        <thead>
+                            <tr class="table-header-row text-white">
+                                <th class="px-4 py-3 fw-semibold">Student ID</th>
+                                <th class="px-4 py-3 fw-semibold">Name</th>
+                                <th class="px-4 py-3 fw-semibold">Strand &amp; Section</th>
+                                <th class="px-4 py-3 fw-semibold text-center">Date</th>
+                                <th class="px-4 py-3 fw-semibold text-center">Time In</th>
+                                <th class="px-4 py-3 fw-semibold text-center">Time Out</th>
+                                <th class="px-4 py-3 fw-semibold text-center">Status</th>
+                                <th class="px-4 py-3 fw-semibold text-center">Verified By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceHistoryBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
         </main>

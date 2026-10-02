@@ -276,6 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!hasPending && currentRoster.some(s => s.timeOut)) {
                 setFinishedButtonState();
             }
+
+            // Sync bottom daily history table
+            loadDailyHistory();
         } catch (err) {
             console.error('confirmOut error:', err);
             if (btn) {
@@ -305,6 +308,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (student) {
             student.status = status;
         }
+
+        // Sync bottom daily history table
+        loadDailyHistory();
     }
 
     searchBar.addEventListener('input', () => {
@@ -322,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!sectionId) return;
         await checkSession(sectionId);
         await loadRoster(sectionId);
+        await loadDailyHistory();
     }
 
     sectionFilter.addEventListener('change', () => {
@@ -384,12 +391,163 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     finishBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
+
+                // Refresh history records below so it mirrors the finalized state
+                loadDailyHistory();
             } catch (err) {
                 console.error('finishSection error:', err);
                 alert('An error occurred while finalizing attendance confirmation.');
                 resetFinishButton();
             }
         });
+    }
+
+    // -------------------------------------------------------------
+    // Daily Attendance Records & History (Bottom Stacked Table)
+    // -------------------------------------------------------------
+    const historyDateInput = document.getElementById('historyDateInput');
+    const btnHistoryToday = document.getElementById('btnHistoryToday');
+    const btnHistoryYesterday = document.getElementById('btnHistoryYesterday');
+    const historySearchInput = document.getElementById('historySearchInput');
+    const historyStatusFilter = document.getElementById('historyStatusFilter');
+    const historyTbody = document.getElementById('attendanceHistoryBody');
+
+    const statTotalStudents = document.getElementById('statTotalStudents');
+    const statPresent = document.getElementById('statPresent');
+    const statLate = document.getElementById('statLate');
+    const statExcused = document.getElementById('statExcused');
+    const statAbsent = document.getElementById('statAbsent');
+    const statRate = document.getElementById('statRate');
+
+    let currentHistoryRecords = [];
+
+    function toISODate(d) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    if (historyDateInput) {
+        historyDateInput.value = toISODate(new Date());
+    }
+
+    async function loadDailyHistory() {
+        const sectionId = sectionFilter.value;
+        const dateVal = historyDateInput ? historyDateInput.value : toISODate(new Date());
+        if (!sectionId || !dateVal) return;
+
+        try {
+            const data = await authedFetch(`/api/attendance/section-daily-history?sectionId=${sectionId}&date=${dateVal}`, token);
+            if (!data.success) {
+                if (historyTbody) {
+                    historyTbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">${data.message || 'Could not load records.'}</td></tr>`;
+                }
+                return;
+            }
+
+            currentHistoryRecords = data.records || [];
+
+            if (data.stats) {
+                if (statTotalStudents) statTotalStudents.textContent = data.stats.totalStudents || 0;
+                if (statPresent) statPresent.textContent = data.stats.presentCount || 0;
+                if (statLate) statLate.textContent = data.stats.lateCount || 0;
+                if (statExcused) statExcused.textContent = data.stats.excusedCount || 0;
+                if (statAbsent) statAbsent.textContent = data.stats.absentCount || 0;
+                if (statRate) statRate.textContent = `${data.stats.rate || 0}%`;
+            }
+
+            applyHistoryFiltersAndRender();
+        } catch (err) {
+            console.error('loadDailyHistory error:', err);
+        }
+    }
+
+    function applyHistoryFiltersAndRender() {
+        if (!historyTbody) return;
+        const searchTerm = historySearchInput ? historySearchInput.value.toLowerCase().trim() : '';
+        const statusVal = historyStatusFilter ? historyStatusFilter.value : 'all';
+
+        const filtered = currentHistoryRecords.filter(r => {
+            const matchesSearch = !searchTerm ||
+                r.name.toLowerCase().includes(searchTerm) ||
+                r.idNumber.toLowerCase().includes(searchTerm) ||
+                r.strand.toLowerCase().includes(searchTerm);
+            const matchesStatus = statusVal === 'all' || r.status === statusVal;
+            return matchesSearch && matchesStatus;
+        });
+
+        if (!filtered.length) {
+            historyTbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-calendar-x fs-3 d-block mb-1 text-secondary opacity-50"></i>No attendance records found for this date.</td></tr>`;
+            return;
+        }
+
+        historyTbody.innerHTML = filtered.map(r => {
+            const statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+            const statusBadge = `<span class="badge ${statusBadgeClass[r.status] || 'bg-secondary-subtle text-secondary'}">${statusLabel}</span>`;
+            const timeInFormatted = r.timeIn ? r.timeIn.slice(0, 5) : '—';
+
+            let timeOutHtml = '—';
+            if (r.timeOut) {
+                const outLabel = (r.timeOutStatus === 'excused' ? 'Left early' : 'Out') + ` (${r.timeOut.slice(0, 5)})`;
+                const confirmedBadge = r.timeOutConfirmed
+                    ? `<span class="badge bg-success-subtle text-success border border-success-subtle ms-1 py-0.5 px-1.5"><i class="bi bi-check-circle-fill"></i> Confirmed</span>`
+                    : '';
+                timeOutHtml = `<div class="d-inline-flex align-items-center justify-content-center gap-1 flex-wrap"><span class="badge ${outBadgeClass[r.timeOutStatus] || 'bg-secondary-subtle text-secondary'}">${outLabel}</span>${confirmedBadge}</div>`;
+            }
+
+            const verifierHtml = r.verifier
+                ? `<span class="small fw-medium text-dark"><i class="bi bi-person-check me-1 text-success"></i>${r.verifier}</span>`
+                : `<span class="text-muted small">Auto/System</span>`;
+
+            let formattedDate = r.scanDate;
+            try {
+                const [y, m, d] = r.scanDate.split('-').map(Number);
+                const dObj = new Date(y, m - 1, d);
+                formattedDate = dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (_) {}
+
+            return `
+                <tr>
+                    <td class="px-4 py-3">${r.idNumber}</td>
+                    <td class="px-4 py-3 fw-medium">${r.name}</td>
+                    <td class="px-4 py-3">${r.strand} - ${r.section}</td>
+                    <td class="px-4 py-3 text-center font-monospace small">${formattedDate}</td>
+                    <td class="px-4 py-3 text-center"><span class="badge ${r.timeIn ? 'bg-light text-dark border' : 'bg-secondary-subtle text-secondary'} font-monospace">${timeInFormatted}</span></td>
+                    <td class="px-4 py-3 text-center">${timeOutHtml}</td>
+                    <td class="px-4 py-3 text-center">${statusBadge}</td>
+                    <td class="px-4 py-3 text-center">${verifierHtml}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (historyDateInput) {
+        historyDateInput.addEventListener('change', loadDailyHistory);
+    }
+    if (btnHistoryToday) {
+        btnHistoryToday.addEventListener('click', () => {
+            if (historyDateInput) {
+                historyDateInput.value = toISODate(new Date());
+                loadDailyHistory();
+            }
+        });
+    }
+    if (btnHistoryYesterday) {
+        btnHistoryYesterday.addEventListener('click', () => {
+            if (historyDateInput) {
+                const yest = new Date();
+                yest.setDate(yest.getDate() - 1);
+                historyDateInput.value = toISODate(yest);
+                loadDailyHistory();
+            }
+        });
+    }
+    if (historySearchInput) {
+        historySearchInput.addEventListener('input', applyHistoryFiltersAndRender);
+    }
+    if (historyStatusFilter) {
+        historyStatusFilter.addEventListener('change', applyHistoryFiltersAndRender);
     }
 
     wireLogout('logoutBtn', '../login.html', token);
