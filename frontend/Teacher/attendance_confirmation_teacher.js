@@ -41,12 +41,34 @@ document.addEventListener('DOMContentLoaded', () => {
             sectionFilter.innerHTML = '<option>No sections assigned</option>';
             return;
         }
-        sectionFilter.innerHTML = data.sections.map(s => {
-            const isAdv = Boolean(s.isAdvisory);
-            const icon = isAdv ? '⭐ ' : '';
-            const role = isAdv ? ' (Advisory)' : '';
-            return `<option value="${s.id}" data-advisory="${isAdv ? '1' : '0'}">${icon}${s.name}${role}</option>`;
-        }).join('');
+
+        const advisory = data.sections.filter(s => Boolean(s.isAdvisory));
+        const subjects = data.sections.filter(s => !Boolean(s.isAdvisory));
+
+        let html = '';
+        if (advisory.length) {
+            html += `<optgroup label="⭐ My Advisory Class">`;
+            advisory.forEach(s => {
+                const subText = s.subjectsTaught ? ` — ${s.subjectsTaught}` : '';
+                html += `<option value="${s.id}" data-advisory="1" data-subjects="${s.subjectsTaught || ''}">
+                    ⭐ ${s.name} (Grade ${s.grade_level}-${s.strandCode})${subText}
+                </option>`;
+            });
+            html += `</optgroup>`;
+        }
+
+        if (subjects.length) {
+            html += `<optgroup label="📚 Subject Classes Handled">`;
+            subjects.forEach(s => {
+                const subText = s.subjectsTaught ? ` — ${s.subjectsTaught}` : '';
+                html += `<option value="${s.id}" data-advisory="0" data-subjects="${s.subjectsTaught || ''}">
+                    ${s.name} (Grade ${s.grade_level}-${s.strandCode})${subText}
+                </option>`;
+            });
+            html += `</optgroup>`;
+        }
+
+        sectionFilter.innerHTML = html;
         refresh();
     }
 
@@ -78,23 +100,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function updateSectionHeaderAndView(isAdvisory) {
+        const selectedOpt = sectionFilter.options[sectionFilter.selectedIndex];
+        const subjectsTaught = selectedOpt?.dataset.subjects;
+
         if (sectionTypeBadgeWrap) {
             if (isAdvisory) {
+                const advisorySubNote = subjectsTaught ? ` &bull; Taught: ${subjectsTaught}` : '';
                 sectionTypeBadgeWrap.innerHTML = `
                     <div class="section-mode-pill">
                         <span class="pill-tag bg-success text-white shadow-sm">
                             <i class="bi bi-star-fill text-warning"></i> Advisory Class
                         </span>
-                        <span class="pill-desc">Daily Time In &amp; Time Out</span>
+                        <span class="pill-desc">Daily Time In &amp; Time Out${advisorySubNote}</span>
                     </div>
                 `;
             } else {
+                const subjectLabel = subjectsTaught ? `Taught: ${subjectsTaught}` : 'Period Attendance Only';
                 sectionTypeBadgeWrap.innerHTML = `
                     <div class="section-mode-pill">
                         <span class="pill-tag bg-primary text-white shadow-sm">
-                            <i class="bi bi-book-half"></i> Subject Class
+                            <i class="bi bi-book-half"></i> Subject Class Handled
                         </span>
-                        <span class="pill-desc">Period Attendance Only</span>
+                        <span class="pill-desc">${subjectLabel}</span>
                     </div>
                 `;
             }

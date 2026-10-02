@@ -118,25 +118,32 @@ async function getRosterOverview(req, res) {
   }
 }
 
-/** GET /api/classes/my-sections — sections this teacher has a schedule in (for the filter dropdowns) */
+/** GET /api/classes/my-sections — sections this teacher has a schedule in or advises (for the filter dropdowns) */
 async function getMySections(req, res) {
   try {
     let [rows] = await pool.query(
-      `SELECT DISTINCT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
-              IF(sec.adviser_id = ?, 1, 0) AS isAdvisory
+      `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
+              IF(sec.adviser_id = ?, 1, 0) AS isAdvisory,
+              GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') AS subjectsTaught
        FROM sections sec
        JOIN strands st ON st.id = sec.strand_id
        LEFT JOIN schedules sch ON sch.section_id = sec.id AND sch.teacher_id = ?
+       LEFT JOIN subjects sub ON sub.id = sch.subject_id
        WHERE sch.teacher_id = ? OR sec.adviser_id = ?
+       GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id
        ORDER BY isAdvisory DESC, st.code, sec.grade_level, sec.name`,
       [req.user.id, req.user.id, req.user.id, req.user.id]
     );
     if (!rows.length || req.user.role === 'admin') {
       [rows] = await pool.query(
-        `SELECT DISTINCT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
-                IF(sec.adviser_id = ?, 1, 0) AS isAdvisory
+        `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
+                IF(sec.adviser_id = ?, 1, 0) AS isAdvisory,
+                GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') AS subjectsTaught
          FROM sections sec
          JOIN strands st ON st.id = sec.strand_id
+         LEFT JOIN schedules sch ON sch.section_id = sec.id
+         LEFT JOIN subjects sub ON sub.id = sch.subject_id
+         GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id
          ORDER BY isAdvisory DESC, st.code, sec.grade_level, sec.name`,
         [req.user.id]
       );
