@@ -107,23 +107,29 @@
     font-weight: 500;
     color: var(--text-dark);
     background-color: #ffffff;
-    min-width: 260px;
-    max-width: 440px;
+    min-width: 220px;
+    max-width: 320px;
     cursor: pointer;
 }
 
-.custom-filter-dropdown optgroup {
+#historySectionFilter {
+    cursor: pointer;
+    font-size: 0.86rem;
+    color: var(--text-dark);
+}
+
+#historySectionFilter optgroup {
     font-weight: 700;
     color: var(--mentorae-green);
     background-color: #f8fafc;
-    padding: 6px 0;
+    padding: 4px 0;
 }
 
-.custom-filter-dropdown option {
+#historySectionFilter option {
     font-weight: 400;
     color: var(--text-dark);
     background-color: #ffffff;
-    padding: 4px 8px;
+    padding: 3px 6px;
 }
 
 .custom-filter-dropdown:focus {

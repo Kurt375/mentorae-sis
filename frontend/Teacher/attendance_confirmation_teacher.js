@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateDateTime, 1000);
 
     const sectionFilter = document.getElementById('filterSection');
+    const historySectionFilter = document.getElementById('historySectionFilter');
     const searchBar = document.getElementById('searchBar');
     const tbody = document.getElementById('attendanceConfirmationBody');
     const thead = document.getElementById('attendanceConfirmationHead');
@@ -39,36 +40,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await authedFetch('/api/classes/my-sections', token);
         if (!data.success || !data.sections.length) {
             sectionFilter.innerHTML = '<option>No sections assigned</option>';
+            if (historySectionFilter) historySectionFilter.innerHTML = '<option>No sections assigned</option>';
             return;
         }
 
-        const advisory = data.sections.filter(s => Boolean(s.isAdvisory));
-        const subjects = data.sections.filter(s => !Boolean(s.isAdvisory));
+        // Top confirmation table: clean simple sections
+        sectionFilter.innerHTML = data.sections.map(s => {
+            const isAdv = Boolean(s.isAdvisory);
+            const icon = isAdv ? '⭐ ' : '';
+            const role = isAdv ? ' (Advisory)' : '';
+            return `<option value="${s.id}" data-advisory="${isAdv ? '1' : '0'}">${icon}${s.name}${role}</option>`;
+        }).join('');
 
-        let html = '';
-        if (advisory.length) {
-            html += `<optgroup label="⭐ My Advisory Class">`;
-            advisory.forEach(s => {
-                const subText = s.subjectsTaught ? ` — ${s.subjectsTaught}` : '';
-                html += `<option value="${s.id}" data-advisory="1" data-subjects="${s.subjectsTaught || ''}">
-                    ⭐ ${s.name} (Grade ${s.grade_level}-${s.strandCode})${subText}
-                </option>`;
-            });
-            html += `</optgroup>`;
+        // Bottom Daily Attendance Records & History: rich Section Handled dropdown
+        if (historySectionFilter) {
+            const advisory = data.sections.filter(s => Boolean(s.isAdvisory));
+            const subjects = data.sections.filter(s => !Boolean(s.isAdvisory));
+
+            let histHtml = '';
+            if (advisory.length) {
+                histHtml += `<optgroup label="⭐ My Advisory Class">`;
+                advisory.forEach(s => {
+                    const subText = s.subjectsTaught ? ` — ${s.subjectsTaught}` : '';
+                    histHtml += `<option value="${s.id}">⭐ ${s.name} (Grade ${s.grade_level}-${s.strandCode})${subText}</option>`;
+                });
+                histHtml += `</optgroup>`;
+            }
+
+            if (subjects.length) {
+                histHtml += `<optgroup label="📚 Subject Classes Handled">`;
+                subjects.forEach(s => {
+                    const subText = s.subjectsTaught ? ` — ${s.subjectsTaught}` : '';
+                    histHtml += `<option value="${s.id}">${s.name} (Grade ${s.grade_level}-${s.strandCode})${subText}</option>`;
+                });
+                histHtml += `</optgroup>`;
+            }
+
+            historySectionFilter.innerHTML = histHtml || '<option>No sections assigned</option>';
+            if (sectionFilter.value) {
+                historySectionFilter.value = sectionFilter.value;
+            }
         }
 
-        if (subjects.length) {
-            html += `<optgroup label="📚 Subject Classes Handled">`;
-            subjects.forEach(s => {
-                const subText = s.subjectsTaught ? ` — ${s.subjectsTaught}` : '';
-                html += `<option value="${s.id}" data-advisory="0" data-subjects="${s.subjectsTaught || ''}">
-                    ${s.name} (Grade ${s.grade_level}-${s.strandCode})${subText}
-                </option>`;
-            });
-            html += `</optgroup>`;
-        }
-
-        sectionFilter.innerHTML = html;
         refresh();
     }
 
@@ -100,28 +113,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function updateSectionHeaderAndView(isAdvisory) {
-        const selectedOpt = sectionFilter.options[sectionFilter.selectedIndex];
-        const subjectsTaught = selectedOpt?.dataset.subjects;
-
         if (sectionTypeBadgeWrap) {
             if (isAdvisory) {
-                const advisorySubNote = subjectsTaught ? ` &bull; Taught: ${subjectsTaught}` : '';
                 sectionTypeBadgeWrap.innerHTML = `
                     <div class="section-mode-pill">
                         <span class="pill-tag bg-success text-white shadow-sm">
                             <i class="bi bi-star-fill text-warning"></i> Advisory Class
                         </span>
-                        <span class="pill-desc">Daily Time In &amp; Time Out${advisorySubNote}</span>
+                        <span class="pill-desc">Daily Time In &amp; Time Out</span>
                     </div>
                 `;
             } else {
-                const subjectLabel = subjectsTaught ? `Taught: ${subjectsTaught}` : 'Period Attendance Only';
                 sectionTypeBadgeWrap.innerHTML = `
                     <div class="section-mode-pill">
                         <span class="pill-tag bg-primary text-white shadow-sm">
-                            <i class="bi bi-book-half"></i> Subject Class Handled
+                            <i class="bi bi-book-half"></i> Subject Class
                         </span>
-                        <span class="pill-desc">${subjectLabel}</span>
+                        <span class="pill-desc">Period Attendance Only</span>
                     </div>
                 `;
             }
@@ -361,6 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
     sectionFilter.addEventListener('change', () => {
         if (finishBanner) finishBanner.classList.add('d-none');
         resetFinishButton();
+        if (historySectionFilter) {
+            historySectionFilter.value = sectionFilter.value;
+        }
         refresh();
     });
 
@@ -460,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadDailyHistory() {
-        const sectionId = sectionFilter.value;
+        const sectionId = (historySectionFilter && historySectionFilter.value) || sectionFilter.value;
         const dateVal = historyDateInput ? historyDateInput.value : toISODate(new Date());
         if (!sectionId || !dateVal) return;
 
@@ -549,6 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
+    if (historySectionFilter) {
+        historySectionFilter.addEventListener('change', loadDailyHistory);
+    }
     if (historyDateInput) {
         historyDateInput.addEventListener('change', loadDailyHistory);
     }
