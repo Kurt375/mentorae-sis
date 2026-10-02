@@ -501,30 +501,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 allSubjects.sort((a, b) => a.name.localeCompare(b.name));
                 saveSubjects(allSubjects);
 
-                let dynamicAssigned = teacherAssignedClasses;
                 try {
-                    const [mySubData, mySecData] = await Promise.all([
-                        authedFetch('/api/classes/my-subjects', token),
-                        authedFetch('/api/classes/my-sections', token)
-                    ]);
-                    if (mySubData && mySubData.success && Array.isArray(mySubData.subjects) && mySubData.subjects.length > 0) {
-                        const secList = (mySecData && mySecData.success && Array.isArray(mySecData.sections) && mySecData.sections.length > 0)
-                            ? mySecData.sections
-                            : [{ name: 'Sigma Technocrats', studentCount: 38 }];
-                        dynamicAssigned = mySubData.subjects.map((sub, idx) => {
-                            const sec = secList[idx % secList.length];
+                    const assignedData = await authedFetch('/api/classes/my-assigned-classes', token);
+                    if (assignedData && assignedData.success && Array.isArray(assignedData.assignedClasses) && assignedData.assignedClasses.length > 0) {
+                        const colorPalette = ['bg-card-green', 'bg-card-blue', 'bg-card-purple', 'bg-card-orange'];
+                        classroomCardsData = assignedData.assignedClasses.map((ac, idx) => {
+                            const subInfo = allSubjects.find(s => s.name === ac.subjectName) || {};
                             return {
-                                subjectName: sub.name,
-                                section: sec.name,
-                                students: sec.studentCount || 38
+                                id: `class${idx + 1}`,
+                                name: ac.subjectName,
+                                code: ac.subjectCode || subInfo.code || '',
+                                strand: ac.strand || subInfo.strand || 'STEM',
+                                gradeLevel: ac.gradeLevel != null ? ac.gradeLevel : (subInfo.gradeLevel || 11),
+                                section: ac.sectionName,
+                                students: ac.studentCount != null ? ac.studentCount : 0,
+                                color: subInfo.color || colorPalette[idx % colorPalette.length],
+                                category: ac.category || subInfo.category || 'Specialized Subject',
+                                quarter: ac.quarter != null ? ac.quarter : (subInfo.quarter || 1),
+                                isAdvisory: Boolean(ac.isAdvisory)
                             };
                         });
+                    } else {
+                        classroomCardsData = generateClassroomCards(allSubjects, teacherAssignedClasses);
                     }
                 } catch (assignErr) {
                     console.warn('Could not fetch teacher assigned classes from backend:', assignErr);
+                    classroomCardsData = generateClassroomCards(allSubjects, teacherAssignedClasses);
                 }
-
-                classroomCardsData = generateClassroomCards(allSubjects, dynamicAssigned);
 
                 updateStrandFilter();
                 applyFilters();

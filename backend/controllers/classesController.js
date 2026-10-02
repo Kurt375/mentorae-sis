@@ -184,18 +184,46 @@ async function getMySubjects(req, res) {
         ORDER BY sub.name
       `, [req.query.sectionId]);
     }
-    if (!rows.length) {
-      [rows] = await pool.query(`
-        SELECT id, code, name, classification, grade_level, quarter,
-               COALESCE(ww_weight, 20.00) AS ww_weight,
-               COALESCE(pt_weight, 50.00) AS pt_weight,
-               COALESCE(qa_weight, 30.00) AS qa_weight
-        FROM subjects ORDER BY name LIMIT 10`);
-    }
     return res.json({ success: true, subjects: rows });
   } catch (err) {
     console.error('getMySubjects error:', err);
     return res.status(500).json({ success: false, message: 'Could not load your subjects.' });
+  }
+}
+
+/**
+ * GET /api/classes/my-assigned-classes
+ * Returns the teacher's scheduled teaching classes (unique subject + section combinations),
+ * along with student counts, strand, grade level, and category.
+ */
+async function getMyAssignedClasses(req, res) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT DISTINCT
+         sub.id AS subjectId,
+         sub.code AS subjectCode,
+         sub.name AS subjectName,
+         COALESCE(sub.classification, 'Specialized Subject') AS category,
+         sub.quarter,
+         sec.id AS sectionId,
+         sec.name AS sectionName,
+         sec.grade_level AS gradeLevel,
+         st.code AS strand,
+         IF(sec.adviser_id = ?, 1, 0) AS isAdvisory,
+         (SELECT COUNT(*) FROM users u WHERE u.section_id = sec.id AND u.role = 'student') AS studentCount
+       FROM schedules sch
+       JOIN subjects sub ON sub.id = sch.subject_id
+       JOIN sections sec ON sec.id = sch.section_id
+       JOIN strands st ON st.id = sec.strand_id
+       WHERE sch.teacher_id = ?
+       ORDER BY sec.name, sub.name`,
+      [req.user.id, req.user.id]
+    );
+
+    return res.json({ success: true, assignedClasses: rows });
+  } catch (err) {
+    console.error('getMyAssignedClasses error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load your assigned classes.' });
   }
 }
 
@@ -500,6 +528,7 @@ module.exports = {
   getRosterOverview,
   getMySections,
   getMySubjects,
+  getMyAssignedClasses,
   updateStudentAvatar,
   getEclassData,
   saveEclassGrades,
