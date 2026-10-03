@@ -330,3 +330,214 @@
 .font-monospace {
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
+
+/* PDF.js High-Definition Canvas Viewer */
+.pdf-viewer-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #2b2d30;
+}
+
+.pdf-controls-bar {
+    background-color: #1f2023;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+.pdf-pages-viewport {
+    background-color: #525659;
+    scroll-behavior: smooth;
+    user-select: text;
+}
+
+.pdf-page-card {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    background-color: #ffffff;
+    transition: transform 0.15s ease;
+}
+
+.pdf-page-card canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Viewer Mode Switcher Pills */
+.viewer-mode-btn {
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.viewer-mode-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.viewer-mode-btn.active {
+    background-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+/* Multi-Page Word Document Cards */
+.docx-paper-container {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 36px 16px;
+    background-color: #2b2d30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+}
+
+.docx-page-card {
+    width: 100%;
+    max-width: 860px;
+    min-height: 1100px;
+    background-color: #ffffff;
+    color: #1e293b;
+    padding: 64px 76px;
+    border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Calibri, sans-serif;
+    line-height: 1.75;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.docx-page-card table {
+    width: 100% !important;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+    border: 1px solid #cbd5e1;
+}
+
+.docx-page-card table th,
+.docx-page-card table td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.docx-page-card table th {
+    background-color: #f1f5f9;
+    font-weight: 600;
+}
+
+.docx-page-card img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    margin: 1rem 0;
+    border-radius: 4px;
+}
+
+.docx-page-footer {
+    position: absolute;
+    bottom: 24px;
+    right: 48px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+/* Slide Deck Enhancements */
+.pptx-slide-canvas-box table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9em;
+}
+
+.pptx-slide-canvas-box table td,
+.pptx-slide-canvas-box table th {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 6px 10px;
+}
+
+/* Mobile Phone Responsive Optimizations */
+@media (max-width: 768px) {
+    .classroom-viewer-header {
+        height: auto !important;
+        min-height: 56px;
+        padding: 8px 12px !important;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .classroom-viewer-stage {
+        height: calc(100vh - 56px) !important;
+    }
+    .pdf-controls-bar {
+        padding: 6px 10px !important;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .pdf-pages-viewport {
+        padding: 12px 6px !important;
+        gap: 14px !important;
+    }
+    .pdf-page-card {
+        max-width: 100% !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+    .pdf-page-card canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    .docx-paper-container {
+        padding: 12px 6px !important;
+        gap: 16px !important;
+    }
+    .docx-paper-sheet,
+    .docx-page-card {
+        padding: 24px 14px !important;
+        border-radius: 4px;
+        min-height: auto !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .docx-page-card table,
+    .docx-paper-sheet table {
+        display: block !important;
+        overflow-x: auto !important;
+        max-width: 100% !important;
+    }
+    .pptx-viewer-container {
+        flex-direction: column !important;
+    }
+    .pptx-sidebar {
+        width: 100% !important;
+        max-height: 96px !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 6px 8px !important;
+    }
+    .pptx-thumbnail {
+        min-width: 100px !important;
+        padding: 6px 8px !important;
+        flex-shrink: 0;
+    }
+    .pptx-main-slide-stage {
+        padding: 8px 6px !important;
+    }
+    .pptx-slide-canvas-box {
+        max-width: 100% !important;
+        border-radius: 8px !important;
+    }
+    .pptx-bottom-toolbar {
+        padding: 4px 12px !important;
+        gap: 8px !important;
+    }
+}
+

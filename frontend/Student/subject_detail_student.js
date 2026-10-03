@@ -152,10 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const downloadBtn = document.getElementById('classroomViewerDownloadBtn');
         const popoutBtn = document.getElementById('classroomViewerPopoutBtn');
         const printBtn = document.getElementById('classroomViewerPrintBtn');
+        const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
 
         if (!viewerEl || !stageEl) return;
 
-        // Show viewer modal immediately and close attachment picker for instant response
         viewerEl.classList.remove('d-none');
         document.body.style.overflow = 'hidden';
 
@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
             viewerEl.classList.add('d-none');
             document.body.style.overflow = '';
             stageEl.innerHTML = '';
+            if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
             if (filesModal) filesModal.show();
         };
 
@@ -197,8 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         stageEl.innerHTML = '';
+        if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
 
-        // Non-blocking download and popout setup
         let blobUrl = dataUrl;
         if (downloadBtn) {
             downloadBtn.href = dataUrl || '#';
@@ -216,73 +217,371 @@ document.addEventListener('DOMContentLoaded', () => {
             }).catch(() => {});
         }
 
-        async function renderPdfView(pdfSource) {
-            stageEl.innerHTML = `
-                <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white">
-                    <div class="spinner-border text-primary mb-2" style="width: 3rem; height: 3rem;" role="status"></div>
-                </div>
-            `;
-            let pdfDisplayUrl = pdfSource;
-            try {
-                if (pdfSource && pdfSource.startsWith('data:')) {
-                    const res = await fetch(pdfSource);
-                    const pdfBlob = await res.blob();
-                    pdfDisplayUrl = URL.createObjectURL(pdfBlob);
-                }
-            } catch (e) {
-                console.warn('Native PDF blob conversion fallback:', e);
-            }
-
-            stageEl.innerHTML = `
-                <iframe src="${pdfDisplayUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
-            `;
-            if (popoutBtn) popoutBtn.href = pdfDisplayUrl;
-            if (printBtn) {
-                printBtn.onclick = () => {
-                    const ifr = stageEl.querySelector('iframe');
-                    if (ifr && ifr.contentWindow) ifr.contentWindow.print();
+        function setModeSwitcher(options) {
+            if (!modeSwitcherEl) return;
+            modeSwitcherEl.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `viewer-mode-btn ${opt.active ? 'active' : ''}`;
+                btn.innerHTML = `<i class="${opt.icon} me-1"></i> ${escapeHtml(opt.label)}`;
+                btn.onclick = () => {
+                    modeSwitcherEl.querySelectorAll('.viewer-mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    opt.action();
                 };
-            }
+                modeSwitcherEl.appendChild(btn);
+            });
         }
 
-        const effectivePdf = (targetFile && targetFile.pdfDataUrl)
-            ? targetFile.pdfDataUrl
-            : ((mime.includes('pdf') || ext === 'pdf') ? dataUrl : null);
-
-        if (effectivePdf) {
-            renderPdfView(effectivePdf);
-            return;
-        }
-
-        if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+        // ==========================================
+        // 1. HIGH-DEFINITION PDF RENDERING (PDF.JS)
+        // Works 100% on Phone (Safari/Chrome), InPrivate, & Desktop
+        // ==========================================
+        async function renderPdf(pdfData) {
             stageEl.innerHTML = `
                 <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white">
-                    <div class="text-center px-4" style="max-width: 520px;">
-                        <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
-                        <h5 class="fw-bold mb-1">Opening in High-Definition Classroom View...</h5>
-                        <p class="text-white-50 small mb-0">Converting document to 100% authentic vector pages just like Google Classroom</p>
+                    <div class="text-center">
+                        <div class="spinner-border text-danger mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <p class="fs-5 fw-semibold mb-1">Rendering PDF Document...</p>
+                        <p class="text-white-50 small">Loading authentic high-definition pages</p>
                     </div>
                 </div>
             `;
+
+            try {
+                let pdfBytes;
+                if (pdfData && pdfData.startsWith('data:')) {
+                    const b64 = pdfData.split(',')[1];
+                    const bin = atob(b64);
+                    pdfBytes = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) {
+                        pdfBytes[i] = bin.charCodeAt(i);
+                    }
+                } else if (pdfData) {
+                    const res = await fetch(pdfData);
+                    const ab = await res.arrayBuffer();
+                    pdfBytes = new Uint8Array(ab);
+                }
+
+                if (!pdfBytes || pdfBytes.length === 0) throw new Error('Empty PDF data');
+                if (!window.pdfjsLib) throw new Error('PDF.js not loaded');
+
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+                const loadingTask = window.pdfjsLib.getDocument({ data: pdfBytes });
+                const pdfDoc = await loadingTask.promise;
+                const totalPages = pdfDoc.numPages;
+
+                const isMobileScreen = window.innerWidth <= 768;
+                let currentScale = isMobileScreen ? 1.0 : 1.25;
+                let activePage = 1;
+
+                stageEl.innerHTML = `
+                    <div class="pdf-viewer-container d-flex flex-column w-100 h-100">
+                        <div class="pdf-controls-bar d-flex justify-content-between align-items-center px-3 py-2 text-white">
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-circle p-1 px-2" id="pdfPrevBtn" title="Previous Page">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <span class="small fw-semibold" id="pdfPageIndicator">Page 1 of ${totalPages}</span>
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-circle p-1 px-2" id="pdfNextBtn" title="Next Page">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-1" id="pdfZoomOutBtn" title="Zoom Out">
+                                    <i class="bi bi-dash-lg"></i>
+                                </button>
+                                <span class="small fw-bold text-white-50 px-1" id="pdfZoomDisplay" style="min-width: 44px; text-align: center;">${Math.round(currentScale * 100)}%</span>
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-1" id="pdfZoomInBtn" title="Zoom In">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1" id="pdfFitBtn" title="Fit Width">
+                                    <i class="bi bi-arrows-expand me-1"></i> Fit
+                                </button>
+                            </div>
+                        </div>
+                        <div class="pdf-pages-viewport flex-grow-1 overflow-auto p-3 d-flex flex-column align-items-center gap-3" id="pdfPagesViewport"></div>
+                    </div>
+                `;
+
+                const viewportEl = document.getElementById('pdfPagesViewport');
+                const pageIndicatorEl = document.getElementById('pdfPageIndicator');
+                const zoomDisplayEl = document.getElementById('pdfZoomDisplay');
+
+                async function renderAllPages(scale) {
+                    if (!viewportEl) return;
+                    viewportEl.innerHTML = '';
+                    const dpr = window.devicePixelRatio || 1;
+                    const availWidth = Math.max(300, viewportEl.clientWidth - (isMobileScreen ? 16 : 48));
+
+                    for (let num = 1; num <= totalPages; num++) {
+                        const page = await pdfDoc.getPage(num);
+                        const baseVp = page.getViewport({ scale: 1.0 });
+
+                        let effectiveScale = scale;
+                        if (isMobileScreen) {
+                            effectiveScale = Math.min(scale, availWidth / baseVp.width);
+                        }
+
+                        const viewport = page.getViewport({ scale: effectiveScale * dpr });
+                        const cssViewport = page.getViewport({ scale: effectiveScale });
+
+                        const cardEl = document.createElement('div');
+                        cardEl.className = 'pdf-page-card rounded-2 position-relative';
+                        cardEl.dataset.pageNum = num;
+                        cardEl.style.width = `${Math.round(cssViewport.width)}px`;
+                        cardEl.style.height = `${Math.round(cssViewport.height)}px`;
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        canvas.style.width = `${Math.round(cssViewport.width)}px`;
+                        canvas.style.height = `${Math.round(cssViewport.height)}px`;
+                        canvas.style.display = 'block';
+
+                        const ctx = canvas.getContext('2d');
+                        cardEl.appendChild(canvas);
+                        viewportEl.appendChild(cardEl);
+
+                        await page.render({ canvasContext: ctx, viewport }).promise;
+                    }
+                }
+
+                await renderAllPages(currentScale);
+
+                viewportEl.addEventListener('scroll', () => {
+                    const cards = viewportEl.querySelectorAll('.pdf-page-card');
+                    const scrollTop = viewportEl.scrollTop + 100;
+                    for (const c of cards) {
+                        if (c.offsetTop <= scrollTop && (c.offsetTop + c.offsetHeight) > scrollTop) {
+                            const p = parseInt(c.dataset.pageNum, 10);
+                            if (p !== activePage) {
+                                activePage = p;
+                                if (pageIndicatorEl) pageIndicatorEl.textContent = `Page ${activePage} of ${totalPages}`;
+                            }
+                            break;
+                        }
+                    }
+                });
+
+                document.getElementById('pdfPrevBtn')?.addEventListener('click', () => {
+                    if (activePage > 1) {
+                        activePage--;
+                        const targetCard = viewportEl.querySelector(`.pdf-page-card[data-page-num="${activePage}"]`);
+                        if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+
+                document.getElementById('pdfNextBtn')?.addEventListener('click', () => {
+                    if (activePage < totalPages) {
+                        activePage++;
+                        const targetCard = viewportEl.querySelector(`.pdf-page-card[data-page-num="${activePage}"]`);
+                        if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+
+                document.getElementById('pdfZoomInBtn')?.addEventListener('click', async () => {
+                    if (currentScale < 3.0) {
+                        currentScale = Math.min(3.0, currentScale + 0.25);
+                        if (zoomDisplayEl) zoomDisplayEl.textContent = `${Math.round(currentScale * 100)}%`;
+                        await renderAllPages(currentScale);
+                    }
+                });
+
+                document.getElementById('pdfZoomOutBtn')?.addEventListener('click', async () => {
+                    if (currentScale > 0.5) {
+                        currentScale = Math.max(0.5, currentScale - 0.25);
+                        if (zoomDisplayEl) zoomDisplayEl.textContent = `${Math.round(currentScale * 100)}%`;
+                        await renderAllPages(currentScale);
+                    }
+                });
+
+                document.getElementById('pdfFitBtn')?.addEventListener('click', async () => {
+                    const availWidth = Math.max(300, viewportEl.clientWidth - (isMobileScreen ? 16 : 48));
+                    const firstPage = await pdfDoc.getPage(1);
+                    const baseVp = firstPage.getViewport({ scale: 1.0 });
+                    currentScale = Math.max(0.5, Math.min(2.5, availWidth / baseVp.width));
+                    if (zoomDisplayEl) zoomDisplayEl.textContent = `${Math.round(currentScale * 100)}%`;
+                    await renderAllPages(currentScale);
+                });
+
+                if (printBtn) {
+                    printBtn.onclick = () => {
+                        const printWin = window.open(blobUrl || dataUrl);
+                        if (printWin) {
+                            printWin.focus();
+                            printWin.print();
+                        }
+                    };
+                }
+
+            } catch (err) {
+                console.warn('PDF.js rendering fallback:', err);
+                const embedUrl = blobUrl || pdfData;
+                stageEl.innerHTML = `
+                    <div class="w-100 h-100 position-relative">
+                        <iframe src="${embedUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
+                        <div class="position-absolute bottom-0 start-50 translate-middle-x mb-4 bg-dark bg-opacity-90 px-4 py-2.5 rounded-pill border border-secondary shadow-lg d-flex align-items-center gap-3">
+                            <span class="small text-white-50"><i class="bi bi-info-circle me-1"></i>If inline PDF is restricted:</span>
+                            <a href="${embedUrl}" target="_blank" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">Open PDF in New Tab</a>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // ==========================================
+        // 2. ROUTE PDF FILES
+        // ==========================================
+        if (ext === 'pdf' || mime.includes('pdf')) {
+            renderPdf(dataUrl);
+
             (async () => {
                 try {
                     const token = localStorage.getItem('mentorae_token');
-                    const res = await authedFetch('/api/content/convert-document', token, {
+                    const pRes = await authedFetch('/api/content/public-preview-token', token, {
                         method: 'POST',
                         body: JSON.stringify({ fileName, dataUrl })
                     });
-                    if (res && res.success && res.pdfDataUrl) {
-                        if (targetFile) targetFile.pdfDataUrl = res.pdfDataUrl;
-                        renderPdfView(res.pdfDataUrl);
-                        return;
+                    if (pRes && pRes.success && pRes.googleViewerUrl) {
+                        if (popoutBtn) popoutBtn.href = pRes.publicUrl;
+                        setModeSwitcher([
+                            {
+                                label: 'High-Def PDF',
+                                icon: 'bi bi-file-earmark-pdf',
+                                active: true,
+                                action: () => renderPdf(dataUrl)
+                            },
+                            {
+                                label: 'Google View',
+                                icon: 'bi bi-google',
+                                active: false,
+                                action: () => {
+                                    stageEl.innerHTML = `<iframe src="${pRes.googleViewerUrl}" class="w-100 h-100 border-0" allowfullscreen style="background: #525659;"></iframe>`;
+                                }
+                            }
+                        ]);
                     }
-                } catch (convErr) {
-                    console.warn('Document conversion request failed, falling back:', convErr);
+                } catch (e) { }
+            })();
+            return;
+        }
+
+        // ==========================================
+        // 3. PPT / PPTX & DOC / DOCX (Cloud Google Classroom + Office + Local Fallback)
+        // ==========================================
+        if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+            const isPpt = ext === 'pptx' || ext === 'ppt';
+            stageEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white">
+                    <div class="text-center px-4" style="max-width: 520px;">
+                        <div class="spinner-border ${isPpt ? 'text-warning' : 'text-primary'} mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+                        <h5 class="fw-bold mb-1">Opening in Google Classroom View...</h5>
+                        <p class="text-white-50 small mb-0">Connecting to authentic cloud document viewer</p>
+                    </div>
+                </div>
+            `;
+
+            (async () => {
+                let previewInfo = null;
+                const isLocal = (
+                    window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1' ||
+                    window.location.hostname === '' ||
+                    window.location.protocol === 'file:'
+                );
+
+                try {
+                    const token = localStorage.getItem('mentorae_token');
+                    const pRes = await authedFetch('/api/content/public-preview-token', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ fileName, dataUrl })
+                    });
+                    if (pRes && pRes.success) {
+                        previewInfo = pRes;
+                        if (popoutBtn) popoutBtn.href = pRes.publicUrl;
+                    }
+                } catch (tokErr) {
+                    console.warn('Public preview token request failed:', tokErr);
                 }
-                if (ext === 'docx' || ext === 'doc') {
-                    renderDocxFallback();
+
+                function renderGoogleView() {
+                    if (previewInfo && previewInfo.googleViewerUrl) {
+                        stageEl.innerHTML = `
+                            <iframe src="${previewInfo.googleViewerUrl}" class="w-100 h-100 border-0" allowfullscreen title="${escapeHtml(fileName)}" style="background: #202124;"></iframe>
+                        `;
+                    } else {
+                        if (isPpt) renderPptxFallback();
+                        else renderDocxFallback();
+                    }
+                }
+
+                function renderOfficeView() {
+                    if (previewInfo && previewInfo.officeViewerUrl) {
+                        stageEl.innerHTML = `
+                            <iframe src="${previewInfo.officeViewerUrl}" class="w-100 h-100 border-0" allowfullscreen title="${escapeHtml(fileName)}" style="background: #202124;"></iframe>
+                        `;
+                    } else {
+                        if (isPpt) renderPptxFallback();
+                        else renderDocxFallback();
+                    }
+                }
+
+                if (!isLocal && previewInfo && previewInfo.googleViewerUrl) {
+                    setModeSwitcher([
+                        {
+                            label: 'Google View',
+                            icon: 'bi bi-google',
+                            active: true,
+                            action: renderGoogleView
+                        },
+                        {
+                            label: 'Office View',
+                            icon: 'bi bi-microsoft',
+                            active: false,
+                            action: renderOfficeView
+                        },
+                        {
+                            label: isPpt ? 'Slide Deck' : 'Document Reader',
+                            icon: isPpt ? 'bi bi-file-slides' : 'bi bi-file-text',
+                            active: false,
+                            action: () => {
+                                if (isPpt) renderPptxFallback();
+                                else renderDocxFallback();
+                            }
+                        }
+                    ]);
+                    renderGoogleView();
                 } else {
-                    renderPptxFallback();
+                    if (previewInfo && previewInfo.googleViewerUrl) {
+                        setModeSwitcher([
+                            {
+                                label: isPpt ? 'Slide Deck' : 'Document Reader',
+                                icon: isPpt ? 'bi bi-file-slides' : 'bi bi-file-text',
+                                active: true,
+                                action: () => {
+                                    if (isPpt) renderPptxFallback();
+                                    else renderDocxFallback();
+                                }
+                            },
+                            {
+                                label: 'Google View',
+                                icon: 'bi bi-google',
+                                active: false,
+                                action: renderGoogleView
+                            },
+                            {
+                                label: 'Office View',
+                                icon: 'bi bi-microsoft',
+                                active: false,
+                                action: renderOfficeView
+                            }
+                        ]);
+                    }
+                    if (isPpt) renderPptxFallback();
+                    else renderDocxFallback();
                 }
             })();
             return;
@@ -309,20 +608,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const zip = await JSZip.loadAsync(arrayBuffer);
 
-                    // 1. Determine slide dimensions
-                    let slideWidth = 18288000;
-                    let slideHeight = 10287000;
+                    // 1. Determine slide dimensions (standard 16:9 widescreen EMU: 9144000 x 5142857)
+                    let slideWidth = 9144000;
+                    let slideHeight = 5142857;
                     try {
                         const presFile = zip.files['ppt/presentation.xml'];
                         if (presFile) {
                             const presXml = await presFile.async('string');
-                            const sldSzMatch = presXml.match(/<p:sldSz\s+cx="(\d+)"\s+cy="(\d+)"/i);
-                            if (sldSzMatch) {
-                                slideWidth = parseInt(sldSzMatch[1], 10) || slideWidth;
-                                slideHeight = parseInt(sldSzMatch[2], 10) || slideHeight;
+                            const cxMatch = presXml.match(/cx="(\d+)"/i);
+                            const cyMatch = presXml.match(/cy="(\d+)"/i);
+                            if (cxMatch && cyMatch) {
+                                const parsedW = parseInt(cxMatch[1], 10);
+                                const parsedH = parseInt(cyMatch[1], 10);
+                                if (parsedW > 0 && parsedH > 0) {
+                                    slideWidth = parsedW;
+                                    slideHeight = parsedH;
+                                }
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) { }
+
+                    function isHexDark(hex) {
+                        if (!hex || typeof hex !== 'string') return false;
+                        const clean = hex.replace('#', '');
+                        if (clean.length !== 6) return false;
+                        const r = parseInt(clean.substr(0, 2), 16);
+                        const g = parseInt(clean.substr(2, 2), 16);
+                        const b = parseInt(clean.substr(4, 2), 16);
+                        return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+                    }
 
                     // 2. Extract all media blobs with correct MIME types
                     const mediaBlobs = {};
@@ -343,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 mediaBlobs[cleanKey] = url;
                                 mediaBlobs[path] = url;
                                 mediaBlobs[cleanKey.replace(/^media\//, '')] = url;
-                            } catch (e) {}
+                            } catch (e) { }
                         }
                     }
 
@@ -380,11 +694,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const cleanTarget = rMatch[2].replace(/^\.\.\//, '');
                                     relsMap[rMatch[1]] = mediaBlobs[cleanTarget] || mediaBlobs[cleanTarget.replace(/^media\//, '')];
                                 }
-                            } catch (e) {}
+                            } catch (e) { }
                         }
 
-                        // Background color
-                        let bgColor = '#151515';
+                        // Background color: clean white #FFFFFF by default
+                        let bgColor = '#FFFFFF';
                         let bgImage = null;
                         const bgMatch = xmlText.match(/<p:bg>[\s\S]*?<a:srgbClr\s+val="([A-Fa-f0-9]{6})"/);
                         if (bgMatch) {
@@ -394,6 +708,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (bgBlipMatch && relsMap[bgBlipMatch[1]]) {
                             bgImage = relsMap[bgBlipMatch[1]];
                         }
+
+                        const slideIsDark = isHexDark(bgColor);
+                        const defaultTextColor = slideIsDark ? '#FFFFFF' : '#1E293B';
 
                         // Parse all shape and picture elements with group transformation
                         const elements = [];
@@ -523,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                             const isUnderline = rNode.includes('u="sng"');
                                             const szMatch = rNode.match(/sz="(\d+)"/);
                                             const szPt = szMatch ? parseInt(szMatch[1], 10) / 100 : 16;
-                                            
+
                                             // Typography & Typefaces
                                             const fontMatch = rNode.match(/typeface="([^"]+)"/);
                                             let fontFamily = "'Roboto', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -546,10 +863,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                             }
 
                                             const clrMatch = rNode.match(/<a:srgbClr\s+val="([A-Fa-f0-9]{6})"/);
-                                            const color = clrMatch ? '#' + clrMatch[1] : '#FFFFFF';
+                                            let color = defaultTextColor;
+                                            if (clrMatch) {
+                                                color = '#' + clrMatch[1];
+                                            } else if (rNode.includes('val="tx1"') || rNode.includes('val="dk1"')) {
+                                                color = slideIsDark ? '#FFFFFF' : '#0F172A';
+                                            } else if (rNode.includes('val="bg1"') || rNode.includes('val="lt1"')) {
+                                                color = slideIsDark ? '#CBD5E1' : '#FFFFFF';
+                                            }
 
-                                            // Exact proportional scale relative to 1920px presentation
-                                            const fontSizeCqw = (szPt * (100 / 1920)).toFixed(4);
+                                            // Proportional scale relative to 960pt slide width
+                                            const fontSizeCqw = ((szPt / 960) * 100).toFixed(3);
 
                                             runs.push({
                                                 text: rawText,
@@ -596,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             title: slideTitle,
                             bgColor,
                             bgImage,
-                            aspectRatio: (slideWidth / slideHeight) || (16/9),
+                            aspectRatio: (slideWidth / slideHeight) || (16 / 9),
                             elements
                         });
                     }
@@ -605,8 +929,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     let viewMode = 'visual'; // 'visual' or 'outline'
 
                     function buildSlideCanvasHtml(sl) {
-                        const bgStyle = sl.bgImage 
-                            ? `background: url('${sl.bgImage}') center/cover no-repeat;` 
+                        const bgStyle = sl.bgImage
+                            ? `background: url('${sl.bgImage}') center/cover no-repeat;`
                             : `background-color: ${sl.bgColor};`;
 
                         let elementsHtml = '';
@@ -632,7 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                             const styles = [
                                                 `color: ${r.color};`,
                                                 `font-family: ${r.fontFamily};`,
-                                                `font-size: clamp(8px, ${r.fontSizeCqw}cqw, 56px);`,
+                                                `font-size: clamp(13px, ${r.fontSizeCqw}cqw, 48px);`,
                                                 r.isBold ? 'font-weight: 700;' : 'font-weight: 400;',
                                                 r.isItalic ? 'font-style: italic;' : '',
                                                 r.isUnderline ? 'text-decoration: underline;' : '',
@@ -665,16 +989,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                                 <div class="d-flex flex-column gap-4">
                                     ${slides.map(sl => {
-                                        const textBlocks = [];
-                                        sl.elements.forEach(el => {
-                                            if (el.paragraphs) {
-                                                el.paragraphs.forEach(p => {
-                                                    const txt = p.runs.map(r => r.text).join('').trim();
-                                                    if (txt) textBlocks.push(txt);
-                                                });
-                                            }
-                                        });
-                                        return `
+                            const textBlocks = [];
+                            sl.elements.forEach(el => {
+                                if (el.paragraphs) {
+                                    el.paragraphs.forEach(p => {
+                                        const txt = p.runs.map(r => r.text).join('').trim();
+                                        if (txt) textBlocks.push(txt);
+                                    });
+                                }
+                            });
+                            return `
                                             <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary">
                                                 <div class="d-flex align-items-center gap-2 mb-2">
                                                     <span class="badge bg-warning text-dark fw-bold">Slide ${sl.slideNumber}</span>
@@ -685,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 </div>
                                             </div>
                                         `;
-                                    }).join('')}
+                        }).join('')}
                                 </div>
                             </div>
                         `;
@@ -809,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const result = await mammoth.convertToHtml({ arrayBuffer });
                     stageEl.innerHTML = `
                         <div class="docx-paper-container">
-                            <div class="docx-paper-sheet">
+                            <div class="docx-page-card">
                                 ${result.value || '<p class="text-muted fst-italic">Empty Document.</p>'}
                             </div>
                         </div>

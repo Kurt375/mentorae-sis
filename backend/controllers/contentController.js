@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
 const { teacherTeachesSection } = require('../utils/authz');
@@ -661,6 +664,125 @@ async function convertDocument(req, res) {
   }
 }
 
+const PREVIEW_DIR = path.join(__dirname, '../uploads/temp_previews');
+if (!fs.existsSync(PREVIEW_DIR)) {
+  fs.mkdirSync(PREVIEW_DIR, { recursive: true });
+}
+
+// Clean up previews older than 24 hours periodically
+function cleanOldPreviews() {
+  try {
+    if (!fs.existsSync(PREVIEW_DIR)) return;
+    const files = fs.readdirSync(PREVIEW_DIR);
+    const now = Date.now();
+    for (const f of files) {
+      const fp = path.join(PREVIEW_DIR, f);
+      const stat = fs.statSync(fp);
+      if (now - stat.mtimeMs > 24 * 3600 * 1000) {
+        try { fs.unlinkSync(fp); } catch (e) {}
+      }
+    }
+  } catch (e) {}
+}
+setInterval(cleanOldPreviews, 6 * 3600 * 1000);
+
+/**
+ * POST /api/content/public-preview-token
+ * Body: { fileName, dataUrl }
+ * Saves document into temporary public storage with an unguessable token
+ * so Google Docs Viewer and Microsoft Office Online can fetch and render it.
+ */
+async function createPublicPreviewToken(req, res) {
+  const { fileName, dataUrl } = req.body;
+  if (!fileName || !dataUrl) {
+    return res.status(400).json({ success: false, message: 'File name and data URL are required.' });
+  }
+
+  try {
+    const token = crypto.randomBytes(16).toString('hex');
+    const ext = path.extname(fileName || '').toLowerCase();
+    const safeBase = (path.basename(fileName, ext) || 'document').replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+    const storedFileName = `${token}_${safeBase}${ext}`;
+    const filePath = path.join(PREVIEW_DIR, storedFileName);
+
+    const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+    const fileBuffer = Buffer.from(b64, 'base64');
+    fs.writeFileSync(filePath, fileBuffer);
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+    const publicUrl = `${baseUrl}/api/content/raw-preview/${token}/${encodeURIComponent(fileName)}`;
+    const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(publicUrl)}&embedded=true`;
+    const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
+
+    return res.json({
+      success: true,
+      token,
+      publicUrl,
+      googleViewerUrl,
+      officeViewerUrl
+    });
+  } catch (err) {
+    console.error('createPublicPreviewToken error:', err);
+    return res.status(500).json({ success: false, message: 'Could not generate preview token.' });
+  }
+}
+
+/**
+ * GET /api/content/raw-preview/:token/:fileName
+ * Public unauthenticated endpoint for Google Docs / Office Online crawlers
+ */
+async function serveRawPreview(req, res) {
+  const { token, fileName } = req.params;
+  if (!token || !/^[a-f0-9]{32}$/i.test(token)) {
+    return res.status(400).send('Invalid preview token');
+  }
+
+  try {
+    if (!fs.existsSync(PREVIEW_DIR)) {
+      return res.status(404).send('Preview directory not found');
+    }
+    const files = fs.readdirSync(PREVIEW_DIR);
+    const matching = files.find(f => f.startsWith(`${token}_`));
+    if (!matching) {
+      return res.status(404).send('Preview file not found or expired');
+    }
+
+    const filePath = path.join(PREVIEW_DIR, matching);
+    const ext = path.extname(matching).toLowerCase();
+
+    const mimeTypes = {
+      '.pdf': 'application/pdf',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.doc': 'application/msword',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.xls': 'application/vnd.ms-excel',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.txt': 'text/plain'
+    };
+
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    const safeDownloadName = fileName ? path.basename(fileName) : matching.replace(/^[a-f0-9]+_/, '');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${safeDownloadName.replace(/"/g, '')}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+  } catch (err) {
+    console.error('serveRawPreview error:', err);
+    return res.status(500).send('Could not serve preview file');
+  }
+}
+
 /**
  * GET /api/content/templates/flashcards
  * Downloads styled starter Excel template for bulk flashcards creation
@@ -1239,6 +1361,8 @@ module.exports = {
   createFlashcardSet,
   saveFlashcardProgress,
   convertDocument,
+  createPublicPreviewToken,
+  serveRawPreview,
   downloadFlashcardsTemplate,
   downloadQuizTemplate,
   appendTopicContent,

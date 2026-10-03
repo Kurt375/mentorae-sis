@@ -18,6 +18,8 @@ const {
   createFlashcardSet,
   saveFlashcardProgress,
   convertDocument,
+  createPublicPreviewToken,
+  serveRawPreview,
   downloadFlashcardsTemplate,
   downloadQuizTemplate,
   appendTopicContent,
@@ -27,8 +29,10 @@ const {
   getClassTopicQuizResults,
 } = require('../controllers/contentController');
 
-// Document conversion (PPTX/DOCX to PDF)
+// Document conversion and previews (Google Classroom / Office Online / Raw)
 router.post('/convert-document', requireAuth, convertDocument);
+router.post('/public-preview-token', requireAuth, createPublicPreviewToken);
+router.get('/raw-preview/:token/:fileName', serveRawPreview);
 
 // Templates for bulk content
 router.get('/templates/flashcards', downloadFlashcardsTemplate);
