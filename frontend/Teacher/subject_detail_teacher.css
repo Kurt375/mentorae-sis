@@ -415,6 +415,8 @@
     line-height: 1.75;
     position: relative;
     box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .docx-page-card table {
