@@ -1201,6 +1201,26 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function getFileIcon(fileName = '') {
+        const ext = (fileName.split('.').pop() || '').toLowerCase();
+        if (ext === 'pdf') {
+            return '<i class="bi bi-file-earmark-pdf-fill text-danger fs-3"></i>';
+        } else if (['doc', 'docx'].includes(ext)) {
+            return '<i class="bi bi-file-earmark-word-fill text-primary fs-3"></i>';
+        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+            return '<i class="bi bi-file-earmark-excel-fill text-success fs-3"></i>';
+        } else if (['ppt', 'pptx'].includes(ext)) {
+            return '<i class="bi bi-file-earmark-ppt-fill text-warning fs-3"></i>';
+        } else if (['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext)) {
+            return '<i class="bi bi-file-earmark-play-fill text-info fs-3"></i>';
+        } else if (['mp3', 'wav', 'm4a'].includes(ext)) {
+            return '<i class="bi bi-file-earmark-music-fill text-secondary fs-3"></i>';
+        } else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+            return '<i class="bi bi-file-earmark-image-fill text-success fs-3"></i>';
+        }
+        return '<i class="bi bi-file-earmark-text-fill text-primary fs-3"></i>';
+    }
+
     function openFilesModal(title, files, topic = null) {
         const modalTitle = document.getElementById('modalTopicTitle');
         const modalFilesList = document.getElementById('modalFilesList');
@@ -1208,7 +1228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modalFilesList) {
             modalFilesList.innerHTML = '';
             if (!files || files.length === 0) {
-                modalFilesList.innerHTML = '<li class="list-group-item text-muted text-center py-3">No files available for this topic.</li>';
+                modalFilesList.innerHTML = '<li class="list-group-item text-muted text-center py-4">No files available for this topic.</li>';
             } else {
                 files.forEach((file, fIdx) => {
                     if (topic && topic.id && file.topicId === undefined) {
@@ -1216,26 +1236,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         file.fileIndex = fIdx;
                     }
                     const li = document.createElement('li');
-                    li.className = 'list-group-item d-flex justify-content-between align-items-center py-2.5 px-3';
+                    li.className = 'list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 py-3 px-3.5';
 
                     const fileUrl = getResolvedFileUrl(file, '', title) || '#';
+                    const iconHtml = getFileIcon(file.name || '');
 
                     li.innerHTML = `
-                        <div class="d-flex align-items-center gap-2 text-truncate me-2">
-                            <i class="bi bi-file-earmark-text-fill text-primary fs-5"></i>
-                            <div>
-                                <span class="fw-semibold text-dark d-block text-truncate small">${escapeHtml(file.name || 'Attached File')}</span>
-                                <div class="d-flex align-items-center gap-1.5">
+                        <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                            <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                ${iconHtml}
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <span class="fw-semibold text-dark d-block text-break fs-6 file-title-text" title="${escapeHtml(file.name || 'Attached File')}">${escapeHtml(file.name || 'Attached File')}</span>
+                                <div class="d-flex align-items-center gap-2 mt-1">
                                     ${file.size ? `<span class="micro-text text-muted">${(file.size / 1024).toFixed(1)} KB</span>` : ''}
                                     ${file.pdfDataUrl ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">HD Classroom View</span>' : ''}
                                 </div>
                             </div>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <button type="button" class="btn btn-sm btn-primary fw-semibold rounded-pill px-3 py-1 text-nowrap btn-open-online-viewer" data-findex="${fIdx}">
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto ms-sm-0">
+                            <button type="button" class="btn btn-sm btn-primary fw-semibold rounded-pill px-3 py-1.5 text-nowrap btn-open-online-viewer" data-findex="${fIdx}">
                                 <i class="bi bi-eye me-1"></i> Read Online
                             </button>
-                            <a href="${fileUrl}" download="${escapeHtml(file.name || 'download')}" class="btn btn-sm btn-outline-success fw-semibold rounded-pill px-3 py-1 text-nowrap">
+                            <a href="${fileUrl}" download="${escapeHtml(file.name || 'download')}" class="btn btn-sm btn-outline-success fw-semibold rounded-pill px-3 py-1.5 text-nowrap">
                                 <i class="bi bi-download me-1"></i> Download
                             </a>
                         </div>
