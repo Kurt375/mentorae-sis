@@ -884,15 +884,37 @@ async function downloadECRTemplate(req, res) {
   const path = require('path');
   const fs = require('fs');
   const format = (req.query.format || 'xlsm').toLowerCase();
-  const filename = format === 'xlsx' ? 'DepEd_ECR_Template_DO15_s2026.xlsx' : 'ASSH 11 - 2-e-CLASS-RECORD.xlsm';
-  const filePath = path.join(__dirname, '../../frontend/Teacher', filename);
+  const candidates = format === 'xlsx'
+    ? ['ASSH 11 - 2-e-CLASS-RECORD.xlsx', 'DepEd_ECR_Template_DO15_s2026.xlsx']
+    : ['ASSH 11 - 2-e-CLASS-RECORD.xlsm', 'ASSH 11 - 2-e-CLASS-RECORD (1).xlsm'];
 
-  if (!fs.existsSync(filePath)) {
+  const searchDirs = [
+    path.join(__dirname, '../../frontend/Teacher'),
+    path.join(__dirname, '../../frontend'),
+    path.join(__dirname, '../..')
+  ];
+
+  let resolvedPath = null;
+  let resolvedFilename = null;
+
+  for (const dir of searchDirs) {
+    for (const name of candidates) {
+      const p = path.join(dir, name);
+      if (fs.existsSync(p)) {
+        resolvedPath = p;
+        resolvedFilename = name;
+        break;
+      }
+    }
+    if (resolvedPath) break;
+  }
+
+  if (!resolvedPath) {
     return res.status(404).json({ success: false, message: 'Template file not found.' });
   }
 
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  return res.sendFile(filePath);
+  res.setHeader('Content-Disposition', `attachment; filename="${resolvedFilename}"`);
+  return res.sendFile(resolvedPath);
 }
 
 module.exports = {

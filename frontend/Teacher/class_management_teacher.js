@@ -2656,6 +2656,95 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Resilient Blank Template Download Handler (Static blob download with API fallback)
+    const templateDownloadTargets = [
+        { id: 'btnDownloadBlankTemplateMain', format: 'xlsm', filename: 'ASSH 11 - 2-e-CLASS-RECORD.xlsm' },
+        { id: 'btnDownloadBlankTemplateModalXlsm', format: 'xlsm', filename: 'ASSH 11 - 2-e-CLASS-RECORD.xlsm' },
+        { id: 'btnDownloadBlankTemplateModalXlsx', format: 'xlsx', filename: 'ASSH 11 - 2-e-CLASS-RECORD.xlsx' }
+    ];
+
+    templateDownloadTargets.forEach(({ id, format, filename }) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const originalHtml = btn.innerHTML;
+            btn.classList.add('disabled');
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Downloading...';
+
+            const candidates = [
+                encodeURI(filename),
+                `./${encodeURI(filename)}`,
+                `../Teacher/${encodeURI(filename)}`,
+                `/frontend/Teacher/${encodeURI(filename)}`,
+                `/Teacher/${encodeURI(filename)}`
+            ];
+
+            let downloaded = false;
+            for (const url of candidates) {
+                try {
+                    const resp = await fetch(url);
+                    if (resp.ok) {
+                        const blob = await resp.blob();
+                        if (blob && blob.size > 1000) {
+                            const blobUrl = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = blobUrl;
+                            link.download = filename;
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(() => {
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(blobUrl);
+                            }, 1000);
+                            downloaded = true;
+                            break;
+                        }
+                    }
+                } catch (err) {}
+            }
+
+            if (!downloaded && window.MENTORAE_CONFIG && window.MENTORAE_CONFIG.API_BASE_URL) {
+                try {
+                    const apiUrl = `${window.MENTORAE_CONFIG.API_BASE_URL}/api/grades/template?format=${format}`;
+                    const resp = await fetch(apiUrl);
+                    if (resp.ok) {
+                        const blob = await resp.blob();
+                        if (blob && blob.size > 1000) {
+                            const blobUrl = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = blobUrl;
+                            link.download = filename;
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(() => {
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(blobUrl);
+                            }, 1000);
+                            downloaded = true;
+                        }
+                    }
+                } catch (err) {}
+            }
+
+            if (!downloaded) {
+                // Direct fallback link navigation
+                const directLink = document.createElement('a');
+                directLink.href = encodeURI(filename);
+                directLink.download = filename;
+                document.body.appendChild(directLink);
+                directLink.click();
+                setTimeout(() => document.body.removeChild(directLink), 500);
+            }
+
+            setTimeout(() => {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            }, 800);
+        });
+    });
+
     // Confirm & Apply ECR to Mentorae database
     const btnConfirmApplyECR = document.getElementById('btnConfirmApplyECR');
     if (btnConfirmApplyECR) {
