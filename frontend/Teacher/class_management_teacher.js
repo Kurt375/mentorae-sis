@@ -1135,6 +1135,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    function showScoreConstraintNotice(inputEl, maxScore) {
+        if (!inputEl) return;
+        inputEl.classList.add('score-exceeded-pulse');
+        const parentCell = inputEl.closest('td') || inputEl.parentNode;
+        if (parentCell) {
+            parentCell.style.position = 'relative';
+            let badge = parentCell.querySelector('.score-constraint-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'score-constraint-badge';
+                badge.textContent = `Max: ${maxScore}`;
+                parentCell.appendChild(badge);
+            } else {
+                badge.textContent = `Max: ${maxScore}`;
+            }
+            clearTimeout(inputEl._badgeTimer);
+            inputEl._badgeTimer = setTimeout(() => {
+                inputEl.classList.remove('score-exceeded-pulse');
+                if (badge && badge.parentNode) badge.remove();
+            }, 1400);
+        }
+    }
+
     function renderSummaryGradeTable(weights) {
         if (!gradeTableBody) return;
         gradeTableBody.innerHTML = '';
@@ -1194,13 +1217,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </td>
             `;
 
-            // Live score input in summary table
+            // Live score input in summary table with constraint checking
             tr.querySelectorAll('.grade-input-cell').forEach(inp => {
                 inp.addEventListener('input', (e) => {
                     const row = e.target.closest('tr');
                     const studentId = row.getAttribute('data-student-id');
                     const curSt = activeGradeBreakdown.students[studentId];
                     if (!curSt) return;
+
+                    const maxLimit = parseFloat(e.target.getAttribute('max')) || 100;
+                    let val = e.target.value.trim();
+                    if (val !== '') {
+                        let num = parseFloat(val);
+                        if (num > maxLimit) {
+                            num = maxLimit;
+                            e.target.value = maxLimit;
+                            showScoreConstraintNotice(e.target, maxLimit);
+                        } else if (num < 0) {
+                            num = 0;
+                            e.target.value = 0;
+                        }
+                    }
 
                     curSt.wwWsManual = row.querySelector('.quiz-grade').value.trim();
                     curSt.ptWsManual = row.querySelector('.activity-grade').value.trim();
@@ -1237,15 +1274,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const hpsTotal = cols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
 
-        // Header
+        // Header with column edit & delete buttons
         theadEl.innerHTML = `
-            <tr class="table-header-row text-white text-center">
+            <tr class="table-header-row text-center align-middle">
                 <th class="px-3 py-2.5 text-start" style="width: 110px;">Student ID</th>
                 <th class="px-3 py-2.5 text-start" style="min-width: 170px;">Learner's Name</th>
                 ${cols.map((col, idx) => `
-                    <th class="px-2 py-2.5 text-center" style="min-width: 80px;">
-                        ${escapeHtml(col.label)}<br>
-                        <span class="micro-text opacity-75">Max: ${col.max}</span>
+                    <th class="px-2 py-2 text-center component-col-header" style="min-width: 95px;" data-comp="${type}" data-col-idx="${idx}">
+                        <div class="d-flex flex-column align-items-center justify-content-center">
+                            <div class="d-flex align-items-center justify-content-center gap-1 w-100">
+                                <span class="col-title-text fw-bold text-truncate" style="max-width: 100px; cursor: pointer;" 
+                                      data-comp="${type}" data-col-idx="${idx}" title="${escapeHtml(col.label)} (Click to edit)">
+                                    ${escapeHtml(col.label)}
+                                </span>
+                                <div class="col-action-btns d-inline-flex align-items-center ms-0.5">
+                                    <button type="button" class="btn btn-link p-0 btn-edit-col" 
+                                            data-comp="${type}" data-col-idx="${idx}" title="Edit Name & Max Score">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-link p-0 btn-delete-col ms-1" 
+                                            data-comp="${type}" data-col-idx="${idx}" title="Delete Column">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <span class="micro-text text-muted mt-0.5">Max: <span class="col-max-label fw-semibold">${col.max}</span></span>
+                        </div>
                     </th>
                 `).join('')}
                 <th class="px-2 py-2.5 text-center" style="min-width: 80px;">Total</th>
@@ -1314,16 +1368,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             tbodyEl.appendChild(tr);
         });
 
-        // Wire sub-activity score inputs
+        // Wire Header Actions: Edit Column (Pencil icon or title click)
+        theadEl.querySelectorAll('.btn-edit-col, .col-title-text').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const comp = btn.getAttribute('data-comp');
+                const colIdx = parseInt(btn.getAttribute('data-col-idx'), 10);
+                openEditAssessmentModal(comp, colIdx);
+            });
+        });
+
+        // Wire Header Actions: Delete Column
+        theadEl.querySelectorAll('.btn-delete-col').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const comp = btn.getAttribute('data-comp');
+                const colIdx = parseInt(btn.getAttribute('data-col-idx'), 10);
+                deleteAssessmentColumn(comp, colIdx);
+            });
+        });
+
+        // Wire sub-activity score inputs with strict max constraint
         tbodyEl.querySelectorAll('.sub-activity-input').forEach(inp => {
             inp.addEventListener('input', (e) => {
                 const comp = e.target.getAttribute('data-comp');
                 const studentId = e.target.getAttribute('data-student-id');
                 const colIdx = parseInt(e.target.getAttribute('data-col-idx'), 10);
-                const val = e.target.value.trim();
+                let val = e.target.value.trim();
 
                 const st = activeGradeBreakdown.students[studentId];
                 if (!st) return;
+
+                const colsList = comp === 'ww' ? activeGradeBreakdown.wwCols : (comp === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+                const col = colsList[colIdx];
+                const maxScore = col ? (parseFloat(col.max) || 100) : 100;
+
+                // Constraint: Grade must NOT be more than maximum score and not less than 0
+                if (val !== '') {
+                    let num = parseFloat(val);
+                    if (num > maxScore) {
+                        num = maxScore;
+                        e.target.value = maxScore;
+                        showScoreConstraintNotice(e.target, maxScore);
+                    } else if (num < 0) {
+                        num = 0;
+                        e.target.value = 0;
+                    }
+                    val = num;
+                }
 
                 const targetScores = comp === 'ww' ? (st.wwScores = st.wwScores || []) : (comp === 'pt' ? (st.ptScores = st.ptScores || []) : (st.qaScores = st.qaScores || []));
                 while (targetScores.length <= colIdx) targetScores.push('');
@@ -1335,6 +1426,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 recomputeStudentBreakdown(studentId, weights);
                 updateStudentDomAcrossAllTables(studentId, comp, weights);
+            });
+
+            // Double enforcement on blur / change
+            inp.addEventListener('blur', (e) => {
+                const comp = e.target.getAttribute('data-comp');
+                const colIdx = parseInt(e.target.getAttribute('data-col-idx'), 10);
+                const colsList = comp === 'ww' ? activeGradeBreakdown.wwCols : (comp === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+                const col = colsList[colIdx];
+                const maxScore = col ? (parseFloat(col.max) || 100) : 100;
+                if (e.target.value !== '' && parseFloat(e.target.value) > maxScore) {
+                    e.target.value = maxScore;
+                    e.target.dispatchEvent(new Event('input'));
+                }
             });
         });
 
@@ -1348,23 +1452,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (colsList[colIdx]) colsList[colIdx].max = newMax;
 
                 // Update column max subtitle in th
-                const thEls = theadEl.querySelectorAll('.table-header-row th');
-                if (thEls[colIdx + 2]) {
-                    const label = colsList[colIdx].label;
-                    thEls[colIdx + 2].innerHTML = `${escapeHtml(label)}<br><span class="micro-text opacity-75">Max: ${newMax}</span>`;
+                const thEl = theadEl.querySelector(`.component-col-header[data-col-idx="${colIdx}"]`);
+                if (thEl) {
+                    const maxLabel = thEl.querySelector('.col-max-label');
+                    if (maxLabel) maxLabel.textContent = newMax;
                 }
 
                 const newHpsTotal = colsList.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
                 const totalBadge = theadEl.querySelector(`#hps-total-${comp}`);
                 if (totalBadge) totalBadge.textContent = newHpsTotal;
 
-                // Update max attribute on all student inputs for this column
+                // Update max attribute on all student inputs for this column AND clamp if any student's score exceeds newMax
                 tbodyEl.querySelectorAll(`.sub-activity-input[data-col-idx="${colIdx}"]`).forEach(sinp => {
                     sinp.setAttribute('max', newMax);
+                    if (sinp.value !== '' && parseFloat(sinp.value) > newMax) {
+                        sinp.value = newMax;
+                        showScoreConstraintNotice(sinp, newMax);
+                    }
                 });
 
-                // Recalculate for all students
+                // Clamp scores in activeGradeBreakdown and recalculate
+                const scoresKey = comp === 'ww' ? 'wwScores' : (comp === 'pt' ? 'ptScores' : 'qaScores');
                 Object.keys(activeGradeBreakdown.students).forEach(stId => {
+                    const st = activeGradeBreakdown.students[stId];
+                    if (st && st[scoresKey] && st[scoresKey][colIdx] !== '' && st[scoresKey][colIdx] !== undefined && parseFloat(st[scoresKey][colIdx]) > newMax) {
+                        st[scoresKey][colIdx] = newMax;
+                    }
                     recomputeStudentBreakdown(stId, weights);
                     updateStudentDomAcrossAllTables(stId, comp, weights);
                 });
@@ -1596,46 +1709,232 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (encodeTermFilter) encodeTermFilter.addEventListener('change', loadGradeSheet);
 
+    // =========================================================================
+    // Assessment Column Management: Add, Edit, Delete & Constraints
+    // =========================================================================
+    function openAddAssessmentModal(type) {
+        const modalEl = document.getElementById('modalAssessmentColumn');
+        if (!modalEl) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        const compTypeInput = document.getElementById('assessmentCompType');
+        const colModeInput = document.getElementById('assessmentColMode');
+        const colIndexInput = document.getElementById('assessmentColIndex');
+        const titleInput = document.getElementById('assessmentTitleInput');
+        const maxInput = document.getElementById('assessmentMaxInput');
+        const modalLabel = document.getElementById('modalAssessmentColumnLabel');
+        const modalSub = document.getElementById('modalAssessmentSub');
+        const submitBtnText = document.getElementById('btnSubmitAssessmentText');
+        const submitBtnIcon = document.getElementById('btnSubmitAssessmentIcon');
+        const modalHeader = document.getElementById('modalAssessmentHeader');
+        const modalIcon = document.getElementById('modalAssessmentIcon');
+
+        if (compTypeInput) compTypeInput.value = type;
+        if (colModeInput) colModeInput.value = 'add';
+        if (colIndexInput) colIndexInput.value = -1;
+
+        let defaultTitle = '';
+        let defaultMax = 20;
+        let compName = 'Written Work';
+        let headerBgClass = 'bg-primary text-white';
+        let iconClass = 'bi-pencil-square';
+
+        if (type === 'ww') {
+            const nextIdx = activeGradeBreakdown.wwCols.length + 1;
+            defaultTitle = `WW ${nextIdx}`;
+            defaultMax = 20;
+            compName = 'Written Work';
+            headerBgClass = 'bg-primary text-white';
+            iconClass = 'bi-pencil-square';
+        } else if (type === 'pt') {
+            const nextIdx = activeGradeBreakdown.ptCols.length + 1;
+            defaultTitle = `PT ${nextIdx}`;
+            defaultMax = 50;
+            compName = 'Performance Task';
+            headerBgClass = 'bg-warning text-dark';
+            iconClass = 'bi-palette-fill';
+        } else if (type === 'qa') {
+            const nextIdx = activeGradeBreakdown.qaCols.length + 1;
+            defaultTitle = nextIdx <= 2 ? `${nextIdx === 1 ? '1st' : '2nd'} Summative (SA${nextIdx})` : (nextIdx === 3 ? 'Term Exam (TE)' : `Summative ${nextIdx - 1}`);
+            defaultMax = 25;
+            compName = 'Summative / Term Exam';
+            headerBgClass = 'bg-info text-dark';
+            iconClass = 'bi-file-earmark-check-fill';
+        }
+
+        if (modalLabel) modalLabel.textContent = `Add ${compName}`;
+        if (modalSub) modalSub.textContent = `Specify the activity title and highest possible score`;
+        if (titleInput) titleInput.value = defaultTitle;
+        if (maxInput) maxInput.value = defaultMax;
+        if (submitBtnText) submitBtnText.textContent = `Add ${compName} Column`;
+        if (submitBtnIcon) submitBtnIcon.className = 'bi bi-plus-circle-fill me-1';
+
+        if (modalHeader) modalHeader.className = `modal-header py-3 px-4 ${headerBgClass}`;
+        if (modalIcon) modalIcon.className = `bi ${iconClass} fs-5`;
+
+        bsModal.show();
+        setTimeout(() => { if (titleInput) titleInput.select(); }, 350);
+    }
+
+    function openEditAssessmentModal(type, colIdx) {
+        const modalEl = document.getElementById('modalAssessmentColumn');
+        if (!modalEl) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        const cols = type === 'ww' ? activeGradeBreakdown.wwCols : (type === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+        const col = cols[colIdx];
+        if (!col) return;
+
+        const compTypeInput = document.getElementById('assessmentCompType');
+        const colModeInput = document.getElementById('assessmentColMode');
+        const colIndexInput = document.getElementById('assessmentColIndex');
+        const titleInput = document.getElementById('assessmentTitleInput');
+        const maxInput = document.getElementById('assessmentMaxInput');
+        const modalLabel = document.getElementById('modalAssessmentColumnLabel');
+        const modalSub = document.getElementById('modalAssessmentSub');
+        const submitBtnText = document.getElementById('btnSubmitAssessmentText');
+        const submitBtnIcon = document.getElementById('btnSubmitAssessmentIcon');
+        const modalHeader = document.getElementById('modalAssessmentHeader');
+        const modalIcon = document.getElementById('modalAssessmentIcon');
+
+        if (compTypeInput) compTypeInput.value = type;
+        if (colModeInput) colModeInput.value = 'edit';
+        if (colIndexInput) colIndexInput.value = colIdx;
+
+        let compName = type === 'ww' ? 'Written Work' : (type === 'pt' ? 'Performance Task' : 'Summative Assessment');
+        let headerBgClass = type === 'ww' ? 'bg-primary text-white' : (type === 'pt' ? 'bg-warning text-dark' : 'bg-info text-dark');
+        let iconClass = 'bi-pencil-fill';
+
+        if (modalLabel) modalLabel.textContent = `Edit ${compName} Details`;
+        if (modalSub) modalSub.textContent = `Adjust the assessment name or maximum score`;
+        if (titleInput) titleInput.value = col.label;
+        if (maxInput) maxInput.value = col.max;
+        if (submitBtnText) submitBtnText.textContent = 'Update Column';
+        if (submitBtnIcon) submitBtnIcon.className = 'bi bi-check-circle-fill me-1';
+
+        if (modalHeader) modalHeader.className = `modal-header py-3 px-4 ${headerBgClass}`;
+        if (modalIcon) modalIcon.className = `bi ${iconClass} fs-5`;
+
+        bsModal.show();
+        setTimeout(() => { if (titleInput) titleInput.select(); }, 350);
+    }
+
+    function deleteAssessmentColumn(type, colIdx) {
+        const cols = type === 'ww' ? activeGradeBreakdown.wwCols : (type === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+        if (!cols || !cols[colIdx]) return;
+
+        if (cols.length <= 1) {
+            alert('⚠️ At least one column is required for this grading component. You cannot delete the only remaining column.');
+            return;
+        }
+
+        const col = cols[colIdx];
+        const scoresKey = type === 'ww' ? 'wwScores' : (type === 'pt' ? 'ptScores' : 'qaScores');
+        const weights = getActiveSubjectWeights();
+
+        // Check if any student has an entered score for this column
+        const hasScores = Object.values(activeGradeBreakdown.students).some(st => {
+            const val = st[scoresKey] && st[scoresKey][colIdx];
+            return val !== '' && val !== null && val !== undefined && !isNaN(val);
+        });
+
+        const confirmMsg = hasScores
+            ? `Are you sure you want to delete "${col.label}"?\n\n⚠️ WARNING: Student scores have already been entered in this column. Deleting it will permanently remove all scores for this activity!`
+            : `Are you sure you want to remove the column "${col.label}"?`;
+
+        if (!confirm(confirmMsg)) return;
+
+        // Remove column definition
+        cols.splice(colIdx, 1);
+
+        // Remove score at colIdx from each student
+        Object.values(activeGradeBreakdown.students).forEach(st => {
+            if (st[scoresKey] && st[scoresKey].length > colIdx) {
+                st[scoresKey].splice(colIdx, 1);
+            }
+        });
+
+        // Recalculate all students
+        Object.keys(activeGradeBreakdown.students).forEach(stId => {
+            recomputeStudentBreakdown(stId, weights);
+        });
+
+        // Re-render both component and summary tables
+        renderComponentGradeTable(type, weights);
+        renderSummaryGradeTable(weights);
+    }
+
+    // Modal Form Submit Listener
+    const formAssessmentColumn = document.getElementById('formAssessmentColumn');
+    if (formAssessmentColumn) {
+        formAssessmentColumn.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('assessmentCompType').value;
+            const mode = document.getElementById('assessmentColMode').value;
+            const colIdx = parseInt(document.getElementById('assessmentColIndex').value, 10);
+            const title = document.getElementById('assessmentTitleInput').value.trim();
+            const maxScore = Math.max(1, parseFloat(document.getElementById('assessmentMaxInput').value) || 20);
+
+            const cols = type === 'ww' ? activeGradeBreakdown.wwCols : (type === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+            const scoresKey = type === 'ww' ? 'wwScores' : (type === 'pt' ? 'ptScores' : 'qaScores');
+            const weights = getActiveSubjectWeights();
+
+            if (mode === 'add') {
+                const newColId = `${type}_${Date.now()}`;
+                cols.push({ id: newColId, label: title || `${type.toUpperCase()} ${cols.length + 1}`, max: maxScore });
+                Object.values(activeGradeBreakdown.students).forEach(st => {
+                    if (!st[scoresKey]) st[scoresKey] = [];
+                    st[scoresKey].push('');
+                });
+            } else if (mode === 'edit' && colIdx >= 0 && cols[colIdx]) {
+                cols[colIdx].label = title || cols[colIdx].label;
+                cols[colIdx].max = maxScore;
+
+                // Constraint: clamp any student scores that exceed the new max score
+                Object.values(activeGradeBreakdown.students).forEach(st => {
+                    if (st[scoresKey] && st[scoresKey][colIdx] !== '' && st[scoresKey][colIdx] !== null && st[scoresKey][colIdx] !== undefined) {
+                        if (parseFloat(st[scoresKey][colIdx]) > maxScore) {
+                            st[scoresKey][colIdx] = maxScore;
+                        }
+                    }
+                });
+            }
+
+            // Recalculate all students
+            Object.keys(activeGradeBreakdown.students).forEach(stId => {
+                recomputeStudentBreakdown(stId, weights);
+            });
+
+            // Re-render
+            renderComponentGradeTable(type, weights);
+            renderSummaryGradeTable(weights);
+
+            // Hide modal
+            const modalEl = document.getElementById('modalAssessmentColumn');
+            const bsModal = bootstrap.Modal.getInstance(modalEl);
+            if (bsModal) bsModal.hide();
+        });
+    }
+
     // Dynamic Column Addition Listeners
     const btnAddWwColumn = document.getElementById('btnAddWwColumn');
     if (btnAddWwColumn) {
         btnAddWwColumn.addEventListener('click', () => {
-            const weights = getActiveSubjectWeights();
-            const idx = activeGradeBreakdown.wwCols.length + 1;
-            activeGradeBreakdown.wwCols.push({ id: `ww_${idx}`, label: `WW ${idx}`, max: 20 });
-            Object.values(activeGradeBreakdown.students).forEach(st => {
-                if (!st.wwScores) st.wwScores = [];
-                st.wwScores.push('');
-            });
-            renderComponentGradeTable('ww', weights);
+            openAddAssessmentModal('ww');
         });
     }
 
     const btnAddPtColumn = document.getElementById('btnAddPtColumn');
     if (btnAddPtColumn) {
         btnAddPtColumn.addEventListener('click', () => {
-            const weights = getActiveSubjectWeights();
-            const idx = activeGradeBreakdown.ptCols.length + 1;
-            activeGradeBreakdown.ptCols.push({ id: `pt_${idx}`, label: `PT ${idx}`, max: 50 });
-            Object.values(activeGradeBreakdown.students).forEach(st => {
-                if (!st.ptScores) st.ptScores = [];
-                st.ptScores.push('');
-            });
-            renderComponentGradeTable('pt', weights);
+            openAddAssessmentModal('pt');
         });
     }
 
     const btnAddQaColumn = document.getElementById('btnAddQaColumn');
     if (btnAddQaColumn) {
         btnAddQaColumn.addEventListener('click', () => {
-            const weights = getActiveSubjectWeights();
-            const idx = activeGradeBreakdown.qaCols.length + 1;
-            activeGradeBreakdown.qaCols.push({ id: `qa_${idx}`, label: `Summative ${idx - 1}`, max: 25 });
-            Object.values(activeGradeBreakdown.students).forEach(st => {
-                if (!st.qaScores) st.qaScores = [];
-                st.qaScores.push('');
-            });
-            renderComponentGradeTable('qa', weights);
+            openAddAssessmentModal('qa');
         });
     }
 

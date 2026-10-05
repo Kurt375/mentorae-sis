@@ -33,8 +33,6 @@ const envOrigins = (process.env.CLIENT_ORIGIN || '')
   .filter(Boolean);
 
 const allowedOrigins = [
-  'https://mentorae-student-portal.netlify.app',
-  'https://comforting-fox-c29e5a.netlify.app',
   'http://localhost:5500',
   'http://127.0.0.1:5500',
   'http://localhost:5000',
@@ -51,7 +49,6 @@ app.use(cors({
       allowedOrigins.includes(origin) ||
       origin.startsWith('http://localhost:') ||
       origin.startsWith('http://127.0.0.1:') ||
-      origin.endsWith('.netlify.app') ||
       origin.endsWith('.vercel.app') ||
       origin.endsWith('.onrender.com')
     ) {

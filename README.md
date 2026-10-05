@@ -203,8 +203,8 @@ node scripts/add-user.js admin ADMIN-0001 System Administrator admin@talisayshs.
      API_BASE_URL: "https://your-backend.up.railway.app",
    };
    ```
-2. Deploy `frontend/` as a static site — Netlify (drag-and-drop or
-   connect the repo, base directory `frontend`) is the easiest option.
+2. Deploy `frontend/` as a static site on Vercel (connect the repo,
+   base directory `frontend`).
 3. Back on the Railway backend service, set `CLIENT_ORIGIN` to this
    frontend URL and redeploy.
 

@@ -879,4 +879,92 @@
     padding: 0.65rem 1rem;
 }
 
+/* ==========================================================================
+   Assessment Column Header Actions & Constraint Feedback
+   ========================================================================== */
+.component-col-header .col-title-text {
+    font-size: 0.82rem;
+    color: #1e293b;
+    transition: color 0.15s ease;
+}
+
+.component-col-header .col-title-text:hover {
+    color: #0a5c2c;
+    text-decoration: underline;
+}
+
+.col-action-btns {
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+}
+
+.component-col-header:hover .col-action-btns {
+    opacity: 1;
+}
+
+.btn-edit-col, .btn-delete-col {
+    color: #64748b;
+    padding: 0 2px !important;
+    font-size: 0.75rem;
+    line-height: 1;
+    border-radius: 3px;
+    border: none;
+    background: transparent;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.btn-edit-col:hover {
+    color: #0d6efd !important;
+    transform: scale(1.15);
+}
+
+.btn-delete-col:hover {
+    color: #dc3545 !important;
+    transform: scale(1.15);
+}
+
+/* Constraint Violation Highlight & Floating Badge */
+.score-exceeded-pulse {
+    border-color: #dc3545 !important;
+    background-color: #fff5f5 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    animation: shakeScoreInput 0.25s ease-in-out;
+}
+
+@keyframes shakeScoreInput {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
+.score-constraint-badge {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #dc3545;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    animation: fadeInDownConstraint 0.15s ease-out;
+}
+
+@keyframes fadeInDownConstraint {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -6px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
 

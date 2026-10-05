@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = true;
 
         try {
-            // Note: credentials: 'include' removed to allow cross-origin requests from Netlify
+            // Note: credentials: 'include' removed to allow cross-origin requests from Vercel
             const res = await fetch(`${API_BASE}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
