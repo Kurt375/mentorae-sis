@@ -542,4 +542,123 @@
         gap: 8px !important;
     }
 }
+
+/* Universal File Viewer Enhancements */
+.docx-viewer-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 32px 16px;
+    background-color: #23272d;
+    display: flex;
+    justify-content: center;
+}
+
+.docx-preview-host {
+    width: 100%;
+    max-width: 900px;
+}
+
+.docx-preview-host .docx-wrapper {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+.docx-preview-host .docx-wrapper > section.docx {
+    background-color: #ffffff !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+    margin: 0 auto 24px auto !important;
+    border-radius: 4px;
+}
+
+.spreadsheet-viewer-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #ffffff;
+    overflow: hidden;
+}
+
+.spreadsheet-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 8px 16px;
+    background-color: #f1f3f5;
+    border-bottom: 1px solid #dee2e6;
+    flex-shrink: 0;
+}
+
+.spreadsheet-content-stage {
+    flex-grow: 1;
+    overflow: auto;
+    padding: 16px;
+    background-color: #ffffff;
+}
+
+.spreadsheet-content-stage table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.spreadsheet-content-stage table th,
+.spreadsheet-content-stage table td {
+    border: 1px solid #d1d5db;
+    padding: 6px 12px;
+    white-space: nowrap;
+    color: #1f2937;
+}
+
+.spreadsheet-content-stage table tr:first-child td,
+.spreadsheet-content-stage table tr:first-child th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.spreadsheet-content-stage table tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.spreadsheet-content-stage table tr:hover {
+    background-color: #f3f4f6;
+}
+
+.media-viewer-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    padding: 16px;
+}
+
+.media-viewer-stage video {
+    max-width: 95vw;
+    max-height: 85vh;
+    width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    object-fit: contain;
+}
+
+.audio-viewer-card {
+    background: #1e2024;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    color: #ffffff;
+}
+
 
