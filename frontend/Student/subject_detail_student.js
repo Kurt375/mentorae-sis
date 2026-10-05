@@ -969,16 +969,46 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             const host = document.getElementById('docxPreviewHost');
 
-            // Try docx-preview first for high-fidelity native document layout
+            // Setup mode switcher with Zoom and Page controls
+            if (modeSwitcherEl) {
+                modeSwitcherEl.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomOutBtn" title="Zoom out">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <span class="micro-text text-white-50 px-1 fw-semibold" id="docxZoomVal">100%</span>
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomInBtn" title="Zoom in">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 ms-1 border-opacity-50" id="docxFitBtn" title="Reset zoom">
+                        Fit
+                    </button>
+                `;
+                let currentZoom = 1.0;
+                const updateZoom = (z) => {
+                    currentZoom = Math.min(Math.max(0.5, Math.round(z * 100) / 100), 2.0);
+                    const zoomValEl = document.getElementById('docxZoomVal');
+                    if (zoomValEl) zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+                    if (host) {
+                        host.style.transform = `scale(${currentZoom})`;
+                        host.style.transformOrigin = 'top center';
+                    }
+                };
+                document.getElementById('docxZoomOutBtn')?.addEventListener('click', () => updateZoom(currentZoom - 0.15));
+                document.getElementById('docxZoomInBtn')?.addEventListener('click', () => updateZoom(currentZoom + 0.15));
+                document.getElementById('docxFitBtn')?.addEventListener('click', () => updateZoom(1.0));
+            }
+
+            // High-fidelity Word document rendering with authentic physical page layout
             if (ext === 'docx' && window.docx && typeof window.docx.renderAsync === 'function' && fileData.arrayBuffer) {
                 try {
                     await window.docx.renderAsync(fileData.arrayBuffer, host, null, {
-                        className: 'docx-rendered-document',
-                        inWrapper: false,
+                        className: 'docx',
+                        inWrapper: true,
                         ignoreWidth: false,
                         ignoreHeight: false,
                         ignoreFonts: false,
                         breakPages: true,
+                        ignoreLastRenderedPageBreak: false,
                         useBase64URL: true,
                         renderHeaders: true,
                         renderFooters: true,
