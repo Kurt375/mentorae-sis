@@ -27,6 +27,8 @@ const {
   getMyTopicQuizAttempts,
   getStudentSubjectQuizSummary,
   getClassTopicQuizResults,
+  downloadTopicFile,
+  downloadTopicFileByName,
 } = require('../controllers/contentController');
 
 // Document conversion and previews (Google Classroom / Office Online / Raw)
@@ -37,6 +39,10 @@ router.get('/raw-preview/:token/:fileName', serveRawPreview);
 // Templates for bulk content
 router.get('/templates/flashcards', downloadFlashcardsTemplate);
 router.get('/templates/quiz', downloadQuizTemplate);
+
+// Topics file streaming & download
+router.get('/topics/file-by-name', requireAuth, downloadTopicFileByName);
+router.get('/topics/:topicId/files/:fileIndex/download', requireAuth, downloadTopicFile);
 
 // Topics
 router.get('/topics', requireAuth, listTopics);

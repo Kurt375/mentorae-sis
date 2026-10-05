@@ -137,17 +137,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function getResolvedFileUrl(fileObj, fallbackUrl = '') {
+    function getResolvedFileUrl(fileObj, fallbackUrl = '', topicTitle = '') {
         let raw = '';
+        const token = localStorage.getItem('mentorae_token') || '';
+        const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+
         if (fileObj) {
             if (typeof fileObj === 'string') {
                 raw = fileObj;
             } else {
                 raw = fileObj.dataUrl || fileObj.url || fileObj.file_path || fileObj.filePath || fileObj.path || fileObj.pdfDataUrl || '';
-                if (!raw && fileObj.id) {
-                    const token = localStorage.getItem('mentorae_token') || '';
-                    const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
-                    return `${apiBase}/api/resources/files/${fileObj.id}/download?token=${encodeURIComponent(token)}`;
+                if (!raw && fileObj.topicId !== undefined && fileObj.fileIndex !== undefined) {
+                    raw = `/api/content/topics/${fileObj.topicId}/files/${fileObj.fileIndex}/download`;
+                } else if (!raw && fileObj.id) {
+                    raw = `/api/resources/files/${fileObj.id}/download`;
+                } else if (!raw && fileObj.name && decodedSubjectName) {
+                    raw = `/api/content/topics/file-by-name?subjectName=${encodeURIComponent(decodedSubjectName)}&topicTitle=${encodeURIComponent(topicTitle || '')}&fileName=${encodeURIComponent(fileObj.name)}`;
                 }
             }
         }
@@ -157,17 +162,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (raw.startsWith('data:') || raw.startsWith('blob:')) {
             return raw;
         }
-        if (/^https?:\/\//i.test(raw)) {
-            return raw;
+
+        let fullUrl = raw;
+        if (!/^https?:\/\//i.test(fullUrl)) {
+            const cleanPath = fullUrl.startsWith('/') ? fullUrl : `/${fullUrl}`;
+            fullUrl = `${apiBase}${cleanPath}`;
         }
 
-        const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
-        const cleanPath = raw.startsWith('/') ? raw : `/${raw}`;
-        return `${apiBase}${cleanPath}`;
+        if (token && fullUrl.includes('/api/') && !fullUrl.includes('token=')) {
+            const separator = fullUrl.includes('?') ? '&' : '?';
+            fullUrl = `${fullUrl}${separator}token=${encodeURIComponent(token)}`;
+        }
+
+        return fullUrl;
     }
 
     async function loadFileData(resolvedUrl, fileName = '') {
         if (!resolvedUrl) throw new Error('No valid file URL provided.');
+
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        const isMedia = ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext);
 
         // 1. Data URL (Base64)
         if (resolvedUrl.startsWith('data:')) {
@@ -198,7 +212,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 3. HTTP / HTTPS URL (Backend or external)
+        // 3. Media streaming over HTTP: native HTML5 video/audio handles range streaming directly
+        if (isMedia && /^https?:\/\//i.test(resolvedUrl)) {
+            return {
+                blob: null,
+                arrayBuffer: null,
+                blobUrl: resolvedUrl,
+                mimeType: getMimeTypeFromFilename(fileName)
+            };
+        }
+
+        // 4. HTTP / HTTPS URL (PDF, DOCX, XLSX, etc.)
         const token = localStorage.getItem('mentorae_token');
         const headers = {};
         if (token && resolvedUrl.includes('/api/')) {
@@ -294,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
 
-        const resolvedUrl = getResolvedFileUrl(targetFile, dataUrl);
+        const resolvedUrl = getResolvedFileUrl(targetFile, dataUrl, topicTitle);
         let fileData = null;
 
         try {
@@ -1142,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    function openFilesModal(title, files) {
+    function openFilesModal(title, files, topic = null) {
         const modalTitle = document.getElementById('modalTopicTitle');
         const modalFilesList = document.getElementById('modalFilesList');
         if (modalTitle) modalTitle.textContent = title;
@@ -1152,10 +1176,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalFilesList.innerHTML = '<li class="list-group-item text-muted text-center py-3">No files available for this topic.</li>';
             } else {
                 files.forEach((file, fIdx) => {
+                    if (topic && topic.id && file.topicId === undefined) {
+                        file.topicId = topic.id;
+                        file.fileIndex = fIdx;
+                    }
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex justify-content-between align-items-center py-2.5 px-3';
 
-                    const fileUrl = getResolvedFileUrl(file) || '#';
+                    const fileUrl = getResolvedFileUrl(file, '', title) || '#';
 
                     li.innerHTML = `
                         <div class="d-flex align-items-center gap-2 text-truncate me-2">
@@ -1185,7 +1213,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const idx = parseInt(btn.dataset.findex, 10);
                         const targetFile = files[idx];
                         if (targetFile) {
-                            const resolved = getResolvedFileUrl(targetFile);
+                            if (topic && topic.id && targetFile.topicId === undefined) {
+                                targetFile.topicId = topic.id;
+                                targetFile.fileIndex = idx;
+                            }
+                            const resolved = getResolvedFileUrl(targetFile, '', title);
                             openClassroomViewer(targetFile.name, resolved, title, targetFile);
                         }
                     });
@@ -1456,16 +1488,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(cachedSubjects));
                     } catch (quotaErr) {
-                        // If quota exceeded, strip large file dataUrl strings for local storage cache
+                        // If quota exceeded, strip large file dataUrl strings for local storage cache, but retain file URLs & topic info
                         const sanitized = cachedSubjects.map(subj => ({
                             ...subj,
                             topics: (subj.topics || []).map(t => ({
                                 ...t,
-                                files: (t.files || []).map(f => ({ name: f.name, type: f.type, size: f.size }))
+                                files: (t.files || []).map((f, fIdx) => ({
+                                    name: f.name,
+                                    type: f.type,
+                                    size: f.size,
+                                    topicId: f.topicId || t.id,
+                                    fileIndex: f.fileIndex !== undefined ? f.fileIndex : fIdx,
+                                    url: f.url || (t.id ? `/api/content/topics/${t.id}/files/${fIdx}/download` : undefined)
+                                }))
                             })),
                             recommendations: (subj.recommendations || []).map(r => ({
                                 ...r,
-                                files: (r.files || []).map(f => ({ name: f.name, type: f.type, size: f.size }))
+                                files: (r.files || []).map((f, fIdx) => ({
+                                    name: f.name,
+                                    type: f.type,
+                                    size: f.size,
+                                    topicId: f.topicId || r.id,
+                                    fileIndex: f.fileIndex !== undefined ? f.fileIndex : fIdx,
+                                    url: f.url || (r.id ? `/api/content/topics/${r.id}/files/${fIdx}/download` : undefined)
+                                }))
                             }))
                         }));
                         localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(sanitized));
@@ -1500,7 +1546,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const topicIndex = parseInt(openFileBtn.dataset.topicIndex, 10);
             const topic = currentTeacherTopics[topicIndex] || (currentSubject && currentSubject.topics ? currentSubject.topics[topicIndex] : null);
             if (topic) {
-                openFilesModal(topic.title, topic.files);
+                openFilesModal(topic.title, topic.files, topic);
             }
             return;
         }
@@ -1531,7 +1577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const recIndex = parseInt(openRecFileBtn.dataset.recIndex, 10);
             const rec = currentTeacherRecs[recIndex] || (currentSubject && currentSubject.recommendations ? currentSubject.recommendations[recIndex] : null);
             if (rec) {
-                openFilesModal(rec.title, rec.files);
+                openFilesModal(rec.title, rec.files, rec);
             }
             return;
         }

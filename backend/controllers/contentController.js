@@ -13,6 +13,70 @@ function fullName(user) {
   return `${user.first_name || ''}${mi} ${user.last_name || ''}`.trim() || user.username || 'User';
 }
 
+function getMimeType(fileName = '', fallback = 'application/octet-stream') {
+  const ext = (fileName || '').split('.').pop().toLowerCase();
+  const map = {
+    pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    doc: 'application/msword',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xls: 'application/vnd.ms-excel',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ppt: 'application/vnd.ms-powerpoint',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    ogg: 'video/ogg',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    m4a: 'audio/mp4',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+    txt: 'text/plain; charset=utf-8',
+    csv: 'text/csv; charset=utf-8',
+    json: 'application/json'
+  };
+  return map[ext] || fallback;
+}
+
+function sendFileBuffer(req, res, buffer, fileName, mimeType) {
+  const range = req.headers.range;
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  if (range) {
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : buffer.length - 1;
+
+    if (start >= buffer.length || end >= buffer.length || start > end) {
+      res.setHeader('Content-Range', `bytes */${buffer.length}`);
+      return res.status(416).send('Requested range not satisfiable');
+    }
+
+    const chunksize = (end - start) + 1;
+    const chunk = buffer.subarray(start, end + 1);
+
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${buffer.length}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': mimeType,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`
+    });
+    return res.end(chunk);
+  } else {
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"` );
+    return res.send(buffer);
+  }
+}
+
 /* ============================= TOPICS ============================= */
 
 let contentTablesChecked = false;
@@ -151,7 +215,16 @@ async function listTopics(req, res) {
         createdAt: r.created_at,
         resources: payload.resources || [],
         visibleTo: payload.visibleTo || [],
-        files: isSpecificSubject ? (payload.files || []) : (payload.files || []).map(f => ({ name: f.name, type: f.type, size: f.size })),
+        files: (payload.files || []).map((f, fIdx) => ({
+          name: f.name,
+          type: f.type || getMimeType(f.name),
+          size: f.size,
+          topicId: r.id,
+          fileIndex: fIdx,
+          url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
+          dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
+          pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
+        })),
         quiz: isSpecificSubject ? (payload.quiz || []) : [],
         flashcards: isSpecificSubject ? (payload.flashcards || []) : []
       };
@@ -246,6 +319,141 @@ async function deleteTopic(req, res) {
   } catch (err) {
     console.error('deleteTopic error:', err);
     return res.status(500).json({ success: false, message: 'Could not delete topic.' });
+  }
+}
+
+/** GET /api/content/topics/:topicId/files/:fileIndex/download */
+async function downloadTopicFile(req, res) {
+  const { topicId, fileIndex } = req.params;
+  const { asPdf, name } = req.query;
+
+  try {
+    await ensureContentTables();
+    let [rows] = await pool.query(
+      'SELECT id, title, content_payload FROM topics WHERE id = ?',
+      [topicId]
+    );
+
+    let topic = rows[0];
+    if (!topic) {
+      const [reqRows] = await pool.query(
+        'SELECT id, title, content_payload FROM topic_requests WHERE id = ?',
+        [topicId]
+      );
+      topic = reqRows[0];
+    }
+
+    if (!topic) {
+      return res.status(404).json({ success: false, message: 'Topic not found.' });
+    }
+
+    let payload = {};
+    if (topic.content_payload) {
+      try {
+        payload = typeof topic.content_payload === 'string' ? JSON.parse(topic.content_payload) : topic.content_payload;
+      } catch (e) {
+        return res.status(500).json({ success: false, message: 'Invalid topic content structure.' });
+      }
+    }
+
+    const files = payload.files || [];
+    let file = null;
+
+    const numericIdx = parseInt(fileIndex, 10);
+    if (!isNaN(numericIdx) && files[numericIdx]) {
+      file = files[numericIdx];
+    } else if (fileIndex) {
+      file = files.find(f => f.name === fileIndex || f.name === decodeURIComponent(fileIndex));
+    }
+    if (!file && name) {
+      file = files.find(f => f.name === name || f.name === decodeURIComponent(name));
+    }
+
+    if (!file) {
+      return res.status(404).json({ success: false, message: 'File not found in topic.' });
+    }
+
+    let rawUrl = (asPdf === 'true' && file.pdfDataUrl) ? file.pdfDataUrl : (file.dataUrl || file.pdfDataUrl || file.url || file.filePath || file.file_path || '');
+    let fileName = file.name || 'document';
+    if (asPdf === 'true' && !fileName.toLowerCase().endsWith('.pdf')) {
+      fileName = fileName.replace(/\.[^.]+$/, '') + '.pdf';
+    }
+
+    if (!rawUrl) {
+      return res.status(404).json({ success: false, message: 'File data is empty.' });
+    }
+
+    // Base64 Data URL
+    if (rawUrl.startsWith('data:')) {
+      const commaIdx = rawUrl.indexOf(',');
+      if (commaIdx === -1) {
+        return res.status(500).json({ success: false, message: 'Malformed data URL.' });
+      }
+      const header = rawUrl.substring(0, commaIdx);
+      const base64Data = rawUrl.substring(commaIdx + 1);
+      const mimeMatch = header.match(/^data:([^;]+)/);
+      const mimeType = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : getMimeType(fileName, file.type);
+      const buffer = Buffer.from(base64Data, 'base64');
+      return sendFileBuffer(req, res, buffer, fileName, mimeType);
+    }
+
+    // Relative file path on server
+    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+      const absPath = path.isAbsolute(rawUrl) ? rawUrl : path.join(__dirname, '..', rawUrl);
+      if (fs.existsSync(absPath)) {
+        return res.download(absPath, fileName);
+      }
+    }
+
+    return res.redirect(rawUrl);
+  } catch (err) {
+    console.error('downloadTopicFile error:', err);
+    return res.status(500).json({ success: false, message: 'Error streaming file.' });
+  }
+}
+
+/** GET /api/content/topics/file-by-name?subjectName=&topicTitle=&fileName= */
+async function downloadTopicFileByName(req, res) {
+  const { subjectName, topicTitle, fileName } = req.query;
+  if (!subjectName || !fileName) {
+    return res.status(400).json({ success: false, message: 'subjectName and fileName are required.' });
+  }
+
+  try {
+    await ensureContentTables();
+    let query = `
+      SELECT t.id, t.title, t.content_payload
+      FROM topics t
+      JOIN subjects s ON s.id = t.subject_id
+      WHERE s.name = ?
+    `;
+    const params = [subjectName];
+    if (topicTitle) {
+      query += ' AND t.title = ?';
+      params.push(topicTitle);
+    }
+    query += ' ORDER BY t.created_at DESC';
+
+    const [rows] = await pool.query(query, params);
+    for (const r of rows) {
+      if (!r.content_payload) continue;
+      let payload = {};
+      try {
+        payload = typeof r.content_payload === 'string' ? JSON.parse(r.content_payload) : r.content_payload;
+      } catch (e) { continue; }
+
+      const files = payload.files || [];
+      const matchIdx = files.findIndex(f => f.name === fileName || decodeURIComponent(f.name) === decodeURIComponent(fileName));
+      if (matchIdx !== -1) {
+        req.params = { topicId: r.id, fileIndex: matchIdx };
+        return downloadTopicFile(req, res);
+      }
+    }
+
+    return res.status(404).json({ success: false, message: 'File not found in matching topics.' });
+  } catch (err) {
+    console.error('downloadTopicFileByName error:', err);
+    return res.status(500).json({ success: false, message: 'Error retrieving file.' });
   }
 }
 
@@ -345,7 +553,16 @@ async function listTopicRequests(req, res) {
           description: r.description,
           resources: payload.resources || [],
           visibleTo: payload.visibleTo || [],
-          files: payload.files || [],
+          files: (payload.files || []).map((f, fIdx) => ({
+            name: f.name,
+            type: f.type || getMimeType(f.name),
+            size: f.size,
+            topicId: r.id,
+            fileIndex: fIdx,
+            url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
+            dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
+            pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
+          })),
           quiz: payload.quiz || [],
           flashcards: payload.flashcards || [],
           createdAt: r.created_at,
@@ -1370,4 +1587,6 @@ module.exports = {
   getMyTopicQuizAttempts,
   getStudentSubjectQuizSummary,
   getClassTopicQuizResults,
+  downloadTopicFile,
+  downloadTopicFileByName,
 };
