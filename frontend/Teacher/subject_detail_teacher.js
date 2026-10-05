@@ -1222,6 +1222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modalTitle) modalTitle.textContent = title;
         if (modalFilesList) {
             modalFilesList.innerHTML = '';
+            modalFilesList.scrollTop = 0;
             if (!files || files.length === 0) {
                 modalFilesList.innerHTML = '<li class="list-group-item text-muted text-center py-4">No files available for this topic.</li>';
             } else {
