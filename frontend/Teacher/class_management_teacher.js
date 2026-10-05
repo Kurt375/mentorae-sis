@@ -2482,7 +2482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             return {
-                fileName: fileName || "ASSH 11 - 2-e-CLASS-RECORD.xlsm",
+                fileName: fileName || "Sample_Template.xlsm",
                 gradeLevel, strandTrack, section, subject, teacher, schoolYear, term,
                 fileWeights: { ww: fileWwWeight, pt: filePtWeight, qa: fileQaWeight },
                 fileBreakdownCols: {
@@ -2658,9 +2658,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Resilient Blank Template Download Handler (Static blob download with API fallback)
     const templateDownloadTargets = [
-        { id: 'btnDownloadBlankTemplateMain', format: 'xlsm', filename: 'ASSH 11 - 2-e-CLASS-RECORD.xlsm' },
-        { id: 'btnDownloadBlankTemplateModalXlsm', format: 'xlsm', filename: 'ASSH 11 - 2-e-CLASS-RECORD.xlsm' },
-        { id: 'btnDownloadBlankTemplateModalXlsx', format: 'xlsx', filename: 'ASSH 11 - 2-e-CLASS-RECORD.xlsx' }
+        { id: 'btnDownloadBlankTemplateMain', format: 'xlsm', filename: 'Sample_Template.xlsm' },
+        { id: 'btnDownloadBlankTemplateModalXlsm', format: 'xlsm', filename: 'Sample_Template.xlsm' },
+        { id: 'btnDownloadBlankTemplateModalXlsx', format: 'xlsx', filename: 'Sample_Template.xlsx' }
     ];
 
     templateDownloadTargets.forEach(({ id, format, filename }) => {

@@ -885,8 +885,8 @@ async function downloadECRTemplate(req, res) {
   const fs = require('fs');
   const format = (req.query.format || 'xlsm').toLowerCase();
   const candidates = format === 'xlsx'
-    ? ['ASSH 11 - 2-e-CLASS-RECORD.xlsx', 'DepEd_ECR_Template_DO15_s2026.xlsx']
-    : ['ASSH 11 - 2-e-CLASS-RECORD.xlsm', 'ASSH 11 - 2-e-CLASS-RECORD (1).xlsm'];
+    ? ['Sample_Template.xlsx', 'Sample_ECR_Template.xlsx', 'DepEd_ECR_Blank_Template.xlsx', 'ASSH 11 - 2-e-CLASS-RECORD.xlsx', 'DepEd_ECR_Template_DO15_s2026.xlsx']
+    : ['Sample_Template.xlsm', 'Sample_ECR_Template.xlsm', 'DepEd_ECR_Blank_Template.xlsm', 'ASSH 11 - 2-e-CLASS-RECORD.xlsm', 'ASSH 11 - 2-e-CLASS-RECORD (1).xlsm'];
 
   const searchDirs = [
     path.join(__dirname, '../../frontend/Teacher'),

@@ -494,7 +494,10 @@ async function exportECRWorkbook(req, res) {
     const path = require('path');
     const fs = require('fs');
 
-    const templatePath = path.join(__dirname, '../../frontend/Teacher/ASSH 11 - 2-e-CLASS-RECORD.xlsm');
+    let templatePath = path.join(__dirname, '../../frontend/Teacher/Sample_Template.xlsm');
+    if (!fs.existsSync(templatePath)) {
+      templatePath = path.join(__dirname, '../../frontend/Teacher/ASSH 11 - 2-e-CLASS-RECORD.xlsm');
+    }
     if (!fs.existsSync(templatePath)) {
       return res.status(404).json({ success: false, message: 'DepEd ECR template file not found on server.' });
     }
