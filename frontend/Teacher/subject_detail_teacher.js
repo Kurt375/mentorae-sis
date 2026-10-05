@@ -259,8 +259,8 @@ document.addEventListener('DOMContentLoaded', () => {
             currentViewerActiveBlobUrl = null;
         }
 
-        // Show viewer modal immediately and close attachment picker for instant response
         viewerEl.classList.remove('d-none');
+        document.documentElement.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
 
         const filesModal = getViewFilesModal();
@@ -268,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const closeViewer = () => {
             viewerEl.classList.add('d-none');
+            document.documentElement.style.overflow = '';
             document.body.style.overflow = '';
             stageEl.innerHTML = '';
             if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
