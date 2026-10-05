@@ -967,4 +967,16 @@
     }
 }
 
+.col-status-badge {
+    font-size: 0.65rem !important;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    background-color: #f1f5f9 !important;
+    color: #64748b !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 9999px;
+    padding: 1px 5px !important;
+    vertical-align: middle;
+}
+
 

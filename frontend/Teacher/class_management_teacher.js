@@ -969,12 +969,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { ww: 20, pt: 50, qa: 30, name: 'General Mathematics', code: 'GENMATH', classification: 'Core Subject' };
     }
 
+    function getComponentActiveCols(type) {
+        const cols = type === 'ww' ? activeGradeBreakdown.wwCols : (type === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+        const scoresKey = type === 'ww' ? 'wwScores' : (type === 'pt' ? 'ptScores' : 'qaScores');
+        const students = Object.values(activeGradeBreakdown.students);
+
+        // A column is active only if at least one student in the section has an entered score
+        return cols.filter((col, idx) => {
+            return students.some(st => {
+                const s = st[scoresKey] && st[scoresKey][idx];
+                return s !== '' && s !== null && s !== undefined && !isNaN(s);
+            });
+        });
+    }
+
+    function getComponentEffectiveHpsTotal(type) {
+        const cols = type === 'ww' ? activeGradeBreakdown.wwCols : (type === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+        const activeCols = getComponentActiveCols(type);
+        // If at least one column has scores, HPS total is strictly the sum of active columns!
+        // Unscored / future columns are completely excluded from the denominator so students are not penalized.
+        // If no columns have scores anywhere yet, fallback to sum of all columns for clean initial display.
+        const targetCols = activeCols.length > 0 ? activeCols : cols;
+        return targetCols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+    }
+
     function recomputeStudentBreakdown(studentId, weights) {
         const st = activeGradeBreakdown.students[studentId];
         if (!st) return;
 
-        // 1. Written Works
-        const wwHpsTotal = activeGradeBreakdown.wwCols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+        // 1. Written Works (calculated against active columns only)
+        const wwHpsTotal = getComponentEffectiveHpsTotal('ww');
         let wwSum = 0;
         let hasWwScore = false;
         (st.wwScores || []).forEach(v => {
@@ -987,8 +1011,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         st.wwPs = hasWwScore && wwHpsTotal > 0 ? Math.round(((wwSum / wwHpsTotal) * 100) * 100) / 100 : '';
         st.wwWs = hasWwScore && wwHpsTotal > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : (st.wwWsManual !== undefined && st.wwWsManual !== '' ? parseFloat(st.wwWsManual) : '');
 
-        // 2. Performance Tasks
-        const ptHpsTotal = activeGradeBreakdown.ptCols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+        // 2. Performance Tasks (calculated against active columns only)
+        const ptHpsTotal = getComponentEffectiveHpsTotal('pt');
         let ptSum = 0;
         let hasPtScore = false;
         (st.ptScores || []).forEach(v => {
@@ -1001,8 +1025,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         st.ptPs = hasPtScore && ptHpsTotal > 0 ? Math.round(((ptSum / ptHpsTotal) * 100) * 100) / 100 : '';
         st.ptWs = hasPtScore && ptHpsTotal > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : (st.ptWsManual !== undefined && st.ptWsManual !== '' ? parseFloat(st.ptWsManual) : '');
 
-        // 3. Summative Tests & Term Exam
-        const qaHpsTotal = activeGradeBreakdown.qaCols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+        // 3. Summative Tests & Term Exam (calculated against active columns only)
+        const qaHpsTotal = getComponentEffectiveHpsTotal('qa');
         let qaSum = 0;
         let hasQaScore = false;
         (st.qaScores || []).forEach(v => {
@@ -1272,18 +1296,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         const psKey = type === 'ww' ? 'wwPs' : (type === 'pt' ? 'ptPs' : 'qaPs');
         const wsKey = type === 'ww' ? 'wwWs' : (type === 'pt' ? 'ptWs' : 'qaWs');
 
-        const hpsTotal = cols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+        const students = Object.values(activeGradeBreakdown.students);
+        const isColActive = (colIdx) => {
+            return students.some(st => {
+                const s = st[scoresKey] && st[scoresKey][colIdx];
+                return s !== '' && s !== null && s !== undefined && !isNaN(s);
+            });
+        };
+        const hasAnyScoreInComp = cols.some((_, idx) => isColActive(idx));
+        const hpsTotal = getComponentEffectiveHpsTotal(type);
 
-        // Header with column edit & delete buttons
+        // Header with column edit & delete buttons, and smart active status
         theadEl.innerHTML = `
             <tr class="table-header-row text-center align-middle">
                 <th class="px-3 py-2.5 text-start" style="width: 110px;">Student ID</th>
                 <th class="px-3 py-2.5 text-start" style="min-width: 170px;">Learner's Name</th>
-                ${cols.map((col, idx) => `
-                    <th class="px-2 py-2 text-center component-col-header" style="min-width: 95px;" data-comp="${type}" data-col-idx="${idx}">
+                ${cols.map((col, idx) => {
+                    const active = isColActive(idx);
+                    const isUpcoming = hasAnyScoreInComp && !active;
+                    return `
+                    <th class="px-2 py-2 text-center component-col-header ${isUpcoming ? 'opacity-75' : ''}" style="min-width: 95px;" data-comp="${type}" data-col-idx="${idx}">
                         <div class="d-flex flex-column align-items-center justify-content-center">
                             <div class="d-flex align-items-center justify-content-center gap-1 w-100">
-                                <span class="col-title-text fw-bold text-truncate" style="max-width: 100px; cursor: pointer;" 
+                                <span class="col-title-text fw-bold text-truncate" style="max-width: 90px; cursor: pointer;" 
                                       data-comp="${type}" data-col-idx="${idx}" title="${escapeHtml(col.label)} (Click to edit)">
                                     ${escapeHtml(col.label)}
                                 </span>
@@ -1298,10 +1333,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     </button>
                                 </div>
                             </div>
-                            <span class="micro-text text-muted mt-0.5">Max: <span class="col-max-label fw-semibold">${col.max}</span></span>
+                            <div class="d-flex align-items-center justify-content-center mt-0.5">
+                                <span class="micro-text text-muted">Max: <span class="col-max-label fw-semibold">${col.max}</span></span>
+                                <span class="badge col-status-badge ms-1" style="display: ${isUpcoming ? 'inline-block' : 'none'};" 
+                                      title="No scores entered yet — excluded from active grade calculations until scored">Unscored</span>
+                            </div>
                         </div>
-                    </th>
-                `).join('')}
+                    </th>`;
+                }).join('')}
                 <th class="px-2 py-2.5 text-center" style="min-width: 80px;">Total</th>
                 <th class="px-2 py-2.5 text-center" style="min-width: 85px;">PS (%)</th>
                 <th class="px-2 py-2.5 text-center" style="min-width: 90px;">WS (${compWeight}%)</th>
@@ -1317,7 +1356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </td>
                 `).join('')}
                 <td class="px-2 py-1 text-center">
-                    <span class="computed-cell computed-cell-total fw-bold" id="hps-total-${type}">${hpsTotal}</span>
+                    <span class="computed-cell computed-cell-total fw-bold" id="hps-total-${type}" title="Active HPS Total (Calculated only from scored activities)">${hpsTotal}</span>
                 </td>
                 <td class="px-2 py-1 text-center">
                     <span class="computed-cell computed-cell-ps fw-bold">100.0%</span>
@@ -1330,7 +1369,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Body
         tbodyEl.innerHTML = '';
-        const students = Object.values(activeGradeBreakdown.students);
         if (!students.length) {
             tbodyEl.innerHTML = `<tr><td colspan="${cols.length + 5}" class="text-center text-muted py-4">No student records available.</td></tr>`;
             return;
@@ -1387,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        // Wire sub-activity score inputs with strict max constraint
+        // Wire sub-activity score inputs with strict max constraint and smart HPS recalculation
         tbodyEl.querySelectorAll('.sub-activity-input').forEach(inp => {
             inp.addEventListener('input', (e) => {
                 const comp = e.target.getAttribute('data-comp');
@@ -1424,8 +1462,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (comp === 'pt') st.ptWsManual = undefined;
                 if (comp === 'qa') st.qaWsManual = undefined;
 
-                recomputeStudentBreakdown(studentId, weights);
-                updateStudentDomAcrossAllTables(studentId, comp, weights);
+                // Live recompute across all students so section-wide HPS denominator syncs instantly
+                Object.keys(activeGradeBreakdown.students).forEach(stId => {
+                    recomputeStudentBreakdown(stId, weights);
+                    updateStudentDomAcrossAllTables(stId, comp, weights);
+                });
+
+                // Update HPS total badge in the header row
+                const effectiveHps = getComponentEffectiveHpsTotal(comp);
+                const hpsBadge = theadEl.querySelector(`#hps-total-${comp}`);
+                if (hpsBadge) hpsBadge.textContent = effectiveHps;
+
+                // Dynamically update unscored status badges for columns in this component
+                const currentCols = comp === 'ww' ? activeGradeBreakdown.wwCols : (comp === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+                const scoresListKey = comp === 'ww' ? 'wwScores' : (comp === 'pt' ? 'ptScores' : 'qaScores');
+                const anyScoreNow = currentCols.some((_, cIdx) => {
+                    return Object.values(activeGradeBreakdown.students).some(s => {
+                        const sc = s[scoresListKey] && s[scoresListKey][cIdx];
+                        return sc !== '' && sc !== null && sc !== undefined && !isNaN(sc);
+                    });
+                });
+
+                currentCols.forEach((_, cIdx) => {
+                    const thEl = theadEl.querySelector(`.component-col-header[data-col-idx="${cIdx}"]`);
+                    if (thEl) {
+                        const badge = thEl.querySelector('.col-status-badge');
+                        const colIsActive = Object.values(activeGradeBreakdown.students).some(s => {
+                            const sc = s[scoresListKey] && s[scoresListKey][cIdx];
+                            return sc !== '' && sc !== null && sc !== undefined && !isNaN(sc);
+                        });
+                        const colUpcoming = anyScoreNow && !colIsActive;
+                        if (badge) badge.style.display = colUpcoming ? 'inline-block' : 'none';
+                        if (colUpcoming) thEl.classList.add('opacity-75');
+                        else thEl.classList.remove('opacity-75');
+                    }
+                });
             });
 
             // Double enforcement on blur / change
@@ -1458,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (maxLabel) maxLabel.textContent = newMax;
                 }
 
-                const newHpsTotal = colsList.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+                const newHpsTotal = getComponentEffectiveHpsTotal(comp);
                 const totalBadge = theadEl.querySelector(`#hps-total-${comp}`);
                 if (totalBadge) totalBadge.textContent = newHpsTotal;
 
