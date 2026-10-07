@@ -186,8 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-3 py-2"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">${escapeHtml(r.f3 || ('Grade ' + r.gradeLevel))}</span></td>
                     <td class="px-3 py-2">
                         ${r.adviserName && r.adviserName !== 'Unassigned'
-                            ? `<i class="bi bi-person-badge text-primary me-1"></i>${escapeHtml(r.adviserName)}`
-                            : '<span class="text-muted fst-italic">Unassigned</span>'}
+                    ? `<i class="bi bi-person-badge text-primary me-1"></i>${escapeHtml(r.adviserName)}`
+                    : '<span class="text-muted fst-italic">Unassigned</span>'}
                     </td>
                     <td class="px-3 py-2 fw-semibold">${escapeHtml(r.f5 || (r.enrollees + ' Students'))}</td>
                     <td class="px-3 py-2 text-end text-nowrap">
