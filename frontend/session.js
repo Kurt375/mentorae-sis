@@ -113,20 +113,31 @@ async function authedFetch(path, token, options = {}) {
   return res.json();
 }
 
+/**
+ * Clears all session keys from localStorage, notifies backend, and optionally redirects to redirectPath.
+ */
+function clearSession(redirectPath) {
+  try {
+    fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+  } catch (err) {
+    /* ignore */
+  }
+  localStorage.removeItem('mentorae_token');
+  localStorage.removeItem('mentorae_user');
+  localStorage.removeItem('mentorae_last_active');
+  if (redirectPath) {
+    const finalUrl = redirectPath.includes('?') ? redirectPath : `${redirectPath}?reason=logout`;
+    window.location.href = finalUrl;
+  }
+}
+window.clearSession = clearSession;
+
 function wireLogout(btnId, loginPath, token) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
   btn.addEventListener('click', async () => {
     if (!confirm('Are you sure you want to log out?')) return;
-    try {
-      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
-    } catch (err) {
-      /* ignore */
-    }
-    localStorage.removeItem('mentorae_token');
-    localStorage.removeItem('mentorae_user');
-    localStorage.removeItem('mentorae_last_active');
-    window.location.href = `${loginPath}?reason=logout`;
+    clearSession(loginPath);
   });
 }
 
