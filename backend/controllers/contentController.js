@@ -222,6 +222,8 @@ async function listTopics(req, res) {
           topicId: r.id,
           fileIndex: fIdx,
           url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
+          pdfUrl: f.pdfDataUrl ? `/api/content/topics/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
+          hasPdf: !!f.pdfDataUrl,
           dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
           pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
         })),
@@ -560,6 +562,8 @@ async function listTopicRequests(req, res) {
             topicId: r.id,
             fileIndex: fIdx,
             url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
+            pdfUrl: f.pdfDataUrl ? `/api/content/topics/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
+            hasPdf: !!f.pdfDataUrl,
             dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
             pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
           })),
@@ -908,6 +912,13 @@ async function cacheTopicFilePdf(req, res) {
       let modified = false;
       payload.files.forEach(f => {
         if (f.name === fileName) {
+          // Never overwrite native PowerPoint COM / high-fidelity PDF with client-side canvas PDF
+          const isIncomingCanvas = pdfDataUrl.includes('filename=generated.pdf') || pdfDataUrl.includes('jsPDF');
+          const isExistingNative = f.isNativePowerPointPdf || (f.pdfDataUrl && f.pdfDataUrl.startsWith('data:application/pdf;base64,JVBERi'));
+          if (isIncomingCanvas && isExistingNative) {
+            console.log(`[cacheTopicFilePdf] Protected native PowerPoint PDF from canvas overwrite for: ${fileName}`);
+            return;
+          }
           f.pdfDataUrl = pdfDataUrl;
           f.convertedToPdf = true;
           modified = true;

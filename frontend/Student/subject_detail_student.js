@@ -418,7 +418,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. PPT / PPTX PRESENTATIONS (Google Classroom Style PDF Auto-View)
         // ==========================================
         if (ext === 'pptx' || ext === 'ppt') {
-            let pdfDataUrlToUse = targetFile ? targetFile.pdfDataUrl : null;
+            // Invalidate any legacy client canvas generated.pdf cached in browser storage
+            if (targetFile?.pdfDataUrl && targetFile.pdfDataUrl.includes('filename=generated.pdf')) {
+                targetFile.pdfDataUrl = null;
+            }
+
+            let pdfDataUrlToUse = targetFile ? (targetFile.pdfUrl || targetFile.pdfDataUrl) : null;
+            if (!pdfDataUrlToUse && targetFile && targetFile.topicId !== undefined && targetFile.fileIndex !== undefined) {
+                pdfDataUrlToUse = `/api/content/topics/${targetFile.topicId}/files/${targetFile.fileIndex}/download?asPdf=true`;
+            }
 
             // If this presentation has not been converted to PDF yet, auto-convert it on-the-fly!
             if (!pdfDataUrlToUse && fileData && (fileData.arrayBuffer || fileData.blob)) {
@@ -1479,7 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="fw-semibold text-dark d-block text-break fs-6 file-title-text" title="${escapeHtml(file.name || 'Attached File')}">${escapeHtml(file.name || 'Attached File')}</span>
                                 <div class="d-flex align-items-center gap-2 mt-1">
                                     ${file.size ? `<span class="micro-text text-muted">${(file.size / 1024).toFixed(1)} KB</span>` : ''}
-                                    ${file.pdfDataUrl ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">HD Classroom View</span>' : ''}
+                                    ${(file.pdfDataUrl || file.pdfUrl || file.hasPdf) ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">HD Classroom View</span>' : ''}
                                 </div>
                             </div>
                         </div>
