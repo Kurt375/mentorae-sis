@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentStrand = studentStrandSelect.value;
         const matchingStrands = strandsMatchingGrade(gradeLevel);
         const strandOptions = matchingStrands.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
-        studentStrandSelect.innerHTML = `<option value="">All Strands</option>${strandOptions}`;
+        studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Strand —</option>${strandOptions}`;
         if (currentStrand && matchingStrands.some(s => String(s.id) === String(currentStrand))) {
             studentStrandSelect.value = currentStrand;
         } else {
@@ -212,14 +212,15 @@ document.addEventListener('DOMContentLoaded', () => {
             strandsCache = strandsData.strands;
             const strandOptions = strandsCache.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
             document.getElementById('manageStrandFilter').innerHTML = `<option value="">All strands</option>${strandOptions}`;
-            studentStrandSelect.innerHTML = `<option value="">All Strands</option>${strandOptions}`;
+            studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Strand —</option>${strandOptions}`;
         }
         if (sectionsData.success) {
             sectionsCache = sectionsData.sections;
             const allOptions = sectionOptionsHtml(sectionsCache);
             refreshStudentSections();
             document.getElementById('assignSectionSelect').innerHTML = `<option value="">— No section —</option>${allOptions}`;
-            document.getElementById('linkStudentSectionFilter').innerHTML = `<option value="">Any section</option>${allOptions}`;
+            const linkStudentSecEl = document.getElementById('linkStudentSectionFilter');
+            if (linkStudentSecEl) linkStudentSecEl.innerHTML = `<option value="">Any section</option>${allOptions}`;
             document.getElementById('manageSectionFilter').innerHTML = `<option value="">All sections</option>${allOptions}`;
             document.getElementById('manageAssignSectionSelect').innerHTML = `<option value="">— No section —</option>${allOptions}`;
             userAdviserSectionSelect.innerHTML = `<option value="">— Not an adviser —</option>${allOptions}`;
@@ -553,8 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadUsers();
         if (userRoleSelect.value === 'Parent' || userRoleSelect.value === 'Student') {
             loadParentOptions();
-            loadStudentOptionsForLinking();
             updateStudentSuggestions();
+            loadParentLinks();
             loadManageStudents();
         }
     });
@@ -1181,22 +1182,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Link Parent to Student (with search/filtering) ---
-    const linkParentSelect = document.getElementById('linkParentSelect');
-    const linkStudentSelect = document.getElementById('linkStudentSelect');
-    const linkParentForm = document.getElementById('linkParentForm');
-    const linkParentSearch = document.getElementById('linkParentSearch');
-    const linkStudentSearch = document.getElementById('linkStudentSearch');
-    const linkStudentGradeFilter = document.getElementById('linkStudentGradeFilter');
-    const linkStudentSectionFilter = document.getElementById('linkStudentSectionFilter');
-
+    // --- Parent-Student Connections & Datalists ---
     let parentsCache = [];
 
     async function loadParentOptions() {
         const data = await authedFetch('/api/users?role=Parent&limit=1000', token);
         if (data.success) {
             parentsCache = data.users;
-            renderParentOptions(parentsCache);
             updateParentSuggestions(parentsCache);
             updateParentLinkBadge();
         }
@@ -1205,6 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Autocomplete datalists for the Create Account form (Student → Parent Full Name, Parent → Child's Name) ---
     function updateParentSuggestions(list) {
         const datalist = document.getElementById('parentSuggestionsList');
+        if (!datalist) return;
         datalist.innerHTML = list.map(p => {
             const name = `${p.first_name} ${p.middle_initial ? p.middle_initial + ' ' : ''}${p.last_name}`;
             return `<option value="${name}">${p.email}</option>`;
@@ -1213,6 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function updateStudentSuggestions() {
         const datalist = document.getElementById('studentSuggestionsList');
+        if (!datalist) return;
         const data = await authedFetch('/api/users/students?limit=1000&enrollmentStatus=all', token);
         if (data.success && data.students) {
             datalist.innerHTML = data.students.map(s => {
@@ -1222,80 +1216,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderParentOptions(list) {
-        const container = linkParentSelect;
-        const selectedId = container.dataset.selectedId;
-        if (!list.length) {
-            container.innerHTML = '<div class="link-list-empty">No matches</div>';
-            return;
-        }
-        container.innerHTML = list.map(p => `
-            <div class="link-list-item${String(p.id) === selectedId ? ' selected' : ''}" data-id="${p.id}">
-                ${p.first_name} ${p.last_name}
-                <div class="link-list-item-sub">${p.email}</div>
-            </div>
-        `).join('');
-        container.querySelectorAll('.link-list-item').forEach(item => {
-            item.addEventListener('click', () => {
-                container.querySelectorAll('.link-list-item').forEach(i => i.classList.remove('selected'));
-                item.classList.add('selected');
-                container.dataset.selectedId = item.dataset.id;
-            });
-        });
-    }
-
-    linkParentSearch.addEventListener('input', () => {
-        const q = linkParentSearch.value.trim().toLowerCase();
-        const filtered = !q ? parentsCache : parentsCache.filter(p =>
-            `${p.first_name} ${p.last_name} ${p.email}`.toLowerCase().includes(q)
-        );
-        renderParentOptions(filtered);
-    });
-
-    async function loadStudentOptionsForLinking() {
-        const params = new URLSearchParams();
-        if (linkStudentGradeFilter.value) params.set('gradeLevel', linkStudentGradeFilter.value);
-        if (linkStudentSectionFilter.value) params.set('sectionId', linkStudentSectionFilter.value);
-        if (linkStudentSearch.value.trim()) params.set('search', linkStudentSearch.value.trim());
-
-        const data = await authedFetch(`/api/users/students?${params}`, token);
-        const container = linkStudentSelect;
-        const selectedId = container.dataset.selectedId;
-        if (!data.success || !data.students.length) {
-            container.innerHTML = '<div class="link-list-empty">No matches</div>';
-            return;
-        }
-        container.innerHTML = data.students.map(s => `
-            <div class="link-list-item${String(s.id) === selectedId ? ' selected' : ''}" data-id="${s.id}">
-                ${s.firstName} ${s.lastName} — ${s.idNumber}
-                <div class="link-list-item-sub">${s.sectionName ? `${s.strandCode} G${s.gradeLevel} ${s.sectionName}` : 'No section'}</div>
-            </div>
-        `).join('');
-        container.querySelectorAll('.link-list-item').forEach(item => {
-            item.addEventListener('click', () => {
-                container.querySelectorAll('.link-list-item').forEach(i => i.classList.remove('selected'));
-                item.classList.add('selected');
-                container.dataset.selectedId = item.dataset.id;
-            });
-        });
-    }
-
-    linkStudentGradeFilter.addEventListener('change', () => {
-        // Narrow the section filter to the chosen grade level
-        const matching = sectionsMatching('', linkStudentGradeFilter.value);
-        linkStudentSectionFilter.innerHTML = `<option value="">Any section</option>${sectionOptionsHtml(matching)}`;
-        loadStudentOptionsForLinking();
-    });
-    linkStudentSectionFilter.addEventListener('change', loadStudentOptionsForLinking);
-    let linkSearchTimer;
-    linkStudentSearch.addEventListener('input', () => {
-        clearTimeout(linkSearchTimer);
-        linkSearchTimer = setTimeout(loadStudentOptionsForLinking, 300);
-    });
-
     async function loadParentLinks() {
         const data = await authedFetch('/api/users/parent-links', token);
         const tbody = document.getElementById('parentLinksTableBody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         if (!data.success || !data.links.length) {
             tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No parent-student links yet.</td></tr>';
@@ -1304,8 +1228,8 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const link of data.links) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${link.parentName} <span class="text-muted">(${link.parentEmail})</span></td>
-                <td>${link.studentName} <span class="text-muted">(${link.studentIdNumber})</span></td>
+                <td class="px-3">${link.parentName} <span class="text-muted">(${link.parentEmail})</span></td>
+                <td class="px-3">${link.studentName} <span class="text-muted">(${link.studentIdNumber})</span></td>
                 <td class="text-center">
                     <button class="btn btn-link p-0 text-danger fs-5 unlink-btn" title="Remove link" data-id="${link.id}">
                         <i class="bi bi-x-circle-fill"></i>
@@ -1323,34 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    linkParentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const parentId = linkParentSelect.dataset.selectedId;
-        const studentId = linkStudentSelect.dataset.selectedId;
-        if (!parentId || !studentId) {
-            alert('Select both a parent and a student before linking.');
-            return;
-        }
-
-        const result = await authedFetch('/api/users/parent-links', token, {
-            method: 'POST',
-            body: JSON.stringify({ parentId, studentId }),
-        });
-        if (result.success) {
-            linkParentSelect.dataset.selectedId = '';
-            linkStudentSelect.dataset.selectedId = '';
-            linkParentSearch.value = '';
-            linkStudentSearch.value = '';
-            renderParentOptions(parentsCache);
-            loadStudentOptionsForLinking();
-            loadParentLinks();
-        } else {
-            alert(result.message);
-        }
-    });
-
     loadParentOptions();
-    loadStudentOptionsForLinking();
     updateStudentSuggestions();
     loadParentLinks();
 
