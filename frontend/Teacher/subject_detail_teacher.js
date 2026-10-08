@@ -433,6 +433,88 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        async function openOnlineEmbed(viewerType) {
+            if (modeSwitcherEl) {
+                modeSwitcherEl.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeBackSlidesTopBtn" title="Switch back to built-in slide viewer">
+                        <i class="bi bi-file-slides me-1"></i> Fast Slide View
+                    </button>
+                `;
+                document.getElementById('modeBackSlidesTopBtn')?.addEventListener('click', () => {
+                    renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                });
+            }
+
+            stageEl.innerHTML = `
+                <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                    <div class="spinner-border ${viewerType === 'office' ? 'text-info' : 'text-warning'} mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <p class="fs-5 fw-semibold mb-1">Connecting to ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides'}...</p>
+                    <p class="text-white-50 small mb-3">Loading genuine presentation layout and animations</p>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="cancelOnlineEmbedBtn">
+                        <i class="bi bi-arrow-left me-1"></i> Back to Built-in Slides
+                    </button>
+                </div>
+            `;
+            document.getElementById('cancelOnlineEmbedBtn')?.addEventListener('click', () => {
+                renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+            });
+
+            try {
+                const token = localStorage.getItem('mentorae_token') || '';
+                const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+                const res = await fetch(`${apiBase}/api/content/public-preview-token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ fileName, dataUrl: activeUrl })
+                });
+                const data = await res.json();
+                if (data && data.success) {
+                    const embedUrl = viewerType === 'office' ? data.officeViewerUrl : data.googleViewerUrl;
+                    stageEl.innerHTML = `
+                        <div class="w-100 h-100 position-relative d-flex flex-column">
+                            <div class="d-flex align-items-center justify-content-between px-3 py-1.5 bg-dark border-bottom border-secondary" style="font-size: 0.8rem;">
+                                <span class="text-white-50"><i class="bi bi-${viewerType === 'office' ? 'microsoft text-info' : 'google text-warning'} me-1.5"></i> Powered by ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides Viewer'}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2.5 py-0.5" id="btnBackToBuiltinSlides" style="font-size: 0.75rem;">
+                                        <i class="bi bi-file-slides me-1"></i> Switch to Fast Slide View
+                                    </button>
+                                </div>
+                            </div>
+                            <iframe src="${embedUrl}" class="w-100 flex-grow-1 border-0" allowfullscreen title="${escapeHtml(fileName)}"></iframe>
+                        </div>
+                    `;
+                    document.getElementById('btnBackToBuiltinSlides')?.addEventListener('click', () => {
+                        renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                    });
+                    return;
+                }
+                throw new Error(data?.message || 'Could not connect to online viewer.');
+            } catch (err) {
+                console.warn('Online embed error, falling back to built-in renderer:', err);
+                stageEl.innerHTML = `
+                    <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                        <i class="bi bi-exclamation-circle text-warning fs-1 mb-3 d-block"></i>
+                        <h5 class="fw-bold text-white mb-2">Could not connect to ${viewerType === 'office' ? 'Microsoft Office' : 'Google'} Viewer</h5>
+                        <p class="text-white-50 small mb-4">${escapeHtml(err.message || 'Service is temporarily unreachable.')}</p>
+                        <div class="d-flex justify-content-center gap-2">
+                            <button type="button" class="btn btn-primary rounded-pill px-4" id="btnFallbackBuiltin">
+                                <i class="bi bi-file-slides me-1"></i> Open Fast Slide View
+                            </button>
+                            <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-outline-light rounded-pill px-4">
+                                <i class="bi bi-download me-1"></i> Download Original .pptx
+                            </a>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('btnFallbackBuiltin')?.addEventListener('click', () => {
+                    renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                });
+            }
+        }
+
         function renderPptxPresentation(pptxBuffer, presFileName, presUrl) {
             stageEl.innerHTML = `
                 <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white">
@@ -714,8 +796,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 color = slideIsDark ? '#CBD5E1' : '#FFFFFF';
                                             }
 
-                                            // Proportional scale relative to 960pt slide width
-                                            const fontSizeCqw = ((szPt / 960) * 100).toFixed(3);
+                                            // Proportional scale relative to slide width in points (EMU / 12700)
+                                            const slideWidthPt = (slideWidth && slideWidth > 100000) ? (slideWidth / 12700) : 720;
+                                            const fontSizeCqw = ((szPt / slideWidthPt) * 100).toFixed(3);
 
                                             runs.push({
                                                 text: rawText,
@@ -788,9 +871,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <div style="position: absolute; left: ${el.left.toFixed(2)}%; top: ${el.top.toFixed(2)}%; width: ${el.width.toFixed(2)}%; height: ${el.height.toFixed(2)}%; background-color: ${el.shapeBg}; border-radius: 6px; z-index: 1;"></div>
                                 `;
                             } else if (el.type === 'textbox') {
-                                elementsHtml += `<div style="position: absolute; left: ${el.left.toFixed(2)}%; top: ${el.top.toFixed(2)}%; width: ${el.width.toFixed(2)}%; min-height: ${el.height.toFixed(2)}%; z-index: 3; box-sizing: border-box; padding: 2px 4px; overflow: hidden;">`;
+                                elementsHtml += `<div style="position: absolute; left: ${el.left.toFixed(2)}%; top: ${el.top.toFixed(2)}%; width: ${el.width.toFixed(2)}%; min-height: ${el.height.toFixed(2)}%; z-index: 3; box-sizing: border-box; padding: 2px 4px; overflow: hidden; word-break: break-word;">`;
                                 el.paragraphs.forEach(p => {
-                                    elementsHtml += `<div style="text-align: ${p.align}; margin-bottom: 2px; line-height: 1.25;">`;
+                                    elementsHtml += `<div style="text-align: ${p.align}; margin-bottom: 2px; line-height: 1.15;">`;
                                     p.runs.forEach(r => {
                                         if (r.isBr) {
                                             elementsHtml += '<br>';
@@ -798,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                             const styles = [
                                                 `color: ${r.color};`,
                                                 `font-family: ${r.fontFamily};`,
-                                                `font-size: clamp(13px, ${r.fontSizeCqw}cqw, 48px);`,
+                                                `font-size: clamp(8px, ${r.fontSizeCqw}cqw, 54px);`,
                                                 r.isBold ? 'font-weight: 700;' : 'font-weight: 400;',
                                                 r.isItalic ? 'font-style: italic;' : '',
                                                 r.isUnderline ? 'text-decoration: underline;' : '',
@@ -884,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
 
                                     <!-- Bottom Navigation Bar -->
-                                    <div class="pptx-bottom-toolbar">
+                                    <div class="pptx-bottom-toolbar flex-wrap gap-1.5 py-1.5">
                                         <button type="button" class="btn btn-sm btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center text-white" id="pptxPrevBtn" ${activeSlide === 0 ? 'disabled' : ''} title="Previous Slide (Left Arrow)">
                                             <i class="bi bi-chevron-left"></i>
                                         </button>
@@ -894,17 +977,37 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <button type="button" class="btn btn-sm btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center text-white" id="pptxNextBtn" ${activeSlide === slides.length - 1 ? 'disabled' : ''} title="Next Slide (Right Arrow)">
                                             <i class="bi bi-chevron-right"></i>
                                         </button>
-                                        <div class="vr bg-secondary my-1"></div>
+                                        <div class="vr bg-secondary my-1 d-none d-sm-block"></div>
                                         <button type="button" class="btn btn-sm ${viewMode === 'visual' ? 'btn-primary' : 'btn-outline-light'} rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxToggleVisualBtn">
                                             <i class="bi bi-file-slides me-1"></i> Slide Design
                                         </button>
                                         <button type="button" class="btn btn-sm ${viewMode === 'outline' ? 'btn-primary' : 'btn-outline-light'} rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxToggleOutlineBtn">
                                             <i class="bi bi-list-columns-reverse me-1"></i> Content Outline
                                         </button>
+                                        <div class="vr bg-secondary my-1 d-none d-sm-block"></div>
+                                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxOfficeOnlineBtn" title="View with official Microsoft Office PowerPoint engine">
+                                            <i class="bi bi-microsoft me-1"></i> Office 365 View
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxGoogleSlidesBtn" title="View with Google Docs / Slides">
+                                            <i class="bi bi-google me-1"></i> Google Slides
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         `;
+
+                        if (modeSwitcherEl) {
+                            modeSwitcherEl.innerHTML = `
+                                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeOfficeTopBtn" title="View with Microsoft Office Online">
+                                    <i class="bi bi-microsoft me-1"></i> Office 365
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeGoogleTopBtn" title="View with Google Docs">
+                                    <i class="bi bi-google me-1"></i> Google Slides
+                                </button>
+                            `;
+                            document.getElementById('modeOfficeTopBtn')?.addEventListener('click', () => openOnlineEmbed('office'));
+                            document.getElementById('modeGoogleTopBtn')?.addEventListener('click', () => openOnlineEmbed('google'));
+                        }
 
                         stageEl.querySelectorAll('.pptx-thumbnail').forEach(th => {
                             th.addEventListener('click', () => {
@@ -933,6 +1036,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.getElementById('pptxToggleOutlineBtn')?.addEventListener('click', () => {
                             viewMode = 'outline';
                             renderPresentation();
+                        });
+                        document.getElementById('pptxOfficeOnlineBtn')?.addEventListener('click', () => {
+                            openOnlineEmbed('office');
+                        });
+                        document.getElementById('pptxGoogleSlidesBtn')?.addEventListener('click', () => {
+                            openOnlineEmbed('google');
                         });
                     }
 
