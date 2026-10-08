@@ -881,6 +881,51 @@ async function convertDocument(req, res) {
   }
 }
 
+/**
+ * POST /api/content/topics/:id/cache-file-pdf
+ * Body: { fileName, pdfDataUrl }
+ * Saves converted PDF Data URL into topic's content_payload.files for instant subsequent viewing.
+ */
+async function cacheTopicFilePdf(req, res) {
+  const { id } = req.params;
+  const { fileName, pdfDataUrl } = req.body;
+  if (!id || !fileName || !pdfDataUrl) {
+    return res.status(400).json({ success: false, message: 'Missing parameters' });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT content_payload FROM topics WHERE id = ?', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'Topic not found' });
+    }
+
+    let payload = rows[0].content_payload;
+    if (typeof payload === 'string') {
+      try { payload = JSON.parse(payload); } catch (e) { payload = null; }
+    }
+
+    if (payload && Array.isArray(payload.files)) {
+      let modified = false;
+      payload.files.forEach(f => {
+        if (f.name === fileName) {
+          f.pdfDataUrl = pdfDataUrl;
+          f.convertedToPdf = true;
+          modified = true;
+        }
+      });
+
+      if (modified) {
+        await pool.query('UPDATE topics SET content_payload = ? WHERE id = ?', [JSON.stringify(payload), id]);
+      }
+    }
+
+    return res.json({ success: true, message: 'PDF cached successfully.' });
+  } catch (err) {
+    console.error('cacheTopicFilePdf error:', err);
+    return res.status(500).json({ success: false, message: 'Could not cache PDF.' });
+  }
+}
+
 const PREVIEW_DIR = path.join(__dirname, '../uploads/temp_previews');
 if (!fs.existsSync(PREVIEW_DIR)) {
   fs.mkdirSync(PREVIEW_DIR, { recursive: true });
@@ -1586,6 +1631,7 @@ module.exports = {
   createFlashcardSet,
   saveFlashcardProgress,
   convertDocument,
+  cacheTopicFilePdf,
   createPublicPreviewToken,
   serveRawPreview,
   downloadFlashcardsTemplate,

@@ -18,6 +18,7 @@ const {
   createFlashcardSet,
   saveFlashcardProgress,
   convertDocument,
+  cacheTopicFilePdf,
   createPublicPreviewToken,
   serveRawPreview,
   downloadFlashcardsTemplate,
@@ -50,6 +51,7 @@ router.get('/topics', requireAuth, listTopics);
 router.post('/topics', requireAuth, requireRole('teacher', 'admin'), createTopic);
 router.delete('/topics/:id', requireAuth, requireRole('teacher', 'admin'), deleteTopic);
 router.post('/topics/:id/append-content', requireAuth, requireRole('teacher', 'admin'), appendTopicContent);
+router.post('/topics/:id/cache-file-pdf', requireAuth, cacheTopicFilePdf);
 
 // Topic Practice Quiz Attempts & Analytics
 router.post('/topic-quiz/attempt', requireAuth, submitTopicQuizAttempt);

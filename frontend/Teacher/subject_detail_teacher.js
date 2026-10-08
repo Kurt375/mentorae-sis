@@ -409,18 +409,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ==========================================
-        // 2. PPT / PPTX PRESENTATIONS
+        // 2. PPT / PPTX PRESENTATIONS (Google Classroom Style PDF Auto-View)
         // ==========================================
         if (ext === 'pptx' || ext === 'ppt') {
-            if (targetFile && targetFile.pdfDataUrl) {
-                const pdfRes = getResolvedFileUrl(targetFile.pdfDataUrl);
+            let pdfDataUrlToUse = targetFile ? targetFile.pdfDataUrl : null;
+
+            // If this presentation has not been converted to PDF yet, auto-convert it on-the-fly!
+            if (!pdfDataUrlToUse && window.MentoraePptxToPdf && fileData && (fileData.arrayBuffer || fileData.blob)) {
+                try {
+                    stageEl.innerHTML = `
+                        <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                            <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+                            <p class="fs-5 fw-bold mb-1">Generating Classroom Presentation View...</p>
+                            <p class="text-white-50 small mb-3" id="pptxConvertStatus">Preparing high-fidelity slides for in-browser view</p>
+                            <div class="progress w-50" style="height: 6px; background: rgba(255,255,255,0.15);">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="pptxConvertProgressBar" style="width: 25%;"></div>
+                            </div>
+                        </div>
+                    `;
+                    const buf = fileData.arrayBuffer || (fileData.blob ? await fileData.blob.arrayBuffer() : null);
+                    if (buf) {
+                        pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf, (prog) => {
+                            const pBar = document.getElementById('pptxConvertProgressBar');
+                            const pStatus = document.getElementById('pptxConvertStatus');
+                            if (pBar) pBar.style.width = `${prog.percent || 50}%`;
+                            if (pStatus) pStatus.textContent = prog.message || 'Processing slides...';
+                        });
+                        if (targetFile) {
+                            targetFile.pdfDataUrl = pdfDataUrlToUse;
+                        }
+                        // Background-cache to server database for zero-latency subsequent opens
+                        const currentTopicObj = currentSubject?.topics?.find(t => t.title === topicTitle) || (currentSubject?.recommendations?.find(r => r.title === topicTitle));
+                        const targetTopicId = targetFile?.topicId || currentTopicObj?.id;
+                        if (targetTopicId) {
+                            const token = localStorage.getItem('mentorae_token');
+                            const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+                            fetch(`${apiBase}/api/content/topics/${targetTopicId}/cache-file-pdf`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: JSON.stringify({ fileName, pdfDataUrl: pdfDataUrlToUse })
+                            }).catch(() => {});
+                        }
+                    }
+                } catch (convErr) {
+                    console.warn('Auto-PDF generation fallback notice:', convErr);
+                }
+            }
+
+            if (pdfDataUrlToUse) {
+                const pdfRes = getResolvedFileUrl(pdfDataUrlToUse);
                 try {
                     const pdfData = await loadFileData(pdfRes, `${fileName}.pdf`);
                     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
                     if (!isMobile) {
+                        if (modeSwitcherEl) {
+                            modeSwitcherEl.innerHTML = `
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeSwitchSlidesBtn" title="Switch to interactive HTML slides">
+                                    <i class="bi bi-file-slides me-1"></i> Interactive Slides
+                                </button>
+                            `;
+                            document.getElementById('modeSwitchSlidesBtn')?.addEventListener('click', () => {
+                                renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                            });
+                        }
                         stageEl.innerHTML = `
                             <object data="${pdfData.blobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
-                                <iframe src="${pdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}"></iframe>
+                                <iframe src="${pdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
                             </object>
                         `;
                         return;
@@ -2058,7 +2115,17 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = '';
 
             // Pre-convert Office documents in background for zero-latency classroom viewing
-            if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+            if (ext === 'pptx' || ext === 'ppt') {
+                if (window.MentoraePptxToPdf) {
+                    window.MentoraePptxToPdf.convert(dataUrl).then(pdfUrl => {
+                        if (pdfUrl) {
+                            fileItem.pdfDataUrl = pdfUrl;
+                            fileItem.convertedToPdf = true;
+                            renderRequestFiles();
+                        }
+                    }).catch(err => console.warn('PPTX pre-conversion notice:', err));
+                }
+            } else if (['docx', 'doc'].includes(ext)) {
                 const token = localStorage.getItem('mentorae_token');
                 if (token) {
                     authedFetch('/api/content/convert-document', token, {
