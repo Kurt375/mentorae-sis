@@ -113,30 +113,30 @@
 }
 
 #dbSearchWrapper {
-    min-width: 220px;
+    min-width: 140px;
+    flex: 1 1 auto;
 }
 
 .db-filter-item {
-    min-width: 145px;
-    max-width: 220px;
+    width: auto;
     flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.db-filter-item .form-select {
+    width: auto;
+    min-width: 120px;
+    max-width: 195px;
 }
 
 .db-student-filter-item {
     flex: 1 1 0;
-    min-width: 140px;
+    min-width: 130px;
 }
 
-@media (max-width: 768px) {
-    #dbSearchWrapper {
-        min-width: 100%;
-        width: 100%;
-    }
-    .db-filter-item,
+@media (max-width: 576px) {
     .db-student-filter-item {
-        max-width: 100%;
-        width: 100%;
-        flex: 1 1 100%;
+        min-width: calc(50% - 4px);
     }
 }
 

@@ -112,19 +112,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupCategoryFilters(category) {
         if (!dbDynamicFiltersContainer) return;
         const searchWrapper = document.getElementById('dbSearchWrapper');
+        const filtersRow = document.getElementById('dbFiltersRow');
 
         if (category === 'students') {
+            if (filtersRow) {
+                filtersRow.classList.add('flex-wrap');
+                filtersRow.classList.remove('flex-nowrap');
+            }
             if (searchWrapper) {
                 searchWrapper.classList.add('w-100', 'mb-2');
                 searchWrapper.classList.remove('flex-grow-1');
             }
             dbDynamicFiltersContainer.className = 'w-100 d-flex align-items-center gap-2 flex-wrap flex-md-nowrap';
         } else {
+            if (filtersRow) {
+                filtersRow.classList.remove('flex-wrap');
+                filtersRow.classList.add('flex-nowrap');
+            }
             if (searchWrapper) {
                 searchWrapper.classList.remove('w-100', 'mb-2');
                 searchWrapper.classList.add('flex-grow-1');
             }
-            dbDynamicFiltersContainer.className = 'd-flex align-items-center gap-2 flex-wrap';
+            dbDynamicFiltersContainer.className = 'd-flex align-items-center gap-2 flex-nowrap flex-shrink-0';
         }
 
         let html = '';
