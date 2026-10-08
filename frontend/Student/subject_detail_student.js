@@ -468,13 +468,35 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const token = localStorage.getItem('mentorae_token') || '';
                 const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+
+                // Ensure genuine Base64 Data URL is sent, never a local blob: pointer
+                let payloadDataUrl = dataUrl;
+                if (!payloadDataUrl || typeof payloadDataUrl !== 'string' || payloadDataUrl.startsWith('blob:') || !payloadDataUrl.includes('base64')) {
+                    if (fileData && fileData.blob) {
+                        payloadDataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(fileData.blob);
+                        });
+                    } else if (fileData && fileData.arrayBuffer) {
+                        const bytes = new Uint8Array(fileData.arrayBuffer);
+                        let binary = '';
+                        const len = bytes.byteLength;
+                        for (let i = 0; i < len; i += 8192) {
+                            binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+                        }
+                        payloadDataUrl = `data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,${btoa(binary)}`;
+                    }
+                }
+
                 const res = await fetch(`${apiBase}/api/content/public-preview-token`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
-                    body: JSON.stringify({ fileName, dataUrl: activeUrl })
+                    body: JSON.stringify({ fileName, dataUrl: payloadDataUrl })
                 });
                 const data = await res.json();
                 if (data && data.success) {
@@ -484,6 +506,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="d-flex align-items-center justify-content-between px-3 py-1.5 bg-dark border-bottom border-secondary" style="font-size: 0.8rem;">
                                 <span class="text-white-50"><i class="bi bi-${viewerType === 'office' ? 'microsoft text-info' : 'google text-warning'} me-1.5"></i> Powered by ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides Viewer'}</span>
                                 <div class="d-flex align-items-center gap-2">
+                                    <a href="${embedUrl}" target="_blank" class="btn btn-xs btn-outline-info rounded-pill px-2.5 py-0.5" style="font-size: 0.75rem;">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Full Window
+                                    </a>
                                     <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2.5 py-0.5" id="btnBackToBuiltinSlides" style="font-size: 0.75rem;">
                                         <i class="bi bi-file-slides me-1"></i> Switch to Fast Slide View
                                     </button>
@@ -800,6 +825,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 color = slideIsDark ? '#FFFFFF' : '#0F172A';
                                             } else if (rNode.includes('val="bg1"') || rNode.includes('val="lt1"')) {
                                                 color = slideIsDark ? '#CBD5E1' : '#FFFFFF';
+                                            }
+
+                                            // Smart Contrast Correction:
+                                            // If the effective background behind the text is dark, text cannot be black or very dark.
+                                            // If the effective background is light (e.g. white shape/card), text cannot be white.
+                                            const effectiveBg = shapeBg || (slideIsDark ? '#000000' : '#FFFFFF');
+                                            const bgIsDark = isHexDark(effectiveBg);
+                                            if (bgIsDark && isHexDark(color)) {
+                                                color = '#CBD5E1';
+                                            } else if (!bgIsDark && !isHexDark(color)) {
+                                                color = '#0F172A';
                                             }
 
                                             // Proportional scale relative to slide width in points (EMU / 12700)

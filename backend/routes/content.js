@@ -35,6 +35,7 @@ const {
 router.post('/convert-document', requireAuth, convertDocument);
 router.post('/public-preview-token', requireAuth, createPublicPreviewToken);
 router.get('/raw-preview/:token/:fileName', serveRawPreview);
+router.head('/raw-preview/:token/:fileName', serveRawPreview);
 
 // Templates for bulk content
 router.get('/templates/flashcards', downloadFlashcardsTemplate);

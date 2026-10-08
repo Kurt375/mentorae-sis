@@ -929,7 +929,8 @@ async function createPublicPreviewToken(req, res) {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.get('host');
     const baseUrl = `${protocol}://${host}`;
-    const publicUrl = `${baseUrl}/api/content/raw-preview/${token}/${encodeURIComponent(fileName)}`;
+    const cleanFileName = `${safeBase}${ext}`;
+    const publicUrl = `${baseUrl}/api/content/raw-preview/${token}/${cleanFileName}`;
     const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(publicUrl)}&embedded=true`;
     const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicUrl)}`;
 
@@ -947,7 +948,7 @@ async function createPublicPreviewToken(req, res) {
 }
 
 /**
- * GET /api/content/raw-preview/:token/:fileName
+ * GET & HEAD /api/content/raw-preview/:token/:fileName
  * Public unauthenticated endpoint for Google Docs / Office Online crawlers
  */
 async function serveRawPreview(req, res) {
@@ -968,6 +969,7 @@ async function serveRawPreview(req, res) {
 
     const filePath = path.join(PREVIEW_DIR, matching);
     const ext = path.extname(matching).toLowerCase();
+    const stat = fs.statSync(filePath);
 
     const mimeTypes = {
       '.pdf': 'application/pdf',
@@ -987,10 +989,16 @@ async function serveRawPreview(req, res) {
     const safeDownloadName = fileName ? path.basename(fileName) : matching.replace(/^[a-f0-9]+_/, '');
 
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Content-Disposition', `inline; filename="${safeDownloadName.replace(/"/g, '')}"`);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
 
     const stream = fs.createReadStream(filePath);
     stream.pipe(res);
