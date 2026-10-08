@@ -169,7 +169,24 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             annCardBadge.classList.toggle('d-none', unseenAnnCount === 0);
         }
 
-        const totalUnread = apiUnread + pendingTopicRequests.length + unseenAnnCount;
+        // Deduplicate in-memory notifications and filter out redundant admin topic request notices
+        const seenNotifKeys = new Set();
+        const filteredApiNotifications = [];
+        for (const n of apiNotifications) {
+            // For admin: topic requests are already rendered in dedicated section 1, avoid duplicate card in section 2
+            if (userRole === 'admin' && n.type === 'topic_request') {
+                continue;
+            }
+            const dateStr = n.created_at ? n.created_at.slice(0, 10) : '';
+            const dedupeKey = `${n.type || ''}|${n.title || ''}|${n.message || ''}|${n.related_student_id || ''}|${dateStr}`;
+            if (!seenNotifKeys.has(dedupeKey)) {
+                seenNotifKeys.add(dedupeKey);
+                filteredApiNotifications.push(n);
+            }
+        }
+
+        const effectiveApiUnread = filteredApiNotifications.filter(n => !n.is_read).length;
+        const totalUnread = effectiveApiUnread + pendingTopicRequests.length + unseenAnnCount;
 
         badge.textContent = totalUnread > 9 ? '9+' : String(totalUnread);
         badge.classList.toggle('d-none', totalUnread === 0);
@@ -182,7 +199,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         }
 
         const recentAnnouncements = allAnnouncements.slice(0, 4);
-        const hasContent = pendingTopicRequests.length > 0 || apiNotifications.length > 0 || recentAnnouncements.length > 0;
+        const hasContent = pendingTopicRequests.length > 0 || filteredApiNotifications.length > 0 || recentAnnouncements.length > 0;
 
         if (!hasContent) {
             let emptyText = 'No notifications yet.';
@@ -209,7 +226,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                     <h6 class="m-0 fw-bold text-dark"><i class="bi bi-bell-fill text-success me-1"></i>Notifications</h6>
                     ${totalUnread > 0 ? `<span class="badge bg-danger rounded-pill">${totalUnread} New</span>` : ''}
                 </div>
-                ${(apiUnread > 0 || unseenAnnCount > 0) ? `<button class="btn btn-link btn-sm p-0 micro-text text-decoration-none text-muted" id="markAllReadBtn"><i class="bi bi-check2-all me-1"></i>Mark all read</button>` : ''}
+                ${(effectiveApiUnread > 0 || unseenAnnCount > 0) ? `<button class="btn btn-link btn-sm p-0 micro-text text-decoration-none text-muted" id="markAllReadBtn"><i class="bi bi-check2-all me-1"></i>Mark all read</button>` : ''}
             </div>
             <div class="notif-list-container">
         `;
@@ -248,8 +265,8 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         }
 
         // 2. Render In-App Notifications (Attendance for parents, status notices, etc.)
-        if (apiNotifications.length > 0) {
-            panelHtml += apiNotifications.map(n => {
+        if (filteredApiNotifications.length > 0) {
+            panelHtml += filteredApiNotifications.map(n => {
                 const isAttendance = (n.type || '').includes('attendance') || (n.title || '').toLowerCase().includes('attendance');
                 const isTopicApproved = n.type === 'topic_approved';
                 const isTopicRejected = n.type === 'topic_rejected';

@@ -8,11 +8,20 @@ async function listMine(req, res) {
        FROM notifications WHERE recipient_id = ? ORDER BY created_at DESC LIMIT 50`,
       [req.user.id]
     );
-    const [[{ unread }]] = await pool.query(
-      'SELECT COUNT(*) AS unread FROM notifications WHERE recipient_id = ? AND is_read = 0',
-      [req.user.id]
-    );
-    return res.json({ success: true, notifications: rows, unread });
+    // In-memory deduplication so returning list never has repeating items
+    const seen = new Set();
+    const uniqueNotifications = [];
+    for (const r of rows) {
+      const dateStr = r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '';
+      const key = `${r.type}|${r.title}|${r.message}|${r.related_student_id || ''}|${dateStr}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueNotifications.push(r);
+      }
+    }
+
+    const unread = uniqueNotifications.filter(n => !n.is_read).length;
+    return res.json({ success: true, notifications: uniqueNotifications, unread });
   } catch (err) {
     console.error('listMine (notifications) error:', err);
     return res.status(500).json({ success: false, message: 'Could not load notifications.' });

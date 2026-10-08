@@ -401,10 +401,12 @@ async function confirmAttendance(req, res) {
     const today = getManilaDate();
     const now = getManilaTime();
 
-    const [existing] = await pool.query('SELECT id FROM attendance_logs WHERE student_id = ? AND scan_date = ?', [
+    const [existing] = await pool.query('SELECT id, status FROM attendance_logs WHERE student_id = ? AND scan_date = ?', [
       studentId,
       today,
     ]);
+
+    const isStatusChanged = !existing[0] || existing[0].status !== status;
 
     if (existing[0]) {
       await pool.query(
@@ -420,8 +422,8 @@ async function confirmAttendance(req, res) {
 
     await logActivity(studentId, `Attendance manually set to "${status}" by a teacher.`);
 
-    // Parent notification — only fires once a teacher has verified the scan.
-    if (['present', 'late', 'excused'].includes(status)) {
+    // Parent notification — only fires if status actually changed or is newly set
+    if (isStatusChanged && ['present', 'late', 'excused'].includes(status)) {
       const parentIds = await getParentIdsForStudent(studentId);
       const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : 'attendance_excused';
       const label = status === 'present' ? 'arrived at school' : status === 'late' ? 'arrived late' : 'been marked excused';
