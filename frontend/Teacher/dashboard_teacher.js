@@ -82,14 +82,17 @@ document.addEventListener('DOMContentLoaded', function () {
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
+    // 1. Announcements Quick Access Card Badge
+    let cachedAnnouncements = [];
     async function loadAnnouncementsBadge() {
         const badge = document.getElementById('announcementsCardBadge');
         if (!badge) return;
         try {
             const data = await authedFetch('/api/announcements', token);
             if (data && data.success && Array.isArray(data.announcements)) {
+                cachedAnnouncements = data.announcements;
                 const unseenCount = typeof getUnseenAnnouncementsCount === 'function'
-                    ? getUnseenAnnouncementsCount(data.announcements)
+                    ? getUnseenAnnouncementsCount(data.announcements, user)
                     : 0;
                 if (unseenCount > 0) {
                     badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
@@ -104,9 +107,66 @@ document.addEventListener('DOMContentLoaded', function () {
             badge.classList.add('d-none');
         }
     }
+
+    const annLink = document.getElementById('announcementsCardLink');
+    if (annLink) {
+        annLink.addEventListener('click', () => {
+            const badge = document.getElementById('announcementsCardBadge');
+            if (badge) badge.classList.add('d-none');
+            if (typeof markAnnouncementsAsSeen === 'function' && cachedAnnouncements.length > 0) {
+                markAnnouncementsAsSeen(cachedAnnouncements, user);
+            }
+        });
+    }
+
     loadAnnouncementsBadge();
     window.addEventListener('pageshow', loadAnnouncementsBadge);
     window.addEventListener('focus', loadAnnouncementsBadge);
+    window.addEventListener('mentorae:announcements-seen', loadAnnouncementsBadge);
+
+    // 2. Attendance Confirmation Quick Access Card Badge
+    async function loadAttendanceConfirmationBadge() {
+        const badge = document.getElementById('attendanceCardBadge');
+        if (!badge) return;
+        try {
+            const data = await authedFetch('/api/attendance/teacher-pending-summary', token);
+            if (data && data.success && typeof data.pendingCount === 'number') {
+                const todayStr = data.scanDate || new Date().toISOString().slice(0, 10);
+                const seenKey = `mentorae_teacher_seen_attendance_${user.id}_${todayStr}`;
+                const lastSeen = parseInt(localStorage.getItem(seenKey) || '0', 10);
+                const latestActivity = Number(data.latestActivityTimestamp || 0);
+
+                // Badge only displays if there are unconfirmed items AND they occurred after teacher last viewed/confirmed
+                if (data.pendingCount > 0 && latestActivity > lastSeen) {
+                    badge.textContent = data.pendingCount > 9 ? '9+' : String(data.pendingCount);
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+            } else {
+                badge.classList.add('d-none');
+            }
+        } catch (e) {
+            badge.classList.add('d-none');
+        }
+    }
+
+    const attLink = document.getElementById('attendanceCardLink');
+    if (attLink) {
+        attLink.addEventListener('click', () => {
+            const badge = document.getElementById('attendanceCardBadge');
+            if (badge) badge.classList.add('d-none');
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const seenKey = `mentorae_teacher_seen_attendance_${user.id}_${todayStr}`;
+            localStorage.setItem(seenKey, String(Date.now()));
+        });
+    }
+
+    loadAttendanceConfirmationBadge();
+    window.addEventListener('pageshow', loadAttendanceConfirmationBadge);
+    window.addEventListener('focus', loadAttendanceConfirmationBadge);
+    window.addEventListener('mentorae:attendance-confirmed', loadAttendanceConfirmationBadge);
+    setInterval(loadAttendanceConfirmationBadge, 15000);
 
     wireLogout('logoutBtn', '../login.html', token);
 });

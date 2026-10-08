@@ -146,13 +146,18 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         currentApiUnread = apiUnread;
         currentPendingTopicRequests = pendingTopicRequests;
 
-        // Retrieve last seen announcement ID for the current user in refresh scope
-        const seenStorageKey = typeof getSeenAnnKey === 'function' 
-            ? getSeenAnnKey() 
-            : `mentorae_seen_ann_id_${userRole || 'user'}`;
-        let lastSeenId = parseInt(localStorage.getItem(seenStorageKey) || '0', 10);
-        if (lastSeenId === 0 && userRole) {
-            lastSeenId = parseInt(localStorage.getItem(`mentorae_seen_ann_id_${userRole}`) || '0', 10);
+        // Retrieve last seen announcement ID across all synchronized keys
+        let lastSeenId = typeof getMaxSeenAnnId === 'function' 
+            ? getMaxSeenAnnId() 
+            : 0;
+        if (lastSeenId === 0) {
+            const seenStorageKey = typeof getSeenAnnKey === 'function' 
+                ? getSeenAnnKey() 
+                : `mentorae_seen_ann_id_${userRole || 'user'}`;
+            lastSeenId = parseInt(localStorage.getItem(seenStorageKey) || '0', 10);
+            if (lastSeenId === 0 && userRole) {
+                lastSeenId = parseInt(localStorage.getItem(`mentorae_seen_ann_id_${userRole}`) || '0', 10);
+            }
         }
         const unseenAnnouncements = allAnnouncements.filter(a => Number(a.id) > lastSeenId);
         const unseenAnnCount = unseenAnnouncements.length;
@@ -204,7 +209,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                     <h6 class="m-0 fw-bold text-dark"><i class="bi bi-bell-fill text-success me-1"></i>Notifications</h6>
                     ${totalUnread > 0 ? `<span class="badge bg-danger rounded-pill">${totalUnread} New</span>` : ''}
                 </div>
-                ${apiUnread > 0 ? `<button class="btn btn-link btn-sm p-0 micro-text text-decoration-none text-muted" id="markAllReadBtn"><i class="bi bi-check2-all me-1"></i>Mark all read</button>` : ''}
+                ${(apiUnread > 0 || unseenAnnCount > 0) ? `<button class="btn btn-link btn-sm p-0 micro-text text-decoration-none text-muted" id="markAllReadBtn"><i class="bi bi-check2-all me-1"></i>Mark all read</button>` : ''}
             </div>
             <div class="notif-list-container">
         `;
@@ -303,13 +308,13 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             panelHtml += `
                 <div class="px-3 py-2 bg-light border-bottom micro-text fw-bold text-muted text-uppercase d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-megaphone-fill text-warning me-1"></i> School Announcements</span>
-                    <a href="${announcementsUrl}" class="text-decoration-none text-success micro-text fw-bold">View All (${allAnnouncements.length}) &rarr;</a>
+                    <a href="${announcementsUrl}" class="text-decoration-none text-success micro-text fw-bold notif-ann-link">View All (${allAnnouncements.length}) &rarr;</a>
                 </div>
             `;
             panelHtml += recentAnnouncements.map(a => {
                 const isNew = Number(a.id) > lastSeenId;
                 return `
-                    <div class="p-3 border-bottom notif-announcement-item" style="cursor:pointer; background:${isNew ? '#fff9e6' : '#fffdf8'};" onclick="window.location.href='${announcementsUrl}'">
+                    <div class="p-3 border-bottom notif-announcement-item notif-ann-link" style="cursor:pointer; background:${isNew ? '#fff9e6' : '#fffdf8'};" data-ann-url="${announcementsUrl}">
                         <div class="d-flex align-items-start gap-2">
                             <div class="bg-warning-subtle text-warning-emphasis p-1.5 rounded-circle flex-shrink-0">
                                 <i class="bi bi-megaphone-fill fs-6"></i>
@@ -338,25 +343,39 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             panelHtml += `
                 <div class="p-2.5 d-flex justify-content-around bg-light border-top" style="border-radius: 0 0 12px 12px;">
                     <a href="${topicRequestsUrl}" class="small text-decoration-none text-success fw-bold"><i class="bi bi-inbox me-1"></i>Topic Requests</a>
-                    <a href="${announcementsUrl}" class="small text-decoration-none text-warning fw-bold"><i class="bi bi-megaphone me-1"></i>Manage Announcements</a>
+                    <a href="${announcementsUrl}" class="small text-decoration-none text-warning fw-bold notif-ann-link"><i class="bi bi-megaphone me-1"></i>Manage Announcements</a>
                 </div>
             `;
         } else if (userRole === 'parent') {
             panelHtml += `
                 <div class="p-2.5 d-flex justify-content-around bg-light border-top" style="border-radius: 0 0 12px 12px;">
                     <a href="${parentAttendanceUrl}" class="small text-decoration-none text-success fw-semibold"><i class="bi bi-calendar-check me-1"></i>Attendance</a>
-                    <a href="${announcementsUrl}" class="small text-decoration-none text-primary fw-semibold"><i class="bi bi-megaphone me-1"></i>Announcements</a>
+                    <a href="${announcementsUrl}" class="small text-decoration-none text-primary fw-semibold notif-ann-link"><i class="bi bi-megaphone me-1"></i>Announcements</a>
                 </div>
             `;
         } else {
             panelHtml += `
                 <div class="p-2.5 text-center bg-light border-top" style="border-radius: 0 0 12px 12px;">
-                    <a href="${announcementsUrl}" class="small text-decoration-none text-success fw-bold">View all Announcements &rarr;</a>
+                    <a href="${announcementsUrl}" class="small text-decoration-none text-success fw-bold notif-ann-link">View all Announcements &rarr;</a>
                 </div>
             `;
         }
 
         panel.innerHTML = panelHtml;
+
+        // Wire announcement item clicks to mark seen before navigating
+        panel.querySelectorAll('.notif-ann-link').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (typeof markAnnouncementsAsSeen === 'function') {
+                    markAnnouncementsAsSeen(latestAnnouncementList.length ? latestAnnouncementList : allAnnouncements);
+                }
+                const dest = item.dataset.annUrl;
+                if (dest) {
+                    e.preventDefault();
+                    window.location.href = dest;
+                }
+            });
+        });
 
         // Wire API row clicks to mark single notification as read
         panel.querySelectorAll('.notif-row').forEach(row => {
@@ -372,13 +391,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             markAllBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (typeof markAnnouncementsAsSeen === 'function') {
-                    markAnnouncementsAsSeen(latestAnnouncementList);
-                } else if (latestAnnouncementList && latestAnnouncementList.length > 0) {
-                    const maxId = Math.max(...latestAnnouncementList.map(a => Number(a.id) || 0));
-                    if (maxId > 0) {
-                        const key = typeof getSeenAnnKey === 'function' ? getSeenAnnKey() : `mentorae_seen_ann_id_${userRole || 'user'}`;
-                        localStorage.setItem(key, String(maxId));
-                    }
+                    markAnnouncementsAsSeen(latestAnnouncementList.length ? latestAnnouncementList : allAnnouncements);
                 }
                 if (token) {
                     try {
@@ -387,6 +400,11 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                     } catch (err) {
                         console.error('Error marking all read:', err);
                     }
+                }
+                const annCardBadge = document.getElementById('announcementsCardBadge') || document.getElementById('announcementsBadge');
+                if (annCardBadge) {
+                    annCardBadge.textContent = '0';
+                    annCardBadge.classList.add('d-none');
                 }
                 await refresh();
             });
@@ -410,14 +428,19 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             panel.classList.remove('d-none');
 
             // Mark unseen announcements as seen when opening the notification panel
-            if (typeof markAnnouncementsAsSeen === 'function') {
-                markAnnouncementsAsSeen(latestAnnouncementList);
-            } else if (latestAnnouncementList && latestAnnouncementList.length > 0) {
-                const maxId = Math.max(...latestAnnouncementList.map(a => Number(a.id) || 0));
-                if (maxId > 0) {
-                    const key = typeof getSeenAnnKey === 'function' ? getSeenAnnKey() : `mentorae_seen_ann_id_${userRole || 'user'}`;
-                    localStorage.setItem(key, String(maxId));
+            if (latestAnnouncementList && latestAnnouncementList.length > 0) {
+                if (typeof markAnnouncementsAsSeen === 'function') {
+                    markAnnouncementsAsSeen(latestAnnouncementList);
                 }
+            } else if (token) {
+                authedFetch('/api/announcements', token).then((annData) => {
+                    if (annData && annData.success && Array.isArray(annData.announcements)) {
+                        latestAnnouncementList = annData.announcements;
+                        if (typeof markAnnouncementsAsSeen === 'function') {
+                            markAnnouncementsAsSeen(latestAnnouncementList);
+                        }
+                    }
+                }).catch(() => {});
             }
 
             // Immediately mark in-app notifications as read on backend
@@ -470,6 +493,10 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         } else if (e.key && e.key.startsWith('mentorae_seen_ann_id')) {
             refresh();
         }
+    });
+
+    window.addEventListener('mentorae:announcements-seen', () => {
+        refresh();
     });
 
     window.addEventListener('pageshow', refresh);

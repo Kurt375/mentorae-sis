@@ -36,6 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionAllowed = false;
     let isCurrentAdvisory = false;
 
+    function markAttendanceSeen() {
+        try {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const key = `mentorae_teacher_seen_attendance_${user.id}_${todayStr}`;
+            localStorage.setItem(key, String(Date.now()));
+            window.dispatchEvent(new CustomEvent('mentorae:attendance-confirmed'));
+        } catch (e) {}
+    }
+    markAttendanceSeen();
+
     async function loadSections() {
         const data = await authedFetch('/api/classes/my-sections', token);
         if (!data.success || !data.sections.length) {
@@ -193,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             resetFinishButton();
         }
+        markAttendanceSeen();
     }
 
     function renderRoster(roster) {
@@ -314,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sync bottom daily history table
             loadDailyHistory();
+            markAttendanceSeen();
         } catch (err) {
             console.error('confirmOut error:', err);
             if (btn) {
@@ -346,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Sync bottom daily history table
         loadDailyHistory();
+        markAttendanceSeen();
     }
 
     searchBar.addEventListener('input', () => {
@@ -432,6 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Refresh history records below so it mirrors the finalized state
                 loadDailyHistory();
+                markAttendanceSeen();
             } catch (err) {
                 console.error('finishSection error:', err);
                 alert('An error occurred while finalizing attendance confirmation.');

@@ -890,6 +890,90 @@ async function reviewExcuseNote(req, res) {
   }
 }
 
+/**
+ * GET /api/attendance/teacher-pending-summary
+ * Returns counts of unconfirmed attendance items for the logged-in teacher for today.
+ */
+async function getTeacherPendingSummary(req, res) {
+  try {
+    const teacherId = req.user.id;
+    const today = getManilaDate();
+
+    // 1. Find all section IDs that this teacher advises or teaches
+    let sectionIds = [];
+    if (req.user.role === 'admin') {
+      const [allSecs] = await pool.query('SELECT id FROM sections');
+      sectionIds = allSecs.map((s) => s.id);
+    } else {
+      const [secs] = await pool.query(
+        `SELECT DISTINCT sec.id
+         FROM sections sec
+         LEFT JOIN schedules sch ON sch.section_id = sec.id AND sch.teacher_id = ?
+         WHERE sec.adviser_id = ? OR sch.teacher_id = ?`,
+        [teacherId, teacherId, teacherId]
+      );
+      sectionIds = secs.map((s) => s.id);
+    }
+
+    if (!sectionIds.length) {
+      return res.json({
+        success: true,
+        pendingCount: 0,
+        pendingInsCount: 0,
+        pendingOutsCount: 0,
+        latestActivityTimestamp: 0,
+        serverTime: Date.now(),
+        scanDate: today,
+      });
+    }
+
+    // 2. Query today's attendance logs for students in these sections
+    const [rows] = await pool.query(
+      `SELECT a.id, a.student_id, a.scan_time, a.time_out, a.status, a.time_out_status,
+              a.confirmed_by, a.confirmed_at, a.overridden_by,
+              UNIX_TIMESTAMP(COALESCE(a.updated_at, a.created_at)) * 1000 AS activity_time
+       FROM users u
+       JOIN attendance_logs a ON a.student_id = u.id AND a.scan_date = ?
+       WHERE u.role = 'student' AND u.section_id IN (?)`,
+      [today, sectionIds]
+    );
+
+    let pendingCount = 0;
+    let pendingInsCount = 0;
+    let pendingOutsCount = 0;
+    let latestActivityTimestamp = 0;
+
+    for (const r of rows) {
+      const needsIn = Boolean(r.scan_time && !r.confirmed_by && !r.overridden_by);
+      const needsOut = Boolean(r.time_out && !r.confirmed_at && !r.confirmed_by);
+
+      if (needsIn) pendingInsCount++;
+      if (needsOut) pendingOutsCount++;
+
+      if (needsIn || needsOut) {
+        pendingCount++;
+        const actTime = Number(r.activity_time) || 0;
+        if (actTime > latestActivityTimestamp) {
+          latestActivityTimestamp = actTime;
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      pendingCount,
+      pendingInsCount,
+      pendingOutsCount,
+      latestActivityTimestamp,
+      serverTime: Date.now(),
+      scanDate: today,
+    });
+  } catch (err) {
+    console.error('getTeacherPendingSummary error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load pending attendance summary.' });
+  }
+}
+
 module.exports = {
   getMyQrCode,
   scanAttendance,
@@ -900,6 +984,7 @@ module.exports = {
   confirmAttendanceOut,
   finishSectionConfirmation,
   getSectionDailyHistory,
+  getTeacherPendingSummary,
   getSummary,
   getHistory,
   submitExcuseNote,

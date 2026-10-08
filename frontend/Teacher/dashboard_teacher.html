@@ -189,7 +189,7 @@
                         </a>
                     </div>
                     <div class="col-12 col-md-6 d-flex">
-                        <a href="../announcements.html" class="access-card-link text-decoration-none text-dark">
+                        <a href="../announcements.html" class="access-card-link text-decoration-none text-dark" id="announcementsCardLink">
                             <div class="card access-card border p-3 h-100 shadow-sm position-relative">
                                 <div class="d-flex align-items-start gap-3">
                                     <div class="icon-box bg-warning-subtle rounded-3 p-2">
@@ -213,8 +213,8 @@
                     </div>
 
                     <div class="col-12 col-md-6 d-flex">
-                        <a href="attendance_confirmation_teacher.html" class="access-card-link text-decoration-none text-dark">
-                            <div class="card access-card border p-3 h-100 shadow-sm">
+                        <a href="attendance_confirmation_teacher.html" class="access-card-link text-decoration-none text-dark" id="attendanceCardLink">
+                            <div class="card access-card border p-3 h-100 shadow-sm position-relative">
                                 <div class="d-flex align-items-start gap-3">
                                     <div class="icon-box bg-info-subtle rounded-3 p-2">
                                         <i class="bi bi-clipboard-check-fill fs-5 text-info"></i>
@@ -226,6 +226,12 @@
                                             the room.</p>
                                     </div>
                                 </div>
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                    id="attendanceCardBadge">
+                                    0
+                                    <span class="visually-hidden">pending confirmations</span>
+                                </span>
                             </div>
                         </a>
                     </div>

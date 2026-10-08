@@ -96,14 +96,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(() => {});
 
     // 2c. Load Active Announcements Count for Quick Access Badge
+    let cachedAnnouncements = [];
     async function loadAnnouncementsBadge() {
         const badge = document.getElementById('announcementsCardBadge');
         if (!badge) return;
         try {
             const data = await authedFetch('/api/announcements', token);
             if (data && data.success && Array.isArray(data.announcements)) {
+                cachedAnnouncements = data.announcements;
                 const unseenCount = typeof getUnseenAnnouncementsCount === 'function'
-                    ? getUnseenAnnouncementsCount(data.announcements)
+                    ? getUnseenAnnouncementsCount(data.announcements, user)
                     : 0;
                 if (unseenCount > 0) {
                     badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
@@ -118,9 +120,22 @@ document.addEventListener('DOMContentLoaded', () => {
             badge.classList.add('d-none');
         }
     }
+
+    const annCardLink = document.querySelector('a[href*="announcements.html"]');
+    if (annCardLink) {
+        annCardLink.addEventListener('click', () => {
+            const badge = document.getElementById('announcementsCardBadge');
+            if (badge) badge.classList.add('d-none');
+            if (typeof markAnnouncementsAsSeen === 'function' && cachedAnnouncements.length > 0) {
+                markAnnouncementsAsSeen(cachedAnnouncements, user);
+            }
+        });
+    }
+
     loadAnnouncementsBadge();
     window.addEventListener('pageshow', loadAnnouncementsBadge);
     window.addEventListener('focus', loadAnnouncementsBadge);
+    window.addEventListener('mentorae:announcements-seen', loadAnnouncementsBadge);
 
     // 3. Logout — now actually logs out
     wireLogout('logoutBtn', '../login.html', token);

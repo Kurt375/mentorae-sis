@@ -51,14 +51,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadOverview();
 
+    let cachedAnnouncements = [];
     async function loadAnnouncementsBadge() {
         const badge = document.getElementById('announcementsCardBadge');
         if (!badge) return;
         try {
             const data = await authedFetch('/api/announcements', token);
             if (data && data.success && Array.isArray(data.announcements)) {
+                cachedAnnouncements = data.announcements;
                 const unseenCount = typeof getUnseenAnnouncementsCount === 'function'
-                    ? getUnseenAnnouncementsCount(data.announcements)
+                    ? getUnseenAnnouncementsCount(data.announcements, user)
                     : 0;
                 if (unseenCount > 0) {
                     badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
@@ -73,9 +75,22 @@ document.addEventListener('DOMContentLoaded', () => {
             badge.classList.add('d-none');
         }
     }
+
+    const annAdminCardLink = document.querySelector('a[href*="announcement_admin.html"]');
+    if (annAdminCardLink) {
+        annAdminCardLink.addEventListener('click', () => {
+            const badge = document.getElementById('announcementsCardBadge');
+            if (badge) badge.classList.add('d-none');
+            if (typeof markAnnouncementsAsSeen === 'function' && cachedAnnouncements.length > 0) {
+                markAnnouncementsAsSeen(cachedAnnouncements, user);
+            }
+        });
+    }
+
     loadAnnouncementsBadge();
     window.addEventListener('pageshow', loadAnnouncementsBadge);
     window.addEventListener('focus', loadAnnouncementsBadge);
+    window.addEventListener('mentorae:announcements-seen', loadAnnouncementsBadge);
 
     async function loadSystemStatus() {
         try {

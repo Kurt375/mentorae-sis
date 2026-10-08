@@ -209,14 +209,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 8. Load Active Announcements Count for Quick Access Badge
+    let cachedAnnouncements = [];
     async function loadAnnouncementsCount() {
         const badge = announcementsBadge || document.getElementById('announcementsBadge') || document.getElementById('announcementsCardBadge');
         if (!badge) return;
         try {
             const data = await authedFetch('/api/announcements', token);
             if (data && data.success && Array.isArray(data.announcements)) {
+                cachedAnnouncements = data.announcements;
                 const unseenCount = typeof getUnseenAnnouncementsCount === 'function'
-                    ? getUnseenAnnouncementsCount(data.announcements)
+                    ? getUnseenAnnouncementsCount(data.announcements, user)
                     : 0;
                 if (unseenCount > 0) {
                     badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
@@ -232,9 +234,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    const annParentLink = document.querySelector('a[href*="announcements.html"]');
+    if (annParentLink) {
+        annParentLink.addEventListener('click', () => {
+            const badge = announcementsBadge || document.getElementById('announcementsBadge') || document.getElementById('announcementsCardBadge');
+            if (badge) badge.classList.add('d-none');
+            if (typeof markAnnouncementsAsSeen === 'function' && cachedAnnouncements.length > 0) {
+                markAnnouncementsAsSeen(cachedAnnouncements, user);
+            }
+        });
+    }
+
     // Execute loaders
     await loadLinkedChildren();
     loadAnnouncementsCount();
     window.addEventListener('pageshow', loadAnnouncementsCount);
     window.addEventListener('focus', loadAnnouncementsCount);
+    window.addEventListener('mentorae:announcements-seen', loadAnnouncementsCount);
 });

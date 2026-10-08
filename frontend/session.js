@@ -142,15 +142,48 @@ function wireLogout(btnId, loginPath, token) {
 }
 
 /**
+ * Returns all potential keys used to track announcement seen states for the current user.
+ */
+function getSeenAnnKeys(explicitUser = null) {
+  const keys = ['mentorae_seen_ann_id_user'];
+  try {
+    const user = explicitUser || JSON.parse(localStorage.getItem('mentorae_user') || 'null');
+    if (user) {
+      if (user.id != null) keys.push(`mentorae_seen_ann_id_${user.id}`);
+      if (user.role) {
+        keys.push(`mentorae_seen_ann_id_${String(user.role).toLowerCase()}`);
+        keys.push(`mentorae_seen_ann_id_${user.role}`);
+      }
+    }
+  } catch (e) {}
+  return [...new Set(keys)];
+}
+
+/**
  * Standard key to track the highest announcement ID seen by the current user.
  */
 function getSeenAnnKey(explicitUser = null) {
   try {
     const user = explicitUser || JSON.parse(localStorage.getItem('mentorae_user') || 'null');
-    if (user && user.id) return `mentorae_seen_ann_id_${user.id}`;
-    if (user && user.role) return `mentorae_seen_ann_id_${user.role.toLowerCase()}`;
+    if (user && user.id != null) return `mentorae_seen_ann_id_${user.id}`;
+    if (user && user.role) return `mentorae_seen_ann_id_${String(user.role).toLowerCase()}`;
   } catch (e) {}
   return 'mentorae_seen_ann_id_user';
+}
+
+/**
+ * Finds the highest seen announcement ID across all user/role storage keys.
+ */
+function getMaxSeenAnnId(explicitUser = null) {
+  const keys = getSeenAnnKeys(explicitUser);
+  let maxSeen = 0;
+  for (const k of keys) {
+    const val = parseInt(localStorage.getItem(k) || '0', 10);
+    if (!isNaN(val) && val > maxSeen) {
+      maxSeen = val;
+    }
+  }
+  return maxSeen;
 }
 
 /**
@@ -158,36 +191,36 @@ function getSeenAnnKey(explicitUser = null) {
  */
 function getUnseenAnnouncementsCount(announcements, explicitUser = null) {
   if (!Array.isArray(announcements) || announcements.length === 0) return 0;
-  const key = getSeenAnnKey(explicitUser);
-  let lastSeenId = parseInt(localStorage.getItem(key) || '0', 10);
-  // Fallback to role-based key if user ID key was not set yet
-  if (lastSeenId === 0) {
-    try {
-      const user = explicitUser || JSON.parse(localStorage.getItem('mentorae_user') || 'null');
-      if (user && user.role) {
-        lastSeenId = parseInt(localStorage.getItem(`mentorae_seen_ann_id_${user.role.toLowerCase()}`) || '0', 10);
-      }
-    } catch (e) {}
-  }
+  const lastSeenId = getMaxSeenAnnId(explicitUser);
   return announcements.filter(a => Number(a.id) > lastSeenId).length;
 }
 
 /**
- * Marks all provided announcements as seen by updating the last seen announcement ID.
+ * Marks all provided announcements as seen by updating the last seen announcement ID across all keys.
  */
 function markAnnouncementsAsSeen(announcements, explicitUser = null) {
   if (!Array.isArray(announcements) || announcements.length === 0) return;
-  const maxId = Math.max(...announcements.map(a => Number(a.id) || 0));
-  if (maxId > 0) {
-    const key = getSeenAnnKey(explicitUser);
-    localStorage.setItem(key, String(maxId));
-    // Also mirror to role-based key for backwards compatibility
-    try {
-      const user = explicitUser || JSON.parse(localStorage.getItem('mentorae_user') || 'null');
-      if (user && user.role) {
-        localStorage.setItem(`mentorae_seen_ann_id_${user.role.toLowerCase()}`, String(maxId));
-      }
-    } catch (e) {}
+  const validIds = announcements.map(a => Number(a.id) || 0).filter(id => id > 0);
+  if (!validIds.length) return;
+  const newMax = Math.max(...validIds);
+  const prevMax = getMaxSeenAnnId(explicitUser);
+  const targetMax = Math.max(newMax, prevMax);
+
+  const keys = getSeenAnnKeys(explicitUser);
+  for (const k of keys) {
+    localStorage.setItem(k, String(targetMax));
   }
+
+  // Immediately hide visible card badges in active DOM
+  const annCardBadges = document.querySelectorAll('#announcementsCardBadge, #announcementsBadge');
+  annCardBadges.forEach(b => {
+    b.textContent = '0';
+    b.classList.add('d-none');
+  });
+
+  // Notify any active listeners/widgets
+  try {
+    window.dispatchEvent(new CustomEvent('mentorae:announcements-seen', { detail: { maxId: targetMax } }));
+  } catch (e) {}
 }
 

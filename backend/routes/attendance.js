@@ -11,6 +11,7 @@ const {
   confirmAttendanceOut,
   finishSectionConfirmation,
   getSectionDailyHistory,
+  getTeacherPendingSummary,
   getSummary,
   getHistory,
   submitExcuseNote,
@@ -23,6 +24,7 @@ router.post('/scan', requireAuth, requireRole('teacher', 'admin', 'security'), s
 router.post('/verify-scanner-key', verifyScannerKey); // public — used before login
 router.get('/session-status', requireAuth, requireRole('teacher'), getSessionStatus);
 router.get('/confirmation', requireAuth, requireRole('teacher', 'admin'), getConfirmationRoster);
+router.get('/teacher-pending-summary', requireAuth, requireRole('teacher', 'admin'), getTeacherPendingSummary);
 router.post('/confirm', requireAuth, requireRole('teacher'), confirmAttendance);
 router.post('/confirm-out', requireAuth, requireRole('teacher'), confirmAttendanceOut);
 router.post('/finish-section', requireAuth, requireRole('teacher'), finishSectionConfirmation);
