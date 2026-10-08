@@ -144,6 +144,23 @@
     min-height: 38px;
 }
 
+#dbSearchWrapper .input-group,
+.db-filter-item,
+.db-student-filter-item {
+    height: 38px;
+}
+
+#dbSearchWrapper .input-group .form-control,
+#dbSearchWrapper .input-group .input-group-text,
+.db-filter-item .form-select,
+.db-filter-item .input-group-text,
+.db-student-filter-item .form-select,
+.db-student-filter-item .input-group-text {
+    height: 38px;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
 /* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
 .table-header-row {
     background-color: var(--mentorae-green) !important;
