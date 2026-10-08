@@ -70,17 +70,20 @@
 
 /* Modern Category Pill Navigation */
 .category-pill-bar {
-    width: fit-content;
-    max-width: 100%;
+    width: 100% !important;
+    display: flex;
 }
 
 .btn-pill-nav {
+    flex: 1 1 0;
+    justify-content: center;
+    text-align: center;
     border: 1px solid transparent;
     background: transparent;
     color: #4a5568;
     font-weight: 600;
-    font-size: 0.88rem;
-    padding: 0.45rem 1.15rem;
+    font-size: 0.9rem;
+    padding: 0.55rem 1rem;
     border-radius: 50rem;
     transition: all 0.18s ease-in-out;
     display: inline-flex;
