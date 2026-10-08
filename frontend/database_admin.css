@@ -108,6 +108,10 @@
 .text-dark-blue { color: #1e3a8a !important; }
 .text-purple { color: #9b51e0 !important; }
 
+.auto-width-select {
+    max-width: 170px;
+}
+
 /* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
 .table-header-row {
     background-color: var(--mentorae-green) !important;

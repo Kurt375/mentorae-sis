@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddStrand = document.getElementById('btnAddStrand');
     const btnAddSection = document.getElementById('btnAddSection');
     const btnArchiveLogs = document.getElementById('btnArchiveLogs');
+    const dbSearchInput = document.getElementById('dbSearchInput');
+    const dbFilterSelect = document.getElementById('dbFilterSelect');
+    let currentCategoryRecords = [];
+    let currentCategoryHeaders = [];
 
     const categoryNavButtons = {
         students: document.getElementById('tabBtnStudents'),
@@ -133,26 +137,137 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Configure contextual search placeholder & filter dropdown
+        if (dbSearchInput) {
+            dbSearchInput.value = '';
+            if (category === 'students') {
+                dbSearchInput.placeholder = 'Search students by name, ID, strand, email...';
+            } else if (category === 'subjects') {
+                dbSearchInput.placeholder = 'Search subjects by code, name, strand, term...';
+            } else if (category === 'strands') {
+                dbSearchInput.placeholder = 'Search strands by code, title, track...';
+            } else if (category === 'sections') {
+                dbSearchInput.placeholder = 'Search sections by name, strand, adviser...';
+            } else if (category === 'login-logs') {
+                dbSearchInput.placeholder = 'Search logs by user, role, IP, date...';
+            }
+        }
+
+        if (dbFilterSelect) {
+            if (category === 'students') {
+                const strandOpts = cachedStrands.map(s => `<option value="${escapeHtml(s.code)}">${escapeHtml(s.code)}</option>`).join('');
+                dbFilterSelect.innerHTML = `<option value="">All Strands</option>${strandOpts}`;
+            } else if (category === 'subjects') {
+                dbFilterSelect.innerHTML = `
+                    <option value="">All Terms</option>
+                    <option value="1st Term">1st Term</option>
+                    <option value="2nd Term">2nd Term</option>
+                    <option value="3rd Term">3rd Term</option>
+                    <option value="All Terms">All Terms (Core)</option>
+                `;
+            } else if (category === 'sections') {
+                dbFilterSelect.innerHTML = `
+                    <option value="">All Grades</option>
+                    <option value="11">Grade 11</option>
+                    <option value="12">Grade 12</option>
+                `;
+            } else if (category === 'strands') {
+                dbFilterSelect.innerHTML = `
+                    <option value="">All Tracks</option>
+                    <option value="Academic Track">Academic Track</option>
+                    <option value="TVL Track">TVL Track</option>
+                    <option value="Sports Track">Sports Track</option>
+                `;
+            } else if (category === 'login-logs') {
+                dbFilterSelect.innerHTML = `
+                    <option value="">All Logs</option>
+                    <option value="Success">Success</option>
+                    <option value="Failed Attempt">Failed</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="TEACHER">Teacher</option>
+                    <option value="STUDENT">Student</option>
+                    <option value="PARENT">Parent</option>
+                `;
+            }
+        }
+
         const data = await authedFetch(`/api/database/${category}`, token);
         if (!data.success) {
             tableBody.innerHTML = `<tr><td class="text-center text-muted py-4">${escapeHtml(data.message)}</td></tr>`;
             return;
         }
 
-        const isStrands = category === 'strands';
-        const isSections = category === 'sections';
+        currentCategoryRecords = data.records || [];
+        currentCategoryHeaders = data.headers || [];
+
+        // Supplement student strands if cachedStrands was not yet populated
+        if (category === 'students' && dbFilterSelect && (!cachedStrands || !cachedStrands.length)) {
+            const uniqueStrands = [...new Set(currentCategoryRecords.map(r => r.f3).filter(Boolean))];
+            dbFilterSelect.innerHTML = `<option value="">All Strands</option>` + uniqueStrands.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        }
+
+        renderCurrentCategoryRows();
+
+        const countEl = { students: 'studentsCountVal', subjects: 'subjectsCountVal', strands: 'strandsCountVal', sections: 'sectionsCountVal', 'login-logs': 'loginLogsCountVal' }[category];
+        if (countEl && document.getElementById(countEl)) {
+            document.getElementById(countEl).textContent = currentCategoryRecords.length;
+        }
+    }
+
+    function renderCurrentCategoryRows() {
+        const isStrands = currentCategory === 'strands';
+        const isSections = currentCategory === 'sections';
         const hasActions = isStrands || isSections;
-        const headersHtml = data.headers.map(h => `<th class="px-3 py-2.5">${escapeHtml(h)}</th>`).join('');
+        const headersHtml = currentCategoryHeaders.map(h => `<th class="px-3 py-2.5">${escapeHtml(h)}</th>`).join('');
         tableHead.innerHTML = `<tr class="table-header-row text-white">${headersHtml}${hasActions ? '<th class="px-3 py-2.5 text-end">Actions</th>' : ''}</tr>`;
 
-        if (!data.records.length) {
-            const colSpan = data.headers.length + (hasActions ? 1 : 0);
+        if (!currentCategoryRecords.length) {
+            const colSpan = currentCategoryHeaders.length + (hasActions ? 1 : 0);
             tableBody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-4">No records yet.</td></tr>`;
             return;
         }
 
+        const q = dbSearchInput ? dbSearchInput.value.trim().toLowerCase() : '';
+        const filterVal = dbFilterSelect ? dbFilterSelect.value : '';
+
+        const filtered = currentCategoryRecords.filter(r => {
+            if (filterVal) {
+                if (currentCategory === 'students') {
+                    if (r.f3 !== filterVal && r.strand !== filterVal) return false;
+                } else if (currentCategory === 'subjects') {
+                    if (r.f4 !== filterVal && r.f3 !== filterVal) return false;
+                } else if (currentCategory === 'strands') {
+                    if ((r.department || r.f3) !== filterVal) return false;
+                } else if (currentCategory === 'sections') {
+                    if (String(r.gradeLevel) !== filterVal && !String(r.f3).includes(filterVal)) return false;
+                } else if (currentCategory === 'login-logs') {
+                    const isSuccess = r.success === true || r.status === 'Success';
+                    const statusStr = isSuccess ? 'Success' : 'Failed Attempt';
+                    if (filterVal === 'Success' || filterVal === 'Failed Attempt') {
+                        if (statusStr !== filterVal) return false;
+                    } else if (r.role !== filterVal && r.f2 !== filterVal) {
+                        return false;
+                    }
+                }
+            }
+            if (q) {
+                const combined = Object.values(r)
+                    .filter(v => v !== null && v !== undefined && (typeof v === 'string' || typeof v === 'number'))
+                    .join(' ')
+                    .toLowerCase();
+                if (!combined.includes(q)) return false;
+            }
+            return true;
+        });
+
+        if (!filtered.length) {
+            const colSpan = currentCategoryHeaders.length + (hasActions ? 1 : 0);
+            tableBody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-4"><i class="bi bi-search me-1"></i> No matching records found.</td></tr>`;
+            return;
+        }
+
         if (isStrands) {
-            tableBody.innerHTML = data.records.map(r => `
+            tableBody.innerHTML = filtered.map(r => `
                 <tr>
                     <td class="px-3 py-2 fw-semibold text-dark">${escapeHtml(r.f1 || r.code)}</td>
                     <td class="px-3 py-2">${escapeHtml(r.f2 || r.title)}</td>
@@ -179,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             attachStrandRowEvents();
         } else if (isSections) {
-            tableBody.innerHTML = data.records.map(r => `
+            tableBody.innerHTML = filtered.map(r => `
                 <tr>
                     <td class="px-3 py-2 fw-semibold text-dark">${escapeHtml(r.f1 || r.name)}</td>
                     <td class="px-3 py-2"><span class="badge bg-light text-dark border">${escapeHtml(r.f2 || r.strandCode)}</span></td>
@@ -210,8 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `).join('');
 
             attachSectionRowEvents();
-        } else if (category === 'login-logs') {
-            tableBody.innerHTML = data.records.map(r => {
+        } else if (currentCategory === 'login-logs') {
+            tableBody.innerHTML = filtered.map(r => {
                 const isSuccess = r.success === true || r.status === 'Success';
                 const statusBadge = isSuccess
                     ? '<span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Success</span>'
@@ -237,8 +352,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                 `;
             }).join('');
-        } else if (category === 'subjects') {
-            tableBody.innerHTML = data.records.map(r => {
+        } else if (currentCategory === 'subjects') {
+            tableBody.innerHTML = filtered.map(r => {
                 let badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
                 if (r.f4 === 'All Terms') badgeClass = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
                 else if (r.f4 === '2nd Term') badgeClass = 'bg-info-subtle text-info border border-info-subtle';
@@ -254,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
         } else {
-            tableBody.innerHTML = data.records.map(r => `
+            tableBody.innerHTML = filtered.map(r => `
                 <tr>
                     <td class="px-3 py-2">${escapeHtml(r.f1)}</td>
                     <td class="px-3 py-2">${escapeHtml(r.f2)}</td>
@@ -262,11 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-3 py-2">${escapeHtml(r.f4)}</td>
                 </tr>
             `).join('');
-        }
-
-        const countEl = { students: 'studentsCountVal', subjects: 'subjectsCountVal', strands: 'strandsCountVal', sections: 'sectionsCountVal', 'login-logs': 'loginLogsCountVal' }[category];
-        if (countEl && document.getElementById(countEl)) {
-            document.getElementById(countEl).textContent = data.records.length;
         }
     }
 
@@ -713,6 +823,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (categoryNavButtons['login-logs']) {
         categoryNavButtons['login-logs'].addEventListener('click', () => renderTable('login-logs'));
+    }
+
+    if (dbSearchInput) {
+        dbSearchInput.addEventListener('input', renderCurrentCategoryRows);
+    }
+    if (dbFilterSelect) {
+        dbFilterSelect.addEventListener('change', renderCurrentCategoryRows);
     }
 
     async function loadAllCounts() {
