@@ -30,6 +30,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const createUserForm = document.getElementById('createUserForm');
     const createUserPassword = document.getElementById('createUserPassword');
 
+    function escapeHtml(str) {
+        return (str || '').replace(/[&<>'"]/g, tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag));
+    }
+
     const activeRoleBadge = document.getElementById('activeRoleBadge');
     const activeRoleDescription = document.getElementById('activeRoleDescription');
     const roleCopy = {
@@ -213,6 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const strandOptions = strandsCache.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
             document.getElementById('manageStrandFilter').innerHTML = `<option value="">All strands</option>${strandOptions}`;
             studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Strand —</option>${strandOptions}`;
+            const parentLinksStrandEl = document.getElementById('parentLinksStrandFilter');
+            if (parentLinksStrandEl) parentLinksStrandEl.innerHTML = `<option value="">All Strands</option>${strandOptions}`;
         }
         if (sectionsData.success) {
             sectionsCache = sectionsData.sections;
@@ -1184,6 +1196,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Parent-Student Connections & Datalists ---
     let parentsCache = [];
+    let allParentLinksCache = [];
+
+    const parentLinksSearch = document.getElementById('parentLinksSearch');
+    const parentLinksGradeFilter = document.getElementById('parentLinksGradeFilter');
+    const parentLinksStrandFilter = document.getElementById('parentLinksStrandFilter');
+    const parentLinksSort = document.getElementById('parentLinksSort');
+    const parentLinksCountBadge = document.getElementById('parentLinksCountBadge');
+
+    function renderFilteredParentLinks() {
+        const tbody = document.getElementById('parentLinksTableBody');
+        if (!tbody) return;
+
+        const q = parentLinksSearch ? parentLinksSearch.value.trim().toLowerCase() : '';
+        const gradeVal = parentLinksGradeFilter ? parentLinksGradeFilter.value : '';
+        const strandVal = parentLinksStrandFilter ? parentLinksStrandFilter.value : '';
+        const sortVal = parentLinksSort ? parentLinksSort.value : 'student_asc';
+
+        let filtered = allParentLinksCache.filter(link => {
+            if (q) {
+                const combined = `${link.parentName || ''} ${link.parentEmail || ''} ${link.studentName || ''} ${link.studentIdNumber || ''} ${link.sectionName || ''} ${link.strandCode || ''}`.toLowerCase();
+                if (!combined.includes(q)) return false;
+            }
+            if (gradeVal && String(link.gradeLevel || '') !== String(gradeVal)) {
+                return false;
+            }
+            if (strandVal && String(link.strandId || '') !== String(strandVal) && String(link.strandCode || '') !== String(strandVal)) {
+                return false;
+            }
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            if (sortVal === 'student_desc') {
+                return (b.studentName || '').localeCompare(a.studentName || '');
+            } else if (sortVal === 'parent_asc') {
+                return (a.parentName || '').localeCompare(b.parentName || '');
+            } else if (sortVal === 'parent_desc') {
+                return (b.parentName || '').localeCompare(a.parentName || '');
+            }
+            return (a.studentName || '').localeCompare(b.studentName || '');
+        });
+
+        if (parentLinksCountBadge) {
+            const total = allParentLinksCache.length;
+            if (q || gradeVal || strandVal) {
+                parentLinksCountBadge.textContent = `${filtered.length} of ${total} connections`;
+            } else {
+                parentLinksCountBadge.textContent = `${total} connection${total === 1 ? '' : 's'}`;
+            }
+        }
+
+        tbody.innerHTML = '';
+        if (!filtered.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No matching parent-student connections found.</td></tr>';
+            return;
+        }
+
+        for (const link of filtered) {
+            const tr = document.createElement('tr');
+            const sectionBadge = link.sectionName
+                ? `<span class="badge bg-light text-secondary border ms-1 micro-text">${escapeHtml(link.strandCode ? `${link.strandCode} ` : '')}G${link.gradeLevel || ''} - ${escapeHtml(link.sectionName)}</span>`
+                : '';
+            tr.innerHTML = `
+                <td class="px-3">${escapeHtml(link.parentName)} <span class="text-muted">(${escapeHtml(link.parentEmail)})</span></td>
+                <td class="px-3">${escapeHtml(link.studentName)} <span class="text-muted">(${escapeHtml(link.studentIdNumber)})</span>${sectionBadge}</td>
+                <td class="text-center">
+                    <button class="btn btn-link p-0 text-danger fs-5 unlink-btn" title="Remove link" data-id="${link.id}">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        tbody.querySelectorAll('.unlink-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Remove this parent-student link?')) return;
+                const result = await authedFetch(`/api/users/parent-links/${btn.dataset.id}`, token, { method: 'DELETE' });
+                if (result.success) loadParentLinks();
+            });
+        });
+    }
+
+    if (parentLinksSearch) parentLinksSearch.addEventListener('input', renderFilteredParentLinks);
+    if (parentLinksGradeFilter) parentLinksGradeFilter.addEventListener('change', renderFilteredParentLinks);
+    if (parentLinksStrandFilter) parentLinksStrandFilter.addEventListener('change', renderFilteredParentLinks);
+    if (parentLinksSort) parentLinksSort.addEventListener('change', renderFilteredParentLinks);
 
     async function loadParentOptions() {
         const data = await authedFetch('/api/users?role=Parent&limit=1000', token);
@@ -1218,33 +1317,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadParentLinks() {
         const data = await authedFetch('/api/users/parent-links', token);
-        const tbody = document.getElementById('parentLinksTableBody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        if (!data.success || !data.links.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No parent-student links yet.</td></tr>';
-            return;
+        if (data.success && Array.isArray(data.links)) {
+            allParentLinksCache = data.links;
+        } else {
+            allParentLinksCache = [];
         }
-        for (const link of data.links) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="px-3">${link.parentName} <span class="text-muted">(${link.parentEmail})</span></td>
-                <td class="px-3">${link.studentName} <span class="text-muted">(${link.studentIdNumber})</span></td>
-                <td class="text-center">
-                    <button class="btn btn-link p-0 text-danger fs-5 unlink-btn" title="Remove link" data-id="${link.id}">
-                        <i class="bi bi-x-circle-fill"></i>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        }
-        tbody.querySelectorAll('.unlink-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm('Remove this parent-student link?')) return;
-                const result = await authedFetch(`/api/users/parent-links/${btn.dataset.id}`, token, { method: 'DELETE' });
-                if (result.success) loadParentLinks();
-            });
-        });
+        renderFilteredParentLinks();
     }
 
     loadParentOptions();

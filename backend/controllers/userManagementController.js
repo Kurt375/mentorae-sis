@@ -733,10 +733,13 @@ async function listParentLinks(req, res) {
     const [rows] = await pool.query(
       `SELECT l.id, l.parent_id, l.student_id,
               CONCAT(p.first_name, ' ', p.last_name) AS parentName, p.email AS parentEmail,
-              CONCAT(s.first_name, ' ', s.last_name) AS studentName, s.id_number AS studentIdNumber
+              CONCAT(s.first_name, ' ', s.last_name) AS studentName, s.id_number AS studentIdNumber,
+              sec.grade_level AS gradeLevel, sec.name AS sectionName, st.code AS strandCode, st.id AS strandId
        FROM parent_student_links l
        JOIN users p ON p.id = l.parent_id
        JOIN users s ON s.id = l.student_id
+       LEFT JOIN sections sec ON sec.id = s.section_id
+       LEFT JOIN strands st ON st.id = sec.strand_id
        ${whereClause}
        ORDER BY s.last_name, s.first_name`,
       params

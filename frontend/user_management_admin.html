@@ -332,8 +332,42 @@
 
             <section class="card border-0 rounded-3 p-3 mb-4 shadow-sm">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <span class="badge section-header-badge px-3 py-2 fs-6 rounded-2 fw-semibold">Parent to Student Connections</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge section-header-badge px-3 py-2 fs-6 rounded-2 fw-semibold">Parent to Student Connections</span>
+                        <span class="badge bg-light text-muted border" id="parentLinksCountBadge">0 connections</span>
+                    </div>
                     <span class="text-muted text-sm"><i class="bi bi-info-circle me-1"></i>Links are established automatically when student accounts are created.</span>
+                </div>
+
+                <!-- Search bar and filter dropdowns -->
+                <div class="row g-2 align-items-center mb-3">
+                    <div class="col-12 col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control form-input border-start-0 ps-0" id="parentLinksSearch"
+                                placeholder="Search parent, student, email, or LRN...">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-input" id="parentLinksGradeFilter">
+                            <option value="">All Grades</option>
+                            <option value="11">Grade 11</option>
+                            <option value="12">Grade 12</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select class="form-select form-input" id="parentLinksStrandFilter">
+                            <option value="">All Strands</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <select class="form-select form-input" id="parentLinksSort">
+                            <option value="student_asc">Student (A-Z)</option>
+                            <option value="student_desc">Student (Z-A)</option>
+                            <option value="parent_asc">Parent (A-Z)</option>
+                            <option value="parent_desc">Parent (Z-A)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="table-responsive border rounded-2" style="max-height: 380px; overflow-y: auto;">
