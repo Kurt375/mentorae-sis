@@ -52,39 +52,58 @@
     background-color: var(--light-green-workspace);
 }
 
-/* (For Overview)Counter Display Block Geometry configuration */
-.stat-metric-card {
+/* Overview Stat Blocks Configuration (Non-clickable, matching User Management archetype) */
+.stat-block {
+    min-width: 110px;
     border-radius: 12px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
     border: 1px solid #e2e8f0 !important;
     border-left: 4px solid var(--mentorae-green) !important;
+    background-color: #ffffff;
 }
 
-/* A separator line for below the overview section */
+/* Overview section bottom separator */
 .overview-separator {
-    padding-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
     margin-bottom: 1.5rem;
     border-bottom: 1px solid #e2e8f0;
 }
 
-/* Visual state feedback rules for interactive tabs */
-.interactive-stat-card {
+/* Modern Category Pill Navigation */
+.category-pill-bar {
+    width: fit-content;
+    max-width: 100%;
+}
+
+.btn-pill-nav {
+    border: 1px solid transparent;
+    background: transparent;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 0.88rem;
+    padding: 0.45rem 1.15rem;
+    border-radius: 50rem;
+    transition: all 0.18s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
     cursor: pointer;
+    user-select: none;
+    text-decoration: none;
 }
 
-.interactive-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+.btn-pill-nav:hover {
+    color: var(--mentorae-green);
+    background-color: var(--light-green-workspace, #eef7ee);
 }
 
-.highlighted-stat {
-    background-color: var(--stat-card-highlight) !important;
-    border: 1px solid #ccebc4 !important;
+.btn-pill-nav.active {
+    background-color: var(--mentorae-green) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(10, 92, 44, 0.25);
 }
 
-.metric-icon-box i {
-    font-size: 2.5rem !important;
-}
+.text-dark-blue { color: #1e3a8a !important; }
+.text-purple { color: #9b51e0 !important; }
 
 /* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
 .table-header-row {

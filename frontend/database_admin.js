@@ -28,12 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddSection = document.getElementById('btnAddSection');
     const btnArchiveLogs = document.getElementById('btnArchiveLogs');
 
-    const statButtons = {
-        students: document.getElementById('btnStudents'),
-        subjects: document.getElementById('btnSubjects'),
-        strands: document.getElementById('btnStrands'),
-        sections: document.getElementById('btnSections'),
-        'login-logs': document.getElementById('btnLoginLogs'),
+    const categoryNavButtons = {
+        students: document.getElementById('tabBtnStudents'),
+        subjects: document.getElementById('tabBtnSubjects'),
+        strands: document.getElementById('tabBtnStrands'),
+        sections: document.getElementById('tabBtnSections'),
+        'login-logs': document.getElementById('tabBtnLoginLogs'),
     };
 
     // Modals
@@ -104,10 +104,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function renderTable(category) {
         currentCategory = category;
-        Object.values(statButtons).forEach(btn => {
-            if (btn) btn.classList.remove('highlighted-stat');
+        Object.values(categoryNavButtons).forEach(btn => {
+            if (btn) btn.classList.remove('active');
         });
-        if (statButtons[category]) statButtons[category].classList.add('highlighted-stat');
+        if (categoryNavButtons[category]) categoryNavButtons[category].classList.add('active');
 
         if (btnAddStrand) {
             if (category === 'strands') {
@@ -699,14 +699,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    statButtons.students.addEventListener('click', () => renderTable('students'));
-    statButtons.subjects.addEventListener('click', () => renderTable('subjects'));
-    statButtons.strands.addEventListener('click', () => renderTable('strands'));
-    if (statButtons.sections) {
-        statButtons.sections.addEventListener('click', () => renderTable('sections'));
+    if (categoryNavButtons.students) {
+        categoryNavButtons.students.addEventListener('click', () => renderTable('students'));
     }
-    if (statButtons['login-logs']) {
-        statButtons['login-logs'].addEventListener('click', () => renderTable('login-logs'));
+    if (categoryNavButtons.subjects) {
+        categoryNavButtons.subjects.addEventListener('click', () => renderTable('subjects'));
+    }
+    if (categoryNavButtons.strands) {
+        categoryNavButtons.strands.addEventListener('click', () => renderTable('strands'));
+    }
+    if (categoryNavButtons.sections) {
+        categoryNavButtons.sections.addEventListener('click', () => renderTable('sections'));
+    }
+    if (categoryNavButtons['login-logs']) {
+        categoryNavButtons['login-logs'].addEventListener('click', () => renderTable('login-logs'));
     }
 
     async function loadAllCounts() {

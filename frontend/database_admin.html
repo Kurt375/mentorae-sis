@@ -33,73 +33,72 @@
 
         <main class="container-fluid px-4 py-4 flex-grow-1">
             
-            <section class="row g-3 overview-separator">
+            <section class="row gx-3 gy-2 overview-separator">
                 <div class="col-6 col-md-4 col-xl">
-                    <div class="card stat-metric-card interactive-stat-card highlighted-stat border-0 shadow-sm p-3 h-100" id="btnStudents">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h2 class="fw-bold m-0 display-6 text-dark" id="studentsCountVal">—</h2>
-                                <span class="text-muted fw-semibold micro-text text-uppercase tracking-sm">Students</span>
-                            </div>
-                            <div class="metric-icon-box text-dark opacity-85">
-                                <i class="bi bi-mortarboard fs-1"></i>
-                            </div>
+                    <div class="card stat-block p-2 text-center border-0 shadow-sm bg-white h-100">
+                        <div class="d-flex align-items-center justify-content-center gap-2 text-secondary mb-1">
+                            <i class="bi bi-mortarboard-fill text-primary fs-5"></i>
+                            <span class="fw-semibold tiny-text text-dark">Students</span>
                         </div>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="studentsCountVal">—</h2>
                     </div>
                 </div>
                 <div class="col-6 col-md-4 col-xl">
-                    <div class="card stat-metric-card interactive-stat-card border-0 shadow-sm p-3 h-100 bg-white" id="btnSubjects">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h2 class="fw-bold m-0 display-6 text-dark" id="subjectsCountVal">—</h2>
-                                <span class="text-muted fw-semibold micro-text text-uppercase tracking-sm">Subjects</span>
-                            </div>
-                            <div class="metric-icon-box text-dark opacity-85">
-                                <i class="bi bi-book fs-1"></i>
-                            </div>
+                    <div class="card stat-block p-2 text-center border-0 shadow-sm bg-white h-100">
+                        <div class="d-flex align-items-center justify-content-center gap-2 text-secondary mb-1">
+                            <i class="bi bi-book-fill text-dark-blue fs-5"></i>
+                            <span class="fw-semibold tiny-text text-dark">Subjects</span>
                         </div>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="subjectsCountVal">—</h2>
                     </div>
                 </div>
                 <div class="col-6 col-md-4 col-xl">
-                    <div class="card stat-metric-card interactive-stat-card border-0 shadow-sm p-3 h-100 bg-white" id="btnStrands">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h2 class="fw-bold m-0 display-6 text-dark" id="strandsCountVal">—</h2>
-                                <span class="text-muted fw-semibold micro-text text-uppercase tracking-sm">Strands</span>
-                            </div>
-                            <div class="metric-icon-box text-dark opacity-85">
-                                <i class="bi bi-bookmark-dash-fill fs-1"></i>
-                            </div>
+                    <div class="card stat-block p-2 text-center border-0 shadow-sm bg-white h-100">
+                        <div class="d-flex align-items-center justify-content-center gap-2 text-secondary mb-1">
+                            <i class="bi bi-bookmark-fill text-success fs-5"></i>
+                            <span class="fw-semibold tiny-text text-dark">Strands</span>
                         </div>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="strandsCountVal">—</h2>
                     </div>
                 </div>
                 <div class="col-6 col-md-4 col-xl">
-                    <div class="card stat-metric-card interactive-stat-card border-0 shadow-sm p-3 h-100 bg-white" id="btnSections">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h2 class="fw-bold m-0 display-6 text-dark" id="sectionsCountVal">—</h2>
-                                <span class="text-muted fw-semibold micro-text text-uppercase tracking-sm">Sections</span>
-                            </div>
-                            <div class="metric-icon-box text-dark opacity-85">
-                                <i class="bi bi-diagram-3-fill fs-1"></i>
-                            </div>
+                    <div class="card stat-block p-2 text-center border-0 shadow-sm bg-white h-100">
+                        <div class="d-flex align-items-center justify-content-center gap-2 text-secondary mb-1">
+                            <i class="bi bi-diagram-3-fill text-purple fs-5"></i>
+                            <span class="fw-semibold tiny-text text-dark">Sections</span>
                         </div>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="sectionsCountVal">—</h2>
                     </div>
                 </div>
                 <div class="col-6 col-md-4 col-xl">
-                    <div class="card stat-metric-card interactive-stat-card border-0 shadow-sm p-3 h-100 bg-white" id="btnLoginLogs">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
-                                <h2 class="fw-bold m-0 display-6 text-dark" id="loginLogsCountVal">—</h2>
-                                <span class="text-muted fw-semibold micro-text text-uppercase tracking-sm">Login Logs</span>
-                            </div>
-                            <div class="metric-icon-box text-dark opacity-85">
-                                <i class="bi bi-shield-check fs-1"></i>
-                            </div>
+                    <div class="card stat-block p-2 text-center border-0 shadow-sm bg-white h-100">
+                        <div class="d-flex align-items-center justify-content-center gap-2 text-secondary mb-1">
+                            <i class="bi bi-shield-check text-danger fs-5"></i>
+                            <span class="fw-semibold tiny-text text-dark">Login Logs</span>
                         </div>
+                        <h2 class="fw-bold m-0 fs-3 text-dark" id="loginLogsCountVal">—</h2>
                     </div>
                 </div>
             </section>
+
+            <!-- Category Navigation Pills -->
+            <div class="d-flex align-items-center gap-2 mb-3 p-1 bg-white rounded-pill shadow-sm border category-pill-bar overflow-auto text-nowrap">
+                <button type="button" class="btn btn-pill-nav active" data-category="students" id="tabBtnStudents">
+                    <i class="bi bi-mortarboard me-1.5"></i> Students
+                </button>
+                <button type="button" class="btn btn-pill-nav" data-category="subjects" id="tabBtnSubjects">
+                    <i class="bi bi-book me-1.5"></i> Subjects
+                </button>
+                <button type="button" class="btn btn-pill-nav" data-category="strands" id="tabBtnStrands">
+                    <i class="bi bi-bookmark me-1.5"></i> Strands
+                </button>
+                <button type="button" class="btn btn-pill-nav" data-category="sections" id="tabBtnSections">
+                    <i class="bi bi-diagram-3 me-1.5"></i> Sections
+                </button>
+                <button type="button" class="btn btn-pill-nav" data-category="login-logs" id="tabBtnLoginLogs">
+                    <i class="bi bi-shield-check me-1.5"></i> Login Logs
+                </button>
+            </div>
 
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
