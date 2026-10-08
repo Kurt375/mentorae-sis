@@ -510,11 +510,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             topicItem.innerHTML = `
-                <div class="me-3">
-                    <h6 class="mb-1">${topic.title}</h6>
-                    <small class="text-muted">${topic.description}</small>
+                <div class="me-3 flex-grow-1" style="min-width: 0;">
+                    <h6 class="mb-1 text-break">${topic.title}</h6>
+                    <small class="text-muted text-break">${topic.description}</small>
                 </div>
-                <div class="d-inline-flex gap-2 mt-2 mt-sm-0">
+                <div class="d-inline-flex gap-2 mt-2 mt-sm-0 flex-shrink-0">
                     ${resourceButtons.join('')}
                     <button type="button" class="btn btn-sm btn-outline-primary edit-topic-btn" data-index="${index}" title="Edit Topic"><i class="bi bi-pencil"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger delete-topic-btn" data-index="${index}" title="Delete Topic"><i class="bi bi-trash"></i></button>

@@ -1337,15 +1337,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 topicCard.innerHTML = `
-                    <div class="d-flex align-items-start gap-3 flex-grow-1">
+                    <div class="d-flex align-items-start gap-3 flex-grow-1" style="min-width: 0;">
                         <div class="topic-icon-box bg-primary-subtle text-primary rounded-3 flex-shrink-0 p-2">
                             <i class="bi bi-file-earmark-text-fill fs-4"></i>
                         </div>
-                        <div class="flex-grow-1">
-                            <h3 class="fw-bold fs-6 text-dark m-0">${topic.title}</h3>
-                            <p class="micro-text text-secondary m-0 mt-1">${topic.description}</p>
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <h3 class="fw-bold fs-6 text-dark text-break m-0">${topic.title}</h3>
+                            <p class="micro-text text-secondary text-break m-0 mt-1">${topic.description}</p>
                             ${topic.createdAt ? `
-                                <p class="micro-text text-muted m-0 mt-2"><i class="bi bi-clock-history me-1"></i>Created on ${new Date(topic.createdAt).toLocaleDateString()} ${topic.createdBy ? `by ${topic.createdBy}` : ''}</p>
+                                <p class="micro-text text-muted text-break m-0 mt-2"><i class="bi bi-clock-history me-1"></i>Created on ${new Date(topic.createdAt).toLocaleDateString()} ${topic.createdBy ? `by ${topic.createdBy}` : ''}</p>
                             ` : ''}
                         </div>
                     </div>
@@ -1407,8 +1407,8 @@ document.addEventListener('DOMContentLoaded', () => {
             recCard.className = 'card topic-item-card border-0 shadow-sm overflow-hidden rounded-4 w-100 d-flex flex-column justify-content-between';
             recCard.innerHTML = `
                 <div class="classroom-banner ${rec.color} p-3 text-white d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1 me-3">
-                        <h3 class="fw-bold m-0 fs-5 text-white">${rec.title}</h3>
+                    <div class="flex-grow-1 me-3" style="min-width: 0;">
+                        <h3 class="fw-bold m-0 fs-5 text-white text-break">${rec.title}</h3>
                     </div>
                     <div class="dropdown">
                         <button class="btn btn-link text-white p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical fs-5"></i></button>
@@ -1418,9 +1418,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </ul>
                     </div>
                 </div>
-                <div class="card-body p-3 bg-white d-flex flex-column flex-grow-1 justify-content-between">
-                    <div>
-                        <p class="small text-secondary m-0 card-desc-text">${rec.description}</p>
+                <div class="card-body p-3 bg-white d-flex flex-column flex-grow-1 justify-content-between" style="min-width: 0;">
+                    <div style="min-width: 0;">
+                        <p class="small text-secondary m-0 card-desc-text text-break">${rec.description}</p>
                         ${materialsHtml}
                     </div>
                     <div class="mt-3 border-top pt-2">

@@ -58,6 +58,17 @@
     border-radius: 16px;
     border: 1px solid #e2e8f0;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.topic-item-card .micro-text,
+.topic-item-card p,
+.topic-item-card h3,
+.topic-item-card h6 {
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .topic-card:hover,
