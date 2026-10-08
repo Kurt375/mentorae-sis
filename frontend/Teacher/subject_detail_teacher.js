@@ -415,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let pdfDataUrlToUse = targetFile ? targetFile.pdfDataUrl : null;
 
             // If this presentation has not been converted to PDF yet, auto-convert it on-the-fly!
-            if (!pdfDataUrlToUse && window.MentoraePptxToPdf && fileData && (fileData.arrayBuffer || fileData.blob)) {
+            if (!pdfDataUrlToUse && fileData && (fileData.arrayBuffer || fileData.blob)) {
                 try {
                     stageEl.innerHTML = `
                         <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
@@ -423,27 +423,51 @@ document.addEventListener('DOMContentLoaded', () => {
                             <p class="fs-5 fw-bold mb-1">Generating Classroom Presentation View...</p>
                             <p class="text-white-50 small mb-3" id="pptxConvertStatus">Preparing high-fidelity slides for in-browser view</p>
                             <div class="progress w-50" style="height: 6px; background: rgba(255,255,255,0.15);">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="pptxConvertProgressBar" style="width: 25%;"></div>
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="pptxConvertProgressBar" style="width: 35%;"></div>
                             </div>
                         </div>
                     `;
-                    const buf = fileData.arrayBuffer || (fileData.blob ? await fileData.blob.arrayBuffer() : null);
-                    if (buf) {
-                        pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf, (prog) => {
-                            const pBar = document.getElementById('pptxConvertProgressBar');
-                            const pStatus = document.getElementById('pptxConvertStatus');
-                            if (pBar) pBar.style.width = `${prog.percent || 50}%`;
-                            if (pStatus) pStatus.textContent = prog.message || 'Processing slides...';
-                        });
-                        if (targetFile) {
-                            targetFile.pdfDataUrl = pdfDataUrlToUse;
+
+                    const token = localStorage.getItem('mentorae_token');
+                    const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+
+                    // 1. Try server-side PowerPoint conversion for 100% pixel-perfect fidelity
+                    if (token && targetFile?.dataUrl) {
+                        try {
+                            const srvRes = await authedFetch('/api/content/convert-document', token, {
+                                method: 'POST',
+                                body: JSON.stringify({ fileName, dataUrl: targetFile.dataUrl })
+                            });
+                            if (srvRes && srvRes.success && srvRes.pdfDataUrl) {
+                                pdfDataUrlToUse = srvRes.pdfDataUrl;
+                            }
+                        } catch (srvErr) {
+                            console.warn('Server PowerPoint conversion notice:', srvErr);
                         }
-                        // Background-cache to server database for zero-latency subsequent opens
+                    }
+
+                    // 2. Client-side fallback if server conversion is unavailable
+                    if (!pdfDataUrlToUse && window.MentoraePptxToPdf) {
+                        const buf = fileData.arrayBuffer || (fileData.blob ? await fileData.blob.arrayBuffer() : null);
+                        if (buf) {
+                            pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf, (prog) => {
+                                const pBar = document.getElementById('pptxConvertProgressBar');
+                                const pStatus = document.getElementById('pptxConvertStatus');
+                                if (pBar) pBar.style.width = `${prog.percent || 50}%`;
+                                if (pStatus) pStatus.textContent = prog.message || 'Processing slides...';
+                            });
+                        }
+                    }
+
+                    if (pdfDataUrlToUse && targetFile) {
+                        targetFile.pdfDataUrl = pdfDataUrlToUse;
+                    }
+
+                    // Background-cache to server database for zero-latency subsequent opens
+                    if (pdfDataUrlToUse) {
                         const currentTopicObj = currentSubject?.topics?.find(t => t.title === topicTitle) || (currentSubject?.recommendations?.find(r => r.title === topicTitle));
                         const targetTopicId = targetFile?.topicId || currentTopicObj?.id;
-                        if (targetTopicId) {
-                            const token = localStorage.getItem('mentorae_token');
-                            const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+                        if (targetTopicId && token) {
                             fetch(`${apiBase}/api/content/topics/${targetTopicId}/cache-file-pdf`, {
                                 method: 'POST',
                                 headers: {
@@ -2114,18 +2138,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderRequestFiles();
             fileInput.value = '';
 
-            // Pre-convert Office documents in background for zero-latency classroom viewing
-            if (ext === 'pptx' || ext === 'ppt') {
-                if (window.MentoraePptxToPdf) {
-                    window.MentoraePptxToPdf.convert(dataUrl).then(pdfUrl => {
-                        if (pdfUrl) {
-                            fileItem.pdfDataUrl = pdfUrl;
-                            fileItem.convertedToPdf = true;
-                            renderRequestFiles();
-                        }
-                    }).catch(err => console.warn('PPTX pre-conversion notice:', err));
-                }
-            } else if (['docx', 'doc'].includes(ext)) {
+            // Pre-convert Office documents in background for 100% pixel-perfect classroom viewing
+            if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
                 const token = localStorage.getItem('mentorae_token');
                 if (token) {
                     authedFetch('/api/content/convert-document', token, {
@@ -2136,8 +2150,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             fileItem.pdfDataUrl = res.pdfDataUrl;
                             fileItem.convertedToPdf = true;
                             renderRequestFiles();
+                        } else if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
+                            // Client canvas fallback only if server conversion was not available
+                            window.MentoraePptxToPdf.convert(dataUrl).then(pdfUrl => {
+                                if (pdfUrl && !fileItem.pdfDataUrl) {
+                                    fileItem.pdfDataUrl = pdfUrl;
+                                    fileItem.convertedToPdf = true;
+                                    renderRequestFiles();
+                                }
+                            }).catch(err => console.warn('PPTX fallback notice:', err));
                         }
-                    }).catch(err => console.warn('Background conversion notice:', err));
+                    }).catch(err => {
+                        console.warn('Server conversion notice:', err);
+                        if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
+                            window.MentoraePptxToPdf.convert(dataUrl).then(pdfUrl => {
+                                if (pdfUrl && !fileItem.pdfDataUrl) {
+                                    fileItem.pdfDataUrl = pdfUrl;
+                                    fileItem.convertedToPdf = true;
+                                    renderRequestFiles();
+                                }
+                            }).catch(e => console.warn('Client conversion notice:', e));
+                        }
+                    });
                 }
             }
         } catch (error) {
