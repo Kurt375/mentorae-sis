@@ -112,16 +112,31 @@
     max-width: 170px;
 }
 
+#dbSearchWrapper {
+    min-width: 220px;
+}
+
 .db-filter-item {
-    min-width: 135px;
-    max-width: 210px;
-    flex: 1 1 auto;
+    min-width: 145px;
+    max-width: 220px;
+    flex: 0 0 auto;
+}
+
+.db-student-filter-item {
+    flex: 1 1 0;
+    min-width: 140px;
 }
 
 @media (max-width: 768px) {
-    .db-filter-item {
+    #dbSearchWrapper {
+        min-width: 100%;
+        width: 100%;
+    }
+    .db-filter-item,
+    .db-student-filter-item {
         max-width: 100%;
         width: 100%;
+        flex: 1 1 100%;
     }
 }
 

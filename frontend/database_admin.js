@@ -111,6 +111,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupCategoryFilters(category) {
         if (!dbDynamicFiltersContainer) return;
+        const searchWrapper = document.getElementById('dbSearchWrapper');
+
+        if (category === 'students') {
+            if (searchWrapper) {
+                searchWrapper.classList.add('w-100', 'mb-2');
+                searchWrapper.classList.remove('flex-grow-1');
+            }
+            dbDynamicFiltersContainer.className = 'w-100 d-flex align-items-center gap-2 flex-wrap flex-md-nowrap';
+        } else {
+            if (searchWrapper) {
+                searchWrapper.classList.remove('w-100', 'mb-2');
+                searchWrapper.classList.add('flex-grow-1');
+            }
+            dbDynamicFiltersContainer.className = 'd-flex align-items-center gap-2 flex-wrap';
+        }
 
         let html = '';
         if (category === 'students') {
@@ -150,25 +165,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             html = `
-                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-student-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-funnel"></i></span>
                     <select class="form-select border-0 py-2 text-sm" id="filterStudentStrand" title="Filter by Strand">
                         ${strandOpts}
                     </select>
                 </div>
-                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-student-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-calendar3"></i></span>
                     <select class="form-select border-0 py-2 text-sm" id="filterStudentYear" title="Filter by Year of Class">
                         ${yearOpts}
                     </select>
                 </div>
-                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-student-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-bar-chart-steps"></i></span>
                     <select class="form-select border-0 py-2 text-sm" id="filterStudentGrade" title="Filter by Grade Level">
                         ${gradeOpts}
                     </select>
                 </div>
-                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-student-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-diagram-3"></i></span>
                     <select class="form-select border-0 py-2 text-sm" id="filterStudentSection" title="Filter by Section">
                         ${secOpts}

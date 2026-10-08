@@ -101,18 +101,16 @@
             </div>
 
             <!-- Row 1: Search & Filter Toolbar -->
-            <div class="row g-2 align-items-center mb-3" id="dbFiltersRow">
-                <div class="col-12 col-md-4 col-lg-3">
-                    <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border">
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-3" id="dbFiltersRow">
+                <div class="flex-grow-1" id="dbSearchWrapper">
+                    <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border w-100">
                         <span class="input-group-text bg-white border-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control border-0 py-2 text-sm" id="dbSearchInput"
+                        <input type="text" class="form-control border-0 py-2 text-sm w-100" id="dbSearchInput"
                             placeholder="Search records...">
                     </div>
                 </div>
-                <div class="col-12 col-md-8 col-lg-9">
-                    <div class="d-flex align-items-center gap-2 flex-wrap" id="dbDynamicFiltersContainer">
-                        <!-- Dynamic filter dropdowns rendered by database_admin.js -->
-                    </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap" id="dbDynamicFiltersContainer">
+                    <!-- Dynamic filter dropdowns rendered by database_admin.js -->
                 </div>
             </div>
 
