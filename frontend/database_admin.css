@@ -112,6 +112,23 @@
     max-width: 170px;
 }
 
+.db-filter-item {
+    min-width: 135px;
+    max-width: 210px;
+    flex: 1 1 auto;
+}
+
+@media (max-width: 768px) {
+    .db-filter-item {
+        max-width: 100%;
+        width: 100%;
+    }
+}
+
+#dbActionsRow {
+    min-height: 38px;
+}
+
 /* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
 .table-header-row {
     background-color: var(--mentorae-green) !important;

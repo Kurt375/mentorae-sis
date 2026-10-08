@@ -49,19 +49,43 @@ function sendDataExport(res, { headers, dataRows, filenameBase, format = 'csv', 
 async function browseStudents(req, res) {
   try {
     const [rows] = await pool.query(
-      `SELECT u.first_name, u.middle_initial, u.last_name, u.id_number, u.email, st.code AS strandCode
+      `SELECT u.id, u.first_name, u.middle_initial, u.last_name, u.id_number, u.email, u.created_at,
+              s.id AS sectionId, s.name AS sectionName, s.grade_level AS gradeLevel,
+              st.id AS strandId, st.code AS strandCode
        FROM users u
        LEFT JOIN sections s ON s.id = u.section_id
        LEFT JOIN strands st ON st.id = s.strand_id
        WHERE u.role = 'student'
-       ORDER BY u.last_name LIMIT 200`
+       ORDER BY u.last_name`
     );
-    const records = rows.map((r) => ({
-      f1: `${r.first_name} ${r.middle_initial ? r.middle_initial + ' ' : ''}${r.last_name}`,
-      f2: r.id_number,
-      f3: r.strandCode || '—',
-      f4: r.email,
-    }));
+    const records = rows.map((r) => {
+      let yearOfClass = '2026 - 2027';
+      if (r.id_number && /^\d{2}-/.test(r.id_number)) {
+        const prefix = parseInt(r.id_number.substring(0, 2), 10);
+        yearOfClass = `20${prefix} - 20${prefix + 1}`;
+      } else if (r.created_at) {
+        const y = new Date(r.created_at).getFullYear();
+        yearOfClass = `${y} - ${y + 1}`;
+      }
+
+      const fullName = `${r.first_name} ${r.middle_initial ? r.middle_initial + ' ' : ''}${r.last_name}`.trim();
+      return {
+        id: r.id,
+        name: fullName,
+        idNumber: r.id_number,
+        email: r.email,
+        strandCode: r.strandCode || '—',
+        strandId: r.strandId || null,
+        gradeLevel: r.gradeLevel != null ? String(r.gradeLevel) : '',
+        sectionName: r.sectionName || '',
+        sectionId: r.sectionId || null,
+        yearOfClass,
+        f1: fullName,
+        f2: r.id_number,
+        f3: r.strandCode || '—',
+        f4: r.email,
+      };
+    });
     return res.json({ success: true, headers: ['Name', 'ID Number', 'Strand', 'Email'], records });
   } catch (err) {
     console.error('browseStudents error:', err);

@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddSection = document.getElementById('btnAddSection');
     const btnArchiveLogs = document.getElementById('btnArchiveLogs');
     const dbSearchInput = document.getElementById('dbSearchInput');
-    const dbFilterSelect = document.getElementById('dbFilterSelect');
+    const dbDynamicFiltersContainer = document.getElementById('dbDynamicFiltersContainer');
     let currentCategoryRecords = [];
     let currentCategoryHeaders = [];
 
@@ -74,15 +74,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let sectionToDeleteId = null;
     let cachedStrands = [];
     let cachedAdvisers = [];
+    let cachedSections = [];
 
     async function loadSectionDropdownOptions() {
         try {
-            const [strandsRes, advRes] = await Promise.all([
+            const [strandsRes, advRes, secRes] = await Promise.all([
                 authedFetch('/api/database/strands', token),
-                authedFetch('/api/database/advisers', token)
+                authedFetch('/api/database/advisers', token),
+                authedFetch('/api/database/sections', token)
             ]);
             if (strandsRes && strandsRes.success) cachedStrands = strandsRes.records || [];
             if (advRes && advRes.success) cachedAdvisers = advRes.advisers || [];
+            if (secRes && secRes.success) cachedSections = secRes.records || [];
         } catch (err) {
             console.error('Error loading section dropdown options:', err);
         }
@@ -104,6 +107,196 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const editAdvSel = document.getElementById('editSectionAdviser');
         if (editAdvSel) editAdvSel.innerHTML = adviserOptions;
+    }
+
+    function setupCategoryFilters(category) {
+        if (!dbDynamicFiltersContainer) return;
+
+        let html = '';
+        if (category === 'students') {
+            // Strand options
+            let strandOpts = '<option value="">All Strands</option>';
+            const strandList = cachedStrands.length
+                ? cachedStrands.map(s => s.code || s.f1)
+                : [...new Set(currentCategoryRecords.map(r => r.strandCode || r.f3).filter(Boolean))];
+            [...new Set(strandList)].sort().forEach(code => {
+                strandOpts += `<option value="${escapeHtml(code)}">${escapeHtml(code)}</option>`;
+            });
+
+            // Year of class options
+            let yearOpts = '<option value="">All Class Years</option>';
+            const detectedYears = [...new Set(currentCategoryRecords.map(r => r.yearOfClass).filter(Boolean))];
+            if (!detectedYears.includes('2026 - 2027')) detectedYears.unshift('2026 - 2027');
+            if (!detectedYears.includes('2025 - 2026')) detectedYears.push('2025 - 2026');
+            if (!detectedYears.includes('2024 - 2025')) detectedYears.push('2024 - 2025');
+            detectedYears.forEach(yr => {
+                yearOpts += `<option value="${escapeHtml(yr)}">${escapeHtml(yr)}</option>`;
+            });
+
+            // Grade options
+            const gradeOpts = `
+                <option value="">All Grade Levels</option>
+                <option value="11">Grade 11</option>
+                <option value="12">Grade 12</option>
+            `;
+
+            // Section options
+            let secOpts = '<option value="">All Sections</option>';
+            const secList = cachedSections.length
+                ? cachedSections.map(s => s.name || s.f1)
+                : [...new Set(currentCategoryRecords.map(r => r.sectionName).filter(Boolean))];
+            [...new Set(secList)].sort().forEach(sec => {
+                secOpts += `<option value="${escapeHtml(sec)}">${escapeHtml(sec)}</option>`;
+            });
+
+            html = `
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-funnel"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterStudentStrand" title="Filter by Strand">
+                        ${strandOpts}
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-calendar3"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterStudentYear" title="Filter by Year of Class">
+                        ${yearOpts}
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-bar-chart-steps"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterStudentGrade" title="Filter by Grade Level">
+                        ${gradeOpts}
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-diagram-3"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterStudentSection" title="Filter by Section">
+                        ${secOpts}
+                    </select>
+                </div>
+            `;
+        } else if (category === 'subjects') {
+            html = `
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-tags"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterSubjectCategory" title="Filter by Subject Category">
+                        <option value="">All Subject Categories</option>
+                        <option value="Core">Core Subject</option>
+                        <option value="Applied">Applied Subject</option>
+                        <option value="Specialized">Specialized Subject</option>
+                        <option value="Institutional">Institutional / Other</option>
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-calendar2-range"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterSubjectTerm" title="Filter by Term">
+                        <option value="">All Terms</option>
+                        <option value="1st Term">1st Term</option>
+                        <option value="2nd Term">2nd Term</option>
+                        <option value="3rd Term">3rd Term</option>
+                    </select>
+                </div>
+            `;
+        } else if (category === 'strands') {
+            html = `
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-layers"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterStrandTrack" title="Filter by Track">
+                        <option value="">All Tracks</option>
+                        <option value="Academic Track">Academic Track</option>
+                        <option value="TVL Track">TVL Track</option>
+                        <option value="Sports Track">Sports Track</option>
+                    </select>
+                </div>
+            `;
+        } else if (category === 'sections') {
+            let strandOpts = '<option value="">All Strands</option>';
+            const strandList = cachedStrands.length
+                ? cachedStrands.map(s => s.code || s.f1)
+                : [...new Set(currentCategoryRecords.map(r => r.strandCode || (r.f2 ? r.f2.split(' - ')[0] : '')).filter(Boolean))];
+            [...new Set(strandList)].sort().forEach(code => {
+                strandOpts += `<option value="${escapeHtml(code)}">${escapeHtml(code)}</option>`;
+            });
+
+            html = `
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-funnel"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterSectionStrand" title="Filter by Strand">
+                        ${strandOpts}
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-bar-chart-steps"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterSectionGrade" title="Filter by Grade Level">
+                        <option value="">All Grade Levels</option>
+                        <option value="11">Grade 11</option>
+                        <option value="12">Grade 12</option>
+                    </select>
+                </div>
+            `;
+        } else if (category === 'login-logs') {
+            html = `
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-person-badge"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterLogRole" title="Filter by Role">
+                        <option value="">All Roles</option>
+                        <option value="ADMIN">Admin</option>
+                        <option value="TEACHER">Teacher</option>
+                        <option value="STUDENT">Student</option>
+                        <option value="PARENT">Parent</option>
+                        <option value="EXTERNAL / GUEST">External / Guest</option>
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-shield-check"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterLogStatus" title="Filter by Status">
+                        <option value="">All Statuses</option>
+                        <option value="Success">Success</option>
+                        <option value="Failed Attempt">Failed Attempt</option>
+                    </select>
+                </div>
+            `;
+        }
+
+        dbDynamicFiltersContainer.innerHTML = html;
+
+        dbDynamicFiltersContainer.querySelectorAll('select').forEach(sel => {
+            sel.addEventListener('change', () => {
+                if (category === 'students' && (sel.id === 'filterStudentStrand' || sel.id === 'filterStudentGrade')) {
+                    syncStudentSections();
+                }
+                renderCurrentCategoryRows();
+            });
+        });
+    }
+
+    function syncStudentSections() {
+        const strandEl = document.getElementById('filterStudentStrand');
+        const gradeEl = document.getElementById('filterStudentGrade');
+        const secEl = document.getElementById('filterStudentSection');
+        if (!secEl) return;
+
+        const selStrand = strandEl ? strandEl.value : '';
+        const selGrade = gradeEl ? gradeEl.value : '';
+        const currentSecVal = secEl.value;
+
+        let filteredSecs = cachedSections;
+        if (selStrand) {
+            filteredSecs = filteredSecs.filter(s => (s.strandCode === selStrand || (s.f2 && s.f2.includes(selStrand))));
+        }
+        if (selGrade) {
+            filteredSecs = filteredSecs.filter(s => String(s.gradeLevel || s.grade_level) === selGrade);
+        }
+
+        let opts = '<option value="">All Sections</option>';
+        filteredSecs.forEach(s => {
+            const name = s.name || s.f1;
+            opts += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+        });
+        secEl.innerHTML = opts;
+        if (currentSecVal && filteredSecs.some(s => (s.name || s.f1) === currentSecVal)) {
+            secEl.value = currentSecVal;
+        }
     }
 
     async function renderTable(category) {
@@ -137,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Configure contextual search placeholder & filter dropdown
+        // Configure contextual search placeholder
         if (dbSearchInput) {
             dbSearchInput.value = '';
             if (category === 'students') {
@@ -153,44 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (dbFilterSelect) {
-            if (category === 'students') {
-                const strandOpts = cachedStrands.map(s => `<option value="${escapeHtml(s.code)}">${escapeHtml(s.code)}</option>`).join('');
-                dbFilterSelect.innerHTML = `<option value="">All Strands</option>${strandOpts}`;
-            } else if (category === 'subjects') {
-                dbFilterSelect.innerHTML = `
-                    <option value="">All Terms</option>
-                    <option value="1st Term">1st Term</option>
-                    <option value="2nd Term">2nd Term</option>
-                    <option value="3rd Term">3rd Term</option>
-                    <option value="All Terms">All Terms (Core)</option>
-                `;
-            } else if (category === 'sections') {
-                dbFilterSelect.innerHTML = `
-                    <option value="">All Grades</option>
-                    <option value="11">Grade 11</option>
-                    <option value="12">Grade 12</option>
-                `;
-            } else if (category === 'strands') {
-                dbFilterSelect.innerHTML = `
-                    <option value="">All Tracks</option>
-                    <option value="Academic Track">Academic Track</option>
-                    <option value="TVL Track">TVL Track</option>
-                    <option value="Sports Track">Sports Track</option>
-                `;
-            } else if (category === 'login-logs') {
-                dbFilterSelect.innerHTML = `
-                    <option value="">All Logs</option>
-                    <option value="Success">Success</option>
-                    <option value="Failed Attempt">Failed</option>
-                    <option value="ADMIN">Admin</option>
-                    <option value="TEACHER">Teacher</option>
-                    <option value="STUDENT">Student</option>
-                    <option value="PARENT">Parent</option>
-                `;
-            }
-        }
-
         const data = await authedFetch(`/api/database/${category}`, token);
         if (!data.success) {
             tableBody.innerHTML = `<tr><td class="text-center text-muted py-4">${escapeHtml(data.message)}</td></tr>`;
@@ -200,12 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentCategoryRecords = data.records || [];
         currentCategoryHeaders = data.headers || [];
 
-        // Supplement student strands if cachedStrands was not yet populated
-        if (category === 'students' && dbFilterSelect && (!cachedStrands || !cachedStrands.length)) {
-            const uniqueStrands = [...new Set(currentCategoryRecords.map(r => r.f3).filter(Boolean))];
-            dbFilterSelect.innerHTML = `<option value="">All Strands</option>` + uniqueStrands.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-        }
-
+        setupCategoryFilters(category);
         renderCurrentCategoryRows();
 
         const countEl = { students: 'studentsCountVal', subjects: 'subjectsCountVal', strands: 'strandsCountVal', sections: 'sectionsCountVal', 'login-logs': 'loginLogsCountVal' }[category];
@@ -228,28 +378,81 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const q = dbSearchInput ? dbSearchInput.value.trim().toLowerCase() : '';
-        const filterVal = dbFilterSelect ? dbFilterSelect.value : '';
+
+        let studentStrand = '';
+        let studentYear = '';
+        let studentGrade = '';
+        let studentSection = '';
+
+        let subjectCategory = '';
+        let subjectTerm = '';
+
+        let strandTrack = '';
+
+        let sectionStrand = '';
+        let sectionGrade = '';
+
+        let logRole = '';
+        let logStatus = '';
+
+        if (currentCategory === 'students') {
+            const elStrand = document.getElementById('filterStudentStrand');
+            const elYear = document.getElementById('filterStudentYear');
+            const elGrade = document.getElementById('filterStudentGrade');
+            const elSection = document.getElementById('filterStudentSection');
+            if (elStrand) studentStrand = elStrand.value;
+            if (elYear) studentYear = elYear.value;
+            if (elGrade) studentGrade = elGrade.value;
+            if (elSection) studentSection = elSection.value;
+        } else if (currentCategory === 'subjects') {
+            const elCat = document.getElementById('filterSubjectCategory');
+            const elTerm = document.getElementById('filterSubjectTerm');
+            if (elCat) subjectCategory = elCat.value;
+            if (elTerm) subjectTerm = elTerm.value;
+        } else if (currentCategory === 'strands') {
+            const elTrack = document.getElementById('filterStrandTrack');
+            if (elTrack) strandTrack = elTrack.value;
+        } else if (currentCategory === 'sections') {
+            const elStrand = document.getElementById('filterSectionStrand');
+            const elGrade = document.getElementById('filterSectionGrade');
+            if (elStrand) sectionStrand = elStrand.value;
+            if (elGrade) sectionGrade = elGrade.value;
+        } else if (currentCategory === 'login-logs') {
+            const elRole = document.getElementById('filterLogRole');
+            const elStatus = document.getElementById('filterLogStatus');
+            if (elRole) logRole = elRole.value;
+            if (elStatus) logStatus = elStatus.value;
+        }
 
         const filtered = currentCategoryRecords.filter(r => {
-            if (filterVal) {
-                if (currentCategory === 'students') {
-                    if (r.f3 !== filterVal && r.strand !== filterVal) return false;
-                } else if (currentCategory === 'subjects') {
-                    if (r.f4 !== filterVal && r.f3 !== filterVal) return false;
-                } else if (currentCategory === 'strands') {
-                    if ((r.department || r.f3) !== filterVal) return false;
-                } else if (currentCategory === 'sections') {
-                    if (String(r.gradeLevel) !== filterVal && !String(r.f3).includes(filterVal)) return false;
-                } else if (currentCategory === 'login-logs') {
+            if (currentCategory === 'students') {
+                if (studentStrand && (r.strandCode || r.f3) !== studentStrand) return false;
+                if (studentYear && (r.yearOfClass || '') !== studentYear && !(r.yearOfClass || '').includes(studentYear) && !studentYear.includes(r.yearOfClass || '')) return false;
+                if (studentGrade && String(r.gradeLevel || '') !== studentGrade) return false;
+                if (studentSection && (r.sectionName || '') !== studentSection && !(r.sectionName || '').toLowerCase().includes(studentSection.toLowerCase())) return false;
+            } else if (currentCategory === 'subjects') {
+                if (subjectCategory) {
+                    const c = (r.classification || r.f3 || '').toLowerCase();
+                    if (subjectCategory === 'Core' && !c.includes('core')) return false;
+                    if (subjectCategory === 'Applied' && !c.includes('applied')) return false;
+                    if (subjectCategory === 'Specialized' && !c.includes('specialized')) return false;
+                    if (subjectCategory === 'Institutional' && (c.includes('core') || c.includes('applied') || c.includes('specialized'))) return false;
+                }
+                if (subjectTerm && (r.f4 || '') !== subjectTerm && !(r.f4 || '').includes(subjectTerm)) return false;
+            } else if (currentCategory === 'strands') {
+                if (strandTrack && (r.department || r.f3) !== strandTrack) return false;
+            } else if (currentCategory === 'sections') {
+                if (sectionStrand && (r.strandCode || '') !== sectionStrand && !(r.f2 || '').includes(sectionStrand)) return false;
+                if (sectionGrade && String(r.gradeLevel || '') !== sectionGrade && !(r.f3 || '').includes(sectionGrade)) return false;
+            } else if (currentCategory === 'login-logs') {
+                if (logRole && (r.role || r.f2) !== logRole) return false;
+                if (logStatus) {
                     const isSuccess = r.success === true || r.status === 'Success';
-                    const statusStr = isSuccess ? 'Success' : 'Failed Attempt';
-                    if (filterVal === 'Success' || filterVal === 'Failed Attempt') {
-                        if (statusStr !== filterVal) return false;
-                    } else if (r.role !== filterVal && r.f2 !== filterVal) {
-                        return false;
-                    }
+                    if (logStatus === 'Success' && !isSuccess) return false;
+                    if (logStatus === 'Failed Attempt' && isSuccess) return false;
                 }
             }
+
             if (q) {
                 const combined = Object.values(r)
                     .filter(v => v !== null && v !== undefined && (typeof v === 'string' || typeof v === 'number'))
@@ -265,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tableBody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-4"><i class="bi bi-search me-1"></i> No matching records found.</td></tr>`;
             return;
         }
+
 
         if (isStrands) {
             tableBody.innerHTML = filtered.map(r => `
@@ -828,9 +1032,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dbSearchInput) {
         dbSearchInput.addEventListener('input', renderCurrentCategoryRows);
     }
-    if (dbFilterSelect) {
-        dbFilterSelect.addEventListener('change', renderCurrentCategoryRows);
-    }
 
     async function loadAllCounts() {
         const [students, subjects, strands, sections, logs] = await Promise.all([
@@ -862,5 +1063,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadAllCounts();
-    renderTable('students');
+    loadSectionDropdownOptions().then(() => {
+        renderTable('students');
+    }).catch(() => {
+        renderTable('students');
+    });
 });
