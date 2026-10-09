@@ -35,6 +35,15 @@ async function getCatalog(req, res) {
       ...b,
       is_system_awarded: isSystemAutomatedBadge(b.id, b.name),
     }));
+
+    // Regular badges first, system-automated badges grouped at the bottom
+    badges.sort((a, b) => {
+      const aSys = a.is_system_awarded ? 1 : 0;
+      const bSys = b.is_system_awarded ? 1 : 0;
+      if (aSys !== bSys) return aSys - bSys;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
     return res.json({ success: true, badges });
   } catch (err) {
     console.error('getCatalog error:', err);

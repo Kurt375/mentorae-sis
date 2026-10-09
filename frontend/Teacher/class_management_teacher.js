@@ -711,19 +711,88 @@ document.addEventListener('DOMContentLoaded', async () => {
             badgeCatalog = data.badges;
             badgesSelectionGrid.innerHTML = '';
 
-            badgeCatalog.forEach(badge => {
+            const teacherBadges = [];
+            const systemBadges = [];
+
+            badgeCatalog.forEach(b => {
+                if (isSystemAutomatedBadge(b)) {
+                    systemBadges.push(b);
+                } else {
+                    teacherBadges.push(b);
+                }
+            });
+
+            // Specific bottom order: 1. Completed Grades, 2. Honor Student, 3. Early Bird, 4. Perfect Attendance
+            const bottomOrder = [
+                'completed_grades', 'completed_grade',
+                'honor_student', 'honor_students',
+                'early_bird',
+                'perfect_attendance'
+            ];
+            systemBadges.sort((a, b) => {
+                const idA = String(a.id || '').toLowerCase();
+                const idB = String(b.id || '').toLowerCase();
+                const nameA = String(a.name || '').toLowerCase();
+                const nameB = String(b.name || '').toLowerCase();
+                const idxA = bottomOrder.findIndex(k => idA.includes(k) || nameA.includes(k.replace('_', ' ')));
+                const idxB = bottomOrder.findIndex(k => idB.includes(k) || nameB.includes(k.replace('_', ' ')));
+                return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+            });
+
+            // 1. Render teacher-awardable badges
+            teacherBadges.forEach(badge => {
                 const meta = BADGE_METADATA[badge.id] || {};
                 const iconDisplay = meta.icon || badge.symbol || '⭐';
                 const badgeTitle = meta.title || badge.name || badge.id;
                 const points = badge.points || meta.points || 100;
                 const iconBg = meta.bg || badge.bg || '#fef2cb';
                 const iconColor = meta.color || badge.color || '#b27a00';
-                const isSystemBadge = isSystemAutomatedBadge(badge);
 
                 const col = document.createElement('div');
                 col.className = 'col';
+                col.innerHTML = `
+                    <div class="card badge-card text-center p-3 h-100 position-relative shadow-xs" data-badge-id="${badge.id}" tabindex="0" role="button">
+                        <input type="checkbox" class="form-check-input badge-card-checkbox" id="chk_${badge.id}">
+                        <div class="badge-icon-wrap mx-auto mb-2" style="background: ${iconBg}; color: ${iconColor}; font-size: 2rem;">
+                            ${iconDisplay}
+                        </div>
+                        <div class="badge-name text-truncate" title="${badgeTitle}">${badgeTitle}</div>
+                        <div class="badge-meta">+${points} pts</div>
+                    </div>
+                `;
+                badgesSelectionGrid.appendChild(col);
+            });
 
-                if (isSystemBadge) {
+            // 2. Render Divider & Section Header for System-Automated Badges at the bottom
+            if (systemBadges.length > 0) {
+                const dividerCol = document.createElement('div');
+                dividerCol.className = 'col-12 mt-4 pt-2';
+                dividerCol.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2.5 rounded-pill text-xs fw-semibold">
+                                <i class="bi bi-robot me-1"></i> System-Automated Badges (${systemBadges.length})
+                            </span>
+                            <span class="text-muted text-xs">Granted automatically by the system based on verified criteria.</span>
+                        </div>
+                        <span class="badge bg-light text-muted border text-xs fw-normal py-1 px-2">
+                            <i class="bi bi-lock-fill me-1"></i>Cannot be manually awarded
+                        </span>
+                    </div>
+                `;
+                badgesSelectionGrid.appendChild(dividerCol);
+
+                // 3. Render the 4 system badges together at the bottom
+                systemBadges.forEach(badge => {
+                    const meta = BADGE_METADATA[badge.id] || {};
+                    const iconDisplay = meta.icon || badge.symbol || '⭐';
+                    const badgeTitle = meta.title || badge.name || badge.id;
+                    const points = badge.points || meta.points || 100;
+                    const iconBg = meta.bg || badge.bg || '#fef2cb';
+                    const iconColor = meta.color || badge.color || '#b27a00';
+
+                    const col = document.createElement('div');
+                    col.className = 'col';
                     col.innerHTML = `
                         <div class="card badge-card system-automated text-center p-3 h-100 position-relative shadow-xs" 
                              data-badge-id="${badge.id}" 
@@ -743,20 +812,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </div>
                         </div>
                     `;
-                } else {
-                    col.innerHTML = `
-                        <div class="card badge-card text-center p-3 h-100 position-relative shadow-xs" data-badge-id="${badge.id}" tabindex="0" role="button">
-                            <input type="checkbox" class="form-check-input badge-card-checkbox" id="chk_${badge.id}">
-                            <div class="badge-icon-wrap mx-auto mb-2" style="background: ${iconBg}; color: ${iconColor}; font-size: 2rem;">
-                                ${iconDisplay}
-                            </div>
-                            <div class="badge-name text-truncate" title="${badgeTitle}">${badgeTitle}</div>
-                            <div class="badge-meta">+${points} pts</div>
-                        </div>
-                    `;
-                }
-                badgesSelectionGrid.appendChild(col);
-            });
+                    badgesSelectionGrid.appendChild(col);
+                });
+            }
 
             // Card click toggle (only for teacher-awardable badges)
             badgesSelectionGrid.querySelectorAll('.badge-card').forEach(card => {
