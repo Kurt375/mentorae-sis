@@ -74,11 +74,26 @@
     border-color: #cbd5e1;
 }
 
-/* Canvas Graphics metrics containers limits scale rules */
 .chart-canvas-wrapper {
     position: relative;
     width: 100%;
     min-height: 165px;
+}
+
+.donut-chart-box {
+    position: relative;
+    width: 175px;
+    height: 175px;
+}
+
+.donut-center-label {
+    pointer-events: none;
+    z-index: 10;
+    top: 41%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    text-align: center;
 }
 
 /* Section Header Separator lines matching image style */

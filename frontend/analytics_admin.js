@@ -83,7 +83,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         tension: 0.3,
                     }]
                 },
-                options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 0, max: 100 } }
+                }
             });
         }
 
@@ -91,17 +97,87 @@ document.addEventListener('DOMContentLoaded', async () => {
         const riskData = await authedFetch(`/api/analytics/risk-distribution${q}`, token);
         if (riskData.success) {
             const canvas = document.getElementById('riskDistributionCanvas');
+            const atRiskCountEl = document.getElementById('atRiskCount');
+            if (atRiskCountEl) {
+                const atRiskVal = riskData.atRiskCount !== undefined
+                    ? riskData.atRiskCount
+                    : (riskData.counts ? ((riskData.counts.High || 0) + (riskData.counts.Medium || 0)) : 0);
+                atRiskCountEl.textContent = atRiskVal;
+            }
+
+            const chartData = riskData.counts
+                ? [riskData.counts.High || 0, riskData.counts.Medium || 0, riskData.counts.Low || 0]
+                : (riskData.data || [0, 0, 0]);
+            const renderData = (chartData[0] === 0 && chartData[1] === 0 && chartData[2] === 0) ? [0, 0, 1] : chartData;
+
             if (riskDistributionChart) riskDistributionChart.destroy();
             riskDistributionChart = new Chart(canvas, {
                 type: 'doughnut',
                 data: {
-                    labels: riskData.labels,
+                    labels: ['High Risk', 'Medium Risk', 'Low Risk'],
                     datasets: [{
-                        data: riskData.data,
-                        backgroundColor: ['#dc3545', '#ffc107', '#198754'],
+                        data: renderData,
+                        backgroundColor: ['#e53935', '#fb8c00', '#198754'],
+                        borderWidth: 2.5,
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
                     }]
                 },
-                options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
+                    cutout: '72%',
+                    layout: {
+                        padding: {
+                            top: 4,
+                            bottom: 2,
+                            left: 4,
+                            right: 4
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                padding: 10,
+                                font: { size: 10, weight: '600' }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (context) => {
+                                    const val = context.raw || 0;
+                                    return ` ${context.label}: ${val} student${val === 1 ? '' : 's'}`;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [
+                    {
+                        id: 'donutCenterPositionAdmin',
+                        afterLayout(chart) {
+                            const meta = chart.getDatasetMeta(0);
+                            if (!meta || !meta.data || !meta.data[0]) return;
+                            const centerX = meta.data[0].x;
+                            const centerY = meta.data[0].y;
+                            const box = chart.canvas.parentElement;
+                            const label = box ? box.querySelector('.donut-center-label') : null;
+                            if (label && typeof centerX === 'number' && typeof centerY === 'number') {
+                                label.style.left = `${centerX}px`;
+                                label.style.top = `${centerY}px`;
+                                label.style.transform = 'translate(-50%, -50%)';
+                            }
+                        }
+                    }
+                ]
             });
         }
     }

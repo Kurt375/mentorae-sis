@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-    <link rel="stylesheet" href="analytics_teacher.css">
+    <link rel="stylesheet" href="analytics_teacher.css?v=20261009-1">
 </head>
 
 <body class="dashboard-bg">
@@ -125,12 +125,13 @@
                                 </div>
                             </div>
                             <div class="chart-canvas-wrapper position-relative d-flex justify-content-center align-items-center"
-                                style="height: 180px;">
-                                <canvas id="riskDistributionCanvas"
-                                    style="max-height: 170px; max-width: 170px;"></canvas>
-                                <div class="donut-center-label text-center position-absolute">
-                                    <div class="fs-5 fw-bold text-dark lh-1" id="atRiskCount">0</div>
-                                    <div class="micro-text text-muted">At Risk</div>
+                                style="height: 185px;">
+                                <div class="donut-chart-box position-relative" style="width: 175px; height: 175px;">
+                                    <canvas id="riskDistributionCanvas"></canvas>
+                                    <div class="donut-center-label text-center position-absolute" id="riskDonutCenterLabel">
+                                        <div class="fs-4 fw-bold text-dark lh-1" id="atRiskCount">0</div>
+                                        <div class="micro-text text-muted fw-semibold">At Risk</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -233,7 +234,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
-    <script src="analytics_teacher.js"></script>
+    <script src="analytics_teacher.js?v=20261009-1"></script>
 </body>
 
 </html>

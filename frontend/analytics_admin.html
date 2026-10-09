@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-    <link rel="stylesheet" href="analytics_admin.css">
+    <link rel="stylesheet" href="analytics_admin.css?v=20261009-1">
 </head>
 
 <body class="dashboard-bg">
@@ -99,7 +99,7 @@
                                 <div class="d-flex gap-1 fs-6 text-muted"><i class="bi bi-graph-up text-primary"></i><i
                                         class="bi bi-activity text-warning"></i></div>
                             </div>
-                            <div class="chart-canvas-wrapper"><canvas id="gradeTrendCanvas"></canvas></div>
+                            <div class="chart-canvas-wrapper" style="height: 185px;"><canvas id="gradeTrendCanvas"></canvas></div>
                         </div>
                     </div>
                     <div class="col-12 col-lg-5">
@@ -109,8 +109,15 @@
                                 <div class="d-flex gap-1 fs-6 text-muted"><i class="bi bi-pie-chart text-warning"></i><i
                                         class="bi bi-shield-shaded text-success"></i></div>
                             </div>
-                            <div class="chart-canvas-wrapper d-flex justify-content-center align-items-center"><canvas
-                                    id="riskDistributionCanvas" style="max-height: 165px; max-width: 165px;"></canvas>
+                            <div class="chart-canvas-wrapper position-relative d-flex justify-content-center align-items-center"
+                                style="height: 185px;">
+                                <div class="donut-chart-box position-relative" style="width: 175px; height: 175px;">
+                                    <canvas id="riskDistributionCanvas"></canvas>
+                                    <div class="donut-center-label text-center position-absolute" id="riskDonutCenterLabel">
+                                        <div class="fs-4 fw-bold text-dark lh-1" id="atRiskCount">0</div>
+                                        <div class="micro-text text-muted fw-semibold">At Risk</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -177,7 +184,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="config.js"></script>
     <script src="session.js"></script>
-    <script src="analytics_admin.js"></script>
+    <script src="analytics_admin.js?v=20261009-1"></script>
 </body>
 
 </html>

@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
                         plugins: {
                             legend: { display: false },
                             tooltip: {
@@ -252,7 +253,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
                         cutout: '72%',
+                        layout: {
+                            padding: {
+                                top: 4,
+                                bottom: 2,
+                                left: 4,
+                                right: 4
+                            }
+                        },
                         plugins: {
                             legend: {
                                 display: true,
@@ -261,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     usePointStyle: true,
                                     pointStyle: 'circle',
                                     boxWidth: 8,
-                                    padding: 12,
+                                    padding: 10,
                                     font: { size: 10, weight: '600' }
                                 }
                             },
@@ -277,7 +287,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 }
                             }
                         }
-                    }
+                    },
+                    plugins: [
+                        {
+                            id: 'donutCenterPositionTeacher',
+                            afterLayout(chart) {
+                                const meta = chart.getDatasetMeta(0);
+                                if (!meta || !meta.data || !meta.data[0]) return;
+                                const centerX = meta.data[0].x;
+                                const centerY = meta.data[0].y;
+                                const box = chart.canvas.parentElement;
+                                const label = box ? box.querySelector('.donut-center-label') : null;
+                                if (label && typeof centerX === 'number' && typeof centerY === 'number') {
+                                    label.style.left = `${centerX}px`;
+                                    label.style.top = `${centerY}px`;
+                                    label.style.transform = 'translate(-50%, -50%)';
+                                }
+                            }
+                        }
+                    ]
                 });
             }
         } catch (err) {
