@@ -108,10 +108,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =========================================================================
     const SYSTEM_AWARDED_BADGES = new Set([
         'completed_grades',
+        'completed_grade',
         'honor_student',
+        'honor_students',
         'early_bird',
         'perfect_attendance'
     ]);
+
+    function isSystemAutomatedBadge(badge) {
+        if (!badge) return false;
+        if (badge.is_system_awarded) return true;
+        const id = String(badge.id || badge.badge_id || '').trim().toLowerCase();
+        const name = String(badge.name || badge.title || '').trim().toLowerCase();
+        if (SYSTEM_AWARDED_BADGES.has(id)) return true;
+        if (id.includes('completed_grade') || name.includes('completed grade')) return true;
+        if (id.includes('honor_student') || name.includes('honor student')) return true;
+        if (id.includes('early_bird') || name.includes('early bird')) return true;
+        if (id.includes('perfect_attendance') || name.includes('perfect attendance')) return true;
+        return false;
+    }
 
     const BADGE_METADATA = {
         perfect_attendance: { title: 'Perfect Attendance', icon: '🎯', points: 100, bg: '#d5ebd5', color: '#1f6e1f', systemAwarded: true },
@@ -703,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const points = badge.points || meta.points || 100;
                 const iconBg = meta.bg || badge.bg || '#fef2cb';
                 const iconColor = meta.color || badge.color || '#b27a00';
-                const isSystemBadge = SYSTEM_AWARDED_BADGES.has(badge.id) || Boolean(badge.is_system_awarded);
+                const isSystemBadge = isSystemAutomatedBadge(badge);
 
                 const col = document.createElement('div');
                 col.className = 'col';
@@ -745,7 +760,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Card click toggle (only for teacher-awardable badges)
             badgesSelectionGrid.querySelectorAll('.badge-card').forEach(card => {
-                if (card.dataset.systemAwarded === 'true') {
+                if (card.dataset.systemAwarded === 'true' || isSystemAutomatedBadge({ id: card.dataset.badgeId })) {
                     // System automated badges cannot be selected or toggled
                     return;
                 }
@@ -784,7 +799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Exclude any system automated badges
-            const badgeIdsArray = Array.from(selectedBadgeIds).filter(id => !SYSTEM_AWARDED_BADGES.has(id));
+            const badgeIdsArray = Array.from(selectedBadgeIds).filter(id => !isSystemAutomatedBadge({ id }));
 
             if (!badgeIdsArray.length) {
                 alert('Please select at least one teacher-awardable badge.');

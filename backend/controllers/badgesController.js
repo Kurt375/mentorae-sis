@@ -4,10 +4,28 @@ const { canViewStudent, teacherTeachesStudent, teacherTeachesSection } = require
 // Badges reserved for automated system distribution (cannot be manually awarded by teachers)
 const SYSTEM_AWARDED_BADGE_IDS = [
   'completed_grades',
+  'completed_grade',
   'honor_student',
+  'honor_students',
   'early_bird',
   'perfect_attendance',
 ];
+
+function isSystemAutomatedBadge(id, name = '') {
+  const cleanId = String(id || '').trim().toLowerCase();
+  const cleanName = String(name || '').trim().toLowerCase();
+  return (
+    SYSTEM_AWARDED_BADGE_IDS.includes(cleanId) ||
+    cleanId.includes('completed_grade') ||
+    cleanId.includes('honor_student') ||
+    cleanId.includes('early_bird') ||
+    cleanId.includes('perfect_attendance') ||
+    cleanName.includes('completed grade') ||
+    cleanName.includes('honor student') ||
+    cleanName.includes('early bird') ||
+    cleanName.includes('perfect attendance')
+  );
+}
 
 /** GET /api/badges/catalog — the fixed set of awardable badges */
 async function getCatalog(req, res) {
@@ -15,7 +33,7 @@ async function getCatalog(req, res) {
     const [rows] = await pool.query('SELECT * FROM badge_catalog');
     const badges = rows.map((b) => ({
       ...b,
-      is_system_awarded: SYSTEM_AWARDED_BADGE_IDS.includes(b.id),
+      is_system_awarded: isSystemAutomatedBadge(b.id, b.name),
     }));
     return res.json({ success: true, badges });
   } catch (err) {
@@ -39,7 +57,7 @@ async function awardBadges(req, res) {
       }
 
       // Teachers cannot award automated system badges
-      const forbiddenBadges = badgeIds.filter((id) => SYSTEM_AWARDED_BADGE_IDS.includes(id));
+      const forbiddenBadges = badgeIds.filter((id) => isSystemAutomatedBadge(id));
       if (forbiddenBadges.length > 0) {
         return res.status(403).json({
           success: false,
