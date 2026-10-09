@@ -106,17 +106,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =========================================================================
     // 2.5 Badge Metadata (Vibrant Icons, Colors, Points & Styles)
     // =========================================================================
+    const SYSTEM_AWARDED_BADGES = new Set([
+        'completed_grades',
+        'honor_student',
+        'early_bird',
+        'perfect_attendance'
+    ]);
+
     const BADGE_METADATA = {
-        perfect_attendance: { title: 'Perfect Attendance', icon: '🎯', points: 100, bg: '#d5ebd5', color: '#1f6e1f' },
-        honor_student: { title: 'Honor Student', icon: '🏆', points: 150, bg: '#fef2cb', color: '#b27a00' },
+        perfect_attendance: { title: 'Perfect Attendance', icon: '🎯', points: 100, bg: '#d5ebd5', color: '#1f6e1f', systemAwarded: true },
+        honor_student: { title: 'Honor Student', icon: '🏆', points: 150, bg: '#fef2cb', color: '#b27a00', systemAwarded: true },
         quiz_master: { title: 'Quiz Master', icon: '🧠', points: 120, bg: '#deeaf6', color: '#2f5597' },
-        early_bird: { title: 'Early Bird', icon: '🌅', points: 80, bg: '#fce4d6', color: '#c65911' },
+        early_bird: { title: 'Early Bird', icon: '🌅', points: 80, bg: '#fce4d6', color: '#c65911', systemAwarded: true },
         top_scorer: { title: 'Top Scorer', icon: '🅰️', points: 150, bg: '#e2efda', color: '#385723' },
         most_active: { title: 'Most Active', icon: '👍', points: 100, bg: '#d5ebd5', color: '#1f6e1f' },
         innovative_thinker: { title: 'Innovative Thinker', icon: '💡', points: 120, bg: '#fef2cb', color: '#806000' },
         team_captain: { title: 'Team Captain', icon: '⭐', points: 100, bg: '#ebdcf5', color: '#6f30a0' },
         resilient_thinker: { title: 'Resilient Thinker', icon: '💎', points: 100, bg: '#d9f1f2', color: '#008080' },
-        completed_grades: { title: 'Completed Grades', icon: '📅', points: 80, bg: '#e4dff2', color: '#5230a0' },
+        completed_grades: { title: 'Completed Grades', icon: '📅', points: 80, bg: '#e4dff2', color: '#5230a0', systemAwarded: true },
         recitation_master: { title: 'Recitation Master', icon: '💬', points: 90, bg: '#fce4d6', color: '#c65911' },
         critical_thinker: { title: 'Critical Thinker', icon: '🔍', points: 110, bg: '#dae8fc', color: '#3b6e8c' },
         coacher: { title: 'Coacher / Peer Tutor', icon: '🤝', points: 120, bg: '#d5e8d4', color: '#274e13' },
@@ -696,28 +703,57 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const points = badge.points || meta.points || 100;
                 const iconBg = meta.bg || badge.bg || '#fef2cb';
                 const iconColor = meta.color || badge.color || '#b27a00';
+                const isSystemBadge = SYSTEM_AWARDED_BADGES.has(badge.id) || Boolean(badge.is_system_awarded);
 
                 const col = document.createElement('div');
                 col.className = 'col';
 
-                col.innerHTML = `
-                    <div class="card badge-card text-center p-3 h-100 position-relative shadow-xs" data-badge-id="${badge.id}" tabindex="0" role="button">
-                        <input type="checkbox" class="form-check-input badge-card-checkbox" id="chk_${badge.id}">
-                        <div class="badge-icon-wrap mx-auto mb-2" style="background: ${iconBg}; color: ${iconColor}; font-size: 2rem;">
-                            ${iconDisplay}
+                if (isSystemBadge) {
+                    col.innerHTML = `
+                        <div class="card badge-card system-automated text-center p-3 h-100 position-relative shadow-xs" 
+                             data-badge-id="${badge.id}" 
+                             data-system-awarded="true"
+                             title="Automated Badge: Awarded directly by the system based on verified student records. Teachers cannot manually give this badge."
+                             aria-disabled="true">
+                            <span class="system-badge-pill" title="Automated by System">
+                                <i class="bi bi-robot"></i> System
+                            </span>
+                            <div class="badge-icon-wrap mx-auto mb-2" style="background: ${iconBg}; color: ${iconColor}; font-size: 2rem;">
+                                ${iconDisplay}
+                            </div>
+                            <div class="badge-name text-truncate" title="${badgeTitle}">${badgeTitle}</div>
+                            <div class="badge-meta text-muted">+${points} pts</div>
+                            <div class="badge-system-notice" title="Automatically granted by the system">
+                                <i class="bi bi-cpu-fill me-1"></i>System-Awarded
+                            </div>
                         </div>
-                        <div class="badge-name text-truncate" title="${badgeTitle}">${badgeTitle}</div>
-                        <div class="badge-meta">+${points} pts</div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    col.innerHTML = `
+                        <div class="card badge-card text-center p-3 h-100 position-relative shadow-xs" data-badge-id="${badge.id}" tabindex="0" role="button">
+                            <input type="checkbox" class="form-check-input badge-card-checkbox" id="chk_${badge.id}">
+                            <div class="badge-icon-wrap mx-auto mb-2" style="background: ${iconBg}; color: ${iconColor}; font-size: 2rem;">
+                                ${iconDisplay}
+                            </div>
+                            <div class="badge-name text-truncate" title="${badgeTitle}">${badgeTitle}</div>
+                            <div class="badge-meta">+${points} pts</div>
+                        </div>
+                    `;
+                }
                 badgesSelectionGrid.appendChild(col);
             });
 
-            // Card click toggle
+            // Card click toggle (only for teacher-awardable badges)
             badgesSelectionGrid.querySelectorAll('.badge-card').forEach(card => {
+                if (card.dataset.systemAwarded === 'true') {
+                    // System automated badges cannot be selected or toggled
+                    return;
+                }
+
                 card.addEventListener('click', (e) => {
                     const badgeId = card.dataset.badgeId;
                     const checkbox = card.querySelector('.badge-card-checkbox');
+                    if (!checkbox) return;
 
                     if (e.target !== checkbox) {
                         checkbox.checked = !checkbox.checked;
@@ -747,12 +783,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            if (!selectedBadgeIds.size) {
-                alert('Please select at least one badge to award.');
+            // Exclude any system automated badges
+            const badgeIdsArray = Array.from(selectedBadgeIds).filter(id => !SYSTEM_AWARDED_BADGES.has(id));
+
+            if (!badgeIdsArray.length) {
+                alert('Please select at least one teacher-awardable badge.');
                 return;
             }
 
-            const badgeIdsArray = Array.from(selectedBadgeIds);
             btnAwardBadges.disabled = true;
             btnAwardBadges.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Awarding...';
 
@@ -771,6 +809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Clear selections
                     selectedBadgeIds.clear();
                     badgesSelectionGrid.querySelectorAll('.badge-card').forEach(card => {
+                        if (card.dataset.systemAwarded === 'true') return;
                         card.classList.remove('selected');
                         const cb = card.querySelector('.badge-card-checkbox');
                         if (cb) cb.checked = false;

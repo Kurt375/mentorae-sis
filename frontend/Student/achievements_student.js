@@ -55,8 +55,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Perfect Attendance',
             icon: '🎯',
             category: 'Attendance',
-            description: 'Awarded to students who maintained a 100% on-time attendance record for the entire month without unexcused absences or tardiness.',
-            requirement: 'Achieve 100% attendance rate with zero tardiness across all enrolled subject periods.',
+            description: 'Awarded automatically by the system to students who maintained a 100% on-time attendance record for the entire month without unexcused absences or tardiness.',
+            requirement: 'Achieve 100% attendance rate with zero tardiness across all enrolled subject periods (Verified and awarded automatically by the system).',
             points: 100,
             bg: '#d5ebd5',
             color: '#1f6e1f'
@@ -65,8 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Honor Student',
             icon: '🏆',
             category: 'Academics',
-            description: 'Awarded by subject teachers and class advisers to recognize outstanding academic performance, mastery, and general weighted excellence (GWA 90+).',
-            requirement: 'Awarded directly by the teacher upon quarterly honors verification and academic excellence evaluation.',
+            description: 'Awarded automatically by the system to recognize outstanding academic performance, mastery, and general weighted excellence (GWA 90+).',
+            requirement: 'Achieve a General Weighted Average (GWA) of 90 or higher across subjects (Verified and awarded automatically by the system).',
             points: 150,
             bg: '#fef2cb',
             color: '#b27a00'
@@ -85,8 +85,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Early Bird',
             icon: '🌅',
             category: 'Attendance',
-            description: 'Consistently logged attendance QR codes before 7:15 AM for 15 consecutive school days.',
-            requirement: 'Scan QR attendance before 7:15 AM on 15 consecutive school days.',
+            description: 'Awarded automatically by the system to students who consistently logged attendance QR codes before 7:15 AM for 15 consecutive school days.',
+            requirement: 'Scan QR attendance before 7:15 AM on 15 consecutive school days (Verified and awarded automatically by the system).',
             points: 80,
             bg: '#fce4d6',
             color: '#c65911'
@@ -145,8 +145,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Completed Grades',
             icon: '📅',
             category: 'Academics',
-            description: 'Submitted 100% of all required homework, laboratory reports, and performance tasks on time.',
-            requirement: 'Zero missing deliverables or late submissions across all grading terms.',
+            description: 'Awarded automatically by the system when a student has submitted 100% of all required homework, laboratory reports, and performance tasks on time.',
+            requirement: 'Zero missing deliverables or late submissions across all grading terms (Verified and awarded automatically by the system).',
             points: 10,
             bg: '#e4dff2',
             color: '#5230a0'
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         icon: catItem.icon || (b.icon ? `<i class="bi ${b.icon}"></i>` : (b.symbol || '⭐')),
                         earnedAt: b.earned_at,
                         date: formatRelativeTime(b.earned_at),
-                        awardedBy: b.awarded_by_name || 'Subject Teacher',
+                        awardedBy: b.awarded_by_name || (['completed_grades', 'honor_student', 'early_bird', 'perfect_attendance'].includes(b.badge_id) ? 'Automated System' : 'Subject Teacher'),
                         category: catItem.category || 'General',
                         description: catItem.description || '',
                         requirement: catItem.requirement || ''

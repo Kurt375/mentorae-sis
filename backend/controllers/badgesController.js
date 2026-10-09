@@ -1,11 +1,23 @@
 const pool = require('../config/db');
 const { canViewStudent, teacherTeachesStudent, teacherTeachesSection } = require('../utils/authz');
 
+// Badges reserved for automated system distribution (cannot be manually awarded by teachers)
+const SYSTEM_AWARDED_BADGE_IDS = [
+  'completed_grades',
+  'honor_student',
+  'early_bird',
+  'perfect_attendance',
+];
+
 /** GET /api/badges/catalog — the fixed set of awardable badges */
 async function getCatalog(req, res) {
   try {
     const [rows] = await pool.query('SELECT * FROM badge_catalog');
-    return res.json({ success: true, badges: rows });
+    const badges = rows.map((b) => ({
+      ...b,
+      is_system_awarded: SYSTEM_AWARDED_BADGE_IDS.includes(b.id),
+    }));
+    return res.json({ success: true, badges });
   } catch (err) {
     console.error('getCatalog error:', err);
     return res.status(500).json({ success: false, message: 'Could not load the badge catalog.' });
@@ -24,6 +36,15 @@ async function awardBadges(req, res) {
       const teaches = await teacherTeachesStudent(req.user.id, studentId);
       if (!teaches) {
         return res.status(403).json({ success: false, message: 'You do not teach this student.' });
+      }
+
+      // Teachers cannot award automated system badges
+      const forbiddenBadges = badgeIds.filter((id) => SYSTEM_AWARDED_BADGE_IDS.includes(id));
+      if (forbiddenBadges.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `The following badge(s) are automated and can only be awarded by the system: ${forbiddenBadges.join(', ')}.`,
+        });
       }
     }
 
@@ -140,7 +161,7 @@ async function getLeaderboard(req, res) {
        LEFT JOIN student_badges sb ON sb.student_id = u.id
        LEFT JOIN badge_catalog bc ON bc.id = sb.badge_id
        WHERE ${conditions.join(' AND ')}
-       GROUP BY u.id
+       GROUP BY u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.profile_picture_url, sec.name, st.code, sec.grade_level
        ORDER BY totalPoints DESC, badgeCount DESC, u.last_name ASC
        LIMIT ?`,
       [...params, limit]
