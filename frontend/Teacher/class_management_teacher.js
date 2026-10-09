@@ -180,6 +180,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnAwardBadges = document.getElementById('btnAwardBadges');
     const studentSelectBadge = document.getElementById('studentSelectBadge');
     const badgesSelectionGrid = document.getElementById('badgesSelectionGrid');
+    const systemBadgesWrapper = document.getElementById('systemBadgesWrapper');
+    const systemBadgesGrid = document.getElementById('systemBadgesGrid');
     const activityTimeline = document.getElementById('activityTimeline');
 
     const btnSaveAllGradesNow = document.getElementById('btnSaveAllGradesNow');
@@ -710,6 +712,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             badgeCatalog = data.badges;
             badgesSelectionGrid.innerHTML = '';
+            if (systemBadgesGrid) {
+                systemBadgesGrid.innerHTML = '';
+            }
 
             const teacherBadges = [];
             const systemBadges = [];
@@ -739,7 +744,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
             });
 
-            // 1. Render teacher-awardable badges
+            // 1. Render teacher-awardable badges (in main grid)
             teacherBadges.forEach(badge => {
                 const meta = BADGE_METADATA[badge.id] || {};
                 const iconDisplay = meta.icon || badge.symbol || '⭐';
@@ -763,26 +768,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 badgesSelectionGrid.appendChild(col);
             });
 
-            // 2. Render Divider & Section Header for System-Automated Badges at the bottom
+            // 2. Render System-Automated Badges in dedicated container below
             if (systemBadges.length > 0) {
-                const dividerCol = document.createElement('div');
-                dividerCol.className = 'col-12 mt-4 pt-2';
-                dividerCol.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-1 px-2.5 rounded-pill text-xs fw-semibold">
-                                <i class="bi bi-robot me-1"></i> System-Automated Badges (${systemBadges.length})
-                            </span>
-                            <span class="text-muted text-xs">Granted automatically by the system based on verified criteria.</span>
-                        </div>
-                        <span class="badge bg-light text-muted border text-xs fw-normal py-1 px-2">
-                            <i class="bi bi-lock-fill me-1"></i>Cannot be manually awarded
-                        </span>
-                    </div>
-                `;
-                badgesSelectionGrid.appendChild(dividerCol);
-
-                // 3. Render the 4 system badges together at the bottom
+                if (systemBadgesWrapper) {
+                    systemBadgesWrapper.classList.remove('d-none');
+                }
+                const targetGrid = systemBadgesGrid || badgesSelectionGrid;
                 systemBadges.forEach(badge => {
                     const meta = BADGE_METADATA[badge.id] || {};
                     const iconDisplay = meta.icon || badge.symbol || '⭐';
@@ -812,8 +803,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </div>
                         </div>
                     `;
-                    badgesSelectionGrid.appendChild(col);
+                    targetGrid.appendChild(col);
                 });
+            } else if (systemBadgesWrapper) {
+                systemBadgesWrapper.classList.add('d-none');
             }
 
             // Card click toggle (only for teacher-awardable badges)
