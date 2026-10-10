@@ -982,7 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `Are you sure you want to download older logs and clean them from the live database?\n\n` +
                 `• Target: Logs older than ${days} days (${countText})\n` +
                 `• File name: ${customName} (${format.toUpperCase()})\n` +
-                `• Database: These old records will be permanently removed from MySQL to free up database storage (< 1 GB).\n\n` +
+                `• Database: These old records will be permanently removed from MySQL to free up database storage (< 5 GB).\n\n` +
                 `After downloading, please save this file to your school Google Drive folder for safe permanent recordkeeping.\n\n` +
                 `Proceed with download & purge?`
             );

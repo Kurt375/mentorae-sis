@@ -555,8 +555,8 @@ async function getSystemStatus(req, res) {
     const filesSizeMB = Number((filesSizeBytes / (1024 * 1024)).toFixed(2));
     const totalSizeMB = Number((totalSizeBytes / (1024 * 1024)).toFixed(2));
 
-    const quotaBytes = 1024 * 1024 * 1024; // 1 GB Cloud Quota
-    const quotaFormatted = '1 GB';
+    const quotaBytes = 5 * 1024 * 1024 * 1024; // 5 GB TiDB Cloud Serverless Free Quota
+    const quotaFormatted = '5 GB';
     const percentUsed = (totalSizeBytes / quotaBytes) * 100;
     const percentDisplay = percentUsed < 0.01 ? '0.01%' : `${percentUsed.toFixed(2)}%`;
     const quotaDisplaySize = `${formatBytes(totalSizeBytes)} / ${quotaFormatted} used (${percentDisplay})`;
