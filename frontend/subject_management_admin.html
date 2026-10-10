@@ -6,7 +6,7 @@
     <title>Mentorae - Subject Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="subject_management_admin.css">
+    <link rel="stylesheet" href="subject_management_admin.css?v=20261010-1">
 </head>
 <body class="dashboard-bg">
 
@@ -87,19 +87,19 @@
                 </div>
             </div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="table-responsive">
+            <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                <div class="table-responsive table-scroll-container" style="max-height: 520px; overflow-y: auto;">
                     <table class="table m-0 db-record-table">
-                        <thead>
+                        <thead class="sticky-top bg-light" style="z-index: 2;">
                             <tr class="table-header-row">
-                                <th class="p-3">Name</th>
-                                <th class="p-3">Code</th>
-                                <th class="p-3">Category</th>
-                                <th class="p-3">Grade</th>
-                                <th class="p-3">Term</th>
-                                <th class="p-3">Section</th>
-                                <th class="p-3">Strand</th>
-                                <th class="p-3 text-end">Actions</th>
+                                <th class="p-3 text-nowrap">Name</th>
+                                <th class="p-3 text-nowrap">Code</th>
+                                <th class="p-3 text-nowrap">Category</th>
+                                <th class="p-3 text-nowrap">Grade</th>
+                                <th class="p-3 text-nowrap">Term</th>
+                                <th class="p-3 text-nowrap">Section</th>
+                                <th class="p-3 text-nowrap">Strand</th>
+                                <th class="p-3 text-end text-nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="subjectsTableBody">
@@ -641,6 +641,6 @@
     <script src="pptxToPdf.js"></script>
     <script src="config.js"></script>
     <script src="session.js"></script>
-    <script src="subject_management_admin.js"></script>
+    <script src="subject_management_admin.js?v=20261010-1"></script>
 </body>
 </html>

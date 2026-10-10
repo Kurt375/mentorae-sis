@@ -69,6 +69,41 @@
     font-weight: 700; /* Bolder font as requested */
     letter-spacing: 0.2px;
     color: #212529; /* Black text color as requested */
+    background-color: #f8f9fa !important;
+}
+
+/* Scrollable Container with Slim Scrollbars */
+.table-scroll-container {
+    max-height: 520px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+    background: #f8fafc;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.table-scroll-container thead.sticky-top th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f8f9fa !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .db-record-table tbody tr {
