@@ -616,7 +616,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
 
-        if (!data.success || !data.users.length) {
+        const countBadge = document.getElementById('userAccountsCountBadge');
+        if (countBadge) {
+            if (!data.success || !data.users || !data.users.length) {
+                countBadge.textContent = '0 accounts found';
+            } else {
+                const totalCount = data.total !== undefined ? data.total : data.users.length;
+                countBadge.textContent = `${Number(totalCount).toLocaleString()} account${totalCount === 1 ? '' : 's'} found`;
+            }
+        }
+
+        if (!data.success || !data.users || !data.users.length) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No users found.</td></tr>';
             return;
         }
