@@ -555,6 +555,12 @@ async function getSystemStatus(req, res) {
     const filesSizeMB = Number((filesSizeBytes / (1024 * 1024)).toFixed(2));
     const totalSizeMB = Number((totalSizeBytes / (1024 * 1024)).toFixed(2));
 
+    const quotaBytes = 1024 * 1024 * 1024; // 1 GB Cloud Quota
+    const quotaFormatted = '1 GB';
+    const percentUsed = (totalSizeBytes / quotaBytes) * 100;
+    const percentDisplay = percentUsed < 0.01 ? '0.01%' : `${percentUsed.toFixed(2)}%`;
+    const quotaDisplaySize = `${formatBytes(totalSizeBytes)} / ${quotaFormatted} used (${percentDisplay})`;
+
     const [userCountRows] = await pool.query('SELECT COUNT(*) AS total FROM users');
     const totalUsers = userCountRows[0]?.total || 0;
 
@@ -574,14 +580,18 @@ async function getSystemStatus(req, res) {
         sizeMB: dbSizeMB,
         tables: tableCount,
         rows: rowCount,
-        displaySize: `${formatBytes(totalSizeBytes)} Used (${formatBytes(dbSizeBytes)} DB, ${formatBytes(filesSizeBytes)} Files)`,
+        displaySize: quotaDisplaySize,
       },
       storage: {
         totalSizeBytes,
         totalSizeMB,
+        quotaBytes,
+        quotaFormatted,
+        percentUsed: Number(percentUsed.toFixed(4)),
+        percentDisplay,
         dbSizeBytes,
         filesSizeBytes,
-        displaySize: `${formatBytes(totalSizeBytes)} used (${formatBytes(dbSizeBytes)} DB, ${formatBytes(filesSizeBytes)} Files)`,
+        displaySize: quotaDisplaySize,
       },
       stats: {
         totalUsers,
