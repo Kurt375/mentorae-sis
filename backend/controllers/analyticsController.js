@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const pool = require('../config/db');
 const { classifyRisk, toFeatureVector } = require('../ml/features');
 const riskModel = require('../ml/riskModel');
@@ -454,31 +456,104 @@ async function getPredictiveRisk(req, res) {
   }
 }
 
+function formatUptime(uptimeSec) {
+  const days = Math.floor(uptimeSec / 86400);
+  const hours = Math.floor((uptimeSec % 86400) / 3600);
+  const mins = Math.floor((uptimeSec % 3600) / 60);
+  const secs = Math.floor(uptimeSec % 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${mins}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${mins}m`;
+  }
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+}
+
+function getDirSizeBytes(dirPath) {
+  let total = 0;
+  try {
+    if (!fs.existsSync(dirPath)) return 0;
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        total += getDirSizeBytes(full);
+      } else if (entry.isFile()) {
+        try {
+          total += fs.statSync(full).size;
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    // Ignore folder access errors
+  }
+  return total;
+}
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0.00 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 0.1) {
+    const kb = bytes / 1024;
+    return `${kb.toFixed(1)} KB`;
+  }
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return `${gb.toFixed(2)} GB`;
+  }
+  return `${mb.toFixed(2)} MB`;
+}
+
 /** GET /api/analytics/system-status — Live Server and Database health metrics */
 async function getSystemStatus(req, res) {
   try {
     const startPing = Date.now();
     await pool.query('SELECT 1');
-    const pingMs = Date.now() - startPing;
+    const pingMs = Math.max(1, Date.now() - startPing);
 
     // Uptime formatting
     const uptimeSec = Math.floor(process.uptime());
-    const uptimeHours = Math.floor(uptimeSec / 3600);
-    const uptimeMins = Math.floor((uptimeSec % 3600) / 60);
-    const uptimeStr = uptimeHours > 0 ? `${uptimeHours}h ${uptimeMins}m` : `${uptimeMins}m`;
+    const uptimeStr = formatUptime(uptimeSec);
+
+    // Database mode
+    const dbMode = typeof pool.getCurrentMode === 'function' ? pool.getCurrentMode() : 'cloud';
+    const dbModeLabel = dbMode === 'cloud' ? 'Cloud TiDB' : 'Local MySQL';
 
     // Database size query
-    let dbSizeMB = 0;
+    let dbSizeBytes = 0;
+    let tableCount = 0;
+    let rowCount = 0;
     try {
       const [sizeRows] = await pool.query(
-        `SELECT ROUND(SUM(data_length + index_length) / (1024 * 1024), 2) AS size_mb
+        `SELECT 
+           COALESCE(SUM(data_length + index_length), 0) AS total_bytes,
+           COUNT(*) AS table_count,
+           COALESCE(SUM(table_rows), 0) AS total_rows
          FROM information_schema.TABLES
          WHERE table_schema = DATABASE()`
       );
-      dbSizeMB = sizeRows[0]?.size_mb || 0;
+      if (sizeRows && sizeRows.length > 0) {
+        dbSizeBytes = Number(sizeRows[0].total_bytes || 0);
+        tableCount = Number(sizeRows[0].table_count || 0);
+        rowCount = Number(sizeRows[0].total_rows || 0);
+      }
     } catch (e) {
-      dbSizeMB = 4.2;
+      console.warn('DB size calculation fallback:', e.message);
     }
+
+    // Uploaded assets size
+    const uploadsPath = path.join(__dirname, '..', 'uploads');
+    const filesSizeBytes = getDirSizeBytes(uploadsPath);
+    const totalSizeBytes = dbSizeBytes + filesSizeBytes;
+
+    const dbSizeMB = Number((dbSizeBytes / (1024 * 1024)).toFixed(2));
+    const filesSizeMB = Number((filesSizeBytes / (1024 * 1024)).toFixed(2));
+    const totalSizeMB = Number((totalSizeBytes / (1024 * 1024)).toFixed(2));
 
     const [userCountRows] = await pool.query('SELECT COUNT(*) AS total FROM users');
     const totalUsers = userCountRows[0]?.total || 0;
@@ -488,14 +563,25 @@ async function getSystemStatus(req, res) {
       server: {
         status: 'Operational',
         uptime: uptimeStr,
+        uptimeSeconds: uptimeSec,
         nodeVersion: process.version,
         memoryUsageMB: Math.round(process.memoryUsage().rss / (1024 * 1024)),
       },
       database: {
         status: 'Connected',
+        mode: dbModeLabel,
         latencyMs: pingMs,
-        sizeMB: Number(dbSizeMB),
-        displaySize: `${dbSizeMB} MB used of Cloud Storage`,
+        sizeMB: dbSizeMB,
+        tables: tableCount,
+        rows: rowCount,
+        displaySize: `${formatBytes(totalSizeBytes)} Used (${formatBytes(dbSizeBytes)} DB, ${formatBytes(filesSizeBytes)} Files)`,
+      },
+      storage: {
+        totalSizeBytes,
+        totalSizeMB,
+        dbSizeBytes,
+        filesSizeBytes,
+        displaySize: `${formatBytes(totalSizeBytes)} used (${formatBytes(dbSizeBytes)} DB, ${formatBytes(filesSizeBytes)} Files)`,
       },
       stats: {
         totalUsers,

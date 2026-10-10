@@ -96,18 +96,33 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await authedFetch('/api/analytics/system-status', token);
             if (data && data.success) {
+                const serverDot = document.getElementById('serverStatusDot');
                 const serverDesc = document.getElementById('serverStatusDesc');
+                const dbDot = document.getElementById('dbStatusDot');
                 const dbDesc = document.getElementById('dbStatusDesc');
+                const storageDot = document.getElementById('storageStatusDot');
                 const storageDesc = document.getElementById('storageStatusDesc');
 
                 if (serverDesc && data.server) {
-                    serverDesc.textContent = `${data.server.status} • Uptime: ${data.server.uptime || 'Active'}`;
+                    const status = data.server.status || 'Operational';
+                    const uptime = data.server.uptime || 'Active';
+                    serverDesc.textContent = `${status} • Uptime: ${uptime}`;
+                    if (serverDot) {
+                        serverDot.className = `status-dot ${status === 'Operational' ? 'bg-success animate-pulse' : 'bg-warning'}`;
+                    }
                 }
                 if (dbDesc && data.database) {
-                    dbDesc.textContent = `Connected • ${data.database.latencyMs}ms latency`;
+                    const dbStatus = data.database.status || 'Connected';
+                    const latency = data.database.latencyMs !== undefined ? `${data.database.latencyMs}ms latency` : 'Active';
+                    const mode = data.database.mode ? ` (${data.database.mode})` : '';
+                    dbDesc.textContent = `${dbStatus}${mode} • ${latency}`;
+                    if (dbDot) {
+                        dbDot.className = `status-dot ${data.database.latencyMs < 1000 ? 'bg-primary' : 'bg-warning'}`;
+                    }
                 }
-                if (storageDesc && data.database) {
-                    storageDesc.textContent = data.database.displaySize || `${data.database.sizeMB} MB used of Cloud DB`;
+                if (storageDesc && (data.storage || data.database)) {
+                    const display = (data.storage && data.storage.displaySize) || data.database.displaySize || `${data.database.sizeMB || 0} MB Used`;
+                    storageDesc.textContent = display;
                 }
             }
         } catch (e) {
