@@ -1534,16 +1534,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderStagedQuizQuestions() {
         const container = document.getElementById('stagedQuizQuestionsContainer');
+        const badge = document.getElementById('stagedQuizBadge');
         const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
         // Add a guard clause to prevent errors if the index is not set
         if (!topic) {
             if (container) container.innerHTML = '<p class="text-center text-muted">Error: Topic context not found.</p>';
+            if (badge) badge.textContent = '0 questions';
             return;
         }
-        const questions = topic.quiz;
+        const questions = topic.quiz || [];
+        if (badge) badge.textContent = `${questions.length} question${questions.length === 1 ? '' : 's'}`;
         container.innerHTML = '';
 
-        if (!questions || questions.length === 0) {
+        if (questions.length === 0) {
             container.innerHTML = '<p class="text-center text-muted">No questions added yet.</p>';
             return;
         }
@@ -1553,14 +1556,15 @@ document.addEventListener('DOMContentLoaded', () => {
         questions.forEach((q, index) => {
             const item = document.createElement('div');
             item.className = 'list-group-item d-flex justify-content-between align-items-center';
-            // The data is now in the new format {text, options:{A,B,C,D}, answer}
-            const questionText = q.text;
-            const correctAnswerText = q.options[q.answer];
+            // The data is now in the format {text, options:{A,B,C,D}, answer}
+            const questionText = q.text || q.question;
+            const ansKey = q.answer || 'A';
+            const correctAnswerText = q.options ? (q.options[ansKey] || '') : '';
 
             item.innerHTML = `
                 <div class="flex-grow-1 me-3">
-                    <p class="mb-1 fw-medium">${index + 1}. ${questionText || '(No question text)'}</p>
-                    <small class="text-success">Correct: ${correctAnswerText || '(No answer text)'}</small>
+                    <p class="mb-1 fw-medium">${index + 1}. ${escapeHtml(questionText) || '(No question text)'}</p>
+                    <small class="text-success">Correct: Option ${ansKey} - ${escapeHtml(correctAnswerText) || '(No answer text)'}</small>
                 </div>
                 <div>
                     <button type="button" class="btn btn-sm btn-outline-primary edit-staged-question-btn" data-index="${index}"><i class="bi bi-pencil"></i></button>
@@ -1581,17 +1585,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const answerMap = { "1": "A", "2": "B", "3": "C", "4": "D" };
 
         const questionData = {
-            text: document.getElementById('stagedQuizQuestionText').value, // Aligned with teacher page 'text'
+            text: document.getElementById('stagedQuizQuestionText').value.trim(),
             options: {
-                A: document.getElementById('stagedQuizOption1').value,
-                B: document.getElementById('stagedQuizOption2').value,
-                C: document.getElementById('stagedQuizOption3').value,
-                D: document.getElementById('stagedQuizOption4').value,
+                A: document.getElementById('stagedQuizOption1').value.trim(),
+                B: document.getElementById('stagedQuizOption2').value.trim(),
+                C: document.getElementById('stagedQuizOption3').value.trim(),
+                D: document.getElementById('stagedQuizOption4').value.trim(),
             },
-            answer: answerMap[correctAnwerValue] // Aligned with teacher page 'answer'
+            answer: answerMap[correctAnwerValue] || 'A'
         };
 
         const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
+        if (!topic.quiz) topic.quiz = [];
         if (questionId !== '') { // Editing
             topic.quiz[questionId] = questionData;
         } else { // Adding
@@ -1627,16 +1632,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderStagedFlashcards() {
         const container = document.getElementById('stagedFlashcardsContainer');
+        const badge = document.getElementById('stagedDeckBadge');
         const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
         // Add a guard clause to prevent errors if the index is not set
         if (!topic) {
             if (container) container.innerHTML = '<p class="text-center text-muted">Error: Topic context not found.</p>';
+            if (badge) badge.textContent = '0 cards';
             return;
         }
-        const cards = topic.flashcards;
+        const cards = topic.flashcards || [];
+        if (badge) badge.textContent = `${cards.length} card${cards.length === 1 ? '' : 's'}`;
         container.innerHTML = '';
 
-        if (!cards || cards.length === 0) {
+        if (cards.length === 0) {
             container.innerHTML = '<p class="text-center text-muted">No cards added yet.</p>';
             return;
         }
@@ -1648,8 +1656,8 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = 'list-group-item d-flex justify-content-between align-items-center';
             item.innerHTML = `
                 <div class="flex-grow-1 me-3">
-                    <p class="mb-1 fw-medium">${card.term}</p>
-                    <small class="text-muted">${card.definition}</small>
+                    <p class="mb-1 fw-medium">${escapeHtml(card.term)}</p>
+                    <small class="text-muted">${escapeHtml(card.definition)}</small>
                 </div>
                 <div>
                     <button type="button" class="btn btn-sm btn-outline-primary edit-staged-card-btn" data-index="${index}"><i class="bi bi-pencil"></i></button>
@@ -1667,11 +1675,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const cardId = document.getElementById('stagedFlashcardId').value;
 
         const cardData = {
-            term: document.getElementById('stagedFlashcardTerm').value,
-            definition: document.getElementById('stagedFlashcardDefinition').value,
+            term: document.getElementById('stagedFlashcardTerm').value.trim(),
+            definition: document.getElementById('stagedFlashcardDefinition').value.trim(),
         };
 
         const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
+        if (!topic.flashcards) topic.flashcards = [];
         if (cardId !== '') { // Editing
             topic.flashcards[cardId] = cardData;
         } else { // Adding
@@ -1795,8 +1804,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderExistingQuizQuestions() {
         const container = document.getElementById('existingQuizQuestionsContainer');
+        const badge = document.getElementById('existingQuizBadge');
         const subject = editingSubjectCopy; // Work on the temporary copy
         const questions = subject?.topics[currentTopicIndexForEditing]?.quiz || [];
+        if (badge) badge.textContent = `${questions.length} question${questions.length === 1 ? '' : 's'}`;
         container.innerHTML = '';
 
         if (questions.length === 0) {
@@ -1814,8 +1825,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const correctAnswerText = opts[ansKey] || (Array.isArray(opts) ? opts[0] : '') || '';
             item.innerHTML = `
                 <div class="flex-grow-1 me-3">
-                    <p class="mb-1 fw-medium">${index + 1}. ${q.text || q.question || '(No question text)'}</p>
-                    <small class="text-success">Correct: Option ${ansKey} - ${correctAnswerText}</small>
+                    <p class="mb-1 fw-medium">${index + 1}. ${escapeHtml(q.text || q.question) || '(No question text)'}</p>
+                    <small class="text-success">Correct: Option ${ansKey} - ${escapeHtml(correctAnswerText)}</small>
                 </div>
                 <div>
                     <button type="button" class="btn btn-sm btn-outline-primary edit-existing-question-btn me-1" data-index="${index}" title="Edit Question"><i class="bi bi-pencil"></i></button>
@@ -1941,8 +1952,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderExistingFlashcards() {
         const container = document.getElementById('existingFlashcardsContainer');
+        const badge = document.getElementById('existingDeckBadge');
         const subject = editingSubjectCopy; // Work on the temporary copy
         const cards = subject?.topics[currentTopicIndexForEditing]?.flashcards || [];
+        if (badge) badge.textContent = `${cards.length} card${cards.length === 1 ? '' : 's'}`;
         container.innerHTML = '';
 
         if (cards.length === 0) {
@@ -1957,8 +1970,8 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = 'list-group-item d-flex justify-content-between align-items-center';
             item.innerHTML = `
                 <div class="flex-grow-1 me-3">
-                    <p class="mb-1 fw-medium">${card.term}</p>
-                    <small class="text-muted">${card.definition}</small>
+                    <p class="mb-1 fw-medium">${escapeHtml(card.term)}</p>
+                    <small class="text-muted">${escapeHtml(card.definition)}</small>
                 </div>
                 <div>
                     <button type="button" class="btn btn-sm btn-outline-primary edit-existing-card-btn" data-index="${index}"><i class="bi bi-pencil"></i></button>
@@ -1979,8 +1992,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!topic) return;
 
         const cardData = {
-            term: document.getElementById('existingFlashcardTerm').value,
-            definition: document.getElementById('existingFlashcardDefinition').value,
+            term: document.getElementById('existingFlashcardTerm').value.trim(),
+            definition: document.getElementById('existingFlashcardDefinition').value.trim(),
         };
 
         if (cardId !== '') { // Editing
@@ -2024,6 +2037,983 @@ document.addEventListener('DOMContentLoaded', () => {
                 topic.flashcards.splice(index, 1);
                 renderExistingFlashcards();
             }
+        }
+    }
+
+    // =========================================================================
+    // BULK CREATION & SPREADSHEET PARSING UTILITIES
+    // =========================================================================
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function parseBulkFlashcards(rawText, delimiterMode = 'auto') {
+        if (!rawText || !rawText.trim()) return [];
+        const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        const cards = [];
+
+        lines.forEach(line => {
+            let term = '';
+            let definition = '';
+
+            if (delimiterMode === 'tab' || (delimiterMode === 'auto' && line.includes('\t'))) {
+                const parts = line.split('\t');
+                term = (parts[0] || '').trim();
+                definition = parts.slice(1).join('\t').trim();
+            } else if (delimiterMode === 'dash' || (delimiterMode === 'auto' && line.includes(' - '))) {
+                const parts = line.split(' - ');
+                term = (parts[0] || '').trim();
+                definition = parts.slice(1).join(' - ').trim();
+            } else if (delimiterMode === 'pipe' || (delimiterMode === 'auto' && line.includes('|'))) {
+                const parts = line.split('|');
+                term = (parts[0] || '').trim();
+                definition = parts.slice(1).join('|').trim();
+            } else if (delimiterMode === 'colon' || (delimiterMode === 'auto' && line.includes(':'))) {
+                const idx = line.indexOf(':');
+                term = line.substring(0, idx).trim();
+                definition = line.substring(idx + 1).trim();
+            } else if (line.includes('-')) {
+                const idx = line.indexOf('-');
+                term = line.substring(0, idx).trim();
+                definition = line.substring(idx + 1).trim();
+            } else {
+                term = line.trim();
+                definition = '';
+            }
+
+            if (term || definition) {
+                cards.push({
+                    term: term || 'Untitled Term',
+                    definition: definition || 'No definition provided.'
+                });
+            }
+        });
+
+        return cards;
+    }
+
+    function parseBulkQuiz(rawText) {
+        if (!rawText || !rawText.trim()) return [];
+        const questions = [];
+
+        // Check if input is tabular
+        const lines = rawText.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const tabLines = lines.filter(l => l.includes('\t') || (l.split('|').length >= 5));
+
+        if (tabLines.length > 0 && tabLines.length >= lines.length * 0.5) {
+            lines.forEach(line => {
+                const delimiter = line.includes('\t') ? '\t' : '|';
+                const parts = line.split(delimiter).map(p => p.trim());
+                if (parts.length >= 3) {
+                    const text = parts[0].replace(/^\d+[\.\)]\s*/, '').trim();
+                    const optA = parts[1] || '';
+                    const optB = parts[2] || '';
+                    const optC = parts[3] || '';
+                    const optD = parts[4] || '';
+                    let ans = (parts[5] || parts[parts.length - 1] || 'A').toUpperCase().replace(/[^A-D]/g, '');
+                    if (!['A', 'B', 'C', 'D'].includes(ans)) ans = 'A';
+
+                    if (text) {
+                        questions.push({
+                            text,
+                            options: { A: optA, B: optB, C: optC, D: optD },
+                            answer: ans
+                        });
+                    }
+                }
+            });
+            return questions;
+        }
+
+        // Block-based format:
+        // 1. Question text
+        // A. Option A
+        // B. Option B
+        // C. Option C
+        // D. Option D
+        // Answer: B
+        const blockRegex = /(?:^|\n\s*\n|\n(?=(?:\d+[\.\)]|Question\s*\d+[:\.])))/i;
+        const rawBlocks = rawText.split(blockRegex).map(b => b.trim()).filter(b => b.length > 0);
+
+        rawBlocks.forEach(block => {
+            const blockLines = block.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            if (blockLines.length === 0) return;
+
+            let questionLines = [];
+            let optA = '', optB = '', optC = '', optD = '';
+            let answer = 'A';
+            let collectingQuestion = true;
+
+            blockLines.forEach(line => {
+                const optMatch = line.match(/^([A-Da-d])[\.\)\:\-]\s*(.*)$/);
+                const ansMatch = line.match(/^(?:Answer|Correct|Key|Ans)[\s:=-]+([A-Da-d])/i);
+
+                if (ansMatch) {
+                    answer = ansMatch[1].toUpperCase();
+                    collectingQuestion = false;
+                } else if (optMatch) {
+                    collectingQuestion = false;
+                    const letter = optMatch[1].toUpperCase();
+                    const val = optMatch[2].trim();
+                    if (letter === 'A') optA = val;
+                    else if (letter === 'B') optB = val;
+                    else if (letter === 'C') optC = val;
+                    else if (letter === 'D') optD = val;
+                } else if (collectingQuestion) {
+                    questionLines.push(line);
+                }
+            });
+
+            let fullQuestion = questionLines.join(' ').replace(/^\d+[\.\)]\s*/, '').trim();
+            if (fullQuestion && (optA || optB)) {
+                questions.push({
+                    text: fullQuestion,
+                    options: { A: optA, B: optB, C: optC, D: optD },
+                    answer: ['A', 'B', 'C', 'D'].includes(answer) ? answer : 'A'
+                });
+            }
+        });
+
+        return questions;
+    }
+
+    function readSpreadsheetRows(file) {
+        return new Promise((resolve, reject) => {
+            if (!file) return reject(new Error('No file selected.'));
+            if (typeof XLSX === 'undefined') {
+                return reject(new Error('Spreadsheet parser (SheetJS) is not loaded.'));
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                    resolve(rows);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function parseFlashcardsFromSheetRows(rows) {
+        if (!rows || rows.length === 0) return [];
+        let startIndex = 0;
+        const firstRow = rows[0].map(c => String(c).toLowerCase().trim());
+        if (firstRow.some(cell => cell.includes('term') || cell.includes('word') || cell.includes('concept') || cell.includes('front'))) {
+            startIndex = 1;
+        }
+
+        const cards = [];
+        for (let i = startIndex; i < rows.length; i++) {
+            const row = rows[i];
+            const term = String(row[0] || '').trim();
+            const def = String(row[1] || '').trim();
+            if (term || def) {
+                cards.push({
+                    term: term || 'Untitled Term',
+                    definition: def || 'No definition provided.'
+                });
+            }
+        }
+        return cards;
+    }
+
+    function parseQuizFromSheetRows(rows) {
+        if (!rows || rows.length === 0) return [];
+        let startIndex = 0;
+        const firstRow = rows[0].map(c => String(c).toLowerCase().trim());
+        if (firstRow.some(cell => cell.includes('question') || cell.includes('prompt'))) {
+            startIndex = 1;
+        }
+
+        const questions = [];
+        for (let i = startIndex; i < rows.length; i++) {
+            const row = rows[i];
+            const text = String(row[0] || '').trim();
+            const optA = String(row[1] || '').trim();
+            const optB = String(row[2] || '').trim();
+            const optC = String(row[3] || '').trim();
+            const optD = String(row[4] || '').trim();
+            let ans = String(row[5] || 'A').toUpperCase().replace(/[^A-D]/g, '');
+            if (!['A', 'B', 'C', 'D'].includes(ans)) ans = 'A';
+
+            if (text && (optA || optB)) {
+                questions.push({
+                    text,
+                    options: { A: optA, B: optB, C: optC, D: optD },
+                    answer: ans
+                });
+            }
+        }
+        return questions;
+    }
+
+    function generateClientSideTemplate(type, defaultFilename) {
+        if (typeof XLSX === 'undefined') {
+            alert('Spreadsheet generator is not ready. Please check your internet connection.');
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        if (type === 'flashcards') {
+            const fcData = [
+                {
+                    "Term": "Photosynthesis",
+                    "Definition": "The biological process by which green plants transform light energy into chemical energy.",
+                    "Category / Tag (Optional)": "Biology"
+                },
+                {
+                    "Term": "Mitochondria",
+                    "Definition": "Membrane-bound cell organelles that generate most of the chemical energy needed to power the cell (ATP).",
+                    "Category / Tag (Optional)": "Cell Biology"
+                },
+                {
+                    "Term": "Newton's First Law",
+                    "Definition": "An object at rest stays at rest, and an object in motion continues in motion with the same speed and direction unless acted upon by an external force.",
+                    "Category / Tag (Optional)": "Physics"
+                },
+                {
+                    "Term": "Osmosis",
+                    "Definition": "The spontaneous net movement of solvent molecules through a selectively permeable membrane into a region of higher solute concentration.",
+                    "Category / Tag (Optional)": "Chemistry"
+                }
+            ];
+            const ws = XLSX.utils.json_to_sheet(fcData);
+            ws['!cols'] = [{ wch: 25 }, { wch: 60 }, { wch: 25 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Flashcards');
+        } else {
+            const quizData = [
+                {
+                    "Question": "What is the SI unit of force?",
+                    "Option A": "Joule",
+                    "Option B": "Newton",
+                    "Option C": "Watt",
+                    "Option D": "Pascal",
+                    "Correct Answer (A/B/C/D)": "B",
+                    "Explanation / Note (Optional)": "Newton (N) is defined as 1 kg·m/s²"
+                },
+                {
+                    "Question": "What is the acceleration due to gravity on Earth?",
+                    "Option A": "9.8 m/s²",
+                    "Option B": "8.9 m/s²",
+                    "Option C": "10.5 m/s²",
+                    "Option D": "12.0 m/s²",
+                    "Correct Answer (A/B/C/D)": "A",
+                    "Explanation / Note (Optional)": "Standard Earth gravity is approx 9.80665 m/s²"
+                },
+                {
+                    "Question": "Which law states that for every action there is an equal and opposite reaction?",
+                    "Option A": "Newton's 1st Law",
+                    "Option B": "Newton's 2nd Law",
+                    "Option C": "Newton's 3rd Law",
+                    "Option D": "Law of Conservation of Energy",
+                    "Correct Answer (A/B/C/D)": "C",
+                    "Explanation / Note (Optional)": "Third Law of Motion"
+                },
+                {
+                    "Question": "Which organelle is considered the powerhouse of the cell?",
+                    "Option A": "Nucleus",
+                    "Option B": "Mitochondria",
+                    "Option C": "Ribosome",
+                    "Option D": "Endoplasmic Reticulum",
+                    "Correct Answer (A/B/C/D)": "B",
+                    "Explanation / Note (Optional)": "Produces ATP through cellular respiration"
+                }
+            ];
+            const ws = XLSX.utils.json_to_sheet(quizData);
+            ws['!cols'] = [{ wch: 45 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 26 }, { wch: 35 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Practice Quiz');
+        }
+
+        XLSX.writeFile(wb, defaultFilename);
+    }
+
+    async function downloadStarterTemplate(type) {
+        const apiBase = (window.MENTORAE_CONFIG && window.MENTORAE_CONFIG.API_BASE_URL)
+            ? window.MENTORAE_CONFIG.API_BASE_URL
+            : (window.API_BASE || 'http://localhost:5000');
+        const endpoint = `${apiBase}/api/content/templates/${type === 'flashcards' ? 'flashcards' : 'quiz'}`;
+        const defaultFilename = type === 'flashcards' ? 'Mentorae_Flashcards_Template.xlsx' : 'Mentorae_Practice_Quiz_Template.xlsx';
+
+        try {
+            const res = await fetch(endpoint);
+            if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+            const blob = await res.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = blobUrl;
+            downloadLink.download = defaultFilename;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            setTimeout(() => {
+                downloadLink.remove();
+                window.URL.revokeObjectURL(blobUrl);
+            }, 1000);
+        } catch (err) {
+            console.warn('Backend download failed or unavailable, using in-browser template generator:', err);
+            generateClientSideTemplate(type, defaultFilename);
+        }
+    }
+
+    function setupDropZone(dropZone, fileInput, onFileSelected) {
+        if (!dropZone || !fileInput) return;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('border-primary', 'bg-white');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('border-primary', 'bg-white');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                fileInput.files = files;
+                onFileSelected(files[0]);
+            }
+        }, false);
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                onFileSelected(e.target.files[0]);
+            }
+        });
+    }
+
+    // =========================================================================
+    // MODAL BULK & FILE WIRING
+    // =========================================================================
+    let bulkStagedQuizParsedCache = [];
+    let fileStagedQuizParsedCache = [];
+
+    function updateBulkStagedQuizPreview() {
+        const textarea = document.getElementById('bulkStagedQuizTextarea');
+        const badge = document.getElementById('bulkStagedQuizCountBadge');
+        const preview = document.getElementById('bulkStagedQuizPreviewContainer');
+        const addBtn = document.getElementById('addBulkStagedQuizBtn');
+
+        const raw = textarea ? textarea.value : '';
+        bulkStagedQuizParsedCache = parseBulkQuiz(raw);
+
+        if (badge) {
+            badge.textContent = `${bulkStagedQuizParsedCache.length} question${bulkStagedQuizParsedCache.length === 1 ? '' : 's'} detected`;
+            badge.className = bulkStagedQuizParsedCache.length > 0
+                ? 'badge bg-success-subtle text-success border border-success-subtle rounded-pill'
+                : 'badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill';
+        }
+
+        if (addBtn) {
+            addBtn.disabled = bulkStagedQuizParsedCache.length === 0;
+            addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i> Add ${bulkStagedQuizParsedCache.length > 0 ? bulkStagedQuizParsedCache.length : 'All'} Questions to Quiz`;
+        }
+
+        if (preview) {
+            if (bulkStagedQuizParsedCache.length === 0) {
+                preview.innerHTML = '<span class="text-muted fst-italic">Paste or type questions above to see them parsed live...</span>';
+            } else {
+                preview.innerHTML = `<ol class="mb-0 ps-3">${bulkStagedQuizParsedCache.map(q => `
+                    <li class="py-1">
+                        <strong class="text-dark">${escapeHtml(q.text)}</strong>
+                        <div class="micro-text text-muted mt-0.5">
+                            <span class="me-2 ${q.answer === 'A' ? 'fw-bold text-success' : ''}">A: ${escapeHtml(q.options.A)}</span>
+                            <span class="me-2 ${q.answer === 'B' ? 'fw-bold text-success' : ''}">B: ${escapeHtml(q.options.B)}</span>
+                            ${q.options.C ? `<span class="me-2 ${q.answer === 'C' ? 'fw-bold text-success' : ''}">C: ${escapeHtml(q.options.C)}</span>` : ''}
+                            ${q.options.D ? `<span class="me-2 ${q.answer === 'D' ? 'fw-bold text-success' : ''}">D: ${escapeHtml(q.options.D)}</span>` : ''}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill ms-1">Ans: ${q.answer}</span>
+                        </div>
+                    </li>
+                `).join('')}</ol>`;
+            }
+        }
+    }
+
+    function setupStagedQuizBulkAndFileHandlers() {
+        const textarea = document.getElementById('bulkStagedQuizTextarea');
+        const insertSampleBtn = document.getElementById('insertSampleStagedQuizBtn');
+        const clearBulkBtn = document.getElementById('clearBulkStagedQuizBtn');
+        const addBulkBtn = document.getElementById('addBulkStagedQuizBtn');
+        const downloadTemplateBtn = document.getElementById('downloadStagedQuizTemplateBtn');
+        const fileInput = document.getElementById('stagedQuizFileInput');
+        const dropZone = document.getElementById('stagedQuizDropZone');
+        const filePreviewSection = document.getElementById('stagedQuizFilePreviewSection');
+        const fileTbody = document.getElementById('stagedQuizFilePreviewTbody');
+        const fileCountBadge = document.getElementById('fileStagedQuizCountBadge');
+        const clearFileBtn = document.getElementById('clearFileStagedQuizBtn');
+        const importFileBtn = document.getElementById('importFileStagedQuizBtn');
+
+        if (textarea) textarea.addEventListener('input', updateBulkStagedQuizPreview);
+
+        if (insertSampleBtn) {
+            insertSampleBtn.addEventListener('click', () => {
+                if (textarea) {
+                    textarea.value = `1. What is the SI unit of force?\nA. Joule\nB. Newton\nC. Watt\nD. Pascal\nAnswer: B\n\n2. What is the acceleration due to gravity on Earth?\nA. 9.8 m/s^2\nB. 8.9 m/s^2\nC. 10.5 m/s^2\nD. 12.0 m/s^2\nAnswer: A\n\n3. Which law states that for every action there is an equal and opposite reaction?\nA. Newton's 1st Law\nB. Newton's 2nd Law\nC. Newton's 3rd Law\nD. Law of Conservation of Energy\nAnswer: C`;
+                    updateBulkStagedQuizPreview();
+                }
+            });
+        }
+
+        if (clearBulkBtn) {
+            clearBulkBtn.addEventListener('click', () => {
+                if (textarea) textarea.value = '';
+                updateBulkStagedQuizPreview();
+            });
+        }
+
+        if (addBulkBtn) {
+            addBulkBtn.addEventListener('click', () => {
+                if (bulkStagedQuizParsedCache.length === 0) return;
+                const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
+                if (!topic) return;
+                if (!topic.quiz) topic.quiz = [];
+                topic.quiz.push(...bulkStagedQuizParsedCache);
+                renderStagedQuizQuestions();
+                const count = bulkStagedQuizParsedCache.length;
+                if (textarea) textarea.value = '';
+                updateBulkStagedQuizPreview();
+
+                const manualTab = document.getElementById('staged-quiz-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Added ${count} question(s) to quiz.`);
+            });
+        }
+
+        if (downloadTemplateBtn) {
+            downloadTemplateBtn.addEventListener('click', () => downloadStarterTemplate('quiz'));
+        }
+
+        const onFileSelected = async (file) => {
+            if (!file) return;
+            try {
+                const rows = await readSpreadsheetRows(file);
+                fileStagedQuizParsedCache = parseQuizFromSheetRows(rows);
+
+                if (fileCountBadge) fileCountBadge.textContent = `${fileStagedQuizParsedCache.length} questions loaded`;
+                if (fileTbody) {
+                    fileTbody.innerHTML = fileStagedQuizParsedCache.slice(0, 50).map((q, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td class="text-truncate" style="max-width: 160px;">${escapeHtml(q.text)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.A)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.B)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.C)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.D)}</td>
+                            <td><span class="badge bg-success-subtle text-success">${escapeHtml(q.answer)}</span></td>
+                        </tr>
+                    `).join('');
+                }
+                if (filePreviewSection) filePreviewSection.classList.remove('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = fileStagedQuizParsedCache.length === 0;
+                    importFileBtn.innerHTML = `<i class="bi bi-file-earmark-arrow-down me-1"></i> Import ${fileStagedQuizParsedCache.length} Questions to Quiz`;
+                }
+            } catch (err) {
+                console.error('Error parsing quiz file:', err);
+                alert('Could not read the spreadsheet file. Please ensure it is a valid .xlsx or .csv file.');
+            }
+        };
+
+        setupDropZone(dropZone, fileInput, onFileSelected);
+
+        if (clearFileBtn) {
+            clearFileBtn.addEventListener('click', () => {
+                if (fileInput) fileInput.value = '';
+                fileStagedQuizParsedCache = [];
+                if (filePreviewSection) filePreviewSection.classList.add('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = true;
+                    importFileBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-down me-1"></i> Import Questions to Quiz';
+                }
+            });
+        }
+
+        if (importFileBtn) {
+            importFileBtn.addEventListener('click', () => {
+                if (fileStagedQuizParsedCache.length === 0) return;
+                const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
+                if (!topic) return;
+                if (!topic.quiz) topic.quiz = [];
+                topic.quiz.push(...fileStagedQuizParsedCache);
+                renderStagedQuizQuestions();
+                const count = fileStagedQuizParsedCache.length;
+                if (clearFileBtn) clearFileBtn.click();
+                const manualTab = document.getElementById('staged-quiz-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Successfully imported ${count} question(s) from spreadsheet.`);
+            });
+        }
+    }
+
+    let bulkStagedFcParsedCache = [];
+    let fileStagedFcParsedCache = [];
+
+    function updateBulkStagedFcPreview() {
+        const textarea = document.getElementById('bulkStagedFcTextarea');
+        const delimSelect = document.getElementById('bulkStagedFcDelimiter');
+        const badge = document.getElementById('bulkStagedFcCountBadge');
+        const preview = document.getElementById('bulkStagedFcPreviewContainer');
+        const addBtn = document.getElementById('addBulkStagedFcBtn');
+
+        const raw = textarea ? textarea.value : '';
+        const delim = delimSelect ? delimSelect.value : 'auto';
+        bulkStagedFcParsedCache = parseBulkFlashcards(raw, delim);
+
+        if (badge) {
+            badge.textContent = `${bulkStagedFcParsedCache.length} card${bulkStagedFcParsedCache.length === 1 ? '' : 's'} detected`;
+            badge.className = bulkStagedFcParsedCache.length > 0
+                ? 'badge bg-success-subtle text-success border border-success-subtle rounded-pill'
+                : 'badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill';
+        }
+
+        if (addBtn) {
+            addBtn.disabled = bulkStagedFcParsedCache.length === 0;
+            addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i> Add ${bulkStagedFcParsedCache.length > 0 ? bulkStagedFcParsedCache.length : 'All'} Cards to Deck`;
+        }
+
+        if (preview) {
+            if (bulkStagedFcParsedCache.length === 0) {
+                preview.innerHTML = '<span class="text-muted fst-italic">Paste or type above to see cards here...</span>';
+            } else {
+                preview.innerHTML = `<ol class="mb-0 ps-3">${bulkStagedFcParsedCache.map(c => `
+                    <li class="py-0.5">
+                        <strong class="text-dark">${escapeHtml(c.term)}</strong> &mdash; <span class="text-muted">${escapeHtml(c.definition)}</span>
+                    </li>
+                `).join('')}</ol>`;
+            }
+        }
+    }
+
+    function setupStagedFcBulkAndFileHandlers() {
+        const textarea = document.getElementById('bulkStagedFcTextarea');
+        const delimSelect = document.getElementById('bulkStagedFcDelimiter');
+        const clearBulkBtn = document.getElementById('clearBulkStagedFcBtn');
+        const addBulkBtn = document.getElementById('addBulkStagedFcBtn');
+        const downloadTemplateBtn = document.getElementById('downloadStagedFcTemplateBtn');
+        const fileInput = document.getElementById('stagedFcFileInput');
+        const dropZone = document.getElementById('stagedFcDropZone');
+        const filePreviewSection = document.getElementById('stagedFcFilePreviewSection');
+        const fileTbody = document.getElementById('stagedFcFilePreviewTbody');
+        const fileCountBadge = document.getElementById('fileStagedFcCountBadge');
+        const clearFileBtn = document.getElementById('clearFileStagedFcBtn');
+        const importFileBtn = document.getElementById('importFileStagedFcBtn');
+
+        if (textarea) textarea.addEventListener('input', updateBulkStagedFcPreview);
+        if (delimSelect) delimSelect.addEventListener('change', updateBulkStagedFcPreview);
+
+        if (clearBulkBtn) {
+            clearBulkBtn.addEventListener('click', () => {
+                if (textarea) textarea.value = '';
+                updateBulkStagedFcPreview();
+            });
+        }
+
+        if (addBulkBtn) {
+            addBulkBtn.addEventListener('click', () => {
+                if (bulkStagedFcParsedCache.length === 0) return;
+                const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
+                if (!topic) return;
+                if (!topic.flashcards) topic.flashcards = [];
+                topic.flashcards.push(...bulkStagedFcParsedCache);
+                renderStagedFlashcards();
+                const count = bulkStagedFcParsedCache.length;
+                if (textarea) textarea.value = '';
+                updateBulkStagedFcPreview();
+
+                const manualTab = document.getElementById('staged-fc-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Added ${count} flashcard(s) to deck.`);
+            });
+        }
+
+        if (downloadTemplateBtn) {
+            downloadTemplateBtn.addEventListener('click', () => downloadStarterTemplate('flashcards'));
+        }
+
+        const onFileSelected = async (file) => {
+            if (!file) return;
+            try {
+                const rows = await readSpreadsheetRows(file);
+                fileStagedFcParsedCache = parseFlashcardsFromSheetRows(rows);
+
+                if (fileCountBadge) fileCountBadge.textContent = `${fileStagedFcParsedCache.length} cards loaded`;
+                if (fileTbody) {
+                    fileTbody.innerHTML = fileStagedFcParsedCache.slice(0, 50).map((c, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td class="fw-semibold text-truncate" style="max-width: 150px;">${escapeHtml(c.term)}</td>
+                            <td class="text-truncate" style="max-width: 300px;">${escapeHtml(c.definition)}</td>
+                        </tr>
+                    `).join('');
+                }
+                if (filePreviewSection) filePreviewSection.classList.remove('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = fileStagedFcParsedCache.length === 0;
+                    importFileBtn.innerHTML = `<i class="bi bi-file-earmark-arrow-down me-1"></i> Import ${fileStagedFcParsedCache.length} Cards to Deck`;
+                }
+            } catch (err) {
+                console.error('Error parsing flashcards file:', err);
+                alert('Could not read the spreadsheet file. Please ensure it is a valid .xlsx or .csv file.');
+            }
+        };
+
+        setupDropZone(dropZone, fileInput, onFileSelected);
+
+        if (clearFileBtn) {
+            clearFileBtn.addEventListener('click', () => {
+                if (fileInput) fileInput.value = '';
+                fileStagedFcParsedCache = [];
+                if (filePreviewSection) filePreviewSection.classList.add('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = true;
+                    importFileBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-down me-1"></i> Import Cards to Deck';
+                }
+            });
+        }
+
+        if (importFileBtn) {
+            importFileBtn.addEventListener('click', () => {
+                if (fileStagedFcParsedCache.length === 0) return;
+                const topic = isEditingStagedContent ? stagedTopics[currentStagedTopicIndex] : inlineTopicContent;
+                if (!topic) return;
+                if (!topic.flashcards) topic.flashcards = [];
+                topic.flashcards.push(...fileStagedFcParsedCache);
+                renderStagedFlashcards();
+                const count = fileStagedFcParsedCache.length;
+                if (clearFileBtn) clearFileBtn.click();
+                const manualTab = document.getElementById('staged-fc-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Successfully imported ${count} card(s) from spreadsheet.`);
+            });
+        }
+    }
+
+    let bulkExistingQuizParsedCache = [];
+    let fileExistingQuizParsedCache = [];
+
+    function updateBulkExistingQuizPreview() {
+        const textarea = document.getElementById('bulkExistingQuizTextarea');
+        const badge = document.getElementById('bulkExistingQuizCountBadge');
+        const preview = document.getElementById('bulkExistingQuizPreviewContainer');
+        const addBtn = document.getElementById('addBulkExistingQuizBtn');
+
+        const raw = textarea ? textarea.value : '';
+        bulkExistingQuizParsedCache = parseBulkQuiz(raw);
+
+        if (badge) {
+            badge.textContent = `${bulkExistingQuizParsedCache.length} question${bulkExistingQuizParsedCache.length === 1 ? '' : 's'} detected`;
+            badge.className = bulkExistingQuizParsedCache.length > 0
+                ? 'badge bg-success-subtle text-success border border-success-subtle rounded-pill'
+                : 'badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill';
+        }
+
+        if (addBtn) {
+            addBtn.disabled = bulkExistingQuizParsedCache.length === 0;
+            addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i> Add ${bulkExistingQuizParsedCache.length > 0 ? bulkExistingQuizParsedCache.length : 'All'} Questions to Quiz`;
+        }
+
+        if (preview) {
+            if (bulkExistingQuizParsedCache.length === 0) {
+                preview.innerHTML = '<span class="text-muted fst-italic">Paste or type questions above to see them parsed live...</span>';
+            } else {
+                preview.innerHTML = `<ol class="mb-0 ps-3">${bulkExistingQuizParsedCache.map(q => `
+                    <li class="py-1">
+                        <strong class="text-dark">${escapeHtml(q.text)}</strong>
+                        <div class="micro-text text-muted mt-0.5">
+                            <span class="me-2 ${q.answer === 'A' ? 'fw-bold text-success' : ''}">A: ${escapeHtml(q.options.A)}</span>
+                            <span class="me-2 ${q.answer === 'B' ? 'fw-bold text-success' : ''}">B: ${escapeHtml(q.options.B)}</span>
+                            ${q.options.C ? `<span class="me-2 ${q.answer === 'C' ? 'fw-bold text-success' : ''}">C: ${escapeHtml(q.options.C)}</span>` : ''}
+                            ${q.options.D ? `<span class="me-2 ${q.answer === 'D' ? 'fw-bold text-success' : ''}">D: ${escapeHtml(q.options.D)}</span>` : ''}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill ms-1">Ans: ${q.answer}</span>
+                        </div>
+                    </li>
+                `).join('')}</ol>`;
+            }
+        }
+    }
+
+    function setupExistingQuizBulkAndFileHandlers() {
+        const textarea = document.getElementById('bulkExistingQuizTextarea');
+        const insertSampleBtn = document.getElementById('insertSampleExistingQuizBtn');
+        const clearBulkBtn = document.getElementById('clearBulkExistingQuizBtn');
+        const addBulkBtn = document.getElementById('addBulkExistingQuizBtn');
+        const downloadTemplateBtn = document.getElementById('downloadExistingQuizTemplateBtn');
+        const fileInput = document.getElementById('existingQuizFileInput');
+        const dropZone = document.getElementById('existingQuizDropZone');
+        const filePreviewSection = document.getElementById('existingQuizFilePreviewSection');
+        const fileTbody = document.getElementById('existingQuizFilePreviewTbody');
+        const fileCountBadge = document.getElementById('fileExistingQuizCountBadge');
+        const clearFileBtn = document.getElementById('clearFileExistingQuizBtn');
+        const importFileBtn = document.getElementById('importFileExistingQuizBtn');
+
+        if (textarea) textarea.addEventListener('input', updateBulkExistingQuizPreview);
+
+        if (insertSampleBtn) {
+            insertSampleBtn.addEventListener('click', () => {
+                if (textarea) {
+                    textarea.value = `1. What is the SI unit of force?\nA. Joule\nB. Newton\nC. Watt\nD. Pascal\nAnswer: B\n\n2. What is the acceleration due to gravity on Earth?\nA. 9.8 m/s^2\nB. 8.9 m/s^2\nC. 10.5 m/s^2\nD. 12.0 m/s^2\nAnswer: A\n\n3. Which law states that for every action there is an equal and opposite reaction?\nA. Newton's 1st Law\nB. Newton's 2nd Law\nC. Newton's 3rd Law\nD. Law of Conservation of Energy\nAnswer: C`;
+                    updateBulkExistingQuizPreview();
+                }
+            });
+        }
+
+        if (clearBulkBtn) {
+            clearBulkBtn.addEventListener('click', () => {
+                if (textarea) textarea.value = '';
+                updateBulkExistingQuizPreview();
+            });
+        }
+
+        if (addBulkBtn) {
+            addBulkBtn.addEventListener('click', () => {
+                if (bulkExistingQuizParsedCache.length === 0) return;
+                const subject = editingSubjectCopy;
+                const topic = subject?.topics[currentTopicIndexForEditing];
+                if (!topic) return;
+                if (!topic.quiz) topic.quiz = [];
+                topic.quiz.push(...bulkExistingQuizParsedCache);
+                renderExistingQuizQuestions();
+                const count = bulkExistingQuizParsedCache.length;
+                if (textarea) textarea.value = '';
+                updateBulkExistingQuizPreview();
+
+                const manualTab = document.getElementById('existing-quiz-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Added ${count} question(s) to quiz.`);
+            });
+        }
+
+        if (downloadTemplateBtn) {
+            downloadTemplateBtn.addEventListener('click', () => downloadStarterTemplate('quiz'));
+        }
+
+        const onFileSelected = async (file) => {
+            if (!file) return;
+            try {
+                const rows = await readSpreadsheetRows(file);
+                fileExistingQuizParsedCache = parseQuizFromSheetRows(rows);
+
+                if (fileCountBadge) fileCountBadge.textContent = `${fileExistingQuizParsedCache.length} questions loaded`;
+                if (fileTbody) {
+                    fileTbody.innerHTML = fileExistingQuizParsedCache.slice(0, 50).map((q, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td class="text-truncate" style="max-width: 160px;">${escapeHtml(q.text)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.A)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.B)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.C)}</td>
+                            <td class="text-truncate" style="max-width: 90px;">${escapeHtml(q.options.D)}</td>
+                            <td><span class="badge bg-success-subtle text-success">${escapeHtml(q.answer)}</span></td>
+                        </tr>
+                    `).join('');
+                }
+                if (filePreviewSection) filePreviewSection.classList.remove('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = fileExistingQuizParsedCache.length === 0;
+                    importFileBtn.innerHTML = `<i class="bi bi-file-earmark-arrow-down me-1"></i> Import ${fileExistingQuizParsedCache.length} Questions to Quiz`;
+                }
+            } catch (err) {
+                console.error('Error parsing quiz file:', err);
+                alert('Could not read the spreadsheet file. Please ensure it is a valid .xlsx or .csv file.');
+            }
+        };
+
+        setupDropZone(dropZone, fileInput, onFileSelected);
+
+        if (clearFileBtn) {
+            clearFileBtn.addEventListener('click', () => {
+                if (fileInput) fileInput.value = '';
+                fileExistingQuizParsedCache = [];
+                if (filePreviewSection) filePreviewSection.classList.add('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = true;
+                    importFileBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-down me-1"></i> Import Questions to Quiz';
+                }
+            });
+        }
+
+        if (importFileBtn) {
+            importFileBtn.addEventListener('click', () => {
+                if (fileExistingQuizParsedCache.length === 0) return;
+                const subject = editingSubjectCopy;
+                const topic = subject?.topics[currentTopicIndexForEditing];
+                if (!topic) return;
+                if (!topic.quiz) topic.quiz = [];
+                topic.quiz.push(...fileExistingQuizParsedCache);
+                renderExistingQuizQuestions();
+                const count = fileExistingQuizParsedCache.length;
+                if (clearFileBtn) clearFileBtn.click();
+                const manualTab = document.getElementById('existing-quiz-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Successfully imported ${count} question(s) from spreadsheet.`);
+            });
+        }
+    }
+
+    let bulkExistingFcParsedCache = [];
+    let fileExistingFcParsedCache = [];
+
+    function updateBulkExistingFcPreview() {
+        const textarea = document.getElementById('bulkExistingFcTextarea');
+        const delimSelect = document.getElementById('bulkExistingFcDelimiter');
+        const badge = document.getElementById('bulkExistingFcCountBadge');
+        const preview = document.getElementById('bulkExistingFcPreviewContainer');
+        const addBtn = document.getElementById('addBulkExistingFcBtn');
+
+        const raw = textarea ? textarea.value : '';
+        const delim = delimSelect ? delimSelect.value : 'auto';
+        bulkExistingFcParsedCache = parseBulkFlashcards(raw, delim);
+
+        if (badge) {
+            badge.textContent = `${bulkExistingFcParsedCache.length} card${bulkExistingFcParsedCache.length === 1 ? '' : 's'} detected`;
+            badge.className = bulkExistingFcParsedCache.length > 0
+                ? 'badge bg-success-subtle text-success border border-success-subtle rounded-pill'
+                : 'badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill';
+        }
+
+        if (addBtn) {
+            addBtn.disabled = bulkExistingFcParsedCache.length === 0;
+            addBtn.innerHTML = `<i class="bi bi-plus-circle me-1"></i> Add ${bulkExistingFcParsedCache.length > 0 ? bulkExistingFcParsedCache.length : 'All'} Cards to Deck`;
+        }
+
+        if (preview) {
+            if (bulkExistingFcParsedCache.length === 0) {
+                preview.innerHTML = '<span class="text-muted fst-italic">Paste or type above to see cards here...</span>';
+            } else {
+                preview.innerHTML = `<ol class="mb-0 ps-3">${bulkExistingFcParsedCache.map(c => `
+                    <li class="py-0.5">
+                        <strong class="text-dark">${escapeHtml(c.term)}</strong> &mdash; <span class="text-muted">${escapeHtml(c.definition)}</span>
+                    </li>
+                `).join('')}</ol>`;
+            }
+        }
+    }
+
+    function setupExistingFcBulkAndFileHandlers() {
+        const textarea = document.getElementById('bulkExistingFcTextarea');
+        const delimSelect = document.getElementById('bulkExistingFcDelimiter');
+        const clearBulkBtn = document.getElementById('clearBulkExistingFcBtn');
+        const addBulkBtn = document.getElementById('addBulkExistingFcBtn');
+        const downloadTemplateBtn = document.getElementById('downloadExistingFcTemplateBtn');
+        const fileInput = document.getElementById('existingFcFileInput');
+        const dropZone = document.getElementById('existingFcDropZone');
+        const filePreviewSection = document.getElementById('existingFcFilePreviewSection');
+        const fileTbody = document.getElementById('existingFcFilePreviewTbody');
+        const fileCountBadge = document.getElementById('fileExistingFcCountBadge');
+        const clearFileBtn = document.getElementById('clearFileExistingFcBtn');
+        const importFileBtn = document.getElementById('importFileExistingFcBtn');
+
+        if (textarea) textarea.addEventListener('input', updateBulkExistingFcPreview);
+        if (delimSelect) delimSelect.addEventListener('change', updateBulkExistingFcPreview);
+
+        if (clearBulkBtn) {
+            clearBulkBtn.addEventListener('click', () => {
+                if (textarea) textarea.value = '';
+                updateBulkExistingFcPreview();
+            });
+        }
+
+        if (addBulkBtn) {
+            addBulkBtn.addEventListener('click', () => {
+                if (bulkExistingFcParsedCache.length === 0) return;
+                const subject = editingSubjectCopy;
+                const topic = subject?.topics[currentTopicIndexForEditing];
+                if (!topic) return;
+                if (!topic.flashcards) topic.flashcards = [];
+                topic.flashcards.push(...bulkExistingFcParsedCache);
+                renderExistingFlashcards();
+                const count = bulkExistingFcParsedCache.length;
+                if (textarea) textarea.value = '';
+                updateBulkExistingFcPreview();
+
+                const manualTab = document.getElementById('existing-fc-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Added ${count} flashcard(s) to deck.`);
+            });
+        }
+
+        if (downloadTemplateBtn) {
+            downloadTemplateBtn.addEventListener('click', () => downloadStarterTemplate('flashcards'));
+        }
+
+        const onFileSelected = async (file) => {
+            if (!file) return;
+            try {
+                const rows = await readSpreadsheetRows(file);
+                fileExistingFcParsedCache = parseFlashcardsFromSheetRows(rows);
+
+                if (fileCountBadge) fileCountBadge.textContent = `${fileExistingFcParsedCache.length} cards loaded`;
+                if (fileTbody) {
+                    fileTbody.innerHTML = fileExistingFcParsedCache.slice(0, 50).map((c, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td class="fw-semibold text-truncate" style="max-width: 150px;">${escapeHtml(c.term)}</td>
+                            <td class="text-truncate" style="max-width: 300px;">${escapeHtml(c.definition)}</td>
+                        </tr>
+                    `).join('');
+                }
+                if (filePreviewSection) filePreviewSection.classList.remove('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = fileExistingFcParsedCache.length === 0;
+                    importFileBtn.innerHTML = `<i class="bi bi-file-earmark-arrow-down me-1"></i> Import ${fileExistingFcParsedCache.length} Cards to Deck`;
+                }
+            } catch (err) {
+                console.error('Error parsing flashcards file:', err);
+                alert('Could not read the spreadsheet file. Please ensure it is a valid .xlsx or .csv file.');
+            }
+        };
+
+        setupDropZone(dropZone, fileInput, onFileSelected);
+
+        if (clearFileBtn) {
+            clearFileBtn.addEventListener('click', () => {
+                if (fileInput) fileInput.value = '';
+                fileExistingFcParsedCache = [];
+                if (filePreviewSection) filePreviewSection.classList.add('d-none');
+                if (importFileBtn) {
+                    importFileBtn.disabled = true;
+                    importFileBtn.innerHTML = '<i class="bi bi-file-earmark-arrow-down me-1"></i> Import Cards to Deck';
+                }
+            });
+        }
+
+        if (importFileBtn) {
+            importFileBtn.addEventListener('click', () => {
+                if (fileExistingFcParsedCache.length === 0) return;
+                const subject = editingSubjectCopy;
+                const topic = subject?.topics[currentTopicIndexForEditing];
+                if (!topic) return;
+                if (!topic.flashcards) topic.flashcards = [];
+                topic.flashcards.push(...fileExistingFcParsedCache);
+                renderExistingFlashcards();
+                const count = fileExistingFcParsedCache.length;
+                if (clearFileBtn) clearFileBtn.click();
+                const manualTab = document.getElementById('existing-fc-manual-tab');
+                if (manualTab) bootstrap.Tab.getOrCreateInstance(manualTab).show();
+                alert(`Successfully imported ${count} card(s) from spreadsheet.`);
+            });
         }
     }
 
@@ -2681,7 +3671,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingQuizQuestionForm = document.getElementById('existingQuizQuestionForm');
         if (existingQuizQuestionForm) existingQuizQuestionForm.addEventListener('submit', handleExistingQuizFormSubmit);
         const cancelExistingQuizEditBtn = document.getElementById('cancelExistingQuizEditBtn');
-        if (cancelExistingQuizEditBtn) cancelExistingQuizEditBtn.addEventListener('click', resetExistingQuizForm);
         const existingQuizQuestionsContainer = document.getElementById('existingQuizQuestionsContainer');
         if (existingQuizQuestionsContainer) existingQuizQuestionsContainer.addEventListener('click', handleExistingQuizContainerClick);
 
@@ -2698,6 +3687,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+
+        // Bulk Creation & Spreadsheet Import Handlers
+        setupStagedQuizBulkAndFileHandlers();
+        setupStagedFcBulkAndFileHandlers();
+        setupExistingQuizBulkAndFileHandlers();
+        setupExistingFcBulkAndFileHandlers();
 
         // Return to subjectModal when any submodal closes
         if (existingFileEditorModalEl) {
