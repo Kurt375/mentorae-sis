@@ -74,7 +74,7 @@
 
 /* Scrollable Container with Slim Scrollbars */
 .table-scroll-container {
-    max-height: 520px;
+    max-height: 440px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 #f8fafc;
