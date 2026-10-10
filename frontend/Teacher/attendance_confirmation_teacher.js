@@ -605,8 +605,350 @@ document.addEventListener('DOMContentLoaded', () => {
         historyStatusFilter.addEventListener('change', applyHistoryFiltersAndRender);
     }
 
+    // ==========================================
+    // EXCUSE LETTERS VERIFICATION & REVIEW LOGIC
+    // ==========================================
+    const excuseNotesModalEl = document.getElementById('excuseNotesModal');
+    const excuseNotesModal = excuseNotesModalEl ? new bootstrap.Modal(excuseNotesModalEl) : null;
+    const declineExcuseModalEl = document.getElementById('declineExcuseModal');
+    const declineExcuseModal = declineExcuseModalEl ? new bootstrap.Modal(declineExcuseModalEl) : null;
+
+    const btnOpenExcuseNotes = document.getElementById('btnOpenExcuseNotesModal');
+    const excuseNotesPendingBadge = document.getElementById('excuseNotesPendingBadge');
+    const tabPendingBadge = document.getElementById('tabPendingBadge');
+    const tabApprovedBadge = document.getElementById('tabApprovedBadge');
+    const tabRejectedBadge = document.getElementById('tabRejectedBadge');
+    const tabAllBadge = document.getElementById('tabAllBadge');
+    const excuseNotesContainer = document.getElementById('excuseNotesContainer');
+    const excuseModalSearch = document.getElementById('excuseModalSearch');
+    const btnRefreshExcuseNotes = document.getElementById('btnRefreshExcuseNotes');
+    const btnConfirmDeclineExcuse = document.getElementById('btnConfirmDeclineExcuse');
+    const declineRemarksInput = document.getElementById('declineRemarksInput');
+    const declineNoteIdInput = document.getElementById('declineNoteId');
+
+    let allExcuseNotes = [];
+    let currentExcuseStatusTab = 'pending';
+
+    async function loadTeacherExcuseNotes() {
+        try {
+            const res = await authedFetch('/api/attendance/excuse-notes', token);
+            if (res && res.success && Array.isArray(res.notes)) {
+                allExcuseNotes = res.notes;
+
+                const summary = res.summary || {
+                    total: res.notes.length,
+                    pending: res.notes.filter(n => n.status === 'pending').length,
+                    approved: res.notes.filter(n => n.status === 'approved').length,
+                    rejected: res.notes.filter(n => n.status === 'rejected').length,
+                };
+
+                // Update toolbar badge
+                if (excuseNotesPendingBadge) {
+                    if (summary.pending > 0) {
+                        excuseNotesPendingBadge.textContent = summary.pending > 9 ? '9+' : summary.pending;
+                        excuseNotesPendingBadge.classList.remove('d-none');
+                    } else {
+                        excuseNotesPendingBadge.classList.add('d-none');
+                    }
+                }
+
+                // Update modal tab badges
+                if (tabPendingBadge) tabPendingBadge.textContent = summary.pending;
+                if (tabApprovedBadge) tabApprovedBadge.textContent = summary.approved;
+                if (tabRejectedBadge) tabRejectedBadge.textContent = summary.rejected;
+                if (tabAllBadge) tabAllBadge.textContent = summary.total;
+
+                renderExcuseNotesList();
+            } else {
+                if (excuseNotesContainer) {
+                    excuseNotesContainer.innerHTML = '<div class="text-center py-4 text-muted">No excuse letters found.</div>';
+                }
+            }
+        } catch (err) {
+            console.error('loadTeacherExcuseNotes error:', err);
+            if (excuseNotesContainer) {
+                excuseNotesContainer.innerHTML = '<div class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Could not load excuse letters.</div>';
+            }
+        }
+    }
+
+    function renderExcuseNotesList() {
+        if (!excuseNotesContainer) return;
+
+        const query = (excuseModalSearch ? excuseModalSearch.value : '').toLowerCase().trim();
+
+        const filtered = allExcuseNotes.filter(n => {
+            const matchesTab = currentExcuseStatusTab === 'all' || n.status === currentExcuseStatusTab;
+            const matchesQuery = !query ||
+                (n.student_name && n.student_name.toLowerCase().includes(query)) ||
+                (n.student_lrn && n.student_lrn.toLowerCase().includes(query)) ||
+                (n.parent_name && n.parent_name.toLowerCase().includes(query)) ||
+                (n.reason && n.reason.toLowerCase().includes(query)) ||
+                (n.section_name && n.section_name.toLowerCase().includes(query));
+            return matchesTab && matchesQuery;
+        });
+
+        if (!filtered.length) {
+            let emptyMsg = 'No excuse letters found.';
+            if (currentExcuseStatusTab === 'pending') emptyMsg = 'No pending excuse letters waiting for review.';
+            else if (currentExcuseStatusTab === 'approved') emptyMsg = 'No approved excuse letters yet.';
+            else if (currentExcuseStatusTab === 'rejected') emptyMsg = 'No declined excuse letters.';
+
+            excuseNotesContainer.innerHTML = `
+                <div class="text-center py-5 bg-white rounded-3 border">
+                    <i class="bi bi-inbox fs-1 text-muted opacity-50 d-block mb-2"></i>
+                    <h6 class="fw-bold text-dark m-0">${emptyMsg}</h6>
+                    <p class="text-muted small m-0 mt-1">Submitted parent excuse letters will appear here for verification.</p>
+                </div>
+            `;
+            return;
+        }
+
+        excuseNotesContainer.innerHTML = filtered.map(n => {
+            let statusBadge = '';
+            if (n.status === 'pending') {
+                statusBadge = '<span class="excuse-status-badge excuse-status-pending"><i class="bi bi-hourglass-split me-1"></i>Pending Review</span>';
+            } else if (n.status === 'approved') {
+                statusBadge = '<span class="excuse-status-badge excuse-status-approved"><i class="bi bi-patch-check-fill me-1"></i>Certified &amp; Approved</span>';
+            } else {
+                statusBadge = '<span class="excuse-status-badge excuse-status-rejected"><i class="bi bi-x-circle-fill me-1"></i>Declined</span>';
+            }
+
+            // Reason Pill formatting
+            let reasonIcon = 'bi-file-earmark-medical';
+            const reasonLower = (n.reason || '').toLowerCase();
+            if (reasonLower.includes('emergency') || reasonLower.includes('family')) reasonIcon = 'bi-shield-exclamation';
+            else if (reasonLower.includes('activity') || reasonLower.includes('school')) reasonIcon = 'bi-trophy';
+            else if (reasonLower.includes('weather') || reasonLower.includes('flood') || reasonLower.includes('transport')) reasonIcon = 'bi-cloud-rain';
+            else if (reasonLower.includes('bereavement')) reasonIcon = 'bi-heartbreak';
+
+            const reasonPill = `<span class="excuse-reason-pill"><i class="bi ${reasonIcon}"></i>${n.reason || 'Absence Excuse'}</span>`;
+
+            // Formatted absence date
+            let absDateStr = n.absence_date || '—';
+            try {
+                const [y, m, d] = n.absence_date.split('-').map(Number);
+                const dObj = new Date(y, m - 1, d);
+                absDateStr = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (_) {}
+
+            // Filed on date
+            const filedStr = n.created_at ? new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+            // Review Info block
+            let reviewInfoHtml = '';
+            if (n.status === 'approved') {
+                const reviewedDate = n.reviewed_at ? new Date(n.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                reviewInfoHtml = `
+                    <div class="excuse-review-info mt-2.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <i class="bi bi-check-circle-fill me-1"></i> <strong>Certified &amp; Excused</strong> by ${n.reviewer_name || 'Class Adviser'} ${reviewedDate ? `on ${reviewedDate}` : ''}
+                            ${n.review_remarks ? `<div class="mt-1 small text-dark opacity-85"><em>"${n.review_remarks}"</em></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (n.status === 'rejected') {
+                const reviewedDate = n.reviewed_at ? new Date(n.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                reviewInfoHtml = `
+                    <div class="excuse-review-info declined mt-2.5">
+                        <div>
+                            <i class="bi bi-x-circle-fill me-1"></i> <strong>Declined</strong> by ${n.reviewer_name || 'Class Adviser'} ${reviewedDate ? `on ${reviewedDate}` : ''}
+                        </div>
+                        ${n.review_remarks ? `<div class="mt-1 small fw-medium">Reason: "${n.review_remarks}"</div>` : ''}
+                    </div>
+                `;
+            }
+
+            // Action buttons (for pending items)
+            let actionsHtml = '';
+            if (n.status === 'pending') {
+                actionsHtml = `
+                    <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top justify-content-end flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-danger px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 btn-decline-excuse" data-id="${n.id}" data-student="${n.student_name}">
+                            <i class="bi bi-x-circle"></i> Decline
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success px-4 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm btn-certify-excuse" data-id="${n.id}" data-student="${n.student_name}">
+                            <i class="bi bi-check2-circle fs-6"></i> Certify &amp; Approve
+                        </button>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="excuse-note-card p-3.5 p-md-4 shadow-sm bg-white" id="excuseCard_${n.id}">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-2 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-dark text-white px-2.5 py-1 rounded-2">
+                                <i class="bi bi-calendar-event me-1 text-warning"></i> Date of Absence: <strong>${absDateStr}</strong>
+                            </span>
+                            ${reasonPill}
+                            ${n.section_name ? `<span class="badge bg-light text-secondary border px-2 py-1"><i class="bi bi-people me-1"></i>${n.section_name}</span>` : ''}
+                        </div>
+                        <div>
+                            ${statusBadge}
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="d-flex align-items-start gap-2.5">
+                                <div class="bg-light text-success rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-person-fill fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark fs-6">${n.student_name}</div>
+                                    <div class="small text-muted">LRN: <span class="font-monospace">${n.student_lrn || '—'}</span> &bull; Grade ${n.grade_level || n.section_grade || '11/12'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="d-flex align-items-start gap-2.5">
+                                <div class="bg-light text-primary rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-person-heart fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark fs-6">${n.parent_name || 'Parent / Guardian'}</div>
+                                    <div class="small text-muted">
+                                        ${n.parent_contact ? `<i class="bi bi-telephone me-1"></i>${n.parent_contact}` : ''}
+                                        ${n.parent_email ? ` &bull; <i class="bi bi-envelope me-1"></i>${n.parent_email}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parent Explanation / Remarks -->
+                    <div class="mt-3">
+                        <label class="form-label small text-muted fw-semibold mb-1"><i class="bi bi-chat-quote-fill me-1 text-secondary"></i>Parent Explanation &amp; Remarks:</label>
+                        <div class="excuse-remarks-box">
+                            ${n.remarks ? n.remarks : '<span class="text-muted fst-italic">No additional remarks provided.</span>'}
+                        </div>
+                        <div class="text-end text-muted mt-1" style="font-size: 0.72rem;">
+                            Submitted on: ${filedStr}
+                        </div>
+                    </div>
+
+                    ${reviewInfoHtml}
+                    ${actionsHtml}
+                </div>
+            `;
+        }).join('');
+
+        // Wire Action Buttons
+        excuseNotesContainer.querySelectorAll('.btn-certify-excuse').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = btn.getAttribute('data-id');
+                const student = btn.getAttribute('data-student');
+                if (!id) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Certifying...';
+
+                try {
+                    const res = await authedFetch(`/api/attendance/excuse-notes/${id}`, token, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ status: 'approved' })
+                    });
+
+                    if (res && res.success) {
+                        // Success feedback
+                        await loadTeacherExcuseNotes();
+                        // Refresh attendance roster & daily history
+                        refresh();
+                        if (typeof loadDailyHistory === 'function') loadDailyHistory();
+                    } else {
+                        alert(res.message || 'Could not certify excuse letter.');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-check2-circle fs-6"></i> Certify &amp; Approve';
+                    }
+                } catch (err) {
+                    console.error('Certify excuse error:', err);
+                    alert('An error occurred while certifying the excuse note.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check2-circle fs-6"></i> Certify &amp; Approve';
+                }
+            });
+        });
+
+        excuseNotesContainer.querySelectorAll('.btn-decline-excuse').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                if (!id) return;
+                if (declineNoteIdInput) declineNoteIdInput.value = id;
+                if (declineRemarksInput) declineRemarksInput.value = '';
+                if (declineExcuseModal) declineExcuseModal.show();
+            });
+        });
+    }
+
+    // Modal tabs event wiring
+    const excuseTabFilters = document.getElementById('excuseTabFilters');
+    if (excuseTabFilters) {
+        excuseTabFilters.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                excuseTabFilters.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentExcuseStatusTab = btn.getAttribute('data-status') || 'all';
+                renderExcuseNotesList();
+            });
+        });
+    }
+
+    if (excuseModalSearch) {
+        excuseModalSearch.addEventListener('input', renderExcuseNotesList);
+    }
+
+    if (btnRefreshExcuseNotes) {
+        btnRefreshExcuseNotes.addEventListener('click', loadTeacherExcuseNotes);
+    }
+
+    if (btnOpenExcuseNotes) {
+        btnOpenExcuseNotes.addEventListener('click', () => {
+            if (excuseNotesModal) excuseNotesModal.show();
+            loadTeacherExcuseNotes();
+        });
+    }
+
+    if (btnConfirmDeclineExcuse) {
+        btnConfirmDeclineExcuse.addEventListener('click', async () => {
+            const id = declineNoteIdInput ? declineNoteIdInput.value : '';
+            const remarks = declineRemarksInput ? declineRemarksInput.value.trim() : '';
+            if (!id) return;
+
+            btnConfirmDeclineExcuse.disabled = true;
+            btnConfirmDeclineExcuse.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Declining...';
+
+            try {
+                const res = await authedFetch(`/api/attendance/excuse-notes/${id}`, token, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        status: 'rejected',
+                        reviewRemarks: remarks
+                    })
+                });
+
+                if (res && res.success) {
+                    if (declineExcuseModal) declineExcuseModal.hide();
+                    await loadTeacherExcuseNotes();
+                } else {
+                    alert(res.message || 'Could not decline excuse note.');
+                }
+            } catch (err) {
+                console.error('Decline excuse error:', err);
+                alert('An error occurred while declining the excuse note.');
+            } finally {
+                btnConfirmDeclineExcuse.disabled = false;
+                btnConfirmDeclineExcuse.innerHTML = '<i class="bi bi-x-circle me-1"></i> Confirm Decline';
+            }
+        });
+    }
+
     wireLogout('logoutBtn', '../login.html', token);
 
     loadSections();
+    loadTeacherExcuseNotes();
     setInterval(refresh, 60000); // re-check the session lock every minute
+    setInterval(loadTeacherExcuseNotes, 60000); // auto-refresh excuse notes every minute
 });
+

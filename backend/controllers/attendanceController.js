@@ -790,7 +790,7 @@ async function submitExcuseNote(req, res) {
   }
 }
 
-/** GET /api/attendance/excuse-notes?studentId=&status= */
+/** GET /api/attendance/excuse-notes?studentId=&status=&sectionId= */
 async function listExcuseNotes(req, res) {
   try {
     let where = [];
@@ -807,38 +807,66 @@ async function listExcuseNotes(req, res) {
       );
       const secIds = secRows.map((s) => s.id);
       if (!secIds.length) {
-        return res.json({ success: true, notes: [] });
+        return res.json({ success: true, notes: [], summary: { total: 0, pending: 0, approved: 0, rejected: 0 } });
       }
-      where.push(`en.section_id IN (${secIds.map(() => '?').join(',')})`);
-      params.push(...secIds);
+      where.push(`(en.section_id IN (${secIds.map(() => '?').join(',')}) OR st.section_id IN (${secIds.map(() => '?').join(',')}))`);
+      params.push(...secIds, ...secIds);
     }
 
     if (req.query.studentId) {
       where.push('en.student_id = ?');
       params.push(req.query.studentId);
     }
-    if (req.query.status) {
+    if (req.query.sectionId) {
+      where.push('(en.section_id = ? OR st.section_id = ?)');
+      params.push(req.query.sectionId, req.query.sectionId);
+    }
+    if (req.query.status && req.query.status !== 'all') {
       where.push('en.status = ?');
       params.push(req.query.status);
     }
 
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const [rows] = await pool.query(
-      `SELECT en.id, en.student_id, en.parent_id, en.section_id, DATE_FORMAT(en.absence_date, '%Y-%m-%d') AS absence_date,
+      `SELECT en.id, en.student_id, en.parent_id, 
+              COALESCE(en.section_id, st.section_id) AS section_id,
+              DATE_FORMAT(en.absence_date, '%Y-%m-%d') AS absence_date,
               en.reason, en.remarks, en.status, en.created_at, en.reviewed_at,
-              CONCAT(st.first_name, ' ', st.last_name) AS student_name, st.id_number AS student_lrn,
+              COALESCE(en.review_remarks, '') AS review_remarks,
+              CONCAT(st.first_name, ' ', st.last_name) AS student_name, 
+              st.id_number AS student_lrn,
+              st.grade_level,
               CONCAT(p.first_name, ' ', p.last_name) AS parent_name,
-              sec.name AS section_name
+              p.contact_number AS parent_contact,
+              p.email AS parent_email,
+              sec.name AS section_name,
+              sec.grade_level AS section_grade,
+              CONCAT(rev.first_name, ' ', rev.last_name) AS reviewer_name,
+              sec.adviser_id
        FROM excuse_notes en
        JOIN users st ON st.id = en.student_id
        JOIN users p ON p.id = en.parent_id
-       LEFT JOIN sections sec ON sec.id = en.section_id
+       LEFT JOIN sections sec ON sec.id = COALESCE(en.section_id, st.section_id)
+       LEFT JOIN users rev ON rev.id = en.reviewed_by
        ${whereClause}
-       ORDER BY en.created_at DESC`,
+       ORDER BY CASE WHEN en.status = 'pending' THEN 0 ELSE 1 END, en.created_at DESC`,
       params
     );
 
-    return res.json({ success: true, notes: rows });
+    const pendingCount = rows.filter((r) => r.status === 'pending').length;
+    const approvedCount = rows.filter((r) => r.status === 'approved').length;
+    const rejectedCount = rows.filter((r) => r.status === 'rejected').length;
+
+    return res.json({
+      success: true,
+      notes: rows,
+      summary: {
+        total: rows.length,
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
+      },
+    });
   } catch (err) {
     console.error('listExcuseNotes error:', err);
     return res.status(500).json({ success: false, message: 'Could not load excuse notes.' });
@@ -860,8 +888,10 @@ async function reviewExcuseNote(req, res) {
     if (!note) return res.status(404).json({ success: false, message: 'Excuse note not found.' });
 
     await pool.query(
-      `UPDATE excuse_notes SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
-      [status, req.user.id, id]
+      `UPDATE excuse_notes 
+       SET status = ?, reviewed_by = ?, reviewed_at = NOW(), review_remarks = ?
+       WHERE id = ?`,
+      [status, req.user.id, reviewRemarks || null, id]
     );
 
     const absenceDateStr = getManilaDate(new Date(note.absence_date));
@@ -876,16 +906,24 @@ async function reviewExcuseNote(req, res) {
       );
     }
 
+    // Get reviewer name
+    const [revUser] = await pool.query('SELECT first_name, last_name FROM users WHERE id = ?', [req.user.id]);
+    const reviewerName = revUser[0] ? `${revUser[0].first_name} ${revUser[0].last_name}` : 'The class adviser';
+
     // Notify parent
+    const remarksNote = reviewRemarks ? ` Remarks: "${reviewRemarks}"` : '';
     await notify({
       recipientId: note.parent_id,
       type: status === 'approved' ? 'attendance_excused' : 'attendance_update',
-      title: `Excuse Note ${status === 'approved' ? 'Approved' : 'Declined'}`,
-      message: `Your excuse note for ${absenceDateStr} has been ${status} by the school.`,
+      title: `Excuse Note ${status === 'approved' ? 'Approved & Certified' : 'Declined'}`,
+      message: `Your excuse note for ${absenceDateStr} has been ${status === 'approved' ? 'approved & certified' : 'declined'} by ${reviewerName}.${remarksNote}`,
       relatedStudentId: note.student_id,
     });
 
-    return res.json({ success: true, message: `Excuse note has been ${status}.` });
+    return res.json({ 
+      success: true, 
+      message: `Excuse note has been ${status === 'approved' ? 'approved & certified' : 'declined'}.` 
+    });
   } catch (err) {
     console.error('reviewExcuseNote error:', err);
     return res.status(500).json({ success: false, message: 'Could not review excuse note.' });
@@ -894,7 +932,7 @@ async function reviewExcuseNote(req, res) {
 
 /**
  * GET /api/attendance/teacher-pending-summary
- * Returns counts of unconfirmed attendance items for the logged-in teacher for today.
+ * Returns counts of unconfirmed attendance items and pending excuse notes for the logged-in teacher.
  */
 async function getTeacherPendingSummary(req, res) {
   try {
@@ -923,6 +961,7 @@ async function getTeacherPendingSummary(req, res) {
         pendingCount: 0,
         pendingInsCount: 0,
         pendingOutsCount: 0,
+        pendingExcuseCount: 0,
         latestActivityTimestamp: 0,
         serverTime: Date.now(),
         scanDate: today,
@@ -940,7 +979,6 @@ async function getTeacherPendingSummary(req, res) {
       [today, sectionIds]
     );
 
-    let pendingCount = 0;
     let pendingInsCount = 0;
     let pendingOutsCount = 0;
     let latestActivityTimestamp = 0;
@@ -953,7 +991,6 @@ async function getTeacherPendingSummary(req, res) {
       if (needsOut) pendingOutsCount++;
 
       if (needsIn || needsOut) {
-        pendingCount++;
         const actTime = Number(r.activity_time) || 0;
         if (actTime > latestActivityTimestamp) {
           latestActivityTimestamp = actTime;
@@ -961,11 +998,31 @@ async function getTeacherPendingSummary(req, res) {
       }
     }
 
+    // 3. Query pending excuse notes for students in these sections
+    const [pendingExcuseRows] = await pool.query(
+      `SELECT en.id, UNIX_TIMESTAMP(en.created_at) * 1000 AS created_time
+       FROM excuse_notes en
+       JOIN users st ON st.id = en.student_id
+       WHERE en.status = 'pending' AND (en.section_id IN (?) OR st.section_id IN (?))`,
+      [sectionIds, sectionIds]
+    );
+
+    const pendingExcuseCount = pendingExcuseRows.length;
+    for (const er of pendingExcuseRows) {
+      const cTime = Number(er.created_time) || 0;
+      if (cTime > latestActivityTimestamp) {
+        latestActivityTimestamp = cTime;
+      }
+    }
+
+    const pendingCount = pendingInsCount + pendingOutsCount + pendingExcuseCount;
+
     return res.json({
       success: true,
       pendingCount,
       pendingInsCount,
       pendingOutsCount,
+      pendingExcuseCount,
       latestActivityTimestamp,
       serverTime: Date.now(),
       scanDate: today,

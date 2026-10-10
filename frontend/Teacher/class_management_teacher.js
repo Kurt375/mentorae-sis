@@ -3046,11 +3046,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             advBanner.classList.remove('d-none');
             const txt = document.getElementById('advisoryBannerText');
             if (txt) {
-                txt.textContent = `You are the Class Adviser for Grade ${activeSec.grade_level} - ${activeSec.strandCode || ''} (${activeSec.name}). You can generate and bulk print their official DepEd SF9 report cards.`;
+                txt.textContent = `You are the Class Adviser for Grade ${activeSec.grade_level} - ${activeSec.strandCode || ''} (${activeSec.name}). You can verify student excuse letters and generate DepEd SF9 report cards.`;
             }
             const secName = document.getElementById('advisoryBannerSectionName');
             if (secName) {
                 secName.textContent = `Grade ${activeSec.grade_level} - ${activeSec.strandCode || ''} (${activeSec.name})`;
+            }
+            if (typeof loadAdvisoryExcuseNotes === 'function') {
+                loadAdvisoryExcuseNotes();
             }
         } else {
             advBanner.classList.add('d-none');
@@ -3467,6 +3470,344 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // =========================================================================
+    // 12.5 Advisory Excuse Letters Review & Verification
+    // =========================================================================
+    const advisoryExcuseModalEl = document.getElementById('advisoryExcuseModal');
+    const advisoryExcuseModal = advisoryExcuseModalEl ? new bootstrap.Modal(advisoryExcuseModalEl) : null;
+    const advisoryDeclineExcuseModalEl = document.getElementById('advisoryDeclineExcuseModal');
+    const advisoryDeclineExcuseModal = advisoryDeclineExcuseModalEl ? new bootstrap.Modal(advisoryDeclineExcuseModalEl) : null;
+
+    const btnAdvisoryExcuseNotes = document.getElementById('btnAdvisoryExcuseNotes');
+    const advisoryExcusePendingBadge = document.getElementById('advisoryExcusePendingBadge');
+    const advTabPendingBadge = document.getElementById('advTabPendingBadge');
+    const advTabApprovedBadge = document.getElementById('advTabApprovedBadge');
+    const advTabRejectedBadge = document.getElementById('advTabRejectedBadge');
+    const advTabAllBadge = document.getElementById('advTabAllBadge');
+    const advisoryExcuseNotesContainer = document.getElementById('advisoryExcuseNotesContainer');
+    const advExcuseModalSearch = document.getElementById('advExcuseModalSearch');
+    const btnRefreshAdvExcuseNotes = document.getElementById('btnRefreshAdvExcuseNotes');
+    const btnAdvConfirmDeclineExcuse = document.getElementById('btnAdvConfirmDeclineExcuse');
+    const advDeclineRemarksInput = document.getElementById('advDeclineRemarksInput');
+    const advDeclineNoteIdInput = document.getElementById('advDeclineNoteId');
+
+    let advisoryExcuseNotes = [];
+    let currentAdvExcuseStatusTab = 'pending';
+
+    async function loadAdvisoryExcuseNotes() {
+        try {
+            const activeSec = mySections.find(s => String(s.id) === String(currentSectionId));
+            const secParam = (activeSec && activeSec.id) ? `?sectionId=${activeSec.id}` : '';
+            const res = await authedFetch(`/api/attendance/excuse-notes${secParam}`, token);
+
+            if (res && res.success && Array.isArray(res.notes)) {
+                advisoryExcuseNotes = res.notes;
+
+                const summary = res.summary || {
+                    total: res.notes.length,
+                    pending: res.notes.filter(n => n.status === 'pending').length,
+                    approved: res.notes.filter(n => n.status === 'approved').length,
+                    rejected: res.notes.filter(n => n.status === 'rejected').length,
+                };
+
+                // Update advisory banner button badge
+                if (advisoryExcusePendingBadge) {
+                    if (summary.pending > 0) {
+                        advisoryExcusePendingBadge.textContent = summary.pending > 9 ? '9+' : summary.pending;
+                        advisoryExcusePendingBadge.classList.remove('d-none');
+                    } else {
+                        advisoryExcusePendingBadge.classList.add('d-none');
+                    }
+                }
+
+                // Update modal tab badges
+                if (advTabPendingBadge) advTabPendingBadge.textContent = summary.pending;
+                if (advTabApprovedBadge) advTabApprovedBadge.textContent = summary.approved;
+                if (advTabRejectedBadge) advTabRejectedBadge.textContent = summary.rejected;
+                if (advTabAllBadge) advTabAllBadge.textContent = summary.total;
+
+                renderAdvisoryExcuseNotesList();
+            } else {
+                if (advisoryExcuseNotesContainer) {
+                    advisoryExcuseNotesContainer.innerHTML = '<div class="text-center py-4 text-muted">No excuse letters found.</div>';
+                }
+            }
+        } catch (err) {
+            console.error('loadAdvisoryExcuseNotes error:', err);
+            if (advisoryExcuseNotesContainer) {
+                advisoryExcuseNotesContainer.innerHTML = '<div class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Could not load excuse letters.</div>';
+            }
+        }
+    }
+
+    function renderAdvisoryExcuseNotesList() {
+        if (!advisoryExcuseNotesContainer) return;
+
+        const query = (advExcuseModalSearch ? advExcuseModalSearch.value : '').toLowerCase().trim();
+
+        const filtered = advisoryExcuseNotes.filter(n => {
+            const matchesTab = currentAdvExcuseStatusTab === 'all' || n.status === currentAdvExcuseStatusTab;
+            const matchesQuery = !query ||
+                (n.student_name && n.student_name.toLowerCase().includes(query)) ||
+                (n.student_lrn && n.student_lrn.toLowerCase().includes(query)) ||
+                (n.parent_name && n.parent_name.toLowerCase().includes(query)) ||
+                (n.reason && n.reason.toLowerCase().includes(query)) ||
+                (n.section_name && n.section_name.toLowerCase().includes(query));
+            return matchesTab && matchesQuery;
+        });
+
+        if (!filtered.length) {
+            let emptyMsg = 'No excuse letters found.';
+            if (currentAdvExcuseStatusTab === 'pending') emptyMsg = 'No pending excuse letters waiting for review.';
+            else if (currentAdvExcuseStatusTab === 'approved') emptyMsg = 'No approved excuse letters yet.';
+            else if (currentAdvExcuseStatusTab === 'rejected') emptyMsg = 'No declined excuse letters.';
+
+            advisoryExcuseNotesContainer.innerHTML = `
+                <div class="text-center py-5 bg-white rounded-3 border">
+                    <i class="bi bi-inbox fs-1 text-muted opacity-50 d-block mb-2"></i>
+                    <h6 class="fw-bold text-dark m-0">${emptyMsg}</h6>
+                    <p class="text-muted small m-0 mt-1">Submitted parent excuse letters for your advisory students will appear here.</p>
+                </div>
+            `;
+            return;
+        }
+
+        advisoryExcuseNotesContainer.innerHTML = filtered.map(n => {
+            let statusBadge = '';
+            if (n.status === 'pending') {
+                statusBadge = '<span class="excuse-status-badge excuse-status-pending"><i class="bi bi-hourglass-split me-1"></i>Pending Review</span>';
+            } else if (n.status === 'approved') {
+                statusBadge = '<span class="excuse-status-badge excuse-status-approved"><i class="bi bi-patch-check-fill me-1"></i>Certified &amp; Approved</span>';
+            } else {
+                statusBadge = '<span class="excuse-status-badge excuse-status-rejected"><i class="bi bi-x-circle-fill me-1"></i>Declined</span>';
+            }
+
+            // Reason Pill formatting
+            let reasonIcon = 'bi-file-earmark-medical';
+            const reasonLower = (n.reason || '').toLowerCase();
+            if (reasonLower.includes('emergency') || reasonLower.includes('family')) reasonIcon = 'bi-shield-exclamation';
+            else if (reasonLower.includes('activity') || reasonLower.includes('school')) reasonIcon = 'bi-trophy';
+            else if (reasonLower.includes('weather') || reasonLower.includes('flood') || reasonLower.includes('transport')) reasonIcon = 'bi-cloud-rain';
+            else if (reasonLower.includes('bereavement')) reasonIcon = 'bi-heartbreak';
+
+            const reasonPill = `<span class="excuse-reason-pill"><i class="bi ${reasonIcon}"></i>${n.reason || 'Absence Excuse'}</span>`;
+
+            // Formatted absence date
+            let absDateStr = n.absence_date || '—';
+            try {
+                const [y, m, d] = n.absence_date.split('-').map(Number);
+                const dObj = new Date(y, m - 1, d);
+                absDateStr = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (_) {}
+
+            // Filed on date
+            const filedStr = n.created_at ? new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+            // Review Info block
+            let reviewInfoHtml = '';
+            if (n.status === 'approved') {
+                const reviewedDate = n.reviewed_at ? new Date(n.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                reviewInfoHtml = `
+                    <div class="excuse-review-info mt-2.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <i class="bi bi-check-circle-fill me-1"></i> <strong>Certified &amp; Excused</strong> by ${n.reviewer_name || 'Class Adviser'} ${reviewedDate ? `on ${reviewedDate}` : ''}
+                            ${n.review_remarks ? `<div class="mt-1 small text-dark opacity-85"><em>"${n.review_remarks}"</em></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (n.status === 'rejected') {
+                const reviewedDate = n.reviewed_at ? new Date(n.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                reviewInfoHtml = `
+                    <div class="excuse-review-info declined mt-2.5">
+                        <div>
+                            <i class="bi bi-x-circle-fill me-1"></i> <strong>Declined</strong> by ${n.reviewer_name || 'Class Adviser'} ${reviewedDate ? `on ${reviewedDate}` : ''}
+                        </div>
+                        ${n.review_remarks ? `<div class="mt-1 small fw-medium">Reason: "${n.review_remarks}"</div>` : ''}
+                    </div>
+                `;
+            }
+
+            // Action buttons (for pending items)
+            let actionsHtml = '';
+            if (n.status === 'pending') {
+                actionsHtml = `
+                    <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top justify-content-end flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-danger px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 btn-adv-decline-excuse" data-id="${n.id}" data-student="${n.student_name}">
+                            <i class="bi bi-x-circle"></i> Decline
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success px-4 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm btn-adv-certify-excuse" data-id="${n.id}" data-student="${n.student_name}">
+                            <i class="bi bi-check2-circle fs-6"></i> Certify &amp; Approve
+                        </button>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="excuse-note-card p-3.5 p-md-4 shadow-sm bg-white" id="advExcuseCard_${n.id}">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-2 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-dark text-white px-2.5 py-1 rounded-2">
+                                <i class="bi bi-calendar-event me-1 text-warning"></i> Date of Absence: <strong>${absDateStr}</strong>
+                            </span>
+                            ${reasonPill}
+                            ${n.section_name ? `<span class="badge bg-light text-secondary border px-2 py-1"><i class="bi bi-people me-1"></i>${n.section_name}</span>` : ''}
+                        </div>
+                        <div>
+                            ${statusBadge}
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="d-flex align-items-start gap-2.5">
+                                <div class="bg-light text-success rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-person-fill fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark fs-6">${n.student_name}</div>
+                                    <div class="small text-muted">LRN: <span class="font-monospace">${n.student_lrn || '—'}</span> &bull; Grade ${n.grade_level || n.section_grade || '11/12'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="d-flex align-items-start gap-2.5">
+                                <div class="bg-light text-primary rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-person-heart fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark fs-6">${n.parent_name || 'Parent / Guardian'}</div>
+                                    <div class="small text-muted">
+                                        ${n.parent_contact ? `<i class="bi bi-telephone me-1"></i>${n.parent_contact}` : ''}
+                                        ${n.parent_email ? ` &bull; <i class="bi bi-envelope me-1"></i>${n.parent_email}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parent Explanation / Remarks -->
+                    <div class="mt-3">
+                        <label class="form-label small text-muted fw-semibold mb-1"><i class="bi bi-chat-quote-fill me-1 text-secondary"></i>Parent Explanation &amp; Remarks:</label>
+                        <div class="excuse-remarks-box">
+                            ${n.remarks ? n.remarks : '<span class="text-muted fst-italic">No additional remarks provided.</span>'}
+                        </div>
+                        <div class="text-end text-muted mt-1" style="font-size: 0.72rem;">
+                            Submitted on: ${filedStr}
+                        </div>
+                    </div>
+
+                    ${reviewInfoHtml}
+                    ${actionsHtml}
+                </div>
+            `;
+        }).join('');
+
+        // Wire Certify & Decline Buttons
+        advisoryExcuseNotesContainer.querySelectorAll('.btn-adv-certify-excuse').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                if (!id) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Certifying...';
+
+                try {
+                    const res = await authedFetch(`/api/attendance/excuse-notes/${id}`, token, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ status: 'approved' })
+                    });
+
+                    if (res && res.success) {
+                        await loadAdvisoryExcuseNotes();
+                        if (typeof loadRoster === 'function') loadRoster();
+                    } else {
+                        alert(res.message || 'Could not certify excuse letter.');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-check2-circle fs-6"></i> Certify &amp; Approve';
+                    }
+                } catch (err) {
+                    console.error('Certify excuse error:', err);
+                    alert('An error occurred while certifying the excuse note.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check2-circle fs-6"></i> Certify &amp; Approve';
+                }
+            });
+        });
+
+        advisoryExcuseNotesContainer.querySelectorAll('.btn-adv-decline-excuse').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                if (!id) return;
+                if (advDeclineNoteIdInput) advDeclineNoteIdInput.value = id;
+                if (advDeclineRemarksInput) advDeclineRemarksInput.value = '';
+                if (advisoryDeclineExcuseModal) advisoryDeclineExcuseModal.show();
+            });
+        });
+    }
+
+    // Modal tabs event wiring
+    const advExcuseTabFilters = document.getElementById('advisoryExcuseTabFilters');
+    if (advExcuseTabFilters) {
+        advExcuseTabFilters.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                advExcuseTabFilters.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentAdvExcuseStatusTab = btn.getAttribute('data-status') || 'all';
+                renderAdvisoryExcuseNotesList();
+            });
+        });
+    }
+
+    if (advExcuseModalSearch) {
+        advExcuseModalSearch.addEventListener('input', renderAdvisoryExcuseNotesList);
+    }
+
+    if (btnRefreshAdvExcuseNotes) {
+        btnRefreshAdvExcuseNotes.addEventListener('click', loadAdvisoryExcuseNotes);
+    }
+
+    if (btnAdvisoryExcuseNotes) {
+        btnAdvisoryExcuseNotes.addEventListener('click', () => {
+            if (advisoryExcuseModal) advisoryExcuseModal.show();
+            loadAdvisoryExcuseNotes();
+        });
+    }
+
+    if (btnAdvConfirmDeclineExcuse) {
+        btnAdvConfirmDeclineExcuse.addEventListener('click', async () => {
+            const id = advDeclineNoteIdInput ? advDeclineNoteIdInput.value : '';
+            const remarks = advDeclineRemarksInput ? advDeclineRemarksInput.value.trim() : '';
+            if (!id) return;
+
+            btnAdvConfirmDeclineExcuse.disabled = true;
+            btnAdvConfirmDeclineExcuse.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Declining...';
+
+            try {
+                const res = await authedFetch(`/api/attendance/excuse-notes/${id}`, token, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        status: 'rejected',
+                        reviewRemarks: remarks
+                    })
+                });
+
+                if (res && res.success) {
+                    if (advisoryDeclineExcuseModal) advisoryDeclineExcuseModal.hide();
+                    await loadAdvisoryExcuseNotes();
+                } else {
+                    alert(res.message || 'Could not decline excuse note.');
+                }
+            } catch (err) {
+                console.error('Decline excuse error:', err);
+                alert('An error occurred while declining the excuse note.');
+            } finally {
+                btnAdvConfirmDeclineExcuse.disabled = false;
+                btnAdvConfirmDeclineExcuse.innerHTML = '<i class="bi bi-x-circle me-1"></i> Confirm Decline';
+            }
+        });
+    }
+
+    // =========================================================================
     // 13. Initial Bootstrapping
     // =========================================================================
     await Promise.all([
@@ -3474,3 +3815,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadBadgeCatalog()
     ]);
 });
+

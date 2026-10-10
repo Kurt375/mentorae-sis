@@ -124,10 +124,11 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('focus', loadAnnouncementsBadge);
     window.addEventListener('mentorae:announcements-seen', loadAnnouncementsBadge);
 
-    // 2. Attendance Confirmation Quick Access Card Badge
+    // 2. Attendance Confirmation Quick Access Card Badge & Advisory Excuse Badge
     async function loadAttendanceConfirmationBadge() {
         const badge = document.getElementById('attendanceCardBadge');
-        if (!badge) return;
+        const advExcuseBadge = document.getElementById('teacherAdvisoryExcuseBadge');
+
         try {
             const data = await authedFetch('/api/attendance/teacher-pending-summary', token);
             if (data && data.success && typeof data.pendingCount === 'number') {
@@ -137,17 +138,31 @@ document.addEventListener('DOMContentLoaded', function () {
                 const latestActivity = Number(data.latestActivityTimestamp || 0);
 
                 // Badge only displays if there are unconfirmed items AND they occurred after teacher last viewed/confirmed
-                if (data.pendingCount > 0 && latestActivity > lastSeen) {
-                    badge.textContent = data.pendingCount > 9 ? '9+' : String(data.pendingCount);
-                    badge.classList.remove('d-none');
-                } else {
-                    badge.classList.add('d-none');
+                if (badge) {
+                    if (data.pendingCount > 0 && latestActivity > lastSeen) {
+                        badge.textContent = data.pendingCount > 9 ? '9+' : String(data.pendingCount);
+                        badge.classList.remove('d-none');
+                    } else {
+                        badge.classList.add('d-none');
+                    }
+                }
+
+                // Advisory excuse badge
+                if (advExcuseBadge) {
+                    if (data.pendingExcuseCount > 0) {
+                        advExcuseBadge.textContent = `${data.pendingExcuseCount} Pending Excuse`;
+                        advExcuseBadge.classList.remove('d-none');
+                    } else {
+                        advExcuseBadge.classList.add('d-none');
+                    }
                 }
             } else {
-                badge.classList.add('d-none');
+                if (badge) badge.classList.add('d-none');
+                if (advExcuseBadge) advExcuseBadge.classList.add('d-none');
             }
         } catch (e) {
-            badge.classList.add('d-none');
+            if (badge) badge.classList.add('d-none');
+            if (advExcuseBadge) advExcuseBadge.classList.add('d-none');
         }
     }
 
