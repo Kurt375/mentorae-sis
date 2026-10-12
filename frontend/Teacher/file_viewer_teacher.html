@@ -446,28 +446,51 @@
 
                 // 2. PPTX
                 if (ext === 'pptx' || ext === 'ppt') {
-                    let pdfDataUrlToUse = targetFile ? (targetFile.pdfUrl || targetFile.pdfDataUrl) : null;
-                    if (!pdfDataUrlToUse && targetFile && targetFile.topicId !== undefined && targetFile.fileIndex !== undefined) {
-                        pdfDataUrlToUse = `/api/content/topics/${targetFile.topicId}/files/${targetFile.fileIndex}/download?asPdf=true&name=${encodeURIComponent(fileName)}`;
-                    } else if (!pdfDataUrlToUse && resolvedUrl && resolvedUrl.includes('/api/content/topics/')) {
-                        pdfDataUrlToUse = resolvedUrl.includes('?') ? `${resolvedUrl}&asPdf=true` : `${resolvedUrl}?asPdf=true`;
+                    let finalPdfUrl = null;
+
+                    // 1. Check in-memory cached PDF
+                    if (targetFile?.pdfDataUrl && typeof targetFile.pdfDataUrl === 'string' && targetFile.pdfDataUrl.startsWith('data:application/pdf')) {
+                        finalPdfUrl = targetFile.pdfDataUrl;
                     }
-                    if (!pdfDataUrlToUse && window.MentoraePptxToPdf && (arrayBuffer || dataUrl)) {
+
+                    // 2. Check server for pre-converted PDF
+                    if (!finalPdfUrl && targetFile?.topicId !== undefined && targetFile?.fileIndex !== undefined) {
+                        try {
+                            const token = localStorage.getItem('mentorae_token');
+                            const srvPdfUrl = `/api/content/topics/${targetFile.topicId}/files/${targetFile.fileIndex}/download?asPdf=true`;
+                            const srvRes = await fetch(srvPdfUrl, {
+                                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                            });
+                            if (srvRes.ok) {
+                                const srvBuf = await srvRes.arrayBuffer();
+                                if (srvBuf && srvBuf.byteLength >= 4) {
+                                    const header = String.fromCharCode(...new Uint8Array(srvBuf.slice(0, 4)));
+                                    if (header.startsWith('%PDF')) {
+                                        finalPdfUrl = URL.createObjectURL(new Blob([srvBuf], { type: 'application/pdf' }));
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                    }
+
+                    // 3. Client-side conversion
+                    if (!finalPdfUrl && window.MentoraePptxToPdf && (arrayBuffer || dataUrl)) {
                         try {
                             const buf = arrayBuffer || dataUrl;
-                            pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf);
-                            if (pdfDataUrlToUse && targetFile) {
-                                targetFile.pdfDataUrl = pdfDataUrlToUse;
+                            const convPdf = await window.MentoraePptxToPdf.convert(buf);
+                            if (convPdf && convPdf.startsWith('data:application/pdf')) {
+                                finalPdfUrl = convPdf;
+                                if (targetFile) targetFile.pdfDataUrl = convPdf;
                             }
                         } catch (e) {
                             console.warn('PPTX conversion fallback:', e);
                         }
                     }
 
-                    if (pdfDataUrlToUse) {
+                    if (finalPdfUrl) {
                         stageEl.innerHTML = `
-                            <object data="${pdfDataUrlToUse}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
-                                <iframe src="${pdfDataUrlToUse}" class="w-100 h-100 border-0" title="${fileName}" style="background: #525659;"></iframe>
+                            <object data="${finalPdfUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                                <iframe src="${finalPdfUrl}" class="w-100 h-100 border-0" title="${fileName}" style="background: #525659;"></iframe>
                             </object>
                         `;
                         return;

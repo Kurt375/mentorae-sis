@@ -481,6 +481,14 @@ async function downloadTopicFile(req, res) {
       }
     }
 
+    if (asPdf === 'true' && !file.pdfDataUrl) {
+      return res.status(404).json({
+        success: false,
+        asPdfAvailable: false,
+        message: 'PDF version is not yet pre-generated on server. Convert client-side.'
+      });
+    }
+
     let rawUrl = (asPdf === 'true' && file.pdfDataUrl) ? file.pdfDataUrl : (file.dataUrl || file.pdfDataUrl || file.url || file.filePath || file.file_path || '');
     let fileName = file.name || 'document';
     if (asPdf === 'true' && !fileName.toLowerCase().endsWith('.pdf')) {
@@ -1088,16 +1096,14 @@ async function cacheTopicFilePdf(req, res) {
     if (payload && Array.isArray(payload.files)) {
       let modified = false;
       payload.files.forEach(f => {
-        if (f.name === fileName) {
-          // Never overwrite native PowerPoint COM / high-fidelity PDF with client-side canvas PDF
-          const isIncomingCanvas = pdfDataUrl.includes('filename=generated.pdf') || pdfDataUrl.includes('jsPDF');
-          const isExistingNative = f.isNativePowerPointPdf || (f.pdfDataUrl && f.pdfDataUrl.startsWith('data:application/pdf;base64,JVBERi'));
-          if (isIncomingCanvas && isExistingNative) {
-            console.log(`[cacheTopicFilePdf] Protected native PowerPoint PDF from canvas overwrite for: ${fileName}`);
-            return;
-          }
+        const cleanTarget = (fileName || '').toLowerCase().trim();
+        const fClean = (f.name || '').toLowerCase().trim();
+        const baseTarget = cleanTarget.replace(/\.[^.]+$/, '');
+        const fBase = fClean.replace(/\.[^.]+$/, '');
+        if (fClean === cleanTarget || fBase === baseTarget || decodeURIComponent(fClean) === decodeURIComponent(cleanTarget)) {
           f.pdfDataUrl = pdfDataUrl;
           f.convertedToPdf = true;
+          f.hasPdf = true;
           modified = true;
         }
       });

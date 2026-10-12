@@ -389,7 +389,11 @@
         }
 
         onProgress({ stage: 'finalizing', message: 'Generating classroom PDF document...', percent: 100 });
-        const pdfDataUrl = pdf.output('datauristring');
+        let pdfDataUrl = pdf.output('datauristring');
+        if (pdfDataUrl && pdfDataUrl.includes('base64,')) {
+            const b64Part = pdfDataUrl.substring(pdfDataUrl.indexOf('base64,') + 7);
+            pdfDataUrl = `data:application/pdf;base64,${b64Part}`;
+        }
         return pdfDataUrl;
     }
 

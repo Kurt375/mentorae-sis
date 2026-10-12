@@ -445,127 +445,169 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. PPT / PPTX PRESENTATIONS (Google Classroom Style PDF Auto-View)
         // ==========================================
         if (ext === 'pptx' || ext === 'ppt') {
-            // Invalidate any legacy client canvas generated.pdf cached in browser storage
-            if (targetFile?.pdfDataUrl && targetFile.pdfDataUrl.includes('filename=generated.pdf')) {
-                targetFile.pdfDataUrl = null;
-            }
+            if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
 
-            let pdfDataUrlToUse = targetFile ? (targetFile.pdfUrl || targetFile.pdfDataUrl) : null;
-            if (!pdfDataUrlToUse && targetFile && targetFile.topicId !== undefined && targetFile.fileIndex !== undefined) {
-                pdfDataUrlToUse = `/api/content/topics/${targetFile.topicId}/files/${targetFile.fileIndex}/download?asPdf=true&name=${encodeURIComponent(fileName)}`;
-            } else if (!pdfDataUrlToUse && resolvedUrl && resolvedUrl.includes('/api/content/topics/')) {
-                pdfDataUrlToUse = resolvedUrl.includes('?') ? `${resolvedUrl}&asPdf=true` : `${resolvedUrl}?asPdf=true`;
-            }
+            stageEl.innerHTML = `
+                <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                    <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+                    <p class="fs-5 fw-bold mb-1">Converting Presentation to PDF...</p>
+                    <p class="text-white-50 small mb-3" id="pptxConvertStatus">Preparing classroom PDF document for viewing</p>
+                    <div class="progress w-50" style="height: 6px; background: rgba(255,255,255,0.15);">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="pptxConvertProgressBar" style="width: 25%;"></div>
+                    </div>
+                </div>
+            `;
 
-            // If this presentation has not been converted to PDF yet, auto-convert it on-the-fly!
-            if (!pdfDataUrlToUse && fileData && (fileData.arrayBuffer || fileData.blob)) {
+            const token = localStorage.getItem('mentorae_token');
+            const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+            const currentTopicObj = currentSubject?.topics?.find(t => t.title === topicTitle) || (currentSubject?.recommendations?.find(r => r.title === topicTitle));
+            const targetTopicId = targetFile?.topicId || currentTopicObj?.id;
+
+            let finalPdfBlobUrl = null;
+
+            // Step 1: Check if already converted and available in memory
+            if (targetFile?.pdfBlobUrl && typeof targetFile.pdfBlobUrl === 'string') {
+                finalPdfBlobUrl = targetFile.pdfBlobUrl;
+            } else if (targetFile?.pdfDataUrl && typeof targetFile.pdfDataUrl === 'string' && targetFile.pdfDataUrl.startsWith('data:application/pdf')) {
                 try {
-                    stageEl.innerHTML = `
-                        <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
-                            <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
-                            <p class="fs-5 fw-bold mb-1">Generating Classroom Presentation View...</p>
-                            <p class="text-white-50 small mb-3" id="pptxConvertStatus">Preparing high-fidelity slides for in-browser view</p>
-                            <div class="progress w-50" style="height: 6px; background: rgba(255,255,255,0.15);">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="pptxConvertProgressBar" style="width: 35%;"></div>
-                            </div>
-                        </div>
-                    `;
+                    const blob = dataURItoBlob(targetFile.pdfDataUrl, `${fileName}.pdf`);
+                    if (blob) {
+                        finalPdfBlobUrl = URL.createObjectURL(blob);
+                        targetFile.pdfBlobUrl = finalPdfBlobUrl;
+                    }
+                } catch (e) {}
+            }
 
-                    const token = localStorage.getItem('mentorae_token');
-                    const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+            // Step 2: Check if pre-converted PDF is available on the server
+            if (!finalPdfBlobUrl && targetTopicId !== undefined && targetFile?.fileIndex !== undefined) {
+                try {
+                    const srvPdfUrl = `${apiBase}/api/content/topics/${targetTopicId}/files/${targetFile.fileIndex}/download?asPdf=true`;
+                    const srvController = new AbortController();
+                    const srvTimeout = setTimeout(() => srvController.abort(), 4000);
+                    const srvRes = await fetch(srvPdfUrl, {
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                        signal: srvController.signal
+                    });
+                    clearTimeout(srvTimeout);
 
-                    // 1. Try server-side PowerPoint conversion for 100% pixel-perfect fidelity
-                    if (token && targetFile?.dataUrl) {
-                        try {
-                            const srvRes = await authedFetch('/api/content/convert-document', token, {
-                                method: 'POST',
-                                body: JSON.stringify({ fileName, dataUrl: targetFile.dataUrl })
-                            });
-                            if (srvRes && srvRes.success && srvRes.pdfDataUrl) {
-                                pdfDataUrlToUse = srvRes.pdfDataUrl;
+                    if (srvRes.ok) {
+                        const srvBuf = await srvRes.arrayBuffer();
+                        if (srvBuf && srvBuf.byteLength >= 4) {
+                            const header = String.fromCharCode(...new Uint8Array(srvBuf.slice(0, 4)));
+                            if (header.startsWith('%PDF')) {
+                                const blob = new Blob([srvBuf], { type: 'application/pdf' });
+                                finalPdfBlobUrl = URL.createObjectURL(blob);
+                                if (targetFile) targetFile.pdfBlobUrl = finalPdfBlobUrl;
                             }
-                        } catch (srvErr) {
-                            console.warn('Server PowerPoint conversion notice:', srvErr);
+                        }
+                    }
+                } catch (srvErr) {
+                    console.log('Server pre-converted PDF not immediately available, converting client-side:', srvErr);
+                }
+            }
+
+            // Step 3: Convert client-side via MentoraePptxToPdf if not yet converted
+            if (!finalPdfBlobUrl && window.MentoraePptxToPdf) {
+                try {
+                    let pptxBuffer = fileData?.arrayBuffer;
+                    if (!pptxBuffer && fileData?.blob) {
+                        pptxBuffer = await fileData.blob.arrayBuffer();
+                    }
+                    if (!pptxBuffer && targetFile?.dataUrl && typeof targetFile.dataUrl === 'string' && targetFile.dataUrl.includes(',')) {
+                        const b = dataURItoBlob(targetFile.dataUrl, fileName);
+                        if (b) pptxBuffer = await b.arrayBuffer();
+                    }
+                    if (!pptxBuffer && resolvedUrl) {
+                        const fetchRes = await fetch(resolvedUrl, {
+                            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                        });
+                        if (fetchRes.ok) {
+                            pptxBuffer = await fetchRes.arrayBuffer();
                         }
                     }
 
-                    // 2. Client-side fallback if server conversion is unavailable
-                    if (!pdfDataUrlToUse && window.MentoraePptxToPdf) {
-                        const buf = fileData.arrayBuffer || (fileData.blob ? await fileData.blob.arrayBuffer() : null);
-                        if (buf) {
-                            pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf, (prog) => {
-                                const pBar = document.getElementById('pptxConvertProgressBar');
-                                const pStatus = document.getElementById('pptxConvertStatus');
-                                if (pBar) pBar.style.width = `${prog.percent || 50}%`;
-                                if (pStatus) pStatus.textContent = prog.message || 'Processing slides...';
-                            });
-                        }
-                    }
+                    if (pptxBuffer) {
+                        const convertedDataUrl = await window.MentoraePptxToPdf.convert(pptxBuffer, (prog) => {
+                            const pBar = document.getElementById('pptxConvertProgressBar');
+                            const pStatus = document.getElementById('pptxConvertStatus');
+                            if (pBar) pBar.style.width = `${prog.percent || 50}%`;
+                            if (pStatus) pStatus.textContent = prog.message || 'Converting slides into PDF...';
+                        });
 
-                    if (pdfDataUrlToUse && targetFile) {
-                        targetFile.pdfDataUrl = pdfDataUrlToUse;
-                    }
+                        if (convertedDataUrl && convertedDataUrl.startsWith('data:application/pdf')) {
+                            const pdfBlob = dataURItoBlob(convertedDataUrl, `${fileName}.pdf`);
+                            if (pdfBlob) {
+                                finalPdfBlobUrl = URL.createObjectURL(pdfBlob);
+                                if (targetFile) {
+                                    targetFile.pdfDataUrl = convertedDataUrl;
+                                    targetFile.pdfBlobUrl = finalPdfBlobUrl;
+                                }
 
-                    // Background-cache to server database for zero-latency subsequent opens
-                    if (pdfDataUrlToUse) {
-                        const currentTopicObj = currentSubject?.topics?.find(t => t.title === topicTitle) || (currentSubject?.recommendations?.find(r => r.title === topicTitle));
-                        const targetTopicId = targetFile?.topicId || currentTopicObj?.id;
-                        if (targetTopicId && token) {
-                            fetch(`${apiBase}/api/content/topics/${targetTopicId}/cache-file-pdf`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                                },
-                                body: JSON.stringify({ fileName, pdfDataUrl: pdfDataUrlToUse })
-                            }).catch(() => {});
+                                // Background-cache to server database for subsequent instant loads
+                                if (targetTopicId && token) {
+                                    fetch(`${apiBase}/api/content/topics/${targetTopicId}/cache-file-pdf`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({ fileName, pdfDataUrl: convertedDataUrl })
+                                    }).catch(() => {});
+                                }
+                            }
                         }
                     }
                 } catch (convErr) {
-                    console.warn('Auto-PDF generation fallback notice:', convErr);
+                    console.error('Client PPTX to PDF conversion error:', convErr);
                 }
             }
 
-            if (pdfDataUrlToUse) {
-                const pdfRes = getResolvedFileUrl(pdfDataUrlToUse);
-                try {
-                    const pdfData = await loadFileData(pdfRes, `${fileName}.pdf`);
-                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-                    if (!isMobile) {
-                        if (modeSwitcherEl) {
-                            modeSwitcherEl.innerHTML = `
-                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeSwitchSlidesBtn" title="Switch to interactive HTML slides">
-                                    <i class="bi bi-file-slides me-1"></i> Interactive Slides
-                                </button>
-                            `;
-                            document.getElementById('modeSwitchSlidesBtn')?.addEventListener('click', () => {
-                                renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
-                            });
-                        }
-                        stageEl.innerHTML = `
-                            <object data="${pdfData.blobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
-                                <iframe src="${pdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
-                            </object>
-                        `;
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('Could not load converted presentation PDF, using slide renderer:', e);
-                }
+            // Step 4: Render genuine PDF in embedded frame
+            if (finalPdfBlobUrl) {
+                if (popoutBtn) popoutBtn.href = finalPdfBlobUrl;
+                stageEl.innerHTML = `
+                    <object data="${finalPdfBlobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                        <iframe src="${finalPdfBlobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;">
+                            <div class="p-5 text-center text-white">
+                                <p class="mb-3">Unable to display PDF inline.</p>
+                                <a href="${finalPdfBlobUrl}" target="_blank" class="btn btn-primary rounded-pill px-4">Open Converted PDF</a>
+                            </div>
+                        </iframe>
+                    </object>
+                `;
+                return;
             }
-            renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+
+            // Fallback only if presentation binary was corrupt and could not be rendered
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                    <i class="bi bi-file-earmark-slides text-warning display-4 mb-3 d-block"></i>
+                    <h4 class="fw-bold text-white mb-2">Presentation Preview</h4>
+                    <p class="text-white-50 mb-3">${escapeHtml(fileName)}</p>
+                    <p class="text-secondary small mb-4">This presentation could not be converted into a PDF preview. You can download the file or open it in external viewers.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary rounded-pill px-4 fw-semibold">
+                            <i class="bi bi-download me-1"></i> Download Presentation
+                        </a>
+                        <button type="button" class="btn btn-outline-light rounded-pill px-4 fw-semibold" id="closeFailedPptStudentBtn">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('closeFailedPptStudentBtn')?.addEventListener('click', closeClassroomViewer);
             return;
         }
 
         async function openOnlineEmbed(viewerType) {
             if (modeSwitcherEl) {
                 modeSwitcherEl.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeBackSlidesTopBtn" title="Switch back to built-in slide viewer">
-                        <i class="bi bi-file-slides me-1"></i> Fast Slide View
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeBackSlidesTopBtn" title="Switch back to PDF viewer">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> PDF View
                     </button>
                 `;
                 document.getElementById('modeBackSlidesTopBtn')?.addEventListener('click', () => {
-                    renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                    openClassroomViewer(targetFile, topicTitle);
                 });
             }
 
@@ -575,12 +617,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="fs-5 fw-semibold mb-1">Connecting to ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides'}...</p>
                     <p class="text-white-50 small mb-3">Loading genuine presentation layout and animations</p>
                     <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="cancelOnlineEmbedBtn">
-                        <i class="bi bi-arrow-left me-1"></i> Back to Built-in Slides
+                        <i class="bi bi-arrow-left me-1"></i> Back to PDF View
                     </button>
                 </div>
             `;
             document.getElementById('cancelOnlineEmbedBtn')?.addEventListener('click', () => {
-                renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                openClassroomViewer(targetFile, topicTitle);
             });
 
             try {
@@ -628,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <i class="bi bi-box-arrow-up-right me-1"></i> Full Window
                                     </a>
                                     <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2.5 py-0.5" id="btnBackToBuiltinSlides" style="font-size: 0.75rem;">
-                                        <i class="bi bi-file-slides me-1"></i> Switch to Fast Slide View
+                                        <i class="bi bi-file-earmark-pdf me-1"></i> Back to PDF View
                                     </button>
                                 </div>
                             </div>
@@ -636,13 +678,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                     document.getElementById('btnBackToBuiltinSlides')?.addEventListener('click', () => {
-                        renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                        openClassroomViewer(targetFile, topicTitle);
                     });
                     return;
                 }
                 throw new Error(data?.message || 'Could not connect to online viewer.');
             } catch (err) {
-                console.warn('Online embed error, falling back to built-in renderer:', err);
+                console.warn('Online embed error, falling back to PDF viewer:', err);
                 stageEl.innerHTML = `
                     <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
                         <i class="bi bi-exclamation-circle text-warning fs-1 mb-3 d-block"></i>
@@ -650,7 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p class="text-white-50 small mb-4">${escapeHtml(err.message || 'Service is temporarily unreachable.')}</p>
                         <div class="d-flex justify-content-center gap-2">
                             <button type="button" class="btn btn-primary rounded-pill px-4" id="btnFallbackBuiltin">
-                                <i class="bi bi-file-slides me-1"></i> Open Fast Slide View
+                                <i class="bi bi-file-earmark-pdf me-1"></i> Open PDF View
                             </button>
                             <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-outline-light rounded-pill px-4">
                                 <i class="bi bi-download me-1"></i> Download Original .pptx
@@ -659,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
                 document.getElementById('btnFallbackBuiltin')?.addEventListener('click', () => {
-                    renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                    openClassroomViewer(targetFile, topicTitle);
                 });
             }
         }
