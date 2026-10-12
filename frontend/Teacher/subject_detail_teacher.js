@@ -1375,56 +1375,177 @@ document.addEventListener('DOMContentLoaded', () => {
                     const zip = await window.JSZip.loadAsync(arrayBuf);
                     const allFiles = Object.keys(zip.files);
                     
-                    // 1. Detect Word Shapes and SmartArt
+                    // 1. Parse document relationships to map rId -> target media
+                    const relsStr = await zip.file('word/_rels/document.xml.rels')?.async('string');
+                    const relMap = {};
+                    if (relsStr) {
+                        const relRegex = /<Relationship[^>]+Id="([^"]+)"[^>]+Target="([^"]+)"/gi;
+                        let rm;
+                        while ((rm = relRegex.exec(relsStr)) !== null) {
+                            relMap[rm[1]] = rm[2].replace(/^\/?word\//i, '').replace(/^media\//i, 'media/');
+                        }
+                    }
+
+                    // 2. Parse document.xml to find exact placement and preceding text for each image
+                    const docXml = await zip.file('word/document.xml')?.async('string');
+                    const imagePlacements = [];
                     let hasShapesOrSmartArt = false;
+
                     if (allFiles.some(f => /^word\/diagrams\//i.test(f))) {
                         hasShapesOrSmartArt = true;
                     }
-                    const docXmlFile = zip.file('word/document.xml');
-                    if (docXmlFile) {
-                        const docXml = await docXmlFile.async('string');
-                        if (docXml && (docXml.includes('wps:wsp') || docXml.includes('wpg:wgp') || docXml.includes('v:shape') || docXml.includes('wpc:wpc') || docXml.includes('dgm:'))) {
+
+                    if (docXml) {
+                        if (docXml.includes('wps:wsp') || docXml.includes('wpg:wgp') || docXml.includes('v:shape') || docXml.includes('wpc:wpc') || docXml.includes('dgm:')) {
                             hasShapesOrSmartArt = true;
                         }
+
+                        const pRegex = /<w:p(?: [^>]*)?>([\s\S]*?)<\/w:p>/gi;
+                        let pm;
+                        let pIdx = 0;
+                        let lastText = '';
+
+                        while ((pm = pRegex.exec(docXml)) !== null) {
+                            const pContent = pm[1];
+                            const tMatches = [...pContent.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/gi)];
+                            const text = tMatches.map(m => m[1]).join('').trim();
+                            if (text) {
+                                lastText = text;
+                            }
+
+                            // Check for embedded image IDs
+                            const idMatches = [...pContent.matchAll(/(?:embed|id)="([^"]+)"/gi)];
+                            for (const im of idMatches) {
+                                const rId = im[1];
+                                const target = relMap[rId];
+                                if (target && /^media\//i.test(target)) {
+                                    imagePlacements.push({
+                                        rId,
+                                        mediaPath: 'word/' + target,
+                                        fileName: target.split('/').pop(),
+                                        pIndex: pIdx,
+                                        precedingText: lastText
+                                    });
+                                }
+                            }
+                            pIdx++;
+                        }
                     }
 
-                    // 2. Extract embedded media files
-                    const mediaFiles = allFiles.filter(f => /^word\/media\/.+\.(png|jpe?g|gif|webp|svg)$/i.test(f));
-                    const renderedImgs = Array.from(hostEl.querySelectorAll('img'));
-                    
-                    // If there are embedded raster images that were skipped by docx-preview (e.g. inside shapes, textboxes, or groups)
-                    if (mediaFiles.length > renderedImgs.length) {
-                        const missingMedia = [];
-                        for (const mf of mediaFiles) {
+                    // 3. Extract and place images in the EXACT DOM location
+                    const section = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+
+                    // Find all empty drawing containers created by docx-preview
+                    const emptyDrawingContainers = Array.from(
+                        hostEl.querySelectorAll('div[style*="inline-block"], div[style*="position: relative"], div[style*="width: 0px"], div[style*="height: 0px"]')
+                    ).filter(el => !el.querySelector('img') && !el.querySelector('svg') && !el.querySelector('table') && !el.innerText.trim());
+
+                    const domParas = Array.from(section.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+
+                    for (let i = 0; i < imagePlacements.length; i++) {
+                        const placement = imagePlacements[i];
+                        const file = zip.file(placement.mediaPath) || zip.file(new RegExp(placement.fileName + '$', 'i'))[0];
+                        if (!file) continue;
+
+                        const blob = await file.async('blob');
+                        const blobUrl = URL.createObjectURL(blob);
+
+                        const imgEl = document.createElement('img');
+                        imgEl.src = blobUrl;
+                        imgEl.alt = placement.fileName || 'Document Diagram';
+                        imgEl.className = 'docx-restored-img img-fluid';
+                        imgEl.style.maxWidth = '100%';
+                        imgEl.style.height = 'auto';
+                        imgEl.style.display = 'block';
+                        imgEl.style.margin = '16px auto';
+                        imgEl.style.objectFit = 'contain';
+
+                        let placed = false;
+
+                        // Strategy A: If docx-preview created an empty drawing container at this spot
+                        if (emptyDrawingContainers.length > 0) {
+                            const emptyBox = emptyDrawingContainers.shift();
+                            emptyBox.style.width = 'auto';
+                            emptyBox.style.height = 'auto';
+                            emptyBox.style.minHeight = '60px';
+                            emptyBox.style.display = 'block';
+                            emptyBox.style.position = 'relative';
+                            emptyBox.style.textAlign = 'center';
+                            emptyBox.style.margin = '16px auto';
+                            emptyBox.appendChild(imgEl);
+                            placed = true;
+                        }
+
+                        // Strategy B: Match by preceding paragraph text (e.g. "Diagram")
+                        if (!placed && placement.precedingText) {
+                            const matchedEl = domParas.find(el => {
+                                const txt = el.innerText.trim();
+                                return txt && (txt === placement.precedingText || txt.includes(placement.precedingText) || placement.precedingText.includes(txt));
+                            });
+                            if (matchedEl && matchedEl.parentNode) {
+                                const pWrapper = document.createElement('div');
+                                pWrapper.className = 'docx-img-placement text-center my-3';
+                                pWrapper.appendChild(imgEl);
+                                matchedEl.parentNode.insertBefore(pWrapper, matchedEl.nextSibling);
+                                placed = true;
+                            }
+                        }
+
+                        // Strategy C: Match by paragraph index
+                        if (!placed && domParas[placement.pIndex]) {
+                            const targetPara = domParas[placement.pIndex];
+                            if (targetPara && targetPara.parentNode) {
+                                const pWrapper = document.createElement('div');
+                                pWrapper.className = 'docx-img-placement text-center my-3';
+                                pWrapper.appendChild(imgEl);
+                                targetPara.parentNode.insertBefore(pWrapper, targetPara);
+                                placed = true;
+                            }
+                        }
+
+                        // Strategy D: Fallback to section
+                        if (!placed) {
+                            const pWrapper = document.createElement('div');
+                            pWrapper.className = 'docx-img-placement text-center my-3';
+                            pWrapper.appendChild(imgEl);
+                            section.appendChild(pWrapper);
+                        }
+                    }
+
+                    // Also check any unmapped media in word/media/
+                    const allMediaFiles = allFiles.filter(f => /^word\/media\/.+\.(png|jpe?g|gif|webp|svg)$/i.test(f));
+                    for (const mf of allMediaFiles) {
+                        const fileName = mf.split('/').pop();
+                        const alreadyRendered = Array.from(hostEl.querySelectorAll('img')).some(img => img.src && (img.src.includes(fileName) || img.alt === fileName));
+                        if (!alreadyRendered) {
                             try {
-                                const blob = await zip.file(mf).async('blob');
-                                const url = URL.createObjectURL(blob);
-                                missingMedia.push({ name: mf.split('/').pop(), url });
+                                const b = await zip.file(mf).async('blob');
+                                const u = URL.createObjectURL(b);
+                                const fallbackImg = document.createElement('img');
+                                fallbackImg.src = u;
+                                fallbackImg.alt = fileName;
+                                fallbackImg.className = 'docx-restored-img img-fluid d-block mx-auto my-3';
+                                fallbackImg.style.maxWidth = '100%';
+                                fallbackImg.style.height = 'auto';
+                                fallbackImg.style.objectFit = 'contain';
+
+                                if (emptyDrawingContainers.length > 0) {
+                                    const box = emptyDrawingContainers.shift();
+                                    box.style.width = 'auto';
+                                    box.style.height = 'auto';
+                                    box.appendChild(fallbackImg);
+                                } else {
+                                    section.appendChild(fallbackImg);
+                                }
                             } catch (e) {}
                         }
-
-                        if (missingMedia.length > 0) {
-                            const targetSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
-                            const mediaBox = document.createElement('div');
-                            mediaBox.className = 'docx-extracted-media-box my-3 p-3 bg-light border rounded text-center';
-                            mediaBox.innerHTML = `
-                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <span class="fw-bold text-dark small"><i class="bi bi-images text-primary me-1.5"></i> Embedded Diagram / Image Attachments (${missingMedia.length})</span>
-                                    <span class="micro-text text-muted">Extracted from document</span>
-                                </div>
-                                <div class="d-flex flex-wrap gap-2 justify-content-center">
-                                    ${missingMedia.map(m => `
-                                        <div class="p-1 border rounded bg-white shadow-sm" style="max-width: 100%;">
-                                            <img src="${m.url}" alt="${escapeHtml(m.name)}" class="img-fluid rounded" style="max-height: 400px; object-fit: contain;">
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            `;
-                            targetSec.appendChild(mediaBox);
-                        }
                     }
 
-                    // 3. If native Word vector shapes/diagrams are detected, add a smart notice
+                    // Wait for all images to decode so paginateDocxContainer knows true pixel heights
+                    const allImgs = Array.from(hostEl.querySelectorAll('img'));
+                    await Promise.all(allImgs.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
+
+                    // 4. Native Word vector shapes banner if applicable
                     if (hasShapesOrSmartArt) {
                         const firstSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
                         if (!firstSec.querySelector('.docx-shape-notice')) {
@@ -1445,7 +1566,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } catch (zipErr) {
-                    console.warn('Media and shape extraction notice:', zipErr);
+                    console.warn('Exact docx media placement notice:', zipErr);
                 }
             }
 
