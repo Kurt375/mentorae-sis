@@ -362,6 +362,17 @@ async function downloadTopicFile(req, res) {
   const { topicId, fileIndex } = req.params;
   const { asPdf, name } = req.query;
 
+  // Track visited topic endpoints to prevent infinite redirect or recursion loops
+  req._visitedTopicKeys = req._visitedTopicKeys || new Set();
+  const currentKey = `${topicId}:${fileIndex || 0}`;
+  if (req._visitedTopicKeys.has(currentKey)) {
+    return res.status(404).json({
+      success: false,
+      message: 'File binary data is missing from database. Please re-upload this presentation.'
+    });
+  }
+  req._visitedTopicKeys.add(currentKey);
+
   try {
     await ensureContentTables();
     let [rows] = await pool.query(
@@ -384,7 +395,7 @@ async function downloadTopicFile(req, res) {
         'SELECT id, title, content_payload FROM topics WHERE content_payload LIKE ? ORDER BY id DESC LIMIT 1',
         [`%${topicId}%`]
       );
-      if (refRows.length) {
+      if (refRows.length && !req._visitedTopicKeys.has(`${refRows[0].id}:0`)) {
         topic = refRows[0];
       }
     }
@@ -395,7 +406,7 @@ async function downloadTopicFile(req, res) {
         'SELECT id, title, content_payload FROM topics WHERE content_payload LIKE ? ORDER BY id DESC LIMIT 1',
         [`%${targetFileName}%`]
       );
-      if (nameRows.length) {
+      if (nameRows.length && !req._visitedTopicKeys.has(`${nameRows[0].id}:0`)) {
         topic = nameRows[0];
       }
     }
@@ -477,17 +488,29 @@ async function downloadTopicFile(req, res) {
     }
 
     if (!rawUrl) {
-      return res.status(404).json({ success: false, message: 'File data is empty.' });
+      return res.status(404).json({
+        success: false,
+        message: 'File binary data is missing from database. Please re-upload this presentation.'
+      });
     }
 
     // Avoid infinite redirect loops if rawUrl points back to /api/content/topics/
     if (rawUrl.startsWith('/api/content/topics/')) {
       const urlMatch = rawUrl.match(/\/api\/content\/topics\/(\d+)\/files\/(\d+)\/download/);
-      if (urlMatch && urlMatch[1] !== String(topic.id)) {
-        req.params.topicId = urlMatch[1];
-        req.params.fileIndex = urlMatch[2];
-        return downloadTopicFile(req, res);
+      if (urlMatch) {
+        const targetTid = urlMatch[1];
+        const targetFidx = urlMatch[2];
+        const targetKey = `${targetTid}:${targetFidx}`;
+        if (!req._visitedTopicKeys.has(targetKey) && targetTid !== String(topic.id)) {
+          req.params.topicId = targetTid;
+          req.params.fileIndex = targetFidx;
+          return downloadTopicFile(req, res);
+        }
       }
+      return res.status(404).json({
+        success: false,
+        message: 'File binary data is missing from database. Please re-upload this presentation.'
+      });
     }
 
     // Base64 Data URL
@@ -512,9 +535,20 @@ async function downloadTopicFile(req, res) {
       if (fs.existsSync(absPath)) {
         return res.download(absPath, fileName);
       }
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on server storage. Please re-upload this presentation.'
+      });
     }
 
-    return res.redirect(rawUrl);
+    if (/^https?:\/\//i.test(rawUrl)) {
+      return res.redirect(rawUrl);
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: 'File binary data is missing from database. Please re-upload this presentation.'
+    });
   } catch (err) {
     console.error('downloadTopicFile error:', err);
     return res.status(500).json({ success: false, message: 'Error streaming file.' });

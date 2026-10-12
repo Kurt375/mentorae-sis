@@ -388,12 +388,18 @@
                         if (token && resolvedUrl.includes('/api/')) {
                             headers['Authorization'] = `Bearer ${token}`;
                         }
-                        const res = await fetch(resolvedUrl, { headers });
-                        if (res.ok) {
-                            blob = await res.blob();
-                            blobUrl = URL.createObjectURL(blob);
-                            currentViewerActiveBlobUrl = blobUrl;
-                            arrayBuffer = await blob.arrayBuffer();
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 12000);
+                        try {
+                            const res = await fetch(resolvedUrl, { headers, signal: controller.signal });
+                            if (res.ok) {
+                                blob = await res.blob();
+                                blobUrl = URL.createObjectURL(blob);
+                                currentViewerActiveBlobUrl = blobUrl;
+                                arrayBuffer = await blob.arrayBuffer();
+                            }
+                        } finally {
+                            clearTimeout(timeoutId);
                         }
                     } catch(e) {}
                 }

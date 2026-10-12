@@ -3388,12 +3388,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (token && finalUrl.includes('/api/')) {
             headers['Authorization'] = `Bearer ${token}`;
         }
-        const res = await fetch(finalUrl, { headers });
-        if (!res.ok) throw new Error(`Failed to load file (${res.status} ${res.statusText})`);
-        const blob = await res.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const blobUrl = URL.createObjectURL(blob);
-        return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        try {
+            const res = await fetch(finalUrl, { headers, signal: controller.signal });
+            if (!res.ok) {
+                let errMsg = `Failed to load file (${res.status} ${res.statusText})`;
+                try {
+                    const errJson = await res.json();
+                    if (errJson && errJson.message) errMsg = errJson.message;
+                } catch (e) {}
+                throw new Error(errMsg);
+            }
+            const blob = await res.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const blobUrl = URL.createObjectURL(blob);
+            return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+        } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+                throw new Error('Server connection timed out. The file may be unavailable.');
+            }
+            throw fetchErr;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 
     async function openClassroomViewer(fileOrName, returnContext = 'existingFileEditorModal', contextTitle = '') {
@@ -3492,23 +3510,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             const canTryPdf = ['pptx', 'ppt', 'docx', 'doc', 'pdf'].includes(ext);
-            if (!canTryPdf) {
+            const hasAlternativeData = (file && (file.dataUrl || file.pdfDataUrl || file.pdfUrl)) || (initialDataUrl && initialDataUrl.startsWith('data:'));
+            if (!canTryPdf || (!hasAlternativeData && !file?.topicId)) {
                 console.error('Error loading file data:', err);
                 stageEl.innerHTML = `
                     <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
-                        <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-3 d-block"></i>
-                        <h4 class="fw-bold text-white mb-2">Unable to load preview</h4>
-                        <p class="text-white-50 mb-4">${escapeHtml(err.message || 'The file could not be read.')}</p>
-                        <a href="${resolvedUrl || '#'}" download="${escapeHtml(fileName || 'file')}" class="btn btn-primary rounded-pill px-4 fw-bold">
-                            <i class="bi bi-download me-2"></i> Download File Instead
-                        </a>
+                        <i class="bi bi-file-earmark-x text-warning display-4 mb-3 d-block"></i>
+                        <h4 class="fw-bold text-white mb-2">Preview Unavailable</h4>
+                        <p class="text-white-50 mb-3">${escapeHtml(fileName || 'File')}</p>
+                        <p class="text-secondary small mb-4">${escapeHtml(err.message || 'File content is not available in the database. Please re-upload this file.')}</p>
+                        <button type="button" class="btn btn-outline-light rounded-pill px-4 fw-semibold" id="closeMissingAdminFileBtn">
+                            <i class="bi bi-arrow-left me-2"></i> Close Viewer
+                        </button>
                     </div>
                 `;
+                document.getElementById('closeMissingAdminFileBtn')?.addEventListener('click', closeClassroomViewer);
                 return;
             }
         }
 
-        const activeUrl = fileData.blobUrl || resolvedUrl;
+        const activeUrl = fileData?.blobUrl || resolvedUrl;
 
         // Configure Top Action Buttons
         if (downloadBtn) {
@@ -3817,7 +3838,21 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(async () => {
                 try {
                     const arrayBuffer = pptxBuffer || (fileData ? fileData.arrayBuffer : null);
-                    if (!arrayBuffer) throw new Error('No array buffer');
+                    if (!arrayBuffer) {
+                        stageEl.innerHTML = `
+                            <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                                <i class="bi bi-file-earmark-slides text-warning display-4 mb-3 d-block"></i>
+                                <h4 class="fw-bold text-white mb-2">Presentation Preview Unavailable</h4>
+                                <p class="text-white-50 mb-3">${escapeHtml(presFileName || fileName || 'Presentation')}</p>
+                                <p class="text-secondary small mb-4">The presentation file data is not available on the server. Please re-upload the file to enable online viewing.</p>
+                                <button type="button" class="btn btn-outline-light rounded-pill px-4 fw-semibold" id="closePptxNoBufferAdminBtn">
+                                    <i class="bi bi-arrow-left me-2"></i> Close Viewer
+                                </button>
+                            </div>
+                        `;
+                        document.getElementById('closePptxNoBufferAdminBtn')?.addEventListener('click', closeClassroomViewer);
+                        return;
+                    }
 
                     const zip = await JSZip.loadAsync(arrayBuffer);
 
