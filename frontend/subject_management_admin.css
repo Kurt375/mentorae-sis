@@ -408,6 +408,28 @@ section.docx,
     font-size: 0.85rem !important;
 }
 
+/* Page number badge pinned to bottom of each physical sheet */
+.docx-page-footer-badge {
+    position: absolute !important;
+    bottom: 20px !important;
+    right: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+.docx-page-num-badge {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    background: rgba(248, 250, 252, 0.95) !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 2px 10px !important;
+    border-radius: 999px !important;
+    letter-spacing: 0.02em !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
 .docx-wrapper > section.docx p,
 .docx-wrapper > section.docx span,
 .docx-wrapper > section.docx div,

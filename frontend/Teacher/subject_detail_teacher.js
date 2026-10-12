@@ -1284,7 +1284,84 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             const host = document.getElementById('docxPreviewHost');
 
-            // Setup mode switcher with Zoom and Page controls
+            function paginateDocxContainer(hostEl) {
+                if (!hostEl) return;
+                const sections = Array.from(hostEl.querySelectorAll('section.docx, .docx-wrapper > section, .docx-paper-sheet'));
+                if (!sections.length) return;
+
+                const TARGET_PAGE_HEIGHT = 1056; // Standard 8.5" x 11" Letter page height at 96 DPI
+                const PAGE_PADDING_V = 136; // Top (64px) + bottom (64px) padding + margin allowance
+                const USABLE_HEIGHT = TARGET_PAGE_HEIGHT - PAGE_PADDING_V; // ~920px
+
+                sections.forEach(sec => {
+                    if (sec.classList.contains('docx-paginated-done')) return;
+
+                    // If section is already within 1 page height, attach page badge
+                    if (sec.offsetHeight <= TARGET_PAGE_HEIGHT + 60) {
+                        if (!sec.querySelector('.docx-page-footer-badge')) {
+                            const footer = document.createElement('div');
+                            footer.className = 'docx-page-footer-badge';
+                            footer.innerHTML = '<span class="docx-page-num-badge">Page 1 of 1</span>';
+                            sec.appendChild(footer);
+                        }
+                        sec.classList.add('docx-paginated-done');
+                        return;
+                    }
+
+                    const rawChildren = Array.from(sec.children).filter(c => 
+                        c.tagName !== 'HEADER' && 
+                        c.tagName !== 'FOOTER' && 
+                        !c.classList.contains('docx-page-footer-badge')
+                    );
+                    if (rawChildren.length <= 1) return;
+
+                    const pages = [];
+                    let curPageChildren = [];
+                    let accumulatedH = 0;
+
+                    rawChildren.forEach(child => {
+                        const h = child.offsetHeight || 30;
+                        if (accumulatedH + h > USABLE_HEIGHT && curPageChildren.length > 0) {
+                            pages.push(curPageChildren);
+                            curPageChildren = [child];
+                            accumulatedH = h;
+                        } else {
+                            curPageChildren.push(child);
+                            accumulatedH += h;
+                        }
+                    });
+                    if (curPageChildren.length > 0) {
+                        pages.push(curPageChildren);
+                    }
+
+                    if (pages.length <= 1) return;
+
+                    const parent = sec.parentNode;
+                    const totalPages = pages.length;
+
+                    pages.forEach((pageChildren, pageIdx) => {
+                        const pageSec = document.createElement('section');
+                        pageSec.className = `${sec.className} docx-paginated-done`;
+                        if (sec.style.cssText) pageSec.style.cssText = sec.style.cssText;
+                        pageSec.style.minHeight = `${TARGET_PAGE_HEIGHT}px`;
+                        pageSec.style.marginBottom = '32px';
+                        pageSec.style.position = 'relative';
+
+                        pageChildren.forEach(c => pageSec.appendChild(c));
+
+                        const pageFooter = document.createElement('div');
+                        pageFooter.className = 'docx-page-footer-badge';
+                        pageFooter.innerHTML = `<span class="docx-page-num-badge">Page ${pageIdx + 1} of ${totalPages}</span>`;
+                        pageSec.appendChild(pageFooter);
+
+                        parent.insertBefore(pageSec, sec);
+                    });
+
+                    parent.removeChild(sec);
+                });
+            }
+
+            // Setup mode switcher with Zoom and Online engine controls
             if (modeSwitcherEl) {
                 modeSwitcherEl.innerHTML = `
                     <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomOutBtn" title="Zoom out">
@@ -1296,6 +1373,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 ms-1 border-opacity-50" id="docxFitBtn" title="Reset zoom">
                         Fit
+                    </button>
+                    <div class="vr bg-secondary my-1 d-none d-sm-block"></div>
+                    <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="docxOfficeOnlineBtn" title="View with Microsoft Word Online">
+                        <i class="bi bi-microsoft me-1"></i> Office 365
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="docxGoogleDocsBtn" title="View with Google Docs">
+                        <i class="bi bi-google me-1"></i> Google Docs
                     </button>
                 `;
                 let currentZoom = 1.0;
@@ -1311,6 +1395,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('docxZoomOutBtn')?.addEventListener('click', () => updateZoom(currentZoom - 0.15));
                 document.getElementById('docxZoomInBtn')?.addEventListener('click', () => updateZoom(currentZoom + 0.15));
                 document.getElementById('docxFitBtn')?.addEventListener('click', () => updateZoom(1.0));
+                document.getElementById('docxOfficeOnlineBtn')?.addEventListener('click', () => openOnlineEmbed('office'));
+                document.getElementById('docxGoogleDocsBtn')?.addEventListener('click', () => openOnlineEmbed('google'));
             }
 
             // High-fidelity Word document rendering with authentic physical page layout
@@ -1330,6 +1416,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         renderFootnotes: true,
                         renderEndnotes: true
                     });
+                    paginateDocxContainer(host);
+                    setTimeout(() => paginateDocxContainer(host), 60);
                     return;
                 } catch (docxErr) {
                     console.warn('docx-preview notice, trying mammoth fallback:', docxErr);
@@ -1345,6 +1433,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${result.value || '<p class="text-muted fst-italic">Empty Document.</p>'}
                         </div>
                     `;
+                    paginateDocxContainer(host);
+                    setTimeout(() => paginateDocxContainer(host), 60);
                     return;
                 } catch (mErr) {
                     console.warn('mammoth error:', mErr);
