@@ -584,8 +584,17 @@ async function updateUser(req, res) {
       params.push(lastName.trim());
     }
     if (contactNumber !== undefined) {
-      updates.push('contact_number = ?');
-      params.push(typeof contactNumber === 'string' ? contactNumber.trim() || null : null);
+      if (typeof contactNumber === 'string' && contactNumber.trim()) {
+        const cleanVal = contactNumber.trim();
+        if (/[a-zA-Z]/.test(cleanVal) || cleanVal.replace(/\D/g, '').length < 7) {
+          return res.status(400).json({ success: false, message: 'Enter a valid contact number.' });
+        }
+        updates.push('contact_number = ?');
+        params.push(cleanVal);
+      } else {
+        updates.push('contact_number = ?');
+        params.push(null);
+      }
     }
     if (email !== undefined) {
       if (typeof email !== 'string' || !email.trim()) {
@@ -1929,7 +1938,9 @@ async function generateScannerKey(req, res) {
   try {
     const rawKey = crypto.randomBytes(24).toString('base64url');
     const keyHash = await bcrypt.hash(rawKey, 10);
-    await pool.query('INSERT INTO scanner_keys (key_hash, created_by) VALUES (?, ?)', [keyHash, req.user.id]);
+    // Invalidate previous scanner keys so only the newly generated key remains valid
+    await pool.query('UPDATE scanner_keys SET is_active = 0 WHERE is_active = 1');
+    await pool.query('INSERT INTO scanner_keys (key_hash, is_active, created_by) VALUES (?, 1, ?)', [keyHash, req.user.id]);
     return res.json({ success: true, key: rawKey });
   } catch (err) {
     console.error('generateScannerKey error:', err);

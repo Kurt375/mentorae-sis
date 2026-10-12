@@ -78,8 +78,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Match studentId if provided, otherwise default to first child
         if (targetStudentId) {
             activeChild = childrenRes.children.find(c => String(c.id) === String(targetStudentId));
-        }
-        if (!activeChild) {
+            if (!activeChild) {
+                alert('Access denied. That student is not linked to your account.');
+                window.location.replace('attendance_parent.html');
+                return;
+            }
+        } else {
             activeChild = childrenRes.children[0];
         }
 
@@ -223,8 +227,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnExportLogs) {
         btnExportLogs.addEventListener('click', () => {
             const table = document.getElementById('attendanceLogTable');
-            if (!table) {
-                alert('Attendance table could not be found.');
+            const tbody = document.getElementById('attendanceLogBody');
+            if (!table || !tbody || !tbody.children.length || tbody.innerText.includes('No attendance records')) {
+                alert('No attendance records available to export.');
                 return;
             }
 

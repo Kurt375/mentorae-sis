@@ -20,6 +20,14 @@ async function updateSettings(req, res) {
     return res.status(400).json({ success: false, message: 'settings object is required.' });
   }
 
+  if (settings.session_timeout_minutes !== undefined && settings.session_timeout_minutes !== null && settings.session_timeout_minutes !== '') {
+    const raw = String(settings.session_timeout_minutes).trim();
+    const num = Number(raw);
+    if (!/^\d+$/.test(raw) || isNaN(num) || num <= 0) {
+      return res.status(400).json({ success: false, message: 'Session timeout must be a positive whole number.' });
+    }
+  }
+
   try {
     const entries = Object.entries(settings);
     for (const [key, value] of entries) {

@@ -386,6 +386,14 @@
 
                 for (const file of files) {
                     const promise = new Promise((resolve, reject) => {
+                        const ext = (file.name || '').split('.').pop().toLowerCase();
+                        const allowedExts = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp'];
+                        if (!allowedExts.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
+                            alert(`Unsupported file type for "${file.name}". Please upload a PDF, Office document, text file, or image.`);
+                            resolve(null);
+                            return;
+                        }
+
                         if (file.size > 25 * 1024 * 1024) {
                             alert(`File "${file.name}" is too large (max 25MB) and will not be saved.`);
                             resolve(null); // Resolve with null to skip this file.

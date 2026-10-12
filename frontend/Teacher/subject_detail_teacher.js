@@ -2160,6 +2160,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileInput.files.length === 0) return;
         const file = fileInput.files[0];
         const ext = (file.name || '').split('.').pop().toLowerCase();
+        const allowedExtensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp'];
+        if (!allowedExtensions.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
+            alert('Unsupported file type. Please upload a valid document or media file (PDF, Office, image, or text).');
+            fileInput.value = '';
+            return;
+        }
+
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;

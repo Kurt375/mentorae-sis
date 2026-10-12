@@ -192,10 +192,14 @@ async function login(req, res) {
     // mustChangePassword is intentionally NOT baked into the JWT payload
     // (it can go stale for up to 8h) -- it's read fresh from the DB here
     // and only used client-side, right after login, to force the change.
+    const [timeoutRows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'session_timeout_minutes' LIMIT 1");
+    const sessionTimeoutMinutes = timeoutRows[0] && parseInt(timeoutRows[0].setting_value, 10) > 0 ? parseInt(timeoutRows[0].setting_value, 10) : 30;
+
     return res.json({
       success: true,
       message: 'Login successful.',
       token,
+      sessionTimeoutMinutes,
       user: { ...payload, mustChangePassword: !!user.must_change_password },
     });
   } catch (err) {
@@ -212,8 +216,9 @@ async function logout(req, res) {
 /** POST /api/auth/forgot-password/send-code  { email } — Step 1 of the login page's modal */
 async function sendResetCode(req, res) {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ success: false, message: 'Please enter your email address.' });
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailPattern.test(email)) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
   }
 
   const genericResponse = { success: true, message: 'If that email is registered, a verification code has been sent.' };
@@ -379,7 +384,7 @@ async function getProfile(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT u.id, u.role, u.id_number, u.first_name, u.middle_initial, u.last_name, u.email,
-              u.personal_email, u.contact_number, u.profile_picture_url, u.program, u.enrollment_status,
+              u.personal_email, u.contact_number, u.address, u.profile_picture_url, u.program, u.enrollment_status,
               sec.grade_level, sec.name AS sectionName, st.code AS strandCode
        FROM users u
        LEFT JOIN sections sec ON sec.id = u.section_id
@@ -418,6 +423,7 @@ async function getProfile(req, res) {
         email: u.email,
         personalEmail: u.personal_email,
         contactNumber: u.contact_number,
+        address: u.address || '',
         role: u.role,
         program: u.program,
         enrollmentStatus: u.enrollment_status,
@@ -433,19 +439,26 @@ async function getProfile(req, res) {
 }
 
 /**
- * PATCH /api/auth/profile  { personalEmail?, avatarBase64? }
- * Lets a student/teacher attach a personal email for real-time updates
- * and/or upload a formal profile picture. Either field is optional.
+ * PATCH /api/auth/profile  { personalEmail?, contactNumber?, address?, avatarBase64? }
+ * Lets a student/teacher update contact info, address, personal email, or avatar.
  */
 async function updateProfile(req, res) {
-  const { personalEmail, avatarBase64 } = req.body;
+  const { personalEmail, contactNumber, address, avatarBase64 } = req.body;
 
   if (personalEmail !== undefined && personalEmail !== null && personalEmail !== '') {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(personalEmail)) {
-      return res.status(400).json({ success: false, message: 'That personal email address looks invalid.' });
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
     }
   }
+
+  if (contactNumber !== undefined && contactNumber !== null && contactNumber !== '') {
+    const cleanNum = String(contactNumber).trim();
+    if (/[a-zA-Z]/.test(cleanNum) || cleanNum.replace(/\D/g, '').length < 7) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid phone number.' });
+    }
+  }
+
   if (avatarBase64) {
     if (req.user.role === 'student') {
       return res.status(403).json({
@@ -463,7 +476,15 @@ async function updateProfile(req, res) {
     const params = [];
     if (personalEmail !== undefined) {
       sets.push('personal_email = ?');
-      params.push(personalEmail || null);
+      params.push(personalEmail ? personalEmail.trim().toLowerCase() : null);
+    }
+    if (contactNumber !== undefined) {
+      sets.push('contact_number = ?');
+      params.push(contactNumber ? String(contactNumber).trim() : null);
+    }
+    if (address !== undefined) {
+      sets.push('address = ?');
+      params.push(address ? String(address).trim() : null);
     }
     if (avatarBase64) {
       sets.push('profile_picture_url = ?');

@@ -3,17 +3,53 @@ window.API_BASE = API_BASE;
 
 let inactivityInterval = null;
 
-/** Redirects to login if there's no session; returns { token, user }. */
-function requireSession(loginPath) {
+/** Redirects to login if there's no session; validates role; returns { token, user }. */
+function requireSession(loginPath, allowedRoles) {
   const token = localStorage.getItem('mentorae_token');
   const user = JSON.parse(localStorage.getItem('mentorae_user') || 'null');
   if (!token || !user) {
-    window.location.href = loginPath;
+    window.location.href = loginPath || 'login.html';
     throw new Error('redirecting to login');
   }
 
+  // Determine authorized roles
+  let permitted = null;
+  if (Array.isArray(allowedRoles)) {
+    permitted = allowedRoles.map((r) => String(r).toLowerCase());
+  } else if (typeof allowedRoles === 'string') {
+    permitted = [allowedRoles.toLowerCase()];
+  } else {
+    // Infer role guard from current page pathname
+    const p = window.location.pathname.toLowerCase();
+    if (p.includes('/teacher/')) {
+      permitted = ['teacher', 'admin'];
+    } else if (p.includes('/student/')) {
+      permitted = ['student', 'admin', 'parent'];
+    } else if (p.includes('/parent/')) {
+      permitted = ['parent', 'admin'];
+    } else if (p.includes('_admin.') || p.includes('admin_') || p.includes('/admin/')) {
+      permitted = ['admin'];
+    } else if (p.includes('attendance_scanner_teacher')) {
+      permitted = ['teacher', 'admin', 'security'];
+    }
+  }
+
+  // Enforce role authorization if rules are defined
+  if (permitted && permitted.length > 0) {
+    const userRole = String(user.role || '').toLowerCase();
+    if (!permitted.includes(userRole)) {
+      console.warn(`Access denied for role: "${userRole}". Required: [${permitted.join(', ')}]`);
+      const isSubdir = window.location.pathname.includes('/Teacher/') ||
+                        window.location.pathname.includes('/Student/') ||
+                        window.location.pathname.includes('/Parent/');
+      const unauthPath = isSubdir ? '../unauthorized.html' : 'unauthorized.html';
+      window.location.replace(unauthPath);
+      throw new Error(`Unauthorized role: ${userRole}`);
+    }
+  }
+
   // Setup session inactivity tracking (default: 30 minutes, or configured value)
-  setupInactivityTracker(loginPath);
+  setupInactivityTracker(loginPath || 'login.html');
 
   return { token, user };
 }

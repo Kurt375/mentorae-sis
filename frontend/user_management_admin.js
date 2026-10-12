@@ -1108,6 +1108,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            if (contactVal) {
+                if (/[a-zA-Z]/.test(contactVal) || contactVal.replace(/\D/g, '').length < 7) {
+                    if (alertEl) {
+                        alertEl.textContent = 'Enter a valid contact number.';
+                        alertEl.classList.remove('d-none');
+                    }
+                    alert('Enter a valid contact number.');
+                    document.getElementById('editContactNumber').focus();
+                    return;
+                }
+            }
+
             const payload = {
                 firstName: firstNameVal,
                 middleInitial: miVal,

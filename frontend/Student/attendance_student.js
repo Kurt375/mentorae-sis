@@ -144,8 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnExportLogs) {
         btnExportLogs.addEventListener('click', () => {
             const table = document.getElementById('attendanceLogTable');
-            if (!table) {
-                alert('Attendance table could not be found.');
+            const tbody = document.getElementById('attendanceLogBody');
+            if (!table || !tbody || !tbody.children.length || tbody.innerText.includes('No attendance records')) {
+                alert('No attendance records available to export.');
                 return;
             }
             const tableHtml = table.outerHTML;

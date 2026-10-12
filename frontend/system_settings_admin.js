@@ -264,6 +264,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const file = restoreFileInput.files[0];
             if (!file) return;
 
+            // Reject invalid backup file formats immediately
+            if (!file.name.toLowerCase().endsWith('.sql')) {
+                alert('Invalid backup file. Only .sql files produced by this system\'s own Backup Now button can be restored.');
+                restoreFileInput.value = '';
+                return;
+            }
+
             const sure = confirm(
                 `This will PERMANENTLY REPLACE all current data with the contents of "${file.name}".\n\n` +
                 'This cannot be undone. Are you absolutely sure you want to restore this backup?'
@@ -286,9 +293,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const data = await res.json();
                 restoreStatusMsg.textContent = data.message;
                 restoreStatusMsg.className = 'text-sm ' + (data.success ? 'text-success' : 'text-danger');
+                if (!data.success) {
+                    alert(data.message || 'Invalid backup file.');
+                }
             } catch (err) {
                 restoreStatusMsg.textContent = 'Restore failed: could not reach the server.';
                 restoreStatusMsg.className = 'text-sm text-danger';
+                alert('Restore failed: could not reach the server.');
             }
         });
     }
@@ -312,11 +323,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     btnSaveAll.addEventListener('click', async () => {
         captureActiveTab();
+
+        // Validation: Session timeout must be a positive whole number
+        if (settings.session_timeout_minutes !== undefined && settings.session_timeout_minutes !== null && settings.session_timeout_minutes !== '') {
+            const raw = String(settings.session_timeout_minutes).trim();
+            const num = Number(raw);
+            if (!/^\d+$/.test(raw) || isNaN(num) || num <= 0) {
+                alert('Session timeout must be a positive whole number.');
+                const timeoutEl = document.getElementById('cfgSessionTimeout');
+                if (timeoutEl) timeoutEl.focus();
+                return;
+            }
+        }
+
         const data = await authedFetch('/api/settings', token, {
             method: 'PUT',
             body: JSON.stringify({ settings }),
         });
-        alert(data.success ? 'Settings saved successfully.' : data.message);
+        if (data && data.success) {
+            if (settings.session_timeout_minutes) {
+                localStorage.setItem('mentorae_session_timeout_minutes', String(settings.session_timeout_minutes));
+            }
+            alert('Settings saved successfully.');
+        } else {
+            alert((data && data.message) || 'Could not save settings.');
+        }
     });
 
     switchTab('general');

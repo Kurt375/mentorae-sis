@@ -487,9 +487,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const term = btn.getAttribute('data-term');
                 const inputId = btn.getAttribute('data-target-input');
                 const targetInput = document.getElementById(inputId);
-                const goalValue = targetInput ? parseFloat(targetInput.value) || 85 : 85;
+                const rawVal = targetInput ? targetInput.value.trim() : '';
+                const goalNum = parseFloat(rawVal);
 
-                await openPrescriptiveGoalModal(subjectId, subjectName, term, goalValue);
+                if (!rawVal || isNaN(goalNum) || goalNum < 0 || goalNum > 100) {
+                    alert('The target grade must be a number from 0 to 100.');
+                    if (targetInput) targetInput.focus();
+                    return;
+                }
+
+                await openPrescriptiveGoalModal(subjectId, subjectName, term, goalNum);
             });
         });
     }

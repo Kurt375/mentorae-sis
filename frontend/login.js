@@ -117,6 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             localStorage.setItem('mentorae_token', data.token);
             localStorage.setItem('mentorae_user', JSON.stringify(data.user));
+            if (data.sessionTimeoutMinutes) {
+                localStorage.setItem('mentorae_session_timeout_minutes', String(data.sessionTimeoutMinutes));
+            }
 
             if (data.user.mustChangePassword) {
                 // Don't navigate away yet -- force the password change first.
@@ -262,7 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sendCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             userEmail = resetEmailInput.value.trim();
-            if (!userEmail || !userEmail.includes('@')) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!userEmail || !emailRegex.test(userEmail)) {
                 alert('Please enter a valid email address.');
                 return;
             }

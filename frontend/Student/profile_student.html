@@ -93,6 +93,26 @@
 
                         <div class="profile-item-row">
                             <div class="profile-item-icon">
+                                <i class="bi bi-telephone-fill"></i>
+                            </div>
+                            <div class="profile-item-content">
+                                <div class="profile-item-label">Contact / Phone Number</div>
+                                <div class="profile-item-val" id="phoneVal">—</div>
+                            </div>
+                        </div>
+
+                        <div class="profile-item-row">
+                            <div class="profile-item-icon">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </div>
+                            <div class="profile-item-content">
+                                <div class="profile-item-label">Home Address</div>
+                                <div class="profile-item-val" id="addressVal">—</div>
+                            </div>
+                        </div>
+
+                        <div class="profile-item-row">
+                            <div class="profile-item-icon">
                                 <i class="bi bi-collection-fill"></i>
                             </div>
                             <div class="profile-item-content">
@@ -136,16 +156,29 @@
 
                     <!-- Section 3: Contact & Real-time Notification Settings -->
                     <div class="profile-section-card">
-                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-bell-fill text-primary me-2"></i>Notification & Personal Email</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-dark m-0"><i class="bi bi-pencil-square text-primary me-2"></i>Contact Details &amp; Personal Info</h6>
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" id="btnToggleEdit">
+                                <i class="bi bi-pencil me-1"></i>Edit
+                            </button>
+                        </div>
                         <form id="editProfileForm">
+                            <div class="mb-3">
+                                <label for="phoneInput" class="form-label small fw-semibold text-muted">Phone Number</label>
+                                <input type="text" class="form-control rounded-3" id="phoneInput" placeholder="e.g. 09123456789">
+                            </div>
+                            <div class="mb-3">
+                                <label for="addressInput" class="form-label small fw-semibold text-muted">Home Address</label>
+                                <input type="text" class="form-control rounded-3" id="addressInput" placeholder="e.g. Brgy. Zone 1, Talisay City">
+                            </div>
                             <div class="mb-3">
                                 <label for="personalEmailInput" class="form-label small fw-semibold text-muted">Personal / Parent Alternative Email</label>
                                 <input type="email" class="form-control rounded-3" id="personalEmailInput" placeholder="your.name@gmail.com">
                                 <div class="form-text micro-text text-muted">Used for critical school announcements, grade alerts, and password recovery.</div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
-                                <button type="submit" class="btn btn-success fw-semibold px-4 rounded-3" id="saveEmailBtn">
-                                    <i class="bi bi-check2 me-1"></i>Update Email
+                                <button type="submit" class="btn btn-success fw-semibold px-4 rounded-3" id="saveProfileBtn">
+                                    <i class="bi bi-check2 me-1"></i>Save
                                 </button>
                                 <span class="small text-success fw-bold d-none" id="saveConfirm">
                                     <i class="bi bi-check-circle-fill me-1"></i>Saved!
@@ -211,6 +244,15 @@
             });
         }
 
+        // Edit profile toggle
+        const btnToggleEdit = document.getElementById('btnToggleEdit');
+        if (btnToggleEdit) {
+            btnToggleEdit.addEventListener('click', () => {
+                const phoneInput = document.getElementById('phoneInput');
+                if (phoneInput) phoneInput.focus();
+            });
+        }
+
         // Load profile data
         async function loadProfile() {
             try {
@@ -218,10 +260,15 @@
                 if (!data.success) return;
                 
                 document.getElementById('emailVal').textContent = data.profile.email || '—';
+                document.getElementById('phoneVal').textContent = data.profile.contactNumber || '—';
+                document.getElementById('addressVal').textContent = data.profile.address || '—';
+                document.getElementById('phoneInput').value = data.profile.contactNumber || '';
+                document.getElementById('addressInput').value = data.profile.address || '';
+                document.getElementById('personalEmailInput').value = data.profile.personalEmail || '';
+
                 const sectionText = data.profile.section || 'Unassigned Section';
                 document.getElementById('sectionVal').textContent = sectionText;
                 document.getElementById('profileSection').textContent = sectionText;
-                document.getElementById('personalEmailInput').value = data.profile.personalEmail || '';
 
                 if (data.profile.profilePictureUrl) {
                     const img = document.getElementById('avatarImg');
@@ -276,30 +323,60 @@
             }
         }
 
-        // Edit personal email form
+        // Edit profile form submit
         document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const personalEmail = document.getElementById('personalEmailInput').value.trim();
-            const saveBtn = document.getElementById('saveEmailBtn');
-            saveBtn.disabled = true;
+            const phoneVal = document.getElementById('phoneInput').value.trim();
+            const addressVal = document.getElementById('addressInput').value.trim();
+            const saveBtn = document.getElementById('saveProfileBtn') || document.getElementById('saveEmailBtn');
+
+            if (personalEmail) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(personalEmail)) {
+                    alert('Please enter a valid email address.');
+                    document.getElementById('personalEmailInput').focus();
+                    return;
+                }
+            }
+
+            if (phoneVal) {
+                if (/[a-zA-Z]/.test(phoneVal) || phoneVal.replace(/\D/g, '').length < 7) {
+                    alert('Please enter a valid phone number.');
+                    document.getElementById('phoneInput').focus();
+                    return;
+                }
+            }
+
+            if (saveBtn) saveBtn.disabled = true;
 
             try {
                 const data = await authedFetch('/api/auth/profile', token, {
                     method: 'PATCH',
-                    body: JSON.stringify({ personalEmail }),
+                    body: JSON.stringify({
+                        personalEmail,
+                        contactNumber: phoneVal,
+                        address: addressVal,
+                    }),
                 });
                 if (!data.success) {
-                    alert(data.message || 'Could not update email.');
+                    alert(data.message || 'Could not update profile.');
                     return;
                 }
+                alert('Profile updated successfully.');
+                document.getElementById('phoneVal').textContent = phoneVal || '—';
+                document.getElementById('addressVal').textContent = addressVal || '—';
+
                 const confirmEl = document.getElementById('saveConfirm');
-                confirmEl.classList.remove('d-none');
-                setTimeout(() => confirmEl.classList.add('d-none'), 2500);
+                if (confirmEl) {
+                    confirmEl.classList.remove('d-none');
+                    setTimeout(() => confirmEl.classList.add('d-none'), 2500);
+                }
             } catch (err) {
                 console.error('Save error:', err);
-                alert('Could not update email. Please try again.');
+                alert('Could not update profile. Please try again.');
             } finally {
-                saveBtn.disabled = false;
+                if (saveBtn) saveBtn.disabled = false;
             }
         });
     </script>
