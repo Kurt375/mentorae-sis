@@ -4501,152 +4501,186 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const zip = await window.JSZip.loadAsync(arrayBuf);
                     const allFiles = Object.keys(zip.files);
-                    
-                    // 1. Parse document relationships to map rId -> target media
-                    const relsStr = await zip.file('word/_rels/document.xml.rels')?.async('string');
-                    const relMap = {};
-                    if (relsStr) {
-                        const relRegex = /<Relationship[^>]+Id="([^"]+)"[^>]+Target="([^"]+)"/gi;
-                        let rm;
-                        while ((rm = relRegex.exec(relsStr)) !== null) {
-                            relMap[rm[1]] = rm[2].replace(/^\/?word\//i, '').replace(/^media\//i, 'media/');
-                        }
-                    }
+                    const allMediaFiles = allFiles.filter(f => /^word\/media\/.+\.(png|jpe?g|gif|webp|svg)$/i.test(f));
+                    const renderedImgs = Array.from(hostEl.querySelectorAll('img'));
 
-                    // 2. Parse document.xml to find exact placement and preceding text for each image
-                    const docXml = await zip.file('word/document.xml')?.async('string');
-                    const imagePlacements = [];
+                    // Detect native Word vector shapes/SmartArt
                     let hasShapesOrSmartArt = false;
-
                     if (allFiles.some(f => /^word\/diagrams\//i.test(f))) {
                         hasShapesOrSmartArt = true;
                     }
+                    const docXml = await zip.file('word/document.xml')?.async('string');
+                    if (docXml && (docXml.includes('wps:wsp') || docXml.includes('wpg:wgp') || docXml.includes('v:shape') || docXml.includes('wpc:wpc') || docXml.includes('dgm:'))) {
+                        hasShapesOrSmartArt = true;
+                    }
 
-                    if (docXml) {
-                        if (docXml.includes('wps:wsp') || docXml.includes('wpg:wgp') || docXml.includes('v:shape') || docXml.includes('wpc:wpc') || docXml.includes('dgm:')) {
-                            hasShapesOrSmartArt = true;
+                    // Only restore media if docx-preview missed embedded images (e.g. inside shapes/SmartArt)
+                    const needsMediaRestoration = allMediaFiles.length > 0 && renderedImgs.length < allMediaFiles.length;
+
+                    if (needsMediaRestoration) {
+                        const renderedSrcs = renderedImgs.map(img => img.src || '');
+                        const restoredMediaFiles = new Set();
+
+                        const isFileAlreadyRendered = async (fileObj) => {
+                            if (!fileObj) return true;
+                            if (renderedImgs.length === 0) return false;
+                            try {
+                                const b64 = await fileObj.async('base64');
+                                const sig = b64.slice(0, 48);
+                                return renderedSrcs.some(src => src.includes(sig));
+                            } catch (e) {
+                                return false;
+                            }
+                        };
+
+                        // 1. Parse document relationships to map rId -> target media
+                        const relsStr = await zip.file('word/_rels/document.xml.rels')?.async('string');
+                        const relMap = {};
+                        if (relsStr) {
+                            const relRegex = /<Relationship[^>]+Id="([^"]+)"[^>]+Target="([^"]+)"/gi;
+                            let rm;
+                            while ((rm = relRegex.exec(relsStr)) !== null) {
+                                relMap[rm[1]] = rm[2].replace(/^\/?word\//i, '').replace(/^media\//i, 'media/');
+                            }
                         }
 
-                        const pRegex = /<w:p(?: [^>]*)?>([\s\S]*?)<\/w:p>/gi;
-                        let pm;
-                        let pIdx = 0;
-                        let lastText = '';
+                        // 2. Parse document.xml to find exact placement and preceding text for each image
+                        const imagePlacements = [];
+                        if (docXml) {
+                            const pRegex = /<w:p(?: [^>]*)?>([\s\S]*?)<\/w:p>/gi;
+                            let pm;
+                            let pIdx = 0;
+                            let lastText = '';
 
-                        while ((pm = pRegex.exec(docXml)) !== null) {
-                            const pContent = pm[1];
-                            const tMatches = [...pContent.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/gi)];
-                            const text = tMatches.map(m => m[1]).join('').trim();
-                            if (text) {
-                                lastText = text;
+                            while ((pm = pRegex.exec(docXml)) !== null) {
+                                const pContent = pm[1];
+                                const tMatches = [...pContent.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/gi)];
+                                const text = tMatches.map(m => m[1]).join('').trim();
+                                if (text) {
+                                    lastText = text;
+                                }
+
+                                const idMatches = [...pContent.matchAll(/(?:embed|id)="([^"]+)"/gi)];
+                                for (const im of idMatches) {
+                                    const rId = im[1];
+                                    const target = relMap[rId];
+                                    if (target && /^media\//i.test(target)) {
+                                        imagePlacements.push({
+                                            rId,
+                                            mediaPath: 'word/' + target,
+                                            fileName: target.split('/').pop(),
+                                            pIndex: pIdx,
+                                            precedingText: lastText
+                                        });
+                                    }
+                                }
+                                pIdx++;
+                            }
+                        }
+
+                        // 3. Extract and place missing images in the EXACT DOM location
+                        const section = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+                        const emptyDrawingContainers = Array.from(
+                            hostEl.querySelectorAll('div[style*="inline-block"], div[style*="position: relative"], div[style*="width: 0px"], div[style*="height: 0px"]')
+                        ).filter(el => !el.querySelector('img') && !el.querySelector('svg') && !el.querySelector('table') && !el.innerText.trim());
+
+                        const domParas = Array.from(section.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
+
+                        for (let i = 0; i < imagePlacements.length; i++) {
+                            const placement = imagePlacements[i];
+                            if (restoredMediaFiles.has(placement.fileName)) continue;
+
+                            const file = zip.file(placement.mediaPath) || zip.file(new RegExp(placement.fileName + '$', 'i'))[0];
+                            if (!file) continue;
+
+                            // Skip if already rendered natively by docx-preview
+                            if (await isFileAlreadyRendered(file)) {
+                                restoredMediaFiles.add(placement.fileName);
+                                continue;
                             }
 
-                            // Check for embedded image IDs
-                            const idMatches = [...pContent.matchAll(/(?:embed|id)="([^"]+)"/gi)];
-                            for (const im of idMatches) {
-                                const rId = im[1];
-                                const target = relMap[rId];
-                                if (target && /^media\//i.test(target)) {
-                                    imagePlacements.push({
-                                        rId,
-                                        mediaPath: 'word/' + target,
-                                        fileName: target.split('/').pop(),
-                                        pIndex: pIdx,
-                                        precedingText: lastText
-                                    });
+                            const blob = await file.async('blob');
+                            const blobUrl = URL.createObjectURL(blob);
+
+                            const imgEl = document.createElement('img');
+                            imgEl.src = blobUrl;
+                            imgEl.alt = placement.fileName || 'Document Diagram';
+                            imgEl.className = 'docx-restored-img img-fluid';
+                            imgEl.style.maxWidth = '100%';
+                            imgEl.style.height = 'auto';
+                            imgEl.style.display = 'block';
+                            imgEl.style.margin = '16px auto';
+                            imgEl.style.objectFit = 'contain';
+
+                            let placed = false;
+
+                            // Strategy A: If docx-preview created an empty drawing container at this spot
+                            if (emptyDrawingContainers.length > 0) {
+                                const emptyBox = emptyDrawingContainers.shift();
+                                emptyBox.style.width = 'auto';
+                                emptyBox.style.height = 'auto';
+                                emptyBox.style.minHeight = '60px';
+                                emptyBox.style.display = 'block';
+                                emptyBox.style.position = 'relative';
+                                emptyBox.style.textAlign = 'center';
+                                emptyBox.style.margin = '16px auto';
+                                emptyBox.appendChild(imgEl);
+                                placed = true;
+                            }
+
+                            // Strategy B: Match by preceding paragraph text (e.g. "Diagram")
+                            if (!placed && placement.precedingText) {
+                                const matchedEl = domParas.find(el => {
+                                    const txt = el.innerText.trim();
+                                    return txt && (txt === placement.precedingText || txt.includes(placement.precedingText) || placement.precedingText.includes(txt));
+                                });
+                                if (matchedEl && matchedEl.parentNode) {
+                                    const pWrapper = document.createElement('div');
+                                    pWrapper.className = 'docx-img-placement text-center my-3';
+                                    pWrapper.appendChild(imgEl);
+                                    matchedEl.parentNode.insertBefore(pWrapper, matchedEl.nextSibling);
+                                    placed = true;
                                 }
                             }
-                            pIdx++;
-                        }
-                    }
 
-                    // 3. Extract and place images in the EXACT DOM location
-                    const section = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+                            // Strategy C: Match by paragraph index
+                            if (!placed && domParas[placement.pIndex]) {
+                                const targetPara = domParas[placement.pIndex];
+                                if (targetPara && targetPara.parentNode) {
+                                    const pWrapper = document.createElement('div');
+                                    pWrapper.className = 'docx-img-placement text-center my-3';
+                                    pWrapper.appendChild(imgEl);
+                                    targetPara.parentNode.insertBefore(pWrapper, targetPara);
+                                    placed = true;
+                                }
+                            }
 
-                    // Find all empty drawing containers created by docx-preview
-                    const emptyDrawingContainers = Array.from(
-                        hostEl.querySelectorAll('div[style*="inline-block"], div[style*="position: relative"], div[style*="width: 0px"], div[style*="height: 0px"]')
-                    ).filter(el => !el.querySelector('img') && !el.querySelector('svg') && !el.querySelector('table') && !el.innerText.trim());
-
-                    const domParas = Array.from(section.querySelectorAll('p, h1, h2, h3, h4, h5, h6'));
-
-                    for (let i = 0; i < imagePlacements.length; i++) {
-                        const placement = imagePlacements[i];
-                        const file = zip.file(placement.mediaPath) || zip.file(new RegExp(placement.fileName + '$', 'i'))[0];
-                        if (!file) continue;
-
-                        const blob = await file.async('blob');
-                        const blobUrl = URL.createObjectURL(blob);
-
-                        const imgEl = document.createElement('img');
-                        imgEl.src = blobUrl;
-                        imgEl.alt = placement.fileName || 'Document Diagram';
-                        imgEl.className = 'docx-restored-img img-fluid';
-                        imgEl.style.maxWidth = '100%';
-                        imgEl.style.height = 'auto';
-                        imgEl.style.display = 'block';
-                        imgEl.style.margin = '16px auto';
-                        imgEl.style.objectFit = 'contain';
-
-                        let placed = false;
-
-                        // Strategy A: If docx-preview created an empty drawing container at this spot
-                        if (emptyDrawingContainers.length > 0) {
-                            const emptyBox = emptyDrawingContainers.shift();
-                            emptyBox.style.width = 'auto';
-                            emptyBox.style.height = 'auto';
-                            emptyBox.style.minHeight = '60px';
-                            emptyBox.style.display = 'block';
-                            emptyBox.style.position = 'relative';
-                            emptyBox.style.textAlign = 'center';
-                            emptyBox.style.margin = '16px auto';
-                            emptyBox.appendChild(imgEl);
-                            placed = true;
-                        }
-
-                        // Strategy B: Match by preceding paragraph text (e.g. "Diagram")
-                        if (!placed && placement.precedingText) {
-                            const matchedEl = domParas.find(el => {
-                                const txt = el.innerText.trim();
-                                return txt && (txt === placement.precedingText || txt.includes(placement.precedingText) || placement.precedingText.includes(txt));
-                            });
-                            if (matchedEl && matchedEl.parentNode) {
+                            // Strategy D: Fallback to section
+                            if (!placed) {
                                 const pWrapper = document.createElement('div');
                                 pWrapper.className = 'docx-img-placement text-center my-3';
                                 pWrapper.appendChild(imgEl);
-                                matchedEl.parentNode.insertBefore(pWrapper, matchedEl.nextSibling);
-                                placed = true;
+                                section.appendChild(pWrapper);
                             }
+
+                            restoredMediaFiles.add(placement.fileName);
+                            renderedSrcs.push(blobUrl);
                         }
 
-                        // Strategy C: Match by paragraph index
-                        if (!placed && domParas[placement.pIndex]) {
-                            const targetPara = domParas[placement.pIndex];
-                            if (targetPara && targetPara.parentNode) {
-                                const pWrapper = document.createElement('div');
-                                pWrapper.className = 'docx-img-placement text-center my-3';
-                                pWrapper.appendChild(imgEl);
-                                targetPara.parentNode.insertBefore(pWrapper, targetPara);
-                                placed = true;
+                        // Also check any unmapped media in word/media/
+                        for (const mf of allMediaFiles) {
+                            const fileName = mf.split('/').pop();
+                            if (restoredMediaFiles.has(fileName)) continue;
+
+                            const file = zip.file(mf);
+                            if (!file) continue;
+                            if (await isFileAlreadyRendered(file)) {
+                                restoredMediaFiles.add(fileName);
+                                continue;
                             }
-                        }
 
-                        // Strategy D: Fallback to section
-                        if (!placed) {
-                            const pWrapper = document.createElement('div');
-                            pWrapper.className = 'docx-img-placement text-center my-3';
-                            pWrapper.appendChild(imgEl);
-                            section.appendChild(pWrapper);
-                        }
-                    }
-
-                    // Also check any unmapped media in word/media/
-                    const allMediaFiles = allFiles.filter(f => /^word\/media\/.+\.(png|jpe?g|gif|webp|svg)$/i.test(f));
-                    for (const mf of allMediaFiles) {
-                        const fileName = mf.split('/').pop();
-                        const alreadyRendered = Array.from(hostEl.querySelectorAll('img')).some(img => img.src && (img.src.includes(fileName) || img.alt === fileName));
-                        if (!alreadyRendered) {
                             try {
-                                const b = await zip.file(mf).async('blob');
+                                const b = await file.async('blob');
                                 const u = URL.createObjectURL(b);
                                 const fallbackImg = document.createElement('img');
                                 fallbackImg.src = u;
@@ -4664,6 +4698,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 } else {
                                     section.appendChild(fallbackImg);
                                 }
+                                restoredMediaFiles.add(fileName);
+                                renderedSrcs.push(u);
                             } catch (e) {}
                         }
                     }
@@ -4672,7 +4708,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const allImgs = Array.from(hostEl.querySelectorAll('img'));
                     await Promise.all(allImgs.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
 
-                    // 4. Native Word vector shapes banner if applicable
+                    // Native Word vector shapes banner if applicable
                     if (hasShapesOrSmartArt) {
                         const firstSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
                         if (!firstSec.querySelector('.docx-shape-notice')) {
