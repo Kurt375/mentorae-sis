@@ -117,6 +117,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../presentationOptimizer.js"></script>
     <script src="../pptxToPdf.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -1044,36 +1045,47 @@
 
                 const filePromises = [];
 
-                for (const file of files) {
-                    const promise = new Promise((resolve, reject) => {
+                for (let file of files) {
+                    const promise = (async () => {
                         const ext = (file.name || '').split('.').pop().toLowerCase();
                         const allowedExts = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp'];
                         if (!allowedExts.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
                             alert(`Unsupported file type for "${file.name}". Please upload a PDF, Office document, text file, or image.`);
-                            resolve(null);
-                            return;
+                            return null;
+                        }
+
+                        if (window.MentoraePresentationOptimizer && window.MentoraePresentationOptimizer.isOptimizable(file)) {
+                            try {
+                                const optResult = await window.MentoraePresentationOptimizer.optimizeOfficeFile(file);
+                                if (optResult && optResult.wasOptimized && optResult.file) {
+                                    file = optResult.file;
+                                }
+                            } catch (optErr) {
+                                console.warn('[Optimizer] Presentation optimizer error:', optErr);
+                            }
                         }
 
                         if (file.size > 25 * 1024 * 1024) {
                             alert(`File "${file.name}" is too large (max 25MB) and will not be saved.`);
-                            resolve(null); // Resolve with null to skip this file.
-                            return;
+                            return null;
                         }
 
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            resolve({
-                                name: file.name,
-                                size: file.size,
-                                dataUrl: event.target.result
-                            });
-                        };
-                        reader.onerror = (error) => {
-                            console.error("File reading error:", error);
-                            reject(error);
-                        };
-                        reader.readAsDataURL(file);
-                    });
+                        return new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                resolve({
+                                    name: file.name,
+                                    size: file.size,
+                                    dataUrl: event.target.result
+                                });
+                            };
+                            reader.onerror = (error) => {
+                                console.error("File reading error:", error);
+                                reject(error);
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    })();
                     filePromises.push(promise);
                 }
 

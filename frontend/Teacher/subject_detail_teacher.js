@@ -2587,7 +2587,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const fileInput = document.getElementById('requestFileInput');
         if (fileInput.files.length === 0) return;
-        const file = fileInput.files[0];
+        let file = fileInput.files[0];
         const ext = (file.name || '').split('.').pop().toLowerCase();
         const allowedExtensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp'];
         if (!allowedExtensions.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
@@ -2600,6 +2600,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding...';
+        }
+
+        if (window.MentoraePresentationOptimizer && window.MentoraePresentationOptimizer.isOptimizable(file)) {
+            try {
+                const optResult = await window.MentoraePresentationOptimizer.optimizeOfficeFile(file);
+                if (optResult && optResult.wasOptimized && optResult.file) {
+                    file = optResult.file;
+                }
+            } catch (optErr) {
+                console.warn('[Optimizer] Presentation optimizer error:', optErr);
+            }
+        }
+
+        if (file.size > 25 * 1024 * 1024) {
+            alert(`File "${file.name}" is too large (max 25MB).`);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add File';
+            }
+            return;
         }
         try {
             const dataUrl = await readFileAsDataURL(file);

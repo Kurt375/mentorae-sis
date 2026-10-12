@@ -440,6 +440,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function optimizePresentationIfEligible(file) {
+        if (!file) return file;
+        if (window.MentoraePresentationOptimizer && window.MentoraePresentationOptimizer.isOptimizable(file)) {
+            try {
+                const optResult = await window.MentoraePresentationOptimizer.optimizeOfficeFile(file);
+                if (optResult && optResult.wasOptimized && optResult.file) {
+                    return optResult.file;
+                }
+            } catch (err) {
+                console.warn('[Optimizer] Optimization skipped due to error:', err);
+            }
+        }
+        return file;
+    }
+
     function dataURItoBlob(dataURI) {
         // convert base64 to raw binary data held in a string
         var byteString = atob(dataURI.split(',')[1]);
@@ -1365,7 +1380,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Handle file upload for editing (only if a new file is selected)
             if (selectedResources.includes('File') && fileInput.files && fileInput.files.length > 0) {
-                const file = fileInput.files[0];
+                let file = fileInput.files[0];
+                file = await optimizePresentationIfEligible(file);
                 if (file.size > 25 * 1024 * 1024) {
                     return alert(`File "${file.name}" is too large (max 25MB).`);
                 }
@@ -1401,7 +1417,8 @@ document.addEventListener('DOMContentLoaded', () => {
             topicData.createdBy = 'admin';
 
             if (selectedResources.includes('File') && fileInput.files.length > 0) {
-                const file = fileInput.files[0];
+                let file = fileInput.files[0];
+                file = await optimizePresentationIfEligible(file);
                 if (file.size > 25 * 1024 * 1024) {
                     return alert(`File "${file.name}" is too large (max 25MB).`);
                 }
@@ -1483,7 +1500,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasFile = selectedResources.includes('File') && fileInput.files.length > 0;
 
         if (hasFile) {
-            const file = fileInput.files[0];
+            let file = fileInput.files[0];
+            file = await optimizePresentationIfEligible(file);
             if (file.size > 25 * 1024 * 1024) {
                 alert(`File "${file.name}" is too large (max 25MB).`);
                 addStagedTopicBtn.disabled = false;
@@ -4984,7 +5002,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const topic = subject?.topics?.[currentTopicIndexForEditing];
         if (!topic || !fileInput.files || fileInput.files.length === 0) return;
 
-        const file = fileInput.files[0];
+        let file = fileInput.files[0];
+        file = await optimizePresentationIfEligible(file);
         if (file.size > 25 * 1024 * 1024) { // Max 25MB
             alert(`File "${file.name}" is too large (max 25MB).`);
             return;
