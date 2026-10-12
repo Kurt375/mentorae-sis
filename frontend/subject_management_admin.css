@@ -430,6 +430,36 @@ section.docx,
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
+/* Ensure images and diagrams inside Word documents are visible, centered, and properly contained */
+.docx-wrapper img,
+.docx-preview-host img,
+section.docx img,
+.docx-paper-sheet img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 12px auto !important;
+    object-fit: contain !important;
+}
+
+/* Prevent docx-preview from collapsing floating/wrapped drawing containers to 0px */
+.docx-wrapper div[style*="width: 0px"][style*="height: 0px"],
+.docx-preview-host div[style*="width: 0px"][style*="height: 0px"] {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 40px !important;
+    display: block !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+}
+
+.docx-extracted-media-box {
+    border: 1px dashed #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    border-radius: 8px !important;
+}
+
 .docx-wrapper > section.docx p,
 .docx-wrapper > section.docx span,
 .docx-wrapper > section.docx div,

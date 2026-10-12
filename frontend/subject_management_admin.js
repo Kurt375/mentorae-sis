@@ -3736,10 +3736,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function openOnlineEmbed(viewerType) {
+            const isDoc = ext === 'docx' || ext === 'doc';
+            const officeTitle = isDoc ? 'Microsoft Word Online' : 'Microsoft Office Online';
+            const googleTitle = isDoc ? 'Google Docs Viewer' : 'Google Slides Viewer';
+            const backBtnLabel = isDoc ? 'Document View' : 'PDF View';
+
             if (modeSwitcherEl) {
                 modeSwitcherEl.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeBackSlidesTopBtn" title="Switch back to PDF viewer">
-                        <i class="bi bi-file-earmark-pdf me-1"></i> PDF View
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeBackSlidesTopBtn" title="Switch back to built-in viewer">
+                        <i class="bi bi-${isDoc ? 'file-earmark-word' : 'file-earmark-pdf'} me-1"></i> Back to ${backBtnLabel}
                     </button>
                 `;
                 document.getElementById('modeBackSlidesTopBtn')?.addEventListener('click', () => {
@@ -3750,10 +3755,10 @@ document.addEventListener('DOMContentLoaded', () => {
             stageEl.innerHTML = `
                 <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
                     <div class="spinner-border ${viewerType === 'office' ? 'text-info' : 'text-warning'} mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
-                    <p class="fs-5 fw-semibold mb-1">Connecting to ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides'}...</p>
-                    <p class="text-white-50 small mb-3">Loading genuine presentation layout and animations</p>
+                    <p class="fs-5 fw-semibold mb-1">Connecting to ${viewerType === 'office' ? officeTitle : googleTitle}...</p>
+                    <p class="text-white-50 small mb-3">Loading genuine ${isDoc ? 'document layout, shapes, and diagrams' : 'presentation layout and animations'}</p>
                     <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="cancelOnlineEmbedBtn">
-                        <i class="bi bi-arrow-left me-1"></i> Back to PDF View
+                        <i class="bi bi-arrow-left me-1"></i> Back to ${backBtnLabel}
                     </button>
                 </div>
             `;
@@ -3774,6 +3779,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             reader.onerror = reject;
                             reader.readAsDataURL(fileData.blob);
                         });
+                    } else if (fileData && fileData.arrayBuffer) {
+                        const bytes = new Uint8Array(fileData.arrayBuffer);
+                        let binary = '';
+                        const len = bytes.byteLength;
+                        for (let i = 0; i < len; i += 8192) {
+                            binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+                        }
+                        const mimeTypeForPayload = isDoc
+                            ? (ext === 'doc' ? 'application/msword' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                            : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                        payloadDataUrl = `data:${mimeTypeForPayload};base64,${btoa(binary)}`;
                     }
                 }
 
@@ -3791,13 +3807,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     stageEl.innerHTML = `
                         <div class="w-100 h-100 position-relative d-flex flex-column">
                             <div class="d-flex align-items-center justify-content-between px-3 py-1.5 bg-dark border-bottom border-secondary" style="font-size: 0.8rem;">
-                                <span class="text-white-50"><i class="bi bi-${viewerType === 'office' ? 'microsoft text-info' : 'google text-warning'} me-1.5"></i> Powered by ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides Viewer'}</span>
+                                <span class="text-white-50"><i class="bi bi-${viewerType === 'office' ? 'microsoft text-info' : 'google text-warning'} me-1.5"></i> Powered by ${viewerType === 'office' ? officeTitle : googleTitle}</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <a href="${embedUrl}" target="_blank" class="btn btn-xs btn-outline-info rounded-pill px-2.5 py-0.5" style="font-size: 0.75rem;">
                                         <i class="bi bi-box-arrow-up-right me-1"></i> Full Window
                                     </a>
                                     <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2.5 py-0.5" id="btnBackToBuiltinSlides" style="font-size: 0.75rem;">
-                                        <i class="bi bi-file-earmark-pdf me-1"></i> Back to PDF View
+                                        <i class="bi bi-${isDoc ? 'file-earmark-word' : 'file-earmark-pdf'} me-1"></i> Back to ${backBtnLabel}
                                     </button>
                                 </div>
                             </div>
@@ -3811,7 +3827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 throw new Error(data?.message || 'Could not connect to online viewer.');
             } catch (err) {
-                console.warn('Online embed error, falling back to PDF viewer:', err);
+                console.warn('Online embed error, falling back to built-in viewer:', err);
                 stageEl.innerHTML = `
                     <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
                         <i class="bi bi-exclamation-circle text-warning fs-1 mb-3 d-block"></i>
@@ -4480,6 +4496,86 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
+            async function postProcessDocxMediaAndShapes(arrayBuf, hostEl) {
+                if (!arrayBuf || !hostEl || !window.JSZip) return;
+                try {
+                    const zip = await window.JSZip.loadAsync(arrayBuf);
+                    const allFiles = Object.keys(zip.files);
+                    
+                    // 1. Detect Word Shapes and SmartArt
+                    let hasShapesOrSmartArt = false;
+                    if (allFiles.some(f => /^word\/diagrams\//i.test(f))) {
+                        hasShapesOrSmartArt = true;
+                    }
+                    const docXmlFile = zip.file('word/document.xml');
+                    if (docXmlFile) {
+                        const docXml = await docXmlFile.async('string');
+                        if (docXml && (docXml.includes('wps:wsp') || docXml.includes('wpg:wgp') || docXml.includes('v:shape') || docXml.includes('wpc:wpc') || docXml.includes('dgm:'))) {
+                            hasShapesOrSmartArt = true;
+                        }
+                    }
+
+                    // 2. Extract embedded media files
+                    const mediaFiles = allFiles.filter(f => /^word\/media\/.+\.(png|jpe?g|gif|webp|svg)$/i.test(f));
+                    const renderedImgs = Array.from(hostEl.querySelectorAll('img'));
+                    
+                    // If there are embedded raster images that were skipped by docx-preview (e.g. inside shapes, textboxes, or groups)
+                    if (mediaFiles.length > renderedImgs.length) {
+                        const missingMedia = [];
+                        for (const mf of mediaFiles) {
+                            try {
+                                const blob = await zip.file(mf).async('blob');
+                                const url = URL.createObjectURL(blob);
+                                missingMedia.push({ name: mf.split('/').pop(), url });
+                            } catch (e) {}
+                        }
+
+                        if (missingMedia.length > 0) {
+                            const targetSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+                            const mediaBox = document.createElement('div');
+                            mediaBox.className = 'docx-extracted-media-box my-3 p-3 bg-light border rounded text-center';
+                            mediaBox.innerHTML = `
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <span class="fw-bold text-dark small"><i class="bi bi-images text-primary me-1.5"></i> Embedded Diagram / Image Attachments (${missingMedia.length})</span>
+                                    <span class="micro-text text-muted">Extracted from document</span>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                    ${missingMedia.map(m => `
+                                        <div class="p-1 border rounded bg-white shadow-sm" style="max-width: 100%;">
+                                            <img src="${m.url}" alt="${escapeHtml(m.name)}" class="img-fluid rounded" style="max-height: 400px; object-fit: contain;">
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                            targetSec.appendChild(mediaBox);
+                        }
+                    }
+
+                    // 3. If native Word vector shapes/diagrams are detected, add a smart notice
+                    if (hasShapesOrSmartArt) {
+                        const firstSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+                        if (!firstSec.querySelector('.docx-shape-notice')) {
+                            const notice = document.createElement('div');
+                            notice.className = 'docx-shape-notice alert alert-info py-2 px-3 mb-3 border-0 rounded-3 d-flex align-items-center justify-content-between gap-2 shadow-sm';
+                            notice.style.fontSize = '0.8rem';
+                            notice.innerHTML = `
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-info-circle-fill text-info fs-6"></i>
+                                    <span>This document contains native Word vector shapes/diagrams. Click <strong>Office 365</strong> above to view full shapes and animations.</span>
+                                </div>
+                                <button type="button" class="btn btn-xs btn-info text-white rounded-pill px-2.5 py-0.5 fw-semibold" id="noticeOpenOfficeBtn" style="font-size: 0.75rem; white-space: nowrap;">
+                                    <i class="bi bi-microsoft me-1"></i> Open Office 365
+                                </button>
+                            `;
+                            firstSec.insertBefore(notice, firstSec.firstChild);
+                            notice.querySelector('#noticeOpenOfficeBtn')?.addEventListener('click', () => openOnlineEmbed('office'));
+                        }
+                    }
+                } catch (zipErr) {
+                    console.warn('Media and shape extraction notice:', zipErr);
+                }
+            }
+
             if (modeSwitcherEl) {
                 modeSwitcherEl.innerHTML = `
                     <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomOutBtn" title="Zoom out">
@@ -4533,6 +4629,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         renderFootnotes: true,
                         renderEndnotes: true
                     });
+                    await postProcessDocxMediaAndShapes(fileData.arrayBuffer, host);
                     paginateDocxContainer(host);
                     setTimeout(() => paginateDocxContainer(host), 60);
                     return;
@@ -4549,6 +4646,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${result.value || '<p class="text-muted fst-italic">Empty Document.</p>'}
                         </div>
                     `;
+                    await postProcessDocxMediaAndShapes(fileData.arrayBuffer, host);
                     paginateDocxContainer(host);
                     setTimeout(() => paginateDocxContainer(host), 60);
                     return;

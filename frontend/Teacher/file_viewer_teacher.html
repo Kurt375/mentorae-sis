@@ -583,6 +583,82 @@
                         });
                     }
 
+                    async function postProcessDocxMediaAndShapes(arrayBuf, hostEl) {
+                        if (!arrayBuf || !hostEl || !window.JSZip) return;
+                        try {
+                            const zip = await window.JSZip.loadAsync(arrayBuf);
+                            const allFiles = Object.keys(zip.files);
+                            
+                            // 1. Detect Word Shapes and SmartArt
+                            let hasShapesOrSmartArt = false;
+                            if (allFiles.some(f => /^word\/diagrams\//i.test(f))) {
+                                hasShapesOrSmartArt = true;
+                            }
+                            const docXmlFile = zip.file('word/document.xml');
+                            if (docXmlFile) {
+                                const docXml = await docXmlFile.async('string');
+                                if (docXml && (docXml.includes('wps:wsp') || docXml.includes('wpg:wgp') || docXml.includes('v:shape') || docXml.includes('wpc:wpc') || docXml.includes('dgm:'))) {
+                                    hasShapesOrSmartArt = true;
+                                }
+                            }
+
+                            // 2. Extract embedded media files
+                            const mediaFiles = allFiles.filter(f => /^word\/media\/.+\.(png|jpe?g|gif|webp|svg)$/i.test(f));
+                            const renderedImgs = Array.from(hostEl.querySelectorAll('img'));
+                            
+                            // If there are embedded raster images that were skipped by docx-preview (e.g. inside shapes, textboxes, or groups)
+                            if (mediaFiles.length > renderedImgs.length) {
+                                const missingMedia = [];
+                                for (const mf of mediaFiles) {
+                                    try {
+                                        const blob = await zip.file(mf).async('blob');
+                                        const url = URL.createObjectURL(blob);
+                                        missingMedia.push({ name: mf.split('/').pop(), url });
+                                    } catch (e) {}
+                                }
+
+                                if (missingMedia.length > 0) {
+                                    const targetSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+                                    const mediaBox = document.createElement('div');
+                                    mediaBox.className = 'docx-extracted-media-box my-3 p-3 bg-light border rounded text-center';
+                                    mediaBox.innerHTML = `
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <span class="fw-bold text-dark small"><i class="bi bi-images text-primary me-1.5"></i> Embedded Diagram / Image Attachments (${missingMedia.length})</span>
+                                            <span class="micro-text text-muted">Extracted from document</span>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                            ${missingMedia.map(m => `
+                                                <div class="p-1 border rounded bg-white shadow-sm" style="max-width: 100%;">
+                                                    <img src="${m.url}" alt="${escapeHtml(m.name)}" class="img-fluid rounded" style="max-height: 400px; object-fit: contain;">
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    `;
+                                    targetSec.appendChild(mediaBox);
+                                }
+                            }
+
+                            // 3. If native Word vector shapes/diagrams are detected, add a smart notice
+                            if (hasShapesOrSmartArt) {
+                                const firstSec = hostEl.querySelector('section.docx, .docx-paper-sheet') || hostEl;
+                                if (!firstSec.querySelector('.docx-shape-notice')) {
+                                    const notice = document.createElement('div');
+                                    notice.className = 'docx-shape-notice alert alert-info py-2 px-3 mb-3 border-0 rounded-3 d-flex align-items-center justify-content-between gap-2 shadow-sm';
+                                    notice.style.fontSize = '0.8rem';
+                                    notice.innerHTML = `
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-info-circle-fill text-info fs-6"></i>
+                                            <span>This document contains native Word vector shapes/diagrams. Download or open in Office 365 to view full vector graphics.</span>
+                                        </div>
+                                    `;
+                                    firstSec.insertBefore(notice, firstSec.firstChild);
+                                }
+                            }
+                        } catch (zipErr) {
+                            console.warn('Media and shape extraction notice:', zipErr);
+                        }
+                    }
+
                     if (modeSwitcherEl) {
                         modeSwitcherEl.innerHTML = `
                             <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomOutBtn" title="Zoom out">
@@ -627,6 +703,7 @@
                                 renderFootnotes: true,
                                 renderEndnotes: true
                             });
+                            await postProcessDocxMediaAndShapes(arrayBuffer, host);
                             paginateDocxContainer(host);
                             setTimeout(() => paginateDocxContainer(host), 60);
                             return;
@@ -639,6 +716,7 @@
                         try {
                             const res = await window.mammoth.convertToHtml({ arrayBuffer });
                             host.innerHTML = `<div class="docx-paper-sheet">${res.value}</div>`;
+                            await postProcessDocxMediaAndShapes(arrayBuffer, host);
                             paginateDocxContainer(host);
                             setTimeout(() => paginateDocxContainer(host), 60);
                             return;
