@@ -2144,13 +2144,20 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = (newTopicRequestContent.files.length === 0)
             ? '<p class="text-muted text-center">No files added yet.</p>'
             : `<div class="list-group">${newTopicRequestContent.files.map((file, index) => `
-                <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center text-truncate me-2">
-                        <i class="bi bi-file-earmark-text me-2 text-primary"></i>
-                        <span class="text-truncate">${escapeHtml(file.name)}</span>
+                <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                    <div class="d-flex align-items-center text-truncate me-2 preview-request-file-trigger" data-index="${index}" role="button" style="cursor: pointer;" title="Click to view and check file contents">
+                        <i class="bi bi-file-earmark-text me-2 text-primary fs-5 flex-shrink-0"></i>
+                        <span class="text-truncate fw-medium">${escapeHtml(file.name)}</span>
                         ${file.pdfDataUrl ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill ms-2 micro-text"><i class="bi bi-check-circle me-1"></i>HD Ready</span>' : ''}
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger delete-request-file" data-index="${index}"><i class="bi bi-trash"></i></button>
+                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                        <button type="button" class="btn btn-sm btn-outline-primary preview-request-file-btn rounded-pill px-2.5 py-0.5 fw-semibold" data-index="${index}" title="View and check this file">
+                            <i class="bi bi-eye me-1"></i>View
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger delete-request-file rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;" data-index="${index}" title="Delete File">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </div>`).join('')}</div>`;
     }
 
@@ -2226,10 +2233,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('requestFilesContainer').addEventListener('click', e => {
-        if (e.target.closest('.delete-request-file')) {
-            const index = e.target.closest('.delete-request-file').dataset.index;
+        const delBtn = e.target.closest('.delete-request-file');
+        if (delBtn) {
+            const index = delBtn.dataset.index;
             newTopicRequestContent.files.splice(index, 1);
             renderRequestFiles();
+            return;
+        }
+
+        const previewTrigger = e.target.closest('.preview-request-file-btn, .preview-request-file-trigger');
+        if (previewTrigger) {
+            const index = parseInt(previewTrigger.dataset.index, 10);
+            const file = newTopicRequestContent.files[index];
+            if (file) {
+                const reqModal = requestContentFileModal;
+                if (reqModal) reqModal.hide();
+                openClassroomViewer(file.name, file.dataUrl, 'Pre-check File (Unsaved)', file);
+                const closeBtn = document.getElementById('classroomViewerCloseBtn');
+                const backBtn = document.getElementById('classroomViewerBackBtn');
+                const restoreReqModal = () => {
+                    if (reqModal) reqModal.show();
+                    if (closeBtn) closeBtn.removeEventListener('click', restoreReqModal);
+                    if (backBtn) backBtn.removeEventListener('click', restoreReqModal);
+                };
+                if (closeBtn) closeBtn.addEventListener('click', restoreReqModal);
+                if (backBtn) backBtn.addEventListener('click', restoreReqModal);
+            }
         }
     });
 

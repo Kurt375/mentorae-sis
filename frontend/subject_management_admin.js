@@ -42,6 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const existingQuizEditorModalEl = document.getElementById('existingQuizEditorModal');
     const existingQuizEditorModal = existingQuizEditorModalEl ? new bootstrap.Modal(existingQuizEditorModalEl) : null;
 
+    // File Pre-Check / Preview Modal
+    const filePreviewCheckModalEl = document.getElementById('filePreviewCheckModal');
+    const filePreviewCheckModal = filePreviewCheckModalEl ? new bootstrap.Modal(filePreviewCheckModalEl) : null;
+    let filePreviewReturnModal = 'existingFileEditorModal';
+    let currentPreviewBlobUrl = null;
+
     // New DOM elements for filters
     const tableSearch = document.getElementById('tableSearch');
     const gradeFilter = document.getElementById('gradeFilter');
@@ -1164,6 +1170,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function escapeHtml(str) {
+        if (!str && str !== 0) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function getFileDisplayMeta(fileName) {
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        switch (ext) {
+            case 'pdf':
+                return { icon: 'bi-file-earmark-pdf-fill text-danger', label: 'PDF Document', type: 'pdf' };
+            case 'pptx':
+            case 'ppt':
+                return { icon: 'bi-file-earmark-ppt-fill text-danger', label: 'PowerPoint Presentation', type: 'presentation' };
+            case 'docx':
+            case 'doc':
+                return { icon: 'bi-file-earmark-word-fill text-primary', label: 'Word Document', type: 'word' };
+            case 'xlsx':
+            case 'xls':
+                return { icon: 'bi-file-earmark-excel-fill text-success', label: 'Excel Spreadsheet', type: 'spreadsheet' };
+            case 'png':
+            case 'jpg':
+            case 'jpeg':
+            case 'gif':
+            case 'webp':
+            case 'svg':
+                return { icon: 'bi-file-earmark-image-fill text-info', label: 'Image File', type: 'image' };
+            case 'mp4':
+            case 'webm':
+                return { icon: 'bi-file-earmark-play-fill text-danger', label: 'Video File', type: 'video' };
+            case 'mp3':
+            case 'wav':
+            case 'ogg':
+                return { icon: 'bi-file-earmark-music-fill text-warning', label: 'Audio File', type: 'audio' };
+            case 'txt':
+            case 'md':
+            case 'json':
+            case 'csv':
+                return { icon: 'bi-file-earmark-code-fill text-secondary', label: 'Text / Data File', type: 'text' };
+            default:
+                return { icon: 'bi-file-earmark-text-fill text-primary', label: 'Attached Material', type: 'other' };
+        }
+    }
+
     function renderTopicEditorCurrentFiles() {
         const container = document.getElementById('topicEditorCurrentFilesContainer');
         if (!container) return;
@@ -1173,16 +1227,35 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         container.innerHTML = `
-            <label class="form-label text-sm fw-medium mb-1">Current Attached Files</label>
-            <div class="list-group mb-2">
-                ${files.map((f, i) => `
-                    <div class="list-group-item d-flex justify-content-between align-items-center py-1 px-2 small">
-                        <span class="text-truncate me-2"><i class="bi bi-file-earmark-text text-primary me-1"></i>${f.name}</span>
-                        <button type="button" class="btn btn-sm btn-outline-danger p-0 px-2 remove-topic-editor-file-btn" data-index="${i}" title="Remove file">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                `).join('')}
+            <label class="form-label text-sm fw-medium mb-1">Current Attached Files (Click to inspect)</label>
+            <div class="list-group mb-2 shadow-xs rounded-3 overflow-hidden">
+                ${files.map((f, i) => {
+                    const meta = getFileDisplayMeta(f.name);
+                    const isReady = !!(f.pdfDataUrl || f.convertedToPdf);
+                    const fileSizeText = f.size ? `${(f.size / 1024).toFixed(2)} KB` : '';
+                    return `
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 small">
+                        <div class="d-flex align-items-center flex-grow-1 text-truncate me-2 preview-topic-editor-file-trigger" data-index="${i}" role="button" style="cursor: pointer;" title="Click to view and check file contents">
+                            <i class="bi ${meta.icon} fs-5 me-2 flex-shrink-0"></i>
+                            <div class="text-truncate">
+                                <span class="fw-semibold text-dark text-truncate d-block">${escapeHtml(f.name)}</span>
+                                <div class="d-flex align-items-center gap-1.5 mt-0.5">
+                                    <span class="text-muted micro-text">${fileSizeText}</span>
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill micro-text">${meta.label}</span>
+                                    ${isReady ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill micro-text"><i class="bi bi-check-circle me-1"></i>HD Ready</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                            <button type="button" class="btn btn-sm btn-outline-primary preview-topic-editor-file-btn rounded-pill px-2.5 py-0.5 fw-semibold" data-index="${i}" title="View and check this file">
+                                <i class="bi bi-eye me-1"></i>View
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-topic-editor-file-btn rounded-circle p-1" style="width: 28px; height: 28px;" data-index="${i}" title="Remove file">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
             </div>
         `;
     }
@@ -3111,43 +3184,299 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
 
         if (files.length === 0) {
-            container.innerHTML = '<p class="text-center text-muted">No files uploaded yet.</p>';
+            container.innerHTML = `
+                <div class="text-center py-4 border rounded-3 bg-light">
+                    <i class="bi bi-cloud-arrow-up fs-2 text-muted d-block mb-1"></i>
+                    <p class="text-muted mb-0 small">No files uploaded yet for this topic.</p>
+                </div>
+            `;
             return;
         }
 
         const list = document.createElement('div');
-        list.className = 'list-group';
+        list.className = 'list-group shadow-xs rounded-3 border';
         files.forEach((file, index) => {
-            let fileUrl = '#';
-            if (file.dataUrl) {
-                if (file.dataUrl.startsWith('data:')) {
-                    try {
-                        const blob = dataURItoBlob(file.dataUrl);
-                        fileUrl = URL.createObjectURL(blob);
-                    } catch (e) {
-                        fileUrl = file.dataUrl;
-                    }
-                } else {
-                    fileUrl = file.dataUrl;
-                }
-            }
+            const meta = getFileDisplayMeta(file.name);
+            const fileSizeText = file.size ? `${(file.size / 1024).toFixed(2)} KB` : '';
+            const isReady = !!(file.pdfDataUrl || file.convertedToPdf);
 
             const item = document.createElement('div');
-            item.className = 'list-group-item d-flex justify-content-between align-items-center';
-            const fileSizeText = file.size ? `(${(file.size / 1024).toFixed(2)} KB)` : '';
+            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 border-bottom transition-all';
             item.innerHTML = `
-                <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-dark flex-grow-1 me-3" title="Click to open file">
-                    <i class="bi bi-file-earmark-text me-2 text-primary"></i>
-                    <span class="fw-medium">${file.name || 'Attached File'}</span>
-                    <small class="text-muted ms-2">${fileSizeText}</small>
-                </a>
-                <div>
-                    <button type="button" class="btn btn-sm btn-outline-danger delete-existing-file-btn" data-index="${index}" title="Delete File"><i class="bi bi-trash"></i></button>
+                <div class="d-flex align-items-center flex-grow-1 text-truncate me-3 preview-file-trigger" data-index="${index}" role="button" title="Click to view and check file contents" style="cursor: pointer;">
+                    <div class="rounded-3 p-2 bg-light d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 42px; height: 42px;">
+                        <i class="bi ${meta.icon} fs-4"></i>
+                    </div>
+                    <div class="text-truncate">
+                        <span class="fw-semibold text-dark text-truncate d-block">${escapeHtml(file.name || 'Attached File')}</span>
+                        <div class="d-flex align-items-center gap-2 mt-0.5">
+                            <small class="text-muted">${fileSizeText}</small>
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill micro-text">${meta.label}</span>
+                            ${isReady ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill micro-text"><i class="bi bi-check-circle me-1"></i>HD Ready</span>' : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                    <button type="button" class="btn btn-sm btn-outline-primary preview-existing-file-btn rounded-pill px-3 py-1 fw-semibold shadow-xs" data-index="${index}" title="View and check this file">
+                        <i class="bi bi-eye me-1"></i>View
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-existing-file-btn rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" data-index="${index}" title="Delete File">
+                        <i class="bi bi-trash"></i>
+                    </button>
                 </div>
             `;
             list.appendChild(item);
         });
         container.appendChild(list);
+    }
+
+    function renderOfficeCard(stageEl, file, blobUrl, meta, customMessage = '') {
+        const fileSizeText = file.size ? `${(file.size / 1024).toFixed(2)} KB` : '';
+        stageEl.innerHTML = `
+            <div class="text-center p-5 bg-white rounded-4 shadow-sm mx-auto my-auto" style="max-width: 580px;">
+                <i class="bi ${meta.icon} mb-3 d-block" style="font-size: 4.5rem;"></i>
+                <h5 class="fw-bold text-dark mb-1">${escapeHtml(file.name)}</h5>
+                <p class="text-muted small mb-3">${meta.label} (${fileSizeText})</p>
+                <div class="alert alert-info py-2 px-3 small text-start mb-4">
+                    <i class="bi bi-info-circle me-1"></i> ${customMessage || 'You can inspect or download this document directly to verify its contents before saving.'}
+                </div>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="${blobUrl}" download="${escapeHtml(file.name || 'document')}" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-xs">
+                        <i class="bi bi-download me-1"></i> Download File
+                    </a>
+                    <a href="${blobUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Open Tab
+                    </a>
+                </div>
+            </div>
+        `;
+    }
+
+    function previewExistingFile(index) {
+        const subject = editingSubjectCopy;
+        const topic = subject?.topics?.[currentTopicIndexForEditing];
+        if (!topic || !Array.isArray(topic.files) || !topic.files[index]) return;
+        const file = topic.files[index];
+        openFilePreviewCheckModal(file, 'existingFileEditorModal', topic.title);
+    }
+
+    function openFilePreviewCheckModal(file, returnContext = 'existingFileEditorModal', contextTitle = '') {
+        if (!file || !filePreviewCheckModal) return;
+        filePreviewReturnModal = returnContext;
+
+        const titleEl = document.getElementById('filePreviewCheckModalLabel');
+        const subEl = document.getElementById('filePreviewSubLabel');
+        const iconEl = document.getElementById('filePreviewHeaderIcon');
+        const downloadBtn = document.getElementById('filePreviewDownloadBtn');
+        const popoutBtn = document.getElementById('filePreviewPopoutBtn');
+        const stageEl = document.getElementById('filePreviewStage');
+
+        const meta = getFileDisplayMeta(file.name);
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        const fileSizeText = file.size ? `${(file.size / 1024).toFixed(2)} KB` : '';
+
+        if (titleEl) titleEl.textContent = file.name || 'File Preview';
+        if (subEl) subEl.textContent = `${contextTitle ? contextTitle + ' • ' : ''}Unsaved Pre-Check (${meta.label}${fileSizeText ? ' • ' + fileSizeText : ''})`;
+        if (iconEl) iconEl.className = `bi ${meta.icon} fs-4 me-1`;
+
+        // Clean up prior blob URL
+        if (currentPreviewBlobUrl && currentPreviewBlobUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(currentPreviewBlobUrl); } catch (e) {}
+            currentPreviewBlobUrl = null;
+        }
+
+        let blob = null;
+        let blobUrl = file.dataUrl || '#';
+        let mime = getMimeTypeFromFilename(file.name, '');
+
+        if (file.dataUrl && file.dataUrl.startsWith('data:')) {
+            blob = dataURItoBlob(file.dataUrl, file.name);
+            if (blob) {
+                blobUrl = URL.createObjectURL(blob);
+                currentPreviewBlobUrl = blobUrl;
+                if (blob.type) mime = blob.type;
+            }
+        }
+
+        let effectiveViewerUrl = file.pdfDataUrl || blobUrl;
+
+        if (downloadBtn) {
+            downloadBtn.href = blobUrl;
+            downloadBtn.setAttribute('download', file.name || 'document');
+        }
+        if (popoutBtn) {
+            popoutBtn.href = effectiveViewerUrl;
+        }
+
+        if (stageEl) {
+            stageEl.innerHTML = '';
+
+            if (mime.includes('pdf') || ext === 'pdf' || file.pdfDataUrl) {
+                stageEl.innerHTML = `
+                    <iframe src="${effectiveViewerUrl}" class="w-100 border-0 rounded-bottom-4" style="height: 75vh;" title="${escapeHtml(file.name)}"></iframe>
+                `;
+            } else if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                stageEl.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center p-3 w-100 h-100">
+                        <img src="${blobUrl}" alt="${escapeHtml(file.name)}" class="img-fluid rounded-3 shadow-sm" style="max-height: 72vh; max-width: 95%; object-fit: contain;">
+                    </div>
+                `;
+            } else if (mime.startsWith('video/') || ['mp4', 'webm', 'ogg'].includes(ext)) {
+                stageEl.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center p-3 w-100 h-100">
+                        <video controls autoplay class="rounded-3 shadow-sm" style="max-width: 95%; max-height: 72vh;">
+                            <source src="${blobUrl}" type="${mime}">
+                            Your browser does not support HTML5 video.
+                        </video>
+                    </div>
+                `;
+            } else if (mime.startsWith('audio/') || ['mp3', 'wav', 'ogg'].includes(ext)) {
+                stageEl.innerHTML = `
+                    <div class="text-center p-5 bg-white rounded-4 shadow-sm mx-auto my-auto" style="max-width: 500px;">
+                        <i class="bi bi-file-earmark-music-fill text-warning fs-1 mb-3 d-block"></i>
+                        <h5 class="fw-bold mb-1">${escapeHtml(file.name)}</h5>
+                        <p class="text-muted small mb-4">Audio Material</p>
+                        <audio controls class="w-100 mb-3"><source src="${blobUrl}" type="${mime}">Your browser does not support audio.</audio>
+                    </div>
+                `;
+            } else if (mime.startsWith('text/') || ['txt', 'md', 'json', 'csv', 'js', 'html', 'css'].includes(ext)) {
+                let textContent = '';
+                try {
+                    if (file.dataUrl && file.dataUrl.startsWith('data:')) {
+                        textContent = decodeURIComponent(escape(atob(file.dataUrl.split(',')[1])));
+                    }
+                } catch (e) {
+                    try { textContent = atob(file.dataUrl.split(',')[1]); } catch (e2) { textContent = 'Unable to decode text preview.'; }
+                }
+                stageEl.innerHTML = `
+                    <div class="p-4 w-100 h-100 bg-white" style="overflow-y: auto; max-height: 75vh;">
+                        <pre class="font-monospace text-dark mb-0" style="white-space: pre-wrap; font-size: 0.88rem; line-height: 1.6;">${escapeHtml(textContent)}</pre>
+                    </div>
+                `;
+            } else if ((ext === 'docx' || ext === 'doc') && window.mammoth && blob) {
+                stageEl.innerHTML = `
+                    <div class="p-4 p-md-5 bg-white rounded-3 shadow-sm mx-auto my-3" id="docxPreviewContainer" style="max-width: 850px; min-height: 60vh; max-height: 72vh; overflow-y: auto;">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted small">Rendering Word Document...</p>
+                        </div>
+                    </div>
+                `;
+                blob.arrayBuffer().then(ab => window.mammoth.convertToHtml({ arrayBuffer: ab })).then(result => {
+                    const docWrap = document.getElementById('docxPreviewContainer');
+                    if (docWrap) docWrap.innerHTML = result.value || '<p class="text-muted">Empty document.</p>';
+                }).catch(err => {
+                    renderOfficeCard(stageEl, file, blobUrl, meta);
+                });
+            } else if (['pptx', 'ppt'].includes(ext)) {
+                if (file.pdfDataUrl) {
+                    stageEl.innerHTML = `
+                        <iframe src="${file.pdfDataUrl}" class="w-100 border-0 rounded-bottom-4" style="height: 75vh;" title="${escapeHtml(file.name)}"></iframe>
+                    `;
+                } else {
+                    stageEl.innerHTML = `
+                        <div class="text-center p-5 bg-white rounded-4 shadow-sm mx-auto my-auto" style="max-width: 600px;">
+                            <i class="bi bi-file-earmark-ppt-fill text-danger mb-3 d-block" style="font-size: 4rem;"></i>
+                            <h5 class="fw-bold mb-1">${escapeHtml(file.name)}</h5>
+                            <p class="text-muted small mb-3">PowerPoint Presentation (${fileSizeText})</p>
+                            <div class="alert alert-info py-2 px-3 small text-start mb-4">
+                                <i class="bi bi-info-circle me-1"></i> Generating in-browser slide view... You can also download or open the presentation immediately.
+                            </div>
+                            <div class="progress mb-4" style="height: 6px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" id="pptxAdminPreviewProgress" style="width: 45%;"></div>
+                            </div>
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="${blobUrl}" download="${escapeHtml(file.name || 'presentation')}" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-xs">
+                                    <i class="bi bi-download me-1"></i> Download Presentation
+                                </a>
+                                <a href="${blobUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Open Tab
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                    // Convert PPTX to PDF on client
+                    if (window.MentoraePptxToPdf && blob) {
+                        blob.arrayBuffer().then(ab => window.MentoraePptxToPdf.convert(ab, (prog) => {
+                            const pBar = document.getElementById('pptxAdminPreviewProgress');
+                            if (pBar && prog && prog.percent) pBar.style.width = `${prog.percent}%`;
+                        })).then(pdfUrl => {
+                            if (pdfUrl) {
+                                file.pdfDataUrl = pdfUrl;
+                                file.convertedToPdf = true;
+                                if (popoutBtn) popoutBtn.href = pdfUrl;
+                                stageEl.innerHTML = `<iframe src="${pdfUrl}" class="w-100 border-0 rounded-bottom-4" style="height: 75vh;" title="${escapeHtml(file.name)}"></iframe>`;
+                                renderExistingFiles();
+                            }
+                        }).catch(e => console.warn('PPTX preview convert notice:', e));
+                    }
+                }
+            } else if (['xlsx', 'xls'].includes(ext) && window.XLSX && blob) {
+                stageEl.innerHTML = `
+                    <div class="p-4 bg-white rounded-3 shadow-sm mx-auto my-3 w-100" style="max-height: 75vh; overflow: auto;" id="xlsxPreviewContainer">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-success" role="status"></div>
+                            <p class="mt-2 text-muted small">Loading Spreadsheet...</p>
+                        </div>
+                    </div>
+                `;
+                blob.arrayBuffer().then(ab => {
+                    const wb = XLSX.read(ab, { type: 'array' });
+                    const firstSheetName = wb.SheetNames[0];
+                    const html = XLSX.utils.sheet_to_html(wb.Sheets[firstSheetName]);
+                    const container = document.getElementById('xlsxPreviewContainer');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                                <span class="fw-bold small text-muted"><i class="bi bi-table me-1"></i>Sheet: ${escapeHtml(firstSheetName)}</span>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill micro-text">Spreadsheet Preview</span>
+                            </div>
+                            <div class="table-responsive">${html}</div>
+                        `;
+                    }
+                }).catch(err => {
+                    renderOfficeCard(stageEl, file, blobUrl, meta);
+                });
+            } else {
+                renderOfficeCard(stageEl, file, blobUrl, meta);
+            }
+        }
+
+        // Transition modals smoothly
+        const sourceModalEl = (returnContext === 'topicEditorModal') ? topicEditorModalEl : existingFileEditorModalEl;
+        const sourceModal = (returnContext === 'topicEditorModal') ? topicEditorModal : existingFileEditorModal;
+
+        isTransitioningToSubmodal = true;
+        const onSourceModalHidden = () => {
+            isTransitioningToSubmodal = false;
+            if (filePreviewCheckModal) filePreviewCheckModal.show();
+            if (sourceModalEl) sourceModalEl.removeEventListener('hidden.bs.modal', onSourceModalHidden);
+        };
+
+        if (sourceModalEl) sourceModalEl.addEventListener('hidden.bs.modal', onSourceModalHidden);
+        if (sourceModal) sourceModal.hide();
+    }
+
+    function closeFilePreviewCheckModal() {
+        if (currentPreviewBlobUrl && currentPreviewBlobUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(currentPreviewBlobUrl); } catch (e) {}
+            currentPreviewBlobUrl = null;
+        }
+
+        const stageEl = document.getElementById('filePreviewStage');
+        if (stageEl) stageEl.innerHTML = '';
+
+        const targetModal = (filePreviewReturnModal === 'topicEditorModal') ? topicEditorModal : existingFileEditorModal;
+
+        isTransitioningToSubmodal = true;
+        const onPreviewHidden = () => {
+            isTransitioningToSubmodal = false;
+            if (targetModal) targetModal.show();
+            if (filePreviewCheckModalEl) filePreviewCheckModalEl.removeEventListener('hidden.bs.modal', onPreviewHidden);
+        };
+
+        if (filePreviewCheckModalEl) filePreviewCheckModalEl.addEventListener('hidden.bs.modal', onPreviewHidden);
+        if (filePreviewCheckModal) filePreviewCheckModal.hide();
     }
 
     async function handleExistingFileUploadFormSubmit(event) {
@@ -3163,40 +3492,104 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Uploading...';
+        }
+
         try {
             const fileDataUrl = await readFileAsDataURL(file);
             if (!Array.isArray(topic.files)) topic.files = [];
-            topic.files.push({
+            const fileItem = {
                 name: file.name,
                 size: file.size,
                 dataUrl: fileDataUrl
-            });
+            };
+            topic.files.push(fileItem);
             if (!Array.isArray(topic.resources)) topic.resources = [];
             if (!topic.resources.includes('File')) topic.resources.push('File');
             renderExistingFiles();
             fileInput.value = ''; // Clear input
+
+            // Pre-convert Office documents in background for instant classroom & pre-check viewing
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+                const token = localStorage.getItem('mentorae_token');
+                if (token) {
+                    authedFetch('/api/content/convert-document', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ fileName: file.name, dataUrl: fileDataUrl })
+                    }).then(res => {
+                        if (res && res.success && res.pdfDataUrl) {
+                            fileItem.pdfDataUrl = res.pdfDataUrl;
+                            fileItem.convertedToPdf = true;
+                            renderExistingFiles();
+                        } else if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
+                            window.MentoraePptxToPdf.convert(fileDataUrl).then(pdfUrl => {
+                                if (pdfUrl && !fileItem.pdfDataUrl) {
+                                    fileItem.pdfDataUrl = pdfUrl;
+                                    fileItem.convertedToPdf = true;
+                                    renderExistingFiles();
+                                }
+                            }).catch(err => console.warn('PPTX fallback notice:', err));
+                        }
+                    }).catch(err => {
+                        if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
+                            window.MentoraePptxToPdf.convert(fileDataUrl).then(pdfUrl => {
+                                if (pdfUrl && !fileItem.pdfDataUrl) {
+                                    fileItem.pdfDataUrl = pdfUrl;
+                                    fileItem.convertedToPdf = true;
+                                    renderExistingFiles();
+                                }
+                            }).catch(e => console.warn('PPTX fallback notice:', e));
+                        }
+                    });
+                } else if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
+                    window.MentoraePptxToPdf.convert(fileDataUrl).then(pdfUrl => {
+                        if (pdfUrl && !fileItem.pdfDataUrl) {
+                            fileItem.pdfDataUrl = pdfUrl;
+                            fileItem.convertedToPdf = true;
+                            renderExistingFiles();
+                        }
+                    }).catch(e => console.warn('PPTX fallback notice:', e));
+                }
+            }
         } catch (error) {
             console.error("Error reading file:", error);
             alert("There was an error reading the file. Please try again.");
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Upload File';
+            }
         }
     }
 
     function handleExistingFilesContainerClick(event) {
-        if (event) {
+        const deleteBtn = event.target.closest('.delete-existing-file-btn');
+        if (deleteBtn) {
             event.preventDefault();
             event.stopPropagation();
+            const subject = editingSubjectCopy; // Work on the temporary copy
+            const topic = subject?.topics?.[currentTopicIndexForEditing];
+            if (!topic || !topic.files) return;
+
+            const index = parseInt(deleteBtn.dataset.index, 10);
+            if (confirm(`Are you sure you want to delete "${topic.files[index]?.name || 'this file'}"?`)) {
+                topic.files.splice(index, 1);
+                renderExistingFiles();
+            }
+            return;
         }
-        const target = event.target.closest('.delete-existing-file-btn');
-        if (!target) return;
 
-        const subject = editingSubjectCopy; // Work on the temporary copy
-        const topic = subject?.topics?.[currentTopicIndexForEditing];
-        if (!topic || !topic.files) return;
-
-        const index = parseInt(target.dataset.index, 10);
-        if (confirm('Are you sure you want to delete this file?')) {
-            topic.files.splice(index, 1);
-            renderExistingFiles();
+        const previewTrigger = event.target.closest('.preview-file-trigger, .preview-existing-file-btn');
+        if (previewTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+            const index = parseInt(previewTrigger.dataset.index, 10);
+            previewExistingFile(index);
+            return;
         }
     }
 
@@ -3684,19 +4077,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingQuizQuestionsContainer = document.getElementById('existingQuizQuestionsContainer');
         if (existingQuizQuestionsContainer) existingQuizQuestionsContainer.addEventListener('click', handleExistingQuizContainerClick);
 
-        // Delegate topicEditorFileContainer clicks for removing attached files in topic editor modal
+        // Delegate topicEditorFileContainer clicks for previewing and removing attached files in topic editor modal
         const topicEditorFileContainer = document.getElementById('topicEditorFileContainer');
         if (topicEditorFileContainer) {
             topicEditorFileContainer.addEventListener('click', (e) => {
-                const target = e.target.closest('.remove-topic-editor-file-btn');
-                if (!target) return;
-                const index = parseInt(target.dataset.index, 10);
-                if (inlineTopicContent && Array.isArray(inlineTopicContent.files)) {
-                    inlineTopicContent.files.splice(index, 1);
-                    renderTopicEditorCurrentFiles();
+                const removeTarget = e.target.closest('.remove-topic-editor-file-btn');
+                if (removeTarget) {
+                    const index = parseInt(removeTarget.dataset.index, 10);
+                    if (inlineTopicContent && Array.isArray(inlineTopicContent.files)) {
+                        inlineTopicContent.files.splice(index, 1);
+                        renderTopicEditorCurrentFiles();
+                    }
+                    return;
+                }
+
+                const previewTarget = e.target.closest('.preview-topic-editor-file-btn, .preview-topic-editor-file-trigger');
+                if (previewTarget) {
+                    const index = parseInt(previewTarget.dataset.index, 10);
+                    if (inlineTopicContent && Array.isArray(inlineTopicContent.files) && inlineTopicContent.files[index]) {
+                        openFilePreviewCheckModal(inlineTopicContent.files[index], 'topicEditorModal', 'Topic Editor Draft');
+                    }
+                    return;
                 }
             });
         }
+
+        // Listeners for Pre-Check File Preview Modal
+        const filePreviewDoneBtn = document.getElementById('filePreviewDoneBtn');
+        if (filePreviewDoneBtn) filePreviewDoneBtn.addEventListener('click', closeFilePreviewCheckModal);
+        const filePreviewCheckModalCloseX = document.getElementById('filePreviewCheckModalCloseX');
+        if (filePreviewCheckModalCloseX) filePreviewCheckModalCloseX.addEventListener('click', closeFilePreviewCheckModal);
 
         // Bulk Creation & Spreadsheet Import Handlers
         setupStagedQuizBulkAndFileHandlers();
@@ -3707,6 +4117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Return to subjectModal when any submodal closes
         if (existingFileEditorModalEl) {
             existingFileEditorModalEl.addEventListener('hidden.bs.modal', () => {
+                if (isTransitioningToSubmodal) return;
                 if (currentEditingSubjectId && subjectModal) {
                     subjectModal.show();
                     if (editingSubjectCopy) renderTopicsList(editingSubjectCopy.topics || []);
