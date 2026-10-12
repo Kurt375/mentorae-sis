@@ -66,38 +66,58 @@
         </main>
     </div>
 
-    <!-- Online Document / Lesson Viewer Modal -->
-    <div class="modal fade" id="onlineDocViewerModal" tabindex="-1" aria-labelledby="onlineDocViewerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 92vw;">
-            <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
-                <div class="modal-header bg-dark text-white py-2.5 px-4 d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2 text-truncate me-3">
-                        <i class="bi bi-file-earmark-richtext fs-5 text-warning"></i>
-                        <h5 class="modal-title fw-bold fs-6 m-0 text-truncate text-white" id="onlineDocViewerModalLabel">Document Viewer</h5>
+    <!-- Google Classroom Style Full-Screen File Viewer -->
+    <div id="classroomFileViewer" class="classroom-viewer-overlay d-none">
+        <!-- Top App Bar -->
+        <header class="classroom-viewer-header d-flex justify-content-between align-items-center px-4 py-2.5">
+            <div class="d-flex align-items-center gap-3 text-truncate">
+                <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white-50" id="classroomViewerBackBtn" title="Back to Files">
+                    <i class="bi bi-arrow-left fs-5 text-white"></i>
+                </button>
+                <div class="d-flex align-items-center gap-2.5 text-truncate">
+                    <div class="classroom-viewer-icon-box" id="classroomViewerIconBox">
+                        <i class="bi bi-file-earmark-text fs-4 text-warning" id="classroomViewerIcon"></i>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <a href="#" id="docViewerDownloadBtn" download class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 fw-semibold text-nowrap">
-                            <i class="bi bi-download me-1"></i> Download
-                        </a>
-                        <a href="#" id="docViewerPopoutBtn" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-light rounded-pill px-3 py-1 fw-semibold text-nowrap">
-                            <i class="bi bi-box-arrow-up-right me-1"></i> New Tab
-                        </a>
-                        <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="text-truncate">
+                        <h1 class="fs-6 fw-bold text-white mb-0 text-truncate" id="classroomViewerFileName">Document.pdf</h1>
+                        <div class="micro-text text-white-50 text-truncate" id="classroomViewerSubtitle">Mentorae Learning Materials</div>
                     </div>
-                </div>
-                <div class="modal-body p-0 bg-secondary bg-opacity-10 d-flex flex-column align-items-center justify-content-center" id="docViewerBody" style="min-height: 78vh; max-height: 82vh; overflow-y: auto;">
-                    <!-- Dynamically rendered content (iframe, img, text) -->
                 </div>
             </div>
+            <div class="d-flex align-items-center gap-2">
+                <div id="classroomViewerModeSwitcher" class="d-none d-md-flex align-items-center gap-1 bg-black bg-opacity-40 p-1 rounded-pill border border-secondary border-opacity-50 me-1"></div>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-none d-sm-inline-flex align-items-center gap-1.5" id="classroomViewerPrintBtn" title="Print document">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" id="classroomViewerPopoutBtn" title="Open in new window">
+                    <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-md-inline">Pop-out</span>
+                </a>
+                <a href="#" download class="btn btn-sm btn-primary rounded-pill px-3.5 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm" id="classroomViewerDownloadBtn" title="Download to device">
+                    <i class="bi bi-download"></i> Download
+                </a>
+                <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white ms-1" id="classroomViewerCloseBtn" title="Close">
+                    <i class="bi bi-x-lg fs-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace (Center Document Stage) -->
+        <div class="classroom-viewer-stage" id="classroomViewerStage">
+            <!-- Dynamic high-fidelity content rendered here -->
         </div>
     </div>
 
     <!-- Bootstrap Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.4/dist/docx-preview.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../pptxToPdf.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const SUBJECTS_STORAGE_KEY = 'mentorae-subjects-data';
@@ -219,113 +239,311 @@
                 }
             }
 
-            function openOnlineDocViewer(fileName, dataUrl) {
-                const titleEl = document.getElementById('onlineDocViewerModalLabel');
-                const bodyEl = document.getElementById('docViewerBody');
-                const downloadBtn = document.getElementById('docViewerDownloadBtn');
-                const popoutBtn = document.getElementById('docViewerPopoutBtn');
+            let currentViewerActiveBlobUrl = null;
 
-                if (titleEl) titleEl.textContent = fileName || 'Document Viewer';
+            function closeClassroomViewer() {
+                const viewerEl = document.getElementById('classroomFileViewer');
+                const stageEl = document.getElementById('classroomViewerStage');
+                const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
+
+                if (viewerEl) viewerEl.classList.add('d-none');
+                document.documentElement.style.overflow = '';
+                document.body.style.overflow = '';
+                if (stageEl) stageEl.innerHTML = '';
+                if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
+
+                if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
+                    try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) {}
+                    currentViewerActiveBlobUrl = null;
+                }
+            }
+
+            async function openClassroomViewer(fileName, dataUrl, topicTitle = decodedTopic, targetFile = null) {
+                const viewerEl = document.getElementById('classroomFileViewer');
+                const nameEl = document.getElementById('classroomViewerFileName');
+                const subEl = document.getElementById('classroomViewerSubtitle');
+                const iconEl = document.getElementById('classroomViewerIcon');
+                const stageEl = document.getElementById('classroomViewerStage');
+                const downloadBtn = document.getElementById('classroomViewerDownloadBtn');
+                const popoutBtn = document.getElementById('classroomViewerPopoutBtn');
+                const printBtn = document.getElementById('classroomViewerPrintBtn');
+                const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
+
+                if (!viewerEl || !stageEl) return;
+
+                if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
+                    try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) {}
+                    currentViewerActiveBlobUrl = null;
+                }
+
+                viewerEl.classList.remove('d-none');
+                document.documentElement.style.overflow = 'hidden';
+                document.body.style.overflow = 'hidden';
+
+                const closeBtn = document.getElementById('classroomViewerCloseBtn');
+                const backBtn = document.getElementById('classroomViewerBackBtn');
+                if (closeBtn) closeBtn.onclick = closeClassroomViewer;
+                if (backBtn) backBtn.onclick = closeClassroomViewer;
+
+                if (nameEl) nameEl.textContent = fileName || 'Document';
+                if (subEl) subEl.textContent = `${decodedSubject || 'Subject'} • ${topicTitle || 'Learning Materials'}`;
+
+                const ext = (fileName || '').split('.').pop().toLowerCase();
+                let mime = getMimeTypeFromFilename(fileName, '');
+
+                if (iconEl) {
+                    if (ext === 'pdf') {
+                        iconEl.className = 'bi bi-file-earmark-pdf fs-4 text-danger';
+                    } else if (ext === 'pptx' || ext === 'ppt') {
+                        iconEl.className = 'bi bi-file-earmark-slides fs-4 text-warning';
+                    } else if (ext === 'docx' || ext === 'doc') {
+                        iconEl.className = 'bi bi-file-earmark-word fs-4 text-primary';
+                    } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+                        iconEl.className = 'bi bi-file-earmark-excel fs-4 text-success';
+                    } else if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
+                        iconEl.className = 'bi bi-file-earmark-image fs-4 text-info';
+                    } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
+                        iconEl.className = 'bi bi-file-earmark-play fs-4 text-danger';
+                    } else if (['mp3', 'wav', 'm4a'].includes(ext)) {
+                        iconEl.className = 'bi bi-file-earmark-music fs-4 text-primary';
+                    } else {
+                        iconEl.className = 'bi bi-file-earmark-text fs-4 text-light';
+                    }
+                }
+
+                stageEl.innerHTML = `
+                    <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white">
+                        <div class="spinner-border text-primary mb-3" style="width: 3.2rem; height: 3.2rem;" role="status"></div>
+                        <p class="fs-5 fw-semibold mb-1">Loading Document Preview...</p>
+                        <p class="text-white-50 small">${fileName || 'Please wait'}</p>
+                    </div>
+                `;
+                if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
 
                 let blob = null;
                 let blobUrl = dataUrl;
-                let mime = getMimeTypeFromFilename(fileName, '');
+                let arrayBuffer = null;
 
                 if (dataUrl && dataUrl.startsWith('data:')) {
                     blob = dataURItoBlob(dataUrl, fileName);
                     if (blob) {
                         blobUrl = URL.createObjectURL(blob);
+                        currentViewerActiveBlobUrl = blobUrl;
                         if (blob.type) mime = blob.type;
+                        try { arrayBuffer = await blob.arrayBuffer(); } catch(e){}
                     }
+                } else if (dataUrl && dataUrl.startsWith('blob:')) {
+                    blobUrl = dataUrl;
+                    currentViewerActiveBlobUrl = blobUrl;
+                } else if (dataUrl && /^https?:\/\//i.test(dataUrl)) {
+                    try {
+                        const res = await fetch(dataUrl);
+                        if (res.ok) {
+                            blob = await res.blob();
+                            blobUrl = URL.createObjectURL(blob);
+                            currentViewerActiveBlobUrl = blobUrl;
+                            arrayBuffer = await blob.arrayBuffer();
+                        }
+                    } catch(e) {}
                 }
+
+                const activeUrl = blobUrl || dataUrl;
 
                 if (downloadBtn) {
-                    downloadBtn.href = blobUrl || '#';
-                    downloadBtn.setAttribute('download', fileName || 'document');
+                    downloadBtn.href = activeUrl;
+                    downloadBtn.setAttribute('download', fileName || 'lesson_file');
                 }
                 if (popoutBtn) {
-                    popoutBtn.href = blobUrl || '#';
+                    popoutBtn.href = activeUrl;
+                    popoutBtn.target = '_blank';
+                }
+                if (printBtn) {
+                    printBtn.onclick = () => {
+                        const ifr = stageEl.querySelector('iframe');
+                        if (ifr && ifr.contentWindow) {
+                            try { ifr.contentWindow.print(); return; } catch (e) {}
+                        }
+                        const printWindow = window.open(activeUrl);
+                        if (printWindow) {
+                            printWindow.addEventListener('load', () => printWindow.print(), { once: true });
+                        } else {
+                            window.print();
+                        }
+                    };
                 }
 
-                if (bodyEl) {
-                    bodyEl.innerHTML = '';
-                    const ext = (fileName || '').split('.').pop().toLowerCase();
+                // 1. PDF
+                if (ext === 'pdf' || mime.includes('pdf')) {
+                    stageEl.innerHTML = `
+                        <object data="${activeUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                            <iframe src="${activeUrl}" class="w-100 h-100 border-0" title="${fileName}" style="background: #525659;">
+                                <div class="p-5 text-center text-white">
+                                    <p class="mb-3">Unable to display PDF inline.</p>
+                                    <a href="${activeUrl}" target="_blank" class="btn btn-danger rounded-pill px-4">Open PDF</a>
+                                </div>
+                            </iframe>
+                        </object>
+                    `;
+                    return;
+                }
 
-                    if (mime.includes('pdf') || ext === 'pdf') {
-                        const iframe = document.createElement('iframe');
-                        iframe.src = blobUrl;
-                        iframe.className = 'w-100 border-0 rounded-bottom-4';
-                        iframe.style.height = '78vh';
-                        iframe.setAttribute('title', fileName);
-                        bodyEl.appendChild(iframe);
-                    } else if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-                        const imgWrap = document.createElement('div');
-                        imgWrap.className = 'd-flex align-items-center justify-content-center p-3 w-100 h-100';
-                        imgWrap.innerHTML = `<img src="${blobUrl}" alt="${fileName}" class="img-fluid rounded shadow-sm" style="max-height: 75vh; object-fit: contain;">`;
-                        bodyEl.appendChild(imgWrap);
-                    } else if (mime.startsWith('video/') || ['mp4', 'webm', 'ogg'].includes(ext)) {
-                        const videoWrap = document.createElement('div');
-                        videoWrap.className = 'd-flex align-items-center justify-content-center p-3 w-100 h-100';
-                        videoWrap.innerHTML = `<video controls autoplay class="rounded shadow-sm" style="max-width: 100%; max-height: 75vh;"><source src="${blobUrl}" type="${mime}">Your browser does not support video.</video>`;
-                        bodyEl.appendChild(videoWrap);
-                    } else if (mime.startsWith('audio/') || ['mp3', 'wav', 'ogg'].includes(ext)) {
-                        const audioWrap = document.createElement('div');
-                        audioWrap.className = 'text-center p-5';
-                        audioWrap.innerHTML = `
-                            <i class="bi bi-file-earmark-music text-primary fs-1 mb-3 d-block"></i>
-                            <h5 class="fw-bold mb-3">${fileName}</h5>
-                            <audio controls class="w-100" style="max-width: 400px;"><source src="${blobUrl}" type="${mime}">Your browser does not support audio.</audio>
-                        `;
-                        bodyEl.appendChild(audioWrap);
-                    } else if (mime.startsWith('text/') || ['txt', 'md', 'json', 'csv', 'js', 'html', 'css'].includes(ext)) {
-                        let textContent = '';
+                // 2. PPTX
+                if (ext === 'pptx' || ext === 'ppt') {
+                    let pdfDataUrlToUse = targetFile ? (targetFile.pdfUrl || targetFile.pdfDataUrl) : null;
+                    if (!pdfDataUrlToUse && window.MentoraePptxToPdf && (arrayBuffer || dataUrl)) {
                         try {
-                            if (dataUrl && dataUrl.startsWith('data:')) {
-                                textContent = atob(dataUrl.split(',')[1]);
+                            const buf = arrayBuffer || dataUrl;
+                            pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf);
+                            if (pdfDataUrlToUse && targetFile) {
+                                targetFile.pdfDataUrl = pdfDataUrlToUse;
                             }
                         } catch (e) {
-                            textContent = 'Unable to decode text preview.';
+                            console.warn('PPTX conversion fallback:', e);
                         }
-                        const textWrap = document.createElement('div');
-                        textWrap.className = 'p-4 w-100 h-100 bg-white';
-                        textWrap.innerHTML = `<pre class="font-monospace text-dark mb-0" style="white-space: pre-wrap; font-size: 0.9rem; max-height: 75vh; overflow-y: auto;">${textContent}</pre>`;
-                        bodyEl.appendChild(textWrap);
-                    } else {
-                        const docIcon = (ext === 'docx' || ext === 'doc') ? 'bi-file-earmark-word text-primary' :
-                                        (ext === 'pptx' || ext === 'ppt') ? 'bi-file-earmark-ppt text-danger' :
-                                        (ext === 'xlsx' || ext === 'xls') ? 'bi-file-earmark-excel text-success' : 'bi-file-earmark-text text-secondary';
-                        const fileTypeLabel = (ext === 'docx' || ext === 'doc') ? 'Microsoft Word Document' :
-                                              (ext === 'pptx' || ext === 'ppt') ? 'Microsoft PowerPoint Presentation' :
-                                              (ext === 'xlsx' || ext === 'xls') ? 'Microsoft Excel Spreadsheet' : 'Learning Material File';
+                    }
 
-                        const officeWrap = document.createElement('div');
-                        officeWrap.className = 'text-center p-5 bg-white rounded-3 shadow-sm mx-auto my-auto';
-                        officeWrap.style.maxWidth = '550px';
-                        officeWrap.innerHTML = `
-                            <i class="bi ${docIcon}" style="font-size: 4.5rem;"></i>
-                            <h5 class="fw-bold text-dark mt-3 mb-1">${fileName}</h5>
-                            <p class="text-muted small mb-3">${fileTypeLabel}</p>
-                            <div class="alert alert-info py-2 px-3 small text-start mb-4">
-                                <i class="bi bi-info-circle me-1"></i> Web browsers require Office files to be opened with Microsoft Office or Google Docs. You can download and open it instantly.
-                            </div>
-                            <div class="d-flex justify-content-center gap-2">
-                                <a href="${blobUrl}" download="${fileName || 'lesson'}" class="btn btn-primary fw-semibold rounded-pill px-4 py-2">
-                                    <i class="bi bi-download me-1"></i> Download File
-                                </a>
-                                <a href="${blobUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary fw-semibold rounded-pill px-3 py-2">
-                                    <i class="bi bi-box-arrow-up-right me-1"></i> Open Tab
-                                </a>
-                            </div>
+                    if (pdfDataUrlToUse) {
+                        stageEl.innerHTML = `
+                            <object data="${pdfDataUrlToUse}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                                <iframe src="${pdfDataUrlToUse}" class="w-100 h-100 border-0" title="${fileName}" style="background: #525659;"></iframe>
+                            </object>
                         `;
-                        bodyEl.appendChild(officeWrap);
+                        return;
                     }
                 }
 
-                const modalEl = document.getElementById('onlineDocViewerModal');
-                if (modalEl && typeof bootstrap !== 'undefined') {
-                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-                    modal.show();
+                // 3. Word Documents
+                if ((ext === 'docx' || ext === 'doc') && arrayBuffer) {
+                    stageEl.innerHTML = `
+                        <div class="docx-viewer-wrapper">
+                            <div id="docxPreviewHost" class="docx-preview-host"></div>
+                        </div>
+                    `;
+                    const host = document.getElementById('docxPreviewHost');
+
+                    if (ext === 'docx' && window.docx && typeof window.docx.renderAsync === 'function') {
+                        try {
+                            await window.docx.renderAsync(arrayBuffer, host, null, {
+                                className: 'docx',
+                                inWrapper: true,
+                                breakPages: true
+                            });
+                            return;
+                        } catch (e) { }
+                    }
+
+                    if (window.mammoth) {
+                        try {
+                            const res = await window.mammoth.convertToHtml({ arrayBuffer });
+                            host.innerHTML = `<div class="docx-paper-sheet">${res.value}</div>`;
+                            return;
+                        } catch (e) { }
+                    }
                 }
+
+                // 4. Spreadsheets
+                if ((ext === 'xlsx' || ext === 'xls' || ext === 'csv') && arrayBuffer && window.XLSX) {
+                    try {
+                        const wb = window.XLSX.read(arrayBuffer, { type: 'array' });
+                        const sheetNames = wb.SheetNames || [];
+                        if (sheetNames.length > 0) {
+                            function renderSheet(idx) {
+                                const sName = sheetNames[idx];
+                                const ws = wb.Sheets[sName];
+                                const html = window.XLSX.utils.sheet_to_html(ws, { editable: false });
+                                stageEl.innerHTML = `
+                                    <div class="spreadsheet-viewer-wrapper">
+                                        <div class="spreadsheet-tabs-bar">
+                                            <span class="fw-bold text-dark small me-2"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Sheets:</span>
+                                            ${sheetNames.map((name, i) => `
+                                                <button type="button" class="btn btn-sm ${i === idx ? 'btn-success text-white fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 py-1 small sheet-tab-btn" data-sidx="${i}">
+                                                    ${name}
+                                                </button>
+                                            `).join('')}
+                                        </div>
+                                        <div class="spreadsheet-content-stage">${html}</div>
+                                    </div>
+                                `;
+                                stageEl.querySelectorAll('.sheet-tab-btn').forEach(b => {
+                                    b.addEventListener('click', () => renderSheet(parseInt(b.dataset.sidx, 10)));
+                                });
+                            }
+                            renderSheet(0);
+                            return;
+                        }
+                    } catch (e) { }
+                }
+
+                // 5. Images
+                if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext) || mime.startsWith('image/')) {
+                    stageEl.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-center w-100 h-100 p-4" style="background-color: #0b0c0e;">
+                            <img src="${activeUrl}" alt="${fileName}" class="img-fluid rounded shadow-lg" style="max-height: 90vh; max-width: 95vw; object-fit: contain;">
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 6. Video
+                if (['mp4', 'webm', 'ogg'].includes(ext) || mime.startsWith('video/')) {
+                    stageEl.innerHTML = `
+                        <div class="media-viewer-stage">
+                            <video controls autoplay class="rounded shadow-lg" src="${activeUrl}">
+                                <source src="${activeUrl}" type="${mime || 'video/mp4'}">
+                            </video>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 7. Audio
+                if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext) || mime.startsWith('audio/')) {
+                    stageEl.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white p-4">
+                            <div class="audio-viewer-card">
+                                <i class="bi bi-music-note-beamed text-primary fs-1 mb-3 d-block"></i>
+                                <h5 class="fw-bold text-white mb-2">${fileName}</h5>
+                                <audio controls autoplay class="w-100 mt-3" src="${activeUrl}">
+                                    <source src="${activeUrl}" type="${mime || 'audio/mpeg'}">
+                                </audio>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 8. Text
+                if (['txt', 'json', 'log', 'md', 'html', 'js', 'css', 'xml'].includes(ext) || mime.startsWith('text/')) {
+                    let text = '';
+                    try {
+                        if (blob) text = await blob.text();
+                        else if (dataUrl && dataUrl.startsWith('data:')) text = atob(dataUrl.split(',')[1]);
+                    } catch (e) { }
+                    stageEl.innerHTML = `
+                        <div class="docx-paper-container">
+                            <div class="docx-page-card font-monospace" style="white-space: pre-wrap; font-size: 0.95rem; color: #1e293b;">
+                                ${text || 'Empty file.'}
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Fallback
+                stageEl.innerHTML = `
+                    <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                        <i class="bi bi-file-earmark-arrow-down text-info" style="font-size: 5rem;"></i>
+                        <h4 class="fw-bold text-white mt-3">${fileName}</h4>
+                        <p class="text-white-50 mb-4">Click download below to save and open this file on your device.</p>
+                        <a href="${activeUrl}" download="${fileName}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                            <i class="bi bi-download me-2"></i> Download File
+                        </a>
+                    </div>
+                `;
+            }
+
+            function openOnlineDocViewer(fileName, dataUrl) {
+                openClassroomViewer(fileName, dataUrl);
             }
 
             function renderFileList() {

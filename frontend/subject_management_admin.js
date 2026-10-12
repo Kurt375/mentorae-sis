@@ -42,9 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const existingQuizEditorModalEl = document.getElementById('existingQuizEditorModal');
     const existingQuizEditorModal = existingQuizEditorModalEl ? new bootstrap.Modal(existingQuizEditorModalEl) : null;
 
-    // File Pre-Check / Preview Modal
-    const filePreviewCheckModalEl = document.getElementById('filePreviewCheckModal');
-    const filePreviewCheckModal = filePreviewCheckModalEl ? new bootstrap.Modal(filePreviewCheckModalEl) : null;
+    // Full-Screen Google Classroom Style File Viewer
+    const classroomFileViewerEl = document.getElementById('classroomFileViewer');
     let filePreviewReturnModal = 'existingFileEditorModal';
     let currentPreviewBlobUrl = null;
 
@@ -3257,226 +3256,1214 @@ document.addEventListener('DOMContentLoaded', () => {
         const topic = subject?.topics?.[currentTopicIndexForEditing];
         if (!topic || !Array.isArray(topic.files) || !topic.files[index]) return;
         const file = topic.files[index];
-        openFilePreviewCheckModal(file, 'existingFileEditorModal', topic.title);
+        openClassroomViewer(file, 'existingFileEditorModal', topic.title);
     }
 
-    function openFilePreviewCheckModal(file, returnContext = 'existingFileEditorModal', contextTitle = '') {
-        if (!file || !filePreviewCheckModal) return;
-        filePreviewReturnModal = returnContext;
+    function closeClassroomViewer() {
+        const viewerEl = document.getElementById('classroomFileViewer');
+        const stageEl = document.getElementById('classroomViewerStage');
+        const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
 
-        const titleEl = document.getElementById('filePreviewCheckModalLabel');
-        const subEl = document.getElementById('filePreviewSubLabel');
-        const iconEl = document.getElementById('filePreviewHeaderIcon');
-        const downloadBtn = document.getElementById('filePreviewDownloadBtn');
-        const popoutBtn = document.getElementById('filePreviewPopoutBtn');
-        const stageEl = document.getElementById('filePreviewStage');
+        if (viewerEl) viewerEl.classList.add('d-none');
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+        if (stageEl) stageEl.innerHTML = '';
+        if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
 
-        const meta = getFileDisplayMeta(file.name);
-        const ext = (file.name || '').split('.').pop().toLowerCase();
-        const fileSizeText = file.size ? `${(file.size / 1024).toFixed(2)} KB` : '';
-
-        if (titleEl) titleEl.textContent = file.name || 'File Preview';
-        if (subEl) subEl.textContent = `${contextTitle ? contextTitle + ' • ' : ''}Unsaved Pre-Check (${meta.label}${fileSizeText ? ' • ' + fileSizeText : ''})`;
-        if (iconEl) iconEl.className = `bi ${meta.icon} fs-4 me-1`;
-
-        // Clean up prior blob URL
         if (currentPreviewBlobUrl && currentPreviewBlobUrl.startsWith('blob:')) {
             try { URL.revokeObjectURL(currentPreviewBlobUrl); } catch (e) {}
             currentPreviewBlobUrl = null;
         }
 
-        let blob = null;
-        let blobUrl = file.dataUrl || '#';
-        let mime = getMimeTypeFromFilename(file.name, '');
-
-        if (file.dataUrl && file.dataUrl.startsWith('data:')) {
-            blob = dataURItoBlob(file.dataUrl, file.name);
-            if (blob) {
-                blobUrl = URL.createObjectURL(blob);
-                currentPreviewBlobUrl = blobUrl;
-                if (blob.type) mime = blob.type;
-            }
-        }
-
-        let effectiveViewerUrl = file.pdfDataUrl || blobUrl;
-
-        if (downloadBtn) {
-            downloadBtn.href = blobUrl;
-            downloadBtn.setAttribute('download', file.name || 'document');
-        }
-        if (popoutBtn) {
-            popoutBtn.href = effectiveViewerUrl;
-        }
-
-        if (stageEl) {
-            stageEl.innerHTML = '';
-
-            if (mime.includes('pdf') || ext === 'pdf' || file.pdfDataUrl) {
-                stageEl.innerHTML = `
-                    <iframe src="${effectiveViewerUrl}" class="w-100 border-0 rounded-bottom-4" style="height: 75vh;" title="${escapeHtml(file.name)}"></iframe>
-                `;
-            } else if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-                stageEl.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-center p-3 w-100 h-100">
-                        <img src="${blobUrl}" alt="${escapeHtml(file.name)}" class="img-fluid rounded-3 shadow-sm" style="max-height: 72vh; max-width: 95%; object-fit: contain;">
-                    </div>
-                `;
-            } else if (mime.startsWith('video/') || ['mp4', 'webm', 'ogg'].includes(ext)) {
-                stageEl.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-center p-3 w-100 h-100">
-                        <video controls autoplay class="rounded-3 shadow-sm" style="max-width: 95%; max-height: 72vh;">
-                            <source src="${blobUrl}" type="${mime}">
-                            Your browser does not support HTML5 video.
-                        </video>
-                    </div>
-                `;
-            } else if (mime.startsWith('audio/') || ['mp3', 'wav', 'ogg'].includes(ext)) {
-                stageEl.innerHTML = `
-                    <div class="text-center p-5 bg-white rounded-4 shadow-sm mx-auto my-auto" style="max-width: 500px;">
-                        <i class="bi bi-file-earmark-music-fill text-warning fs-1 mb-3 d-block"></i>
-                        <h5 class="fw-bold mb-1">${escapeHtml(file.name)}</h5>
-                        <p class="text-muted small mb-4">Audio Material</p>
-                        <audio controls class="w-100 mb-3"><source src="${blobUrl}" type="${mime}">Your browser does not support audio.</audio>
-                    </div>
-                `;
-            } else if (mime.startsWith('text/') || ['txt', 'md', 'json', 'csv', 'js', 'html', 'css'].includes(ext)) {
-                let textContent = '';
-                try {
-                    if (file.dataUrl && file.dataUrl.startsWith('data:')) {
-                        textContent = decodeURIComponent(escape(atob(file.dataUrl.split(',')[1])));
-                    }
-                } catch (e) {
-                    try { textContent = atob(file.dataUrl.split(',')[1]); } catch (e2) { textContent = 'Unable to decode text preview.'; }
-                }
-                stageEl.innerHTML = `
-                    <div class="p-4 w-100 h-100 bg-white" style="overflow-y: auto; max-height: 75vh;">
-                        <pre class="font-monospace text-dark mb-0" style="white-space: pre-wrap; font-size: 0.88rem; line-height: 1.6;">${escapeHtml(textContent)}</pre>
-                    </div>
-                `;
-            } else if ((ext === 'docx' || ext === 'doc') && window.mammoth && blob) {
-                stageEl.innerHTML = `
-                    <div class="p-4 p-md-5 bg-white rounded-3 shadow-sm mx-auto my-3" id="docxPreviewContainer" style="max-width: 850px; min-height: 60vh; max-height: 72vh; overflow-y: auto;">
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <p class="mt-2 text-muted small">Rendering Word Document...</p>
-                        </div>
-                    </div>
-                `;
-                blob.arrayBuffer().then(ab => window.mammoth.convertToHtml({ arrayBuffer: ab })).then(result => {
-                    const docWrap = document.getElementById('docxPreviewContainer');
-                    if (docWrap) docWrap.innerHTML = result.value || '<p class="text-muted">Empty document.</p>';
-                }).catch(err => {
-                    renderOfficeCard(stageEl, file, blobUrl, meta);
-                });
-            } else if (['pptx', 'ppt'].includes(ext)) {
-                if (file.pdfDataUrl) {
-                    stageEl.innerHTML = `
-                        <iframe src="${file.pdfDataUrl}" class="w-100 border-0 rounded-bottom-4" style="height: 75vh;" title="${escapeHtml(file.name)}"></iframe>
-                    `;
-                } else {
-                    stageEl.innerHTML = `
-                        <div class="text-center p-5 bg-white rounded-4 shadow-sm mx-auto my-auto" style="max-width: 600px;">
-                            <i class="bi bi-file-earmark-ppt-fill text-danger mb-3 d-block" style="font-size: 4rem;"></i>
-                            <h5 class="fw-bold mb-1">${escapeHtml(file.name)}</h5>
-                            <p class="text-muted small mb-3">PowerPoint Presentation (${fileSizeText})</p>
-                            <div class="alert alert-info py-2 px-3 small text-start mb-4">
-                                <i class="bi bi-info-circle me-1"></i> Generating in-browser slide view... You can also download or open the presentation immediately.
-                            </div>
-                            <div class="progress mb-4" style="height: 6px;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" id="pptxAdminPreviewProgress" style="width: 45%;"></div>
-                            </div>
-                            <div class="d-flex justify-content-center gap-2">
-                                <a href="${blobUrl}" download="${escapeHtml(file.name || 'presentation')}" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-xs">
-                                    <i class="bi bi-download me-1"></i> Download Presentation
-                                </a>
-                                <a href="${blobUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
-                                    <i class="bi bi-box-arrow-up-right me-1"></i> Open Tab
-                                </a>
-                            </div>
-                        </div>
-                    `;
-                    // Convert PPTX to PDF on client
-                    if (window.MentoraePptxToPdf && blob) {
-                        blob.arrayBuffer().then(ab => window.MentoraePptxToPdf.convert(ab, (prog) => {
-                            const pBar = document.getElementById('pptxAdminPreviewProgress');
-                            if (pBar && prog && prog.percent) pBar.style.width = `${prog.percent}%`;
-                        })).then(pdfUrl => {
-                            if (pdfUrl) {
-                                file.pdfDataUrl = pdfUrl;
-                                file.convertedToPdf = true;
-                                if (popoutBtn) popoutBtn.href = pdfUrl;
-                                stageEl.innerHTML = `<iframe src="${pdfUrl}" class="w-100 border-0 rounded-bottom-4" style="height: 75vh;" title="${escapeHtml(file.name)}"></iframe>`;
-                                renderExistingFiles();
-                            }
-                        }).catch(e => console.warn('PPTX preview convert notice:', e));
-                    }
-                }
-            } else if (['xlsx', 'xls'].includes(ext) && window.XLSX && blob) {
-                stageEl.innerHTML = `
-                    <div class="p-4 bg-white rounded-3 shadow-sm mx-auto my-3 w-100" style="max-height: 75vh; overflow: auto;" id="xlsxPreviewContainer">
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-success" role="status"></div>
-                            <p class="mt-2 text-muted small">Loading Spreadsheet...</p>
-                        </div>
-                    </div>
-                `;
-                blob.arrayBuffer().then(ab => {
-                    const wb = XLSX.read(ab, { type: 'array' });
-                    const firstSheetName = wb.SheetNames[0];
-                    const html = XLSX.utils.sheet_to_html(wb.Sheets[firstSheetName]);
-                    const container = document.getElementById('xlsxPreviewContainer');
-                    if (container) {
-                        container.innerHTML = `
-                            <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                                <span class="fw-bold small text-muted"><i class="bi bi-table me-1"></i>Sheet: ${escapeHtml(firstSheetName)}</span>
-                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill micro-text">Spreadsheet Preview</span>
-                            </div>
-                            <div class="table-responsive">${html}</div>
-                        `;
-                    }
-                }).catch(err => {
-                    renderOfficeCard(stageEl, file, blobUrl, meta);
-                });
-            } else {
-                renderOfficeCard(stageEl, file, blobUrl, meta);
-            }
-        }
-
-        // Transition modals smoothly
-        const sourceModalEl = (returnContext === 'topicEditorModal') ? topicEditorModalEl : existingFileEditorModalEl;
-        const sourceModal = (returnContext === 'topicEditorModal') ? topicEditorModal : existingFileEditorModal;
-
-        isTransitioningToSubmodal = true;
-        const onSourceModalHidden = () => {
-            isTransitioningToSubmodal = false;
-            if (filePreviewCheckModal) filePreviewCheckModal.show();
-            if (sourceModalEl) sourceModalEl.removeEventListener('hidden.bs.modal', onSourceModalHidden);
-        };
-
-        if (sourceModalEl) sourceModalEl.addEventListener('hidden.bs.modal', onSourceModalHidden);
-        if (sourceModal) sourceModal.hide();
+        isTransitioningToSubmodal = false;
+        const targetModal = (filePreviewReturnModal === 'topicEditorModal') ? topicEditorModal : existingFileEditorModal;
+        if (targetModal) targetModal.show();
     }
 
     function closeFilePreviewCheckModal() {
+        closeClassroomViewer();
+    }
+
+    function openFilePreviewCheckModal(file, returnContext = 'existingFileEditorModal', contextTitle = '') {
+        return openClassroomViewer(file, returnContext, contextTitle);
+    }
+
+    async function loadViewerFileData(url, fileName = '') {
+        if (!url) throw new Error('No valid file URL provided.');
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        const isMedia = ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext);
+
+        if (url.startsWith('data:')) {
+            try {
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const blobUrl = URL.createObjectURL(blob);
+                return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+            } catch (fetchErr) {
+                const b = dataURItoBlob(url, fileName);
+                if (!b) throw new Error('Could not parse data URI.');
+                const arrayBuffer = await b.arrayBuffer();
+                const blobUrl = URL.createObjectURL(b);
+                return { blob: b, arrayBuffer, blobUrl, mimeType: b.type || getMimeTypeFromFilename(fileName) };
+            }
+        }
+
+        if (url.startsWith('blob:')) {
+            try {
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                return { blob, arrayBuffer, blobUrl: url, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+            } catch (e) {
+                return { blob: null, arrayBuffer: null, blobUrl: url, mimeType: getMimeTypeFromFilename(fileName) };
+            }
+        }
+
+        if (isMedia && /^https?:\/\//i.test(url)) {
+            return {
+                blob: null,
+                arrayBuffer: null,
+                blobUrl: url,
+                mimeType: getMimeTypeFromFilename(fileName)
+            };
+        }
+
+        const token = localStorage.getItem('mentorae_token');
+        const headers = {};
+        if (token && url.includes('/api/')) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`Failed to load file (${res.status} ${res.statusText})`);
+        const blob = await res.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const blobUrl = URL.createObjectURL(blob);
+        return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+    }
+
+    async function openClassroomViewer(fileOrName, returnContext = 'existingFileEditorModal', contextTitle = '') {
+        const viewerEl = document.getElementById('classroomFileViewer');
+        const nameEl = document.getElementById('classroomViewerFileName');
+        const subEl = document.getElementById('classroomViewerSubtitle');
+        const iconEl = document.getElementById('classroomViewerIcon');
+        const stageEl = document.getElementById('classroomViewerStage');
+        const downloadBtn = document.getElementById('classroomViewerDownloadBtn');
+        const popoutBtn = document.getElementById('classroomViewerPopoutBtn');
+        const printBtn = document.getElementById('classroomViewerPrintBtn');
+        const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
+
+        if (!viewerEl || !stageEl) return;
+
+        let file = null;
+        let fileName = '';
+        let dataUrl = '';
+        if (typeof fileOrName === 'object' && fileOrName !== null) {
+            file = fileOrName;
+            fileName = file.name || 'Document';
+            dataUrl = file.dataUrl || file.url || '';
+        } else {
+            fileName = String(fileOrName || 'Document');
+            dataUrl = String(returnContext || '');
+            file = { name: fileName, dataUrl: dataUrl };
+        }
+
+        filePreviewReturnModal = (typeof returnContext === 'string' && returnContext.includes('Modal')) ? returnContext : 'existingFileEditorModal';
+
+        // Revoke prior active blob URL
         if (currentPreviewBlobUrl && currentPreviewBlobUrl.startsWith('blob:')) {
             try { URL.revokeObjectURL(currentPreviewBlobUrl); } catch (e) {}
             currentPreviewBlobUrl = null;
         }
 
-        const stageEl = document.getElementById('filePreviewStage');
-        if (stageEl) stageEl.innerHTML = '';
-
-        const targetModal = (filePreviewReturnModal === 'topicEditorModal') ? topicEditorModal : existingFileEditorModal;
-
+        // Hide caller modal safely without losing draft content
+        const sourceModal = (filePreviewReturnModal === 'topicEditorModal') ? topicEditorModal : existingFileEditorModal;
         isTransitioningToSubmodal = true;
-        const onPreviewHidden = () => {
-            isTransitioningToSubmodal = false;
-            if (targetModal) targetModal.show();
-            if (filePreviewCheckModalEl) filePreviewCheckModalEl.removeEventListener('hidden.bs.modal', onPreviewHidden);
-        };
+        if (sourceModal) sourceModal.hide();
 
-        if (filePreviewCheckModalEl) filePreviewCheckModalEl.addEventListener('hidden.bs.modal', onPreviewHidden);
-        if (filePreviewCheckModal) filePreviewCheckModal.hide();
+        viewerEl.classList.remove('d-none');
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+
+        const closeBtn = document.getElementById('classroomViewerCloseBtn');
+        const backBtn = document.getElementById('classroomViewerBackBtn');
+        if (closeBtn) closeBtn.onclick = closeClassroomViewer;
+        if (backBtn) backBtn.onclick = closeClassroomViewer;
+
+        const subjectName = editingSubjectCopy?.name || 'Subject';
+        const displaySubtitle = contextTitle ? `${subjectName} • ${contextTitle}` : `${subjectName} • Learning Materials`;
+
+        if (nameEl) nameEl.textContent = fileName || 'Document';
+        if (subEl) subEl.textContent = displaySubtitle;
+
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        let mime = (file && file.type) ? file.type : getMimeTypeFromFilename(fileName, '');
+
+        if (iconEl) {
+            if (ext === 'pdf') {
+                iconEl.className = 'bi bi-file-earmark-pdf fs-4 text-danger';
+            } else if (ext === 'pptx' || ext === 'ppt') {
+                iconEl.className = 'bi bi-file-earmark-slides fs-4 text-warning';
+            } else if (ext === 'docx' || ext === 'doc') {
+                iconEl.className = 'bi bi-file-earmark-word fs-4 text-primary';
+            } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+                iconEl.className = 'bi bi-file-earmark-excel fs-4 text-success';
+            } else if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-image fs-4 text-info';
+            } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-play fs-4 text-danger';
+            } else if (['mp3', 'wav', 'm4a'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-music fs-4 text-primary';
+            } else {
+                iconEl.className = 'bi bi-file-earmark-text fs-4 text-light';
+            }
+        }
+
+        stageEl.innerHTML = `
+            <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white">
+                <div class="spinner-border text-primary mb-3" style="width: 3.2rem; height: 3.2rem;" role="status"></div>
+                <p class="fs-5 fw-semibold mb-1">Loading Document Preview...</p>
+                <p class="text-white-50 small">${escapeHtml(fileName || 'Please wait')}</p>
+            </div>
+        `;
+        if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
+
+        let fileData = null;
+        try {
+            fileData = await loadViewerFileData(dataUrl, fileName);
+            if (fileData.blobUrl && fileData.blobUrl.startsWith('blob:')) {
+                currentPreviewBlobUrl = fileData.blobUrl;
+            }
+        } catch (err) {
+            console.error('Error loading file data:', err);
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                    <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-3 d-block"></i>
+                    <h4 class="fw-bold text-white mb-2">Unable to load preview</h4>
+                    <p class="text-white-50 mb-4">${escapeHtml(err.message || 'The file could not be read.')}</p>
+                    <a href="${dataUrl || '#'}" download="${escapeHtml(fileName || 'file')}" class="btn btn-primary rounded-pill px-4 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download File Instead
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        const activeUrl = fileData.blobUrl || dataUrl;
+
+        // Configure Top Action Buttons
+        if (downloadBtn) {
+            downloadBtn.href = activeUrl;
+            downloadBtn.setAttribute('download', fileName || 'lesson_file');
+        }
+        if (popoutBtn) {
+            popoutBtn.href = activeUrl;
+            popoutBtn.target = '_blank';
+        }
+        if (printBtn) {
+            printBtn.onclick = () => {
+                const ifr = stageEl.querySelector('iframe');
+                if (ifr && ifr.contentWindow) {
+                    try {
+                        ifr.contentWindow.print();
+                        return;
+                    } catch (e) { }
+                }
+                const printWindow = window.open(activeUrl);
+                if (printWindow) {
+                    printWindow.addEventListener('load', () => printWindow.print(), { once: true });
+                } else {
+                    window.print();
+                }
+            };
+        }
+
+        // ==========================================
+        // 1. PDF RENDERING (Native Frame with Blob URL)
+        // ==========================================
+        if (ext === 'pdf' || mime.includes('pdf')) {
+            stageEl.innerHTML = `
+                <object data="${activeUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                    <iframe src="${activeUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;">
+                        <div class="p-5 text-center text-white">
+                            <p class="mb-3">Unable to display PDF inline.</p>
+                            <a href="${activeUrl}" target="_blank" class="btn btn-danger rounded-pill px-4">Open PDF</a>
+                        </div>
+                    </iframe>
+                </object>
+            `;
+            return;
+        }
+
+        // ==========================================
+        // 2. PPT / PPTX PRESENTATIONS (Google Classroom Style PDF Auto-View + Interactive Slides)
+        // ==========================================
+        if (ext === 'pptx' || ext === 'ppt') {
+            let pdfDataUrlToUse = file ? (file.pdfUrl || file.pdfDataUrl) : null;
+
+            // Auto-convert presentation on-the-fly if not already converted
+            if (!pdfDataUrlToUse && fileData && (fileData.arrayBuffer || fileData.blob)) {
+                try {
+                    stageEl.innerHTML = `
+                        <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                            <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+                            <p class="fs-5 fw-bold mb-1">Generating Classroom Presentation View...</p>
+                            <p class="text-white-50 small mb-3" id="pptxConvertStatus">Preparing high-fidelity slides for in-browser view</p>
+                            <div class="progress w-50" style="height: 6px; background: rgba(255,255,255,0.15);">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="pptxConvertProgressBar" style="width: 35%;"></div>
+                            </div>
+                        </div>
+                    `;
+
+                    const token = localStorage.getItem('mentorae_token');
+
+                    // 1. Try server-side PowerPoint conversion for pixel-perfect fidelity
+                    if (token && file?.dataUrl) {
+                        try {
+                            const srvRes = await authedFetch('/api/content/convert-document', token, {
+                                method: 'POST',
+                                body: JSON.stringify({ fileName, dataUrl: file.dataUrl })
+                            });
+                            if (srvRes && srvRes.success && srvRes.pdfDataUrl) {
+                                pdfDataUrlToUse = srvRes.pdfDataUrl;
+                            }
+                        } catch (srvErr) {
+                            console.warn('Server PowerPoint conversion notice:', srvErr);
+                        }
+                    }
+
+                    // 2. Client-side fallback if server conversion is unavailable
+                    if (!pdfDataUrlToUse && window.MentoraePptxToPdf) {
+                        const buf = fileData.arrayBuffer || (fileData.blob ? await fileData.blob.arrayBuffer() : null);
+                        if (buf) {
+                            pdfDataUrlToUse = await window.MentoraePptxToPdf.convert(buf, (prog) => {
+                                const pBar = document.getElementById('pptxConvertProgressBar');
+                                const pStatus = document.getElementById('pptxConvertStatus');
+                                if (pBar) pBar.style.width = `${prog.percent || 50}%`;
+                                if (pStatus) pStatus.textContent = prog.message || 'Processing slides...';
+                            });
+                        }
+                    }
+
+                    if (pdfDataUrlToUse && file) {
+                        file.pdfDataUrl = pdfDataUrlToUse;
+                        file.convertedToPdf = true;
+                        renderExistingFiles();
+                    }
+                } catch (convErr) {
+                    console.warn('Auto-PDF generation fallback notice:', convErr);
+                }
+            }
+
+            if (pdfDataUrlToUse) {
+                try {
+                    const pdfData = await loadViewerFileData(pdfDataUrlToUse, `${fileName}.pdf`);
+                    if (popoutBtn) popoutBtn.href = pdfData.blobUrl;
+                    if (modeSwitcherEl) {
+                        modeSwitcherEl.innerHTML = `
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeSwitchSlidesBtn" title="Switch to interactive HTML slides">
+                                <i class="bi bi-file-slides me-1"></i> Interactive Slides
+                            </button>
+                        `;
+                        document.getElementById('modeSwitchSlidesBtn')?.addEventListener('click', () => {
+                            renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                        });
+                    }
+                    stageEl.innerHTML = `
+                        <object data="${pdfData.blobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                            <iframe src="${pdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
+                        </object>
+                    `;
+                    return;
+                } catch (e) {
+                    console.warn('Could not load converted presentation PDF, using slide renderer:', e);
+                }
+            }
+            renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+            return;
+        }
+
+        async function openOnlineEmbed(viewerType) {
+            if (modeSwitcherEl) {
+                modeSwitcherEl.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeBackSlidesTopBtn" title="Switch back to built-in slide viewer">
+                        <i class="bi bi-file-slides me-1"></i> Fast Slide View
+                    </button>
+                `;
+                document.getElementById('modeBackSlidesTopBtn')?.addEventListener('click', () => {
+                    renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                });
+            }
+
+            stageEl.innerHTML = `
+                <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                    <div class="spinner-border ${viewerType === 'office' ? 'text-info' : 'text-warning'} mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <p class="fs-5 fw-semibold mb-1">Connecting to ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides'}...</p>
+                    <p class="text-white-50 small mb-3">Loading genuine presentation layout and animations</p>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="cancelOnlineEmbedBtn">
+                        <i class="bi bi-arrow-left me-1"></i> Back to Built-in Slides
+                    </button>
+                </div>
+            `;
+            document.getElementById('cancelOnlineEmbedBtn')?.addEventListener('click', () => {
+                renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+            });
+
+            try {
+                const token = localStorage.getItem('mentorae_token') || '';
+                const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+
+                let payloadDataUrl = dataUrl;
+                if (!payloadDataUrl || typeof payloadDataUrl !== 'string' || payloadDataUrl.startsWith('blob:') || !payloadDataUrl.includes('base64')) {
+                    if (fileData && fileData.blob) {
+                        payloadDataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(fileData.blob);
+                        });
+                    }
+                }
+
+                const res = await fetch(`${apiBase}/api/content/public-preview-token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ fileName, dataUrl: payloadDataUrl })
+                });
+                const data = await res.json();
+                if (data && data.success) {
+                    const embedUrl = viewerType === 'office' ? data.officeViewerUrl : data.googleViewerUrl;
+                    stageEl.innerHTML = `
+                        <div class="w-100 h-100 position-relative d-flex flex-column">
+                            <div class="d-flex align-items-center justify-content-between px-3 py-1.5 bg-dark border-bottom border-secondary" style="font-size: 0.8rem;">
+                                <span class="text-white-50"><i class="bi bi-${viewerType === 'office' ? 'microsoft text-info' : 'google text-warning'} me-1.5"></i> Powered by ${viewerType === 'office' ? 'Microsoft Office Online' : 'Google Slides Viewer'}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="${embedUrl}" target="_blank" class="btn btn-xs btn-outline-info rounded-pill px-2.5 py-0.5" style="font-size: 0.75rem;">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Full Window
+                                    </a>
+                                    <button type="button" class="btn btn-xs btn-outline-light rounded-pill px-2.5 py-0.5" id="btnBackToBuiltinSlides" style="font-size: 0.75rem;">
+                                        <i class="bi bi-file-slides me-1"></i> Switch to Fast Slide View
+                                    </button>
+                                </div>
+                            </div>
+                            <iframe src="${embedUrl}" class="w-100 flex-grow-1 border-0" allowfullscreen title="${escapeHtml(fileName)}"></iframe>
+                        </div>
+                    `;
+                    document.getElementById('btnBackToBuiltinSlides')?.addEventListener('click', () => {
+                        renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                    });
+                    return;
+                }
+                throw new Error(data?.message || 'Could not connect to online viewer.');
+            } catch (err) {
+                console.warn('Online embed error, falling back to built-in renderer:', err);
+                stageEl.innerHTML = `
+                    <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                        <i class="bi bi-exclamation-circle text-warning fs-1 mb-3 d-block"></i>
+                        <h5 class="fw-bold text-white mb-2">Could not connect to ${viewerType === 'office' ? 'Microsoft Office' : 'Google'} Viewer</h5>
+                        <p class="text-white-50 small mb-4">${escapeHtml(err.message || 'Service is temporarily unreachable.')}</p>
+                        <div class="d-flex justify-content-center gap-2">
+                            <button type="button" class="btn btn-primary rounded-pill px-4" id="btnFallbackBuiltin">
+                                <i class="bi bi-file-slides me-1"></i> Open Fast Slide View
+                            </button>
+                            <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-outline-light rounded-pill px-4">
+                                <i class="bi bi-download me-1"></i> Download Original .pptx
+                            </a>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('btnFallbackBuiltin')?.addEventListener('click', () => {
+                    renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                });
+            }
+        }
+
+        function renderPptxPresentation(pptxBuffer, presFileName, presUrl) {
+            stageEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white">
+                    <div class="text-center">
+                        <div class="spinner-border text-warning mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <p class="fs-5 fw-semibold mb-1">Opening PowerPoint Presentation...</p>
+                        <p class="text-white-50 small">Rendering visual layouts, graphics, and themes</p>
+                    </div>
+                </div>
+            `;
+            setTimeout(async () => {
+                try {
+                    const arrayBuffer = pptxBuffer || (fileData ? fileData.arrayBuffer : null);
+                    if (!arrayBuffer) throw new Error('No array buffer');
+
+                    const zip = await JSZip.loadAsync(arrayBuffer);
+
+                    let slideWidth = 9144000;
+                    let slideHeight = 5142857;
+                    try {
+                        const presFile = zip.files['ppt/presentation.xml'];
+                        if (presFile) {
+                            const presXml = await presFile.async('string');
+                            const cxMatch = presXml.match(/cx="(\d+)"/i);
+                            const cyMatch = presXml.match(/cy="(\d+)"/i);
+                            if (cxMatch && cyMatch) {
+                                const parsedW = parseInt(cxMatch[1], 10);
+                                const parsedH = parseInt(cyMatch[1], 10);
+                                if (parsedW > 0 && parsedH > 0) {
+                                    slideWidth = parsedW;
+                                    slideHeight = parsedH;
+                                }
+                            }
+                        }
+                    } catch (e) { }
+
+                    function isHexDark(hex) {
+                        if (!hex || typeof hex !== 'string') return false;
+                        const clean = hex.replace('#', '');
+                        if (clean.length !== 6) return false;
+                        const r = parseInt(clean.substr(0, 2), 16);
+                        const g = parseInt(clean.substr(2, 2), 16);
+                        const b = parseInt(clean.substr(4, 2), 16);
+                        return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+                    }
+
+                    const mediaBlobs = {};
+                    for (const path of Object.keys(zip.files)) {
+                        if (path.startsWith('ppt/media/')) {
+                            try {
+                                let mType = 'image/png';
+                                const lower = path.toLowerCase();
+                                if (lower.endsWith('.svg')) mType = 'image/svg+xml';
+                                else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) mType = 'image/jpeg';
+                                else if (lower.endsWith('.gif')) mType = 'image/gif';
+                                else if (lower.endsWith('.webp')) mType = 'image/webp';
+
+                                const u8 = await zip.files[path].async('uint8array');
+                                const mBlob = new Blob([u8], { type: mType });
+                                const url = URL.createObjectURL(mBlob);
+                                const cleanKey = path.replace(/^ppt\//, '');
+                                mediaBlobs[cleanKey] = url;
+                                mediaBlobs[path] = url;
+                                mediaBlobs[cleanKey.replace(/^media\//, '')] = url;
+                            } catch (e) { }
+                        }
+                    }
+
+                    const slideKeys = Object.keys(zip.files)
+                        .filter(name => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+                        .sort((a, b) => {
+                            const numA = parseInt(a.match(/\d+/)[0], 10);
+                            const numB = parseInt(b.match(/\d+/)[0], 10);
+                            return numA - numB;
+                        });
+
+                    if (slideKeys.length === 0) {
+                        stageEl.innerHTML = `<div class="p-5 text-center text-white-50">No slides found in presentation.</div>`;
+                        return;
+                    }
+
+                    const slides = [];
+
+                    for (let i = 0; i < slideKeys.length; i++) {
+                        const slideKey = slideKeys[i];
+                        const slideNum = i + 1;
+                        const xmlText = await zip.files[slideKey].async('string');
+
+                        const relsPath = slideKey.replace('ppt/slides/', 'ppt/slides/_rels/').concat('.rels');
+                        const relsMap = {};
+                        if (zip.files[relsPath]) {
+                            try {
+                                const relsText = await zip.files[relsPath].async('string');
+                                const relRegex = /<Relationship[^>]+Id="([^"]+)"[^>]+Target="([^"]+)"/g;
+                                let rMatch;
+                                while ((rMatch = relRegex.exec(relsText)) !== null) {
+                                    const cleanTarget = rMatch[2].replace(/^\.\.\//, '');
+                                    relsMap[rMatch[1]] = mediaBlobs[cleanTarget] || mediaBlobs[cleanTarget.replace(/^media\//, '')];
+                                }
+                            } catch (e) { }
+                        }
+
+                        let bgColor = '#FFFFFF';
+                        let bgImage = null;
+                        const bgMatch = xmlText.match(/<p:bg>[\s\S]*?<a:srgbClr\s+val="([A-Fa-f0-9]{6})"/);
+                        if (bgMatch) {
+                            bgColor = '#' + bgMatch[1];
+                        }
+                        const bgBlipMatch = xmlText.match(/<p:bg>[\s\S]*?r:embed="([^"]+)"/);
+                        if (bgBlipMatch && relsMap[bgBlipMatch[1]]) {
+                            bgImage = relsMap[bgBlipMatch[1]];
+                        }
+
+                        const slideIsDark = isHexDark(bgColor);
+                        const defaultTextColor = slideIsDark ? '#FFFFFF' : '#1E293B';
+
+                        const elements = [];
+                        let slideTitle = `Slide ${slideNum}`;
+                        let titleFound = false;
+
+                        function parseShapesFromXml(xmlStr) {
+                            const results = [];
+                            const grpMatches = xmlStr.match(/<p:grpSp[\s\S]*?<\/p:grpSp>/g) || [];
+                            grpMatches.forEach(grpNode => {
+                                const grpOffMatch = grpNode.match(/<p:grpSpPr>[\s\S]*?<a:xfrm[\s\S]*?<a:off[^>]+x="([^"]+)"[^>]+y="([^"]+)"/);
+                                const grpExtMatch = grpNode.match(/<p:grpSpPr>[\s\S]*?<a:xfrm[\s\S]*?<a:ext[^>]+cx="([^"]+)"[^>]+cy="([^"]+)"/);
+                                const grpChOffMatch = grpNode.match(/<p:grpSpPr>[\s\S]*?<a:xfrm[\s\S]*?<a:chOff[^>]+x="([^"]+)"[^>]+y="([^"]+)"/);
+                                const grpChExtMatch = grpNode.match(/<p:grpSpPr>[\s\S]*?<a:xfrm[\s\S]*?<a:chExt[^>]+cx="([^"]+)"[^>]+cy="([^"]+)"/);
+
+                                let grpInfo = null;
+                                if (grpOffMatch && grpExtMatch) {
+                                    const gx = parseInt(grpOffMatch[1], 10);
+                                    const gy = parseInt(grpOffMatch[2], 10);
+                                    const gw = parseInt(grpExtMatch[1], 10);
+                                    const gh = parseInt(grpExtMatch[2], 10);
+                                    const chX = grpChOffMatch ? parseInt(grpChOffMatch[1], 10) : 0;
+                                    const chY = grpChOffMatch ? parseInt(grpChOffMatch[2], 10) : 0;
+                                    const chW = (grpChExtMatch && parseInt(grpChExtMatch[1], 10) > 0) ? parseInt(grpChExtMatch[1], 10) : gw;
+                                    const chH = (grpChExtMatch && parseInt(grpChExtMatch[2], 10) > 0) ? parseInt(grpChExtMatch[2], 10) : gh;
+
+                                    if (gw > 0 && gh > 0) {
+                                        grpInfo = { gx, gy, gw, gh, chX, chY, chW, chH };
+                                    }
+                                }
+
+                                const innerSp = grpNode.match(/<p:sp[\s\S]*?<\/p:sp>/g) || [];
+                                const innerPic = grpNode.match(/<p:pic[\s\S]*?<\/p:pic>/g) || [];
+                                [...innerSp, ...innerPic].forEach(childNode => {
+                                    results.push({ node: childNode, group: grpInfo });
+                                });
+                            });
+
+                            const strippedXml = xmlStr.replace(/<p:grpSp[\s\S]*?<\/p:grpSp>/g, '');
+                            const rootSp = strippedXml.match(/<p:sp[\s\S]*?<\/p:sp>/g) || [];
+                            const rootPic = strippedXml.match(/<p:pic[\s\S]*?<\/p:pic>/g) || [];
+                            [...rootSp, ...rootPic].forEach(rootNode => {
+                                results.push({ node: rootNode, group: null });
+                            });
+
+                            return results;
+                        }
+
+                        const allItems = parseShapesFromXml(xmlText);
+
+                        allItems.forEach(({ node, group }) => {
+                            const xMatch = node.match(/<a:off[^>]+x="([^"]+)"[^>]+y="([^"]+)"/);
+                            const extMatch = node.match(/<a:ext[^>]+cx="([^"]+)"[^>]+cy="([^"]+)"/);
+                            if (!xMatch || !extMatch) return;
+
+                            let childX = parseInt(xMatch[1], 10);
+                            let childY = parseInt(xMatch[2], 10);
+                            let childW = parseInt(extMatch[1], 10);
+                            let childH = parseInt(extMatch[2], 10);
+
+                            if (childW <= 0 || childH <= 0) return;
+
+                            let finalX = childX;
+                            let finalY = childY;
+                            let finalW = childW;
+                            let finalH = childH;
+
+                            if (group) {
+                                finalX = group.gx + ((childX - group.chX) * group.gw / group.chW);
+                                finalY = group.gy + ((childY - group.chY) * group.gh / group.chH);
+                                finalW = childW * group.gw / group.chW;
+                                finalH = childH * group.gh / group.chH;
+                            }
+
+                            const left = Math.max(-10, Math.min(110, (finalX / slideWidth) * 100));
+                            const top = Math.max(-10, Math.min(110, (finalY / slideHeight) * 100));
+                            const width = Math.max(0.2, Math.min(110, (finalW / slideWidth) * 100));
+                            const height = Math.max(0.2, Math.min(110, (finalH / slideHeight) * 100));
+
+                            const blipMatch = node.match(/r:embed="([^"]+)"/);
+                            const imgUrl = blipMatch ? relsMap[blipMatch[1]] : null;
+
+                            if (imgUrl) {
+                                elements.push({
+                                    type: 'image',
+                                    url: imgUrl,
+                                    left, top, width, height
+                                });
+                            }
+
+                            let shapeBg = null;
+                            const spPrMatch = node.match(/<p:spPr[\s\S]*?<\/p:spPr>/);
+                            if (spPrMatch) {
+                                const spPr = spPrMatch[0];
+                                if (!spPr.includes('<a:noFill')) {
+                                    const solidMatch = spPr.match(/<a:solidFill>[\s\S]*?<a:srgbClr\s+val="([A-Fa-f0-9]{6})"/);
+                                    if (solidMatch) {
+                                        shapeBg = '#' + solidMatch[1];
+                                    }
+                                }
+                            }
+
+                            const pMatches = node.match(/<a:p[\s\S]*?<\/a:p>/g) || [];
+                            const paragraphs = [];
+
+                            pMatches.forEach(pNode => {
+                                let align = 'left';
+                                if (pNode.includes('algn="ctr"')) align = 'center';
+                                else if (pNode.includes('algn="r"')) align = 'right';
+                                else if (pNode.includes('algn="just"')) align = 'justify';
+
+                                const rMatches = pNode.match(/<a:r[\s\S]*?<\/a:r>|<a:br\/>/g) || [];
+                                const runs = [];
+
+                                rMatches.forEach(rNode => {
+                                    if (rNode === '<a:br/>') {
+                                        runs.push({ text: '\n', isBr: true });
+                                    } else {
+                                        const tMatch = rNode.match(/<a:t>([\s\S]*?)<\/a:t>/);
+                                        if (tMatch) {
+                                            const rawText = tMatch[1];
+                                            const isBold = rNode.includes('b="1"') || rNode.includes('typeface="Roboto Bold"');
+                                            const isItalic = rNode.includes('i="1"');
+                                            const isUnderline = rNode.includes('u="sng"');
+                                            const szMatch = rNode.match(/sz="(\d+)"/);
+                                            const szPt = szMatch ? parseInt(szMatch[1], 10) / 100 : 16;
+
+                                            const fontMatch = rNode.match(/typeface="([^"]+)"/);
+                                            let fontFamily = "'Roboto', -apple-system, BlinkMacSystemFont, sans-serif";
+                                            let textTransform = '';
+                                            let letterSpacing = 'normal';
+
+                                            if (fontMatch) {
+                                                const fn = fontMatch[1];
+                                                if (fn === 'Anton') {
+                                                    fontFamily = "'Anton', 'Impact', sans-serif";
+                                                    textTransform = 'text-transform: uppercase;';
+                                                    letterSpacing = 'letter-spacing: 0.5px;';
+                                                } else if (fn === 'Courier New') {
+                                                    fontFamily = "'Courier New', Courier, monospace";
+                                                } else if (fn === 'Arial') {
+                                                    fontFamily = "Arial, Helvetica, sans-serif";
+                                                } else if (fn.includes('Montserrat')) {
+                                                    fontFamily = "'Montserrat', sans-serif";
+                                                }
+                                            }
+
+                                            const clrMatch = rNode.match(/<a:srgbClr\s+val="([A-Fa-f0-9]{6})"/);
+                                            let color = defaultTextColor;
+                                            if (clrMatch) {
+                                                color = '#' + clrMatch[1];
+                                            } else if (rNode.includes('val="tx1"') || rNode.includes('val="dk1"')) {
+                                                color = slideIsDark ? '#FFFFFF' : '#0F172A';
+                                            } else if (rNode.includes('val="bg1"') || rNode.includes('val="lt1"')) {
+                                                color = slideIsDark ? '#CBD5E1' : '#FFFFFF';
+                                            }
+
+                                            const effectiveBg = shapeBg || (slideIsDark ? '#000000' : '#FFFFFF');
+                                            const bgIsDark = isHexDark(effectiveBg);
+                                            if (bgIsDark && isHexDark(color)) {
+                                                color = '#CBD5E1';
+                                            } else if (!bgIsDark && !isHexDark(color)) {
+                                                color = '#0F172A';
+                                            }
+
+                                            const slideWidthPt = (slideWidth && slideWidth > 100000) ? (slideWidth / 12700) : 720;
+                                            const fontSizeCqw = ((szPt / slideWidthPt) * 100).toFixed(3);
+
+                                            runs.push({
+                                                text: rawText,
+                                                isBold,
+                                                isItalic,
+                                                isUnderline,
+                                                color,
+                                                fontSizeCqw,
+                                                fontFamily,
+                                                textTransform,
+                                                letterSpacing
+                                            });
+                                        }
+                                    }
+                                });
+
+                                if (runs.length > 0) {
+                                    const fullPText = runs.map(r => r.text).join('').trim();
+                                    if (!titleFound && fullPText.length > 0) {
+                                        slideTitle = fullPText;
+                                        titleFound = true;
+                                    }
+                                    paragraphs.push({ align, runs });
+                                }
+                            });
+
+                            if (paragraphs.length > 0) {
+                                elements.push({
+                                    type: 'textbox',
+                                    paragraphs,
+                                    left, top, width, height
+                                });
+                            } else if (shapeBg) {
+                                elements.push({
+                                    type: 'shape',
+                                    shapeBg,
+                                    left, top, width, height
+                                });
+                            }
+                        });
+
+                        slides.push({
+                            slideNumber: slideNum,
+                            title: slideTitle,
+                            bgColor,
+                            bgImage,
+                            aspectRatio: (slideWidth / slideHeight) || (16 / 9),
+                            elements
+                        });
+                    }
+
+                    let activeSlide = 0;
+                    let viewMode = 'visual';
+
+                    function buildSlideCanvasHtml(sl) {
+                        const bgStyle = sl.bgImage
+                            ? `background: url('${sl.bgImage}') center/cover no-repeat;`
+                            : `background-color: ${sl.bgColor};`;
+
+                        let elementsHtml = '';
+                        sl.elements.forEach(el => {
+                            if (el.type === 'image') {
+                                elementsHtml += `
+                                    <div style="position: absolute; left: ${el.left.toFixed(2)}%; top: ${el.top.toFixed(2)}%; width: ${el.width.toFixed(2)}%; height: ${el.height.toFixed(2)}%; z-index: 2; pointer-events: none;">
+                                        <img src="${el.url}" alt="graphic" style="width: 100%; height: 100%; object-fit: contain;">
+                                    </div>
+                                `;
+                            } else if (el.type === 'shape') {
+                                elementsHtml += `
+                                    <div style="position: absolute; left: ${el.left.toFixed(2)}%; top: ${el.top.toFixed(2)}%; width: ${el.width.toFixed(2)}%; height: ${el.height.toFixed(2)}%; background-color: ${el.shapeBg}; border-radius: 6px; z-index: 1;"></div>
+                                `;
+                            } else if (el.type === 'textbox') {
+                                elementsHtml += `<div style="position: absolute; left: ${el.left.toFixed(2)}%; top: ${el.top.toFixed(2)}%; width: ${el.width.toFixed(2)}%; min-height: ${el.height.toFixed(2)}%; z-index: 3; box-sizing: border-box; padding: 2px 4px; overflow: hidden; word-break: break-word;">`;
+                                el.paragraphs.forEach(p => {
+                                    elementsHtml += `<div style="text-align: ${p.align}; margin-bottom: 2px; line-height: 1.15;">`;
+                                    p.runs.forEach(r => {
+                                        if (r.isBr) {
+                                            elementsHtml += '<br>';
+                                        } else {
+                                            const styles = [
+                                                `color: ${r.color};`,
+                                                `font-family: ${r.fontFamily};`,
+                                                `font-size: clamp(8px, ${r.fontSizeCqw}cqw, 54px);`,
+                                                r.isBold ? 'font-weight: 700;' : 'font-weight: 400;',
+                                                r.isItalic ? 'font-style: italic;' : '',
+                                                r.isUnderline ? 'text-decoration: underline;' : '',
+                                                r.textTransform || '',
+                                                r.letterSpacing ? `letter-spacing: ${r.letterSpacing};` : ''
+                                            ].filter(Boolean).join(' ');
+
+                                            elementsHtml += `<span style="${styles}">${escapeHtml(r.text)}</span>`;
+                                        }
+                                    });
+                                    elementsHtml += `</div>`;
+                                });
+                                elementsHtml += `</div>`;
+                            }
+                        });
+
+                        return `
+                            <div class="pptx-slide-canvas-box" style="container-type: inline-size; aspect-ratio: ${sl.aspectRatio}; ${bgStyle}">
+                                ${elementsHtml}
+                            </div>
+                        `;
+                    }
+
+                    function buildOutlineHtml() {
+                        return `
+                            <div class="w-100 p-4 bg-dark bg-opacity-75 rounded-3 border border-secondary text-white overflow-y-auto" style="max-width: 960px; max-height: 80vh;">
+                                <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                                    <h4 class="fw-bold text-white mb-0"><i class="bi bi-list-columns-reverse text-warning me-2"></i> Presentation Content Outline</h4>
+                                    <span class="badge bg-primary fs-7">${slides.length} Slides</span>
+                                </div>
+                                <div class="d-flex flex-column gap-4">
+                                    ${slides.map(sl => {
+                                        const textBlocks = [];
+                                        sl.elements.forEach(el => {
+                                            if (el.paragraphs) {
+                                                el.paragraphs.forEach(p => {
+                                                    const txt = p.runs.map(r => r.text).join('').trim();
+                                                    if (txt) textBlocks.push(txt);
+                                                });
+                                            }
+                                        });
+                                        return `
+                                            <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary">
+                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                    <span class="badge bg-warning text-dark fw-bold">Slide ${sl.slideNumber}</span>
+                                                    <span class="fw-bold text-light">${escapeHtml(sl.title)}</span>
+                                                </div>
+                                                <div class="ps-3 border-start border-warning border-2 ms-1 mt-2 d-flex flex-column gap-1">
+                                                    ${textBlocks.map(tb => `<div class="text-white-75 small lh-base">${escapeHtml(tb)}</div>`).join('')}
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    function renderPresentation() {
+                        const s = slides[activeSlide];
+                        stageEl.innerHTML = `
+                            <div class="pptx-viewer-container">
+                                <!-- Left Sidebar Slide Thumbnails -->
+                                <div class="pptx-sidebar">
+                                    <div class="small fw-bold text-white-50 px-2 py-1 text-uppercase tracking-wider">
+                                        Slides (${slides.length})
+                                    </div>
+                                    ${slides.map((sl, sIdx) => `
+                                        <div class="pptx-thumbnail ${sIdx === activeSlide && viewMode === 'visual' ? 'active' : ''}" data-sidx="${sIdx}">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="badge bg-secondary bg-opacity-50 text-white">${sl.slideNumber}</span>
+                                            </div>
+                                            <div class="small fw-bold text-truncate text-white">${escapeHtml(sl.title)}</div>
+                                            <div class="micro-text text-white-50 text-truncate mt-1">${sl.elements.length} visual asset(s)</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+
+                                <!-- Main Slide Stage -->
+                                <div class="pptx-main-slide-stage">
+                                    <div class="w-100 d-flex justify-content-center align-items-center flex-grow-1">
+                                        ${viewMode === 'visual' ? buildSlideCanvasHtml(s) : buildOutlineHtml()}
+                                    </div>
+
+                                    <!-- Bottom Navigation Bar -->
+                                    <div class="pptx-bottom-toolbar flex-wrap gap-1.5 py-1.5">
+                                        <button type="button" class="btn btn-sm btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center text-white" id="pptxPrevBtn" ${activeSlide === 0 ? 'disabled' : ''} title="Previous Slide">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </button>
+                                        <span class="fw-bold text-white small px-2">
+                                            Slide ${activeSlide + 1} of ${slides.length}
+                                        </span>
+                                        <button type="button" class="btn btn-sm btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center text-white" id="pptxNextBtn" ${activeSlide === slides.length - 1 ? 'disabled' : ''} title="Next Slide">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </button>
+                                        <div class="vr bg-secondary my-1 d-none d-sm-block"></div>
+                                        <button type="button" class="btn btn-sm ${viewMode === 'visual' ? 'btn-primary' : 'btn-outline-light'} rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxToggleVisualBtn">
+                                            <i class="bi bi-file-slides me-1"></i> Slide Design
+                                        </button>
+                                        <button type="button" class="btn btn-sm ${viewMode === 'outline' ? 'btn-primary' : 'btn-outline-light'} rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxToggleOutlineBtn">
+                                            <i class="bi bi-list-columns-reverse me-1"></i> Content Outline
+                                        </button>
+                                        <div class="vr bg-secondary my-1 d-none d-sm-block"></div>
+                                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxOfficeOnlineBtn" title="View with official Microsoft Office PowerPoint engine">
+                                            <i class="bi bi-microsoft me-1"></i> Office 365 View
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 py-1 fs-8 fw-semibold" id="pptxGoogleSlidesBtn" title="View with Google Docs / Slides">
+                                            <i class="bi bi-google me-1"></i> Google Slides
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        if (modeSwitcherEl) {
+                            modeSwitcherEl.innerHTML = `
+                                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeOfficeTopBtn" title="View with Microsoft Office Online">
+                                    <i class="bi bi-microsoft me-1"></i> Office 365
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeGoogleTopBtn" title="View with Google Docs">
+                                    <i class="bi bi-google me-1"></i> Google Slides
+                                </button>
+                            `;
+                            document.getElementById('modeOfficeTopBtn')?.addEventListener('click', () => openOnlineEmbed('office'));
+                            document.getElementById('modeGoogleTopBtn')?.addEventListener('click', () => openOnlineEmbed('google'));
+                        }
+
+                        stageEl.querySelectorAll('.pptx-thumbnail').forEach(th => {
+                            th.addEventListener('click', () => {
+                                activeSlide = parseInt(th.dataset.sidx, 10);
+                                viewMode = 'visual';
+                                renderPresentation();
+                            });
+                        });
+
+                        document.getElementById('pptxPrevBtn')?.addEventListener('click', () => {
+                            if (activeSlide > 0) {
+                                activeSlide--;
+                                renderPresentation();
+                            }
+                        });
+                        document.getElementById('pptxNextBtn')?.addEventListener('click', () => {
+                            if (activeSlide < slides.length - 1) {
+                                activeSlide++;
+                                renderPresentation();
+                            }
+                        });
+                        document.getElementById('pptxToggleVisualBtn')?.addEventListener('click', () => {
+                            viewMode = 'visual';
+                            renderPresentation();
+                        });
+                        document.getElementById('pptxToggleOutlineBtn')?.addEventListener('click', () => {
+                            viewMode = 'outline';
+                            renderPresentation();
+                        });
+                        document.getElementById('pptxOfficeOnlineBtn')?.addEventListener('click', () => {
+                            openOnlineEmbed('office');
+                        });
+                        document.getElementById('pptxGoogleSlidesBtn')?.addEventListener('click', () => {
+                            openOnlineEmbed('google');
+                        });
+                    }
+
+                    renderPresentation();
+
+                } catch (err) {
+                    console.error('Error rendering PPTX presentation:', err);
+                    stageEl.innerHTML = `
+                        <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                            <i class="bi bi-file-earmark-slides text-warning" style="font-size: 5rem;"></i>
+                            <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                            <p class="text-white-50 mb-4">Click download below to view this presentation in Microsoft Office or Google Slides.</p>
+                            <a href="${presUrl || activeUrl}" download="${escapeHtml(presFileName || fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                                <i class="bi bi-download me-2"></i> Download Presentation
+                            </a>
+                        </div>
+                    `;
+                }
+            }, 30);
+        }
+
+        // ==========================================
+        // 3. WORD DOCUMENTS (.docx, .doc)
+        // ==========================================
+        if (ext === 'docx' || ext === 'doc') {
+            stageEl.innerHTML = `
+                <div class="docx-viewer-wrapper">
+                    <div id="docxPreviewHost" class="docx-preview-host"></div>
+                </div>
+            `;
+            const host = document.getElementById('docxPreviewHost');
+
+            if (modeSwitcherEl) {
+                modeSwitcherEl.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomOutBtn" title="Zoom out">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <span class="micro-text text-white-50 px-1 fw-semibold" id="docxZoomVal">100%</span>
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomInBtn" title="Zoom in">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 ms-1 border-opacity-50" id="docxFitBtn" title="Reset zoom">
+                        Fit
+                    </button>
+                `;
+                let currentZoom = 1.0;
+                const updateZoom = (z) => {
+                    currentZoom = Math.min(Math.max(0.5, Math.round(z * 100) / 100), 2.0);
+                    const zoomValEl = document.getElementById('docxZoomVal');
+                    if (zoomValEl) zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+                    if (host) {
+                        host.style.transform = `scale(${currentZoom})`;
+                        host.style.transformOrigin = 'top center';
+                    }
+                };
+                document.getElementById('docxZoomOutBtn')?.addEventListener('click', () => updateZoom(currentZoom - 0.15));
+                document.getElementById('docxZoomInBtn')?.addEventListener('click', () => updateZoom(currentZoom + 0.15));
+                document.getElementById('docxFitBtn')?.addEventListener('click', () => updateZoom(1.0));
+            }
+
+            if (ext === 'docx' && window.docx && typeof window.docx.renderAsync === 'function' && fileData.arrayBuffer) {
+                try {
+                    await window.docx.renderAsync(fileData.arrayBuffer, host, null, {
+                        className: 'docx',
+                        inWrapper: true,
+                        ignoreWidth: false,
+                        ignoreHeight: false,
+                        ignoreFonts: false,
+                        breakPages: true,
+                        ignoreLastRenderedPageBreak: false,
+                        useBase64URL: true,
+                        renderHeaders: true,
+                        renderFooters: true,
+                        renderFootnotes: true,
+                        renderEndnotes: true
+                    });
+                    return;
+                } catch (docxErr) {
+                    console.warn('docx-preview notice, trying mammoth fallback:', docxErr);
+                }
+            }
+
+            if (window.mammoth && fileData.arrayBuffer) {
+                try {
+                    const result = await window.mammoth.convertToHtml({ arrayBuffer: fileData.arrayBuffer });
+                    host.innerHTML = `
+                        <div class="docx-paper-sheet">
+                            ${result.value || '<p class="text-muted fst-italic">Empty Document.</p>'}
+                        </div>
+                    `;
+                    return;
+                } catch (mErr) {
+                    console.warn('mammoth error:', mErr);
+                }
+            }
+
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                    <i class="bi bi-file-earmark-word text-primary" style="font-size: 5rem;"></i>
+                    <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                    <p class="text-white-50 mb-4">Click download below to view this document in Microsoft Word.</p>
+                    <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download Document
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        // ==========================================
+        // 4. SPREADSHEETS (.xlsx, .xls, .csv)
+        // ==========================================
+        if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+            if (window.XLSX && fileData.arrayBuffer) {
+                try {
+                    const wb = window.XLSX.read(fileData.arrayBuffer, { type: 'array' });
+                    const sheetNames = wb.SheetNames || [];
+                    if (sheetNames.length === 0) throw new Error('No sheets found in workbook.');
+
+                    function renderSheetView(sIdx) {
+                        const sName = sheetNames[sIdx];
+                        const ws = wb.Sheets[sName];
+                        const htmlTable = window.XLSX.utils.sheet_to_html(ws, { editable: false });
+
+                        stageEl.innerHTML = `
+                            <div class="spreadsheet-viewer-wrapper">
+                                <div class="spreadsheet-tabs-bar">
+                                    <span class="fw-bold text-dark small me-2"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Sheets:</span>
+                                    ${sheetNames.map((name, i) => `
+                                        <button type="button" class="btn btn-sm ${i === sIdx ? 'btn-success text-white fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 py-1 small sheet-tab-btn" data-sidx="${i}">
+                                            <i class="bi bi-table me-1"></i>${escapeHtml(name)}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                                <div class="spreadsheet-content-stage">
+                                    ${htmlTable}
+                                </div>
+                            </div>
+                        `;
+
+                        stageEl.querySelectorAll('.sheet-tab-btn').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                const idx = parseInt(btn.dataset.sidx, 10);
+                                renderSheetView(idx);
+                            });
+                        });
+                    }
+
+                    renderSheetView(0);
+                    return;
+                } catch (xlsxErr) {
+                    console.error('SheetJS parse error:', xlsxErr);
+                }
+            }
+
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                    <i class="bi bi-file-earmark-excel text-success" style="font-size: 5rem;"></i>
+                    <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                    <p class="text-white-50 mb-4">Click download below to access and open this spreadsheet.</p>
+                    <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download File
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        // ==========================================
+        // 5. IMAGES (PNG, JPG, SVG, WEBP, GIF)
+        // ==========================================
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext) || mime.startsWith('image/')) {
+            stageEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100 p-4" style="background-color: #0b0c0e;">
+                    <img src="${activeUrl}" alt="${escapeHtml(fileName)}" class="img-fluid rounded shadow-lg" style="max-height: 90vh; max-width: 95vw; object-fit: contain;">
+                </div>
+            `;
+            return;
+        }
+
+        // ==========================================
+        // 6. VIDEO (MP4, WEBM, OGG)
+        // ==========================================
+        if (['mp4', 'webm', 'ogg'].includes(ext) || mime.startsWith('video/')) {
+            stageEl.innerHTML = `
+                <div class="media-viewer-stage">
+                    <video controls autoplay playsinline class="rounded shadow-lg" src="${activeUrl}">
+                        <source src="${activeUrl}" type="${mime || 'video/mp4'}">
+                        Your browser does not support video playback.
+                    </video>
+                </div>
+            `;
+            const vid = stageEl.querySelector('video');
+            if (vid) {
+                vid.play().catch(e => console.log('Autoplay requires user interaction:', e));
+            }
+            return;
+        }
+
+        // ==========================================
+        // 7. AUDIO (MP3, WAV, OGG, M4A)
+        // ==========================================
+        if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext) || mime.startsWith('audio/')) {
+            stageEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100 text-white p-4">
+                    <div class="audio-viewer-card">
+                        <i class="bi bi-music-note-beamed text-primary fs-1 mb-3 d-block"></i>
+                        <h5 class="fw-bold text-white mb-2 text-truncate">${escapeHtml(fileName)}</h5>
+                        <p class="text-white-50 small mb-4">${escapeHtml(displaySubtitle || 'Audio Playback')}</p>
+                        <audio controls autoplay class="w-100" src="${activeUrl}">
+                            <source src="${activeUrl}" type="${mime || 'audio/mpeg'}">
+                            Your browser does not support audio playback.
+                        </audio>
+                    </div>
+                </div>
+            `;
+            const aud = stageEl.querySelector('audio');
+            if (aud) {
+                aud.play().catch(e => console.log('Autoplay deferred:', e));
+            }
+            return;
+        }
+
+        // ==========================================
+        // 8. TEXT & CODE (TXT, JSON, LOG, MD, HTML, JS, CSS, XML)
+        // ==========================================
+        if (['txt', 'json', 'log', 'md', 'html', 'js', 'css', 'xml'].includes(ext) || mime.startsWith('text/')) {
+            let textContent = '';
+            try {
+                if (fileData.blob) {
+                    textContent = await fileData.blob.text();
+                } else if (fileData.arrayBuffer) {
+                    textContent = new TextDecoder().decode(fileData.arrayBuffer);
+                }
+            } catch (e) { }
+
+            stageEl.innerHTML = `
+                <div class="docx-paper-container">
+                    <div class="docx-page-card font-monospace" style="white-space: pre-wrap; font-size: 0.95rem; color: #1e293b;">
+                        ${escapeHtml(textContent || 'Empty file.')}
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // ==========================================
+        // 9. GENERIC DOWNLOAD FALLBACK
+        // ==========================================
+        stageEl.innerHTML = `
+            <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                <i class="bi bi-file-earmark-arrow-down text-info" style="font-size: 5rem;"></i>
+                <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                <p class="text-white-50 mb-4">Click download below to save and open this file on your device.</p>
+                <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                    <i class="bi bi-download me-2"></i> Download File
+                </a>
+            </div>
+        `;
     }
 
     async function handleExistingFileUploadFormSubmit(event) {
