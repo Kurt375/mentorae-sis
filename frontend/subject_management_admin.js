@@ -1097,6 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.classList.contains('edit-topic-btn')) {
             const topicIndex = target.dataset.index;
+            currentTopicIndexForEditing = topicIndex;
             const topic = subject.topics[topicIndex];
             
             if (topicEditorForm) topicEditorForm.reset();
@@ -3251,11 +3252,54 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function getResolvedFileUrl(fileObj, fallbackUrl = '', topicTitle = '') {
+        let raw = '';
+        const token = localStorage.getItem('mentorae_token') || '';
+        const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || window.API_BASE || '').replace(/\/+$/, '');
+        const subjectName = editingSubjectCopy?.name || '';
+
+        if (fileObj) {
+            if (typeof fileObj === 'string') {
+                raw = fileObj;
+            } else {
+                raw = fileObj.dataUrl || fileObj.url || fileObj.file_path || fileObj.filePath || fileObj.path || fileObj.pdfDataUrl || fileObj.pdfUrl || '';
+                if (!raw && fileObj.topicId !== undefined && fileObj.fileIndex !== undefined) {
+                    raw = `/api/content/topics/${fileObj.topicId}/files/${fileObj.fileIndex}/download`;
+                } else if (!raw && fileObj.id) {
+                    raw = `/api/resources/files/${fileObj.id}/download`;
+                } else if (!raw && fileObj.name && subjectName) {
+                    raw = `/api/content/topics/file-by-name?subjectName=${encodeURIComponent(subjectName)}&topicTitle=${encodeURIComponent(topicTitle || '')}&fileName=${encodeURIComponent(fileObj.name)}`;
+                }
+            }
+        }
+        if (!raw) raw = fallbackUrl || '';
+        if (!raw) return '';
+
+        if (raw.startsWith('data:') || raw.startsWith('blob:')) {
+            return raw;
+        }
+
+        let fullUrl = raw;
+        if (!/^https?:\/\//i.test(fullUrl)) {
+            const cleanPath = fullUrl.startsWith('/') ? fullUrl : `/${fullUrl}`;
+            fullUrl = `${apiBase}${cleanPath}`;
+        }
+
+        if (token && fullUrl.includes('/api/') && !fullUrl.includes('token=')) {
+            const separator = fullUrl.includes('?') ? '&' : '?';
+            fullUrl = `${fullUrl}${separator}token=${encodeURIComponent(token)}`;
+        }
+
+        return fullUrl;
+    }
+
     function previewExistingFile(index) {
         const subject = editingSubjectCopy;
         const topic = subject?.topics?.[currentTopicIndexForEditing];
         if (!topic || !Array.isArray(topic.files) || !topic.files[index]) return;
         const file = topic.files[index];
+        if (topic.id && file.topicId === undefined) file.topicId = topic.id;
+        if (file.fileIndex === undefined) file.fileIndex = index;
         openClassroomViewer(file, 'existingFileEditorModal', topic.title);
     }
 
@@ -3293,15 +3337,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const ext = (fileName || '').split('.').pop().toLowerCase();
         const isMedia = ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext);
 
-        if (url.startsWith('data:')) {
+        let finalUrl = url;
+        if (!finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !/^https?:\/\//i.test(finalUrl)) {
+            finalUrl = getResolvedFileUrl(finalUrl, '', '');
+        }
+
+        if (finalUrl.startsWith('data:')) {
             try {
-                const res = await fetch(url);
+                const res = await fetch(finalUrl);
                 const blob = await res.blob();
                 const arrayBuffer = await blob.arrayBuffer();
                 const blobUrl = URL.createObjectURL(blob);
                 return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
             } catch (fetchErr) {
-                const b = dataURItoBlob(url, fileName);
+                const b = dataURItoBlob(finalUrl, fileName);
                 if (!b) throw new Error('Could not parse data URI.');
                 const arrayBuffer = await b.arrayBuffer();
                 const blobUrl = URL.createObjectURL(b);
@@ -3309,32 +3358,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (url.startsWith('blob:')) {
+        if (finalUrl.startsWith('blob:')) {
             try {
-                const res = await fetch(url);
+                const res = await fetch(finalUrl);
                 const blob = await res.blob();
                 const arrayBuffer = await blob.arrayBuffer();
-                return { blob, arrayBuffer, blobUrl: url, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+                return { blob, arrayBuffer, blobUrl: finalUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
             } catch (e) {
-                return { blob: null, arrayBuffer: null, blobUrl: url, mimeType: getMimeTypeFromFilename(fileName) };
+                return { blob: null, arrayBuffer: null, blobUrl: finalUrl, mimeType: getMimeTypeFromFilename(fileName) };
             }
         }
 
-        if (isMedia && /^https?:\/\//i.test(url)) {
+        if (isMedia && /^https?:\/\//i.test(finalUrl)) {
             return {
                 blob: null,
                 arrayBuffer: null,
-                blobUrl: url,
+                blobUrl: finalUrl,
                 mimeType: getMimeTypeFromFilename(fileName)
             };
         }
 
         const token = localStorage.getItem('mentorae_token');
         const headers = {};
-        if (token && url.includes('/api/')) {
+        if (token && finalUrl.includes('/api/')) {
             headers['Authorization'] = `Bearer ${token}`;
         }
-        const res = await fetch(url, { headers });
+        const res = await fetch(finalUrl, { headers });
         if (!res.ok) throw new Error(`Failed to load file (${res.status} ${res.statusText})`);
         const blob = await res.blob();
         const arrayBuffer = await blob.arrayBuffer();
@@ -3357,16 +3406,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let file = null;
         let fileName = '';
-        let dataUrl = '';
+        let initialDataUrl = '';
         if (typeof fileOrName === 'object' && fileOrName !== null) {
             file = fileOrName;
             fileName = file.name || 'Document';
-            dataUrl = file.dataUrl || file.url || '';
+            initialDataUrl = file.dataUrl || file.url || '';
         } else {
             fileName = String(fileOrName || 'Document');
-            dataUrl = String(returnContext || '');
-            file = { name: fileName, dataUrl: dataUrl };
+            initialDataUrl = String(returnContext || '');
+            file = { name: fileName, dataUrl: initialDataUrl };
         }
+
+        const resolvedUrl = getResolvedFileUrl(file, initialDataUrl, contextTitle);
 
         filePreviewReturnModal = (typeof returnContext === 'string' && returnContext.includes('Modal')) ? returnContext : 'existingFileEditorModal';
 
@@ -3430,7 +3481,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let fileData = null;
         try {
-            fileData = await loadViewerFileData(dataUrl, fileName);
+            fileData = await loadViewerFileData(resolvedUrl, fileName);
             if (fileData.blobUrl && fileData.blobUrl.startsWith('blob:')) {
                 currentPreviewBlobUrl = fileData.blobUrl;
             }
@@ -3441,7 +3492,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-3 d-block"></i>
                     <h4 class="fw-bold text-white mb-2">Unable to load preview</h4>
                     <p class="text-white-50 mb-4">${escapeHtml(err.message || 'The file could not be read.')}</p>
-                    <a href="${dataUrl || '#'}" download="${escapeHtml(fileName || 'file')}" class="btn btn-primary rounded-pill px-4 fw-bold">
+                    <a href="${resolvedUrl || '#'}" download="${escapeHtml(fileName || 'file')}" class="btn btn-primary rounded-pill px-4 fw-bold">
                         <i class="bi bi-download me-2"></i> Download File Instead
                     </a>
                 </div>
@@ -3449,7 +3500,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const activeUrl = fileData.blobUrl || dataUrl;
+        const activeUrl = fileData.blobUrl || resolvedUrl;
 
         // Configure Top Action Buttons
         if (downloadBtn) {
@@ -3499,7 +3550,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. PPT / PPTX PRESENTATIONS (Google Classroom Style PDF Auto-View + Interactive Slides)
         // ==========================================
         if (ext === 'pptx' || ext === 'ppt') {
+            if (file?.pdfDataUrl && file.pdfDataUrl.includes('filename=generated.pdf')) {
+                file.pdfDataUrl = null;
+            }
+
             let pdfDataUrlToUse = file ? (file.pdfUrl || file.pdfDataUrl) : null;
+            if (!pdfDataUrlToUse && file && file.topicId !== undefined && file.fileIndex !== undefined) {
+                pdfDataUrlToUse = `/api/content/topics/${file.topicId}/files/${file.fileIndex}/download?asPdf=true`;
+            }
 
             // Auto-convert presentation on-the-fly if not already converted
             if (!pdfDataUrlToUse && fileData && (fileData.arrayBuffer || fileData.blob)) {
@@ -3516,6 +3574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
 
                     const token = localStorage.getItem('mentorae_token');
+                    const apiBase = (window.MENTORAE_CONFIG?.API_BASE_URL || window.API_BASE || '').replace(/\/+$/, '');
 
                     // 1. Try server-side PowerPoint conversion for pixel-perfect fidelity
                     if (token && file?.dataUrl) {
@@ -3550,31 +3609,87 @@ document.addEventListener('DOMContentLoaded', () => {
                         file.convertedToPdf = true;
                         renderExistingFiles();
                     }
+
+                    // Background-cache to server database for zero-latency subsequent opens
+                    if (pdfDataUrlToUse) {
+                        const topic = editingSubjectCopy?.topics?.[currentTopicIndexForEditing];
+                        const targetTopicId = file?.topicId || topic?.id;
+                        if (targetTopicId && token) {
+                            fetch(`${apiBase}/api/content/topics/${targetTopicId}/cache-file-pdf`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: JSON.stringify({ fileName, pdfDataUrl: pdfDataUrlToUse })
+                            }).catch(() => {});
+                        }
+                    }
                 } catch (convErr) {
                     console.warn('Auto-PDF generation fallback notice:', convErr);
                 }
             }
 
             if (pdfDataUrlToUse) {
+                const resolvedPdfUrl = getResolvedFileUrl(pdfDataUrlToUse, '', contextTitle);
                 try {
-                    const pdfData = await loadViewerFileData(pdfDataUrlToUse, `${fileName}.pdf`);
-                    if (popoutBtn) popoutBtn.href = pdfData.blobUrl;
-                    if (modeSwitcherEl) {
-                        modeSwitcherEl.innerHTML = `
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeSwitchSlidesBtn" title="Switch to interactive HTML slides">
-                                <i class="bi bi-file-slides me-1"></i> Interactive Slides
-                            </button>
-                        `;
-                        document.getElementById('modeSwitchSlidesBtn')?.addEventListener('click', () => {
-                            renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
-                        });
+                    const pdfData = await loadViewerFileData(resolvedPdfUrl, `${fileName}.pdf`);
+                    let isRealPdf = false;
+                    if (pdfData.arrayBuffer && pdfData.arrayBuffer.byteLength >= 4) {
+                        const headerBytes = new Uint8Array(pdfData.arrayBuffer.slice(0, 4));
+                        const headerStr = String.fromCharCode(...headerBytes);
+                        if (headerStr.startsWith('%PDF')) {
+                            isRealPdf = true;
+                        }
+                    } else if (pdfData.blob && pdfData.blob.type === 'application/pdf') {
+                        isRealPdf = true;
                     }
-                    stageEl.innerHTML = `
-                        <object data="${pdfData.blobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
-                            <iframe src="${pdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
-                        </object>
-                    `;
-                    return;
+
+                    if (isRealPdf) {
+                        if (popoutBtn) popoutBtn.href = pdfData.blobUrl;
+                        if (modeSwitcherEl) {
+                            modeSwitcherEl.innerHTML = `
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeSwitchSlidesBtn" title="Switch to interactive HTML slides">
+                                    <i class="bi bi-file-slides me-1"></i> Interactive Slides
+                                </button>
+                            `;
+                            document.getElementById('modeSwitchSlidesBtn')?.addEventListener('click', () => {
+                                renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                            });
+                        }
+                        stageEl.innerHTML = `
+                            <object data="${pdfData.blobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                                <iframe src="${pdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
+                            </object>
+                        `;
+                        return;
+                    } else {
+                        console.warn('Endpoint returned non-PDF data for asPdf=true, converting locally...');
+                        if (window.MentoraePptxToPdf && fileData && (fileData.arrayBuffer || fileData.blob)) {
+                            const buf = fileData.arrayBuffer || (await fileData.blob.arrayBuffer());
+                            const localPdf = await window.MentoraePptxToPdf.convert(buf);
+                            if (localPdf) {
+                                const localPdfData = await loadViewerFileData(localPdf, `${fileName}.pdf`);
+                                if (popoutBtn) popoutBtn.href = localPdfData.blobUrl;
+                                if (modeSwitcherEl) {
+                                    modeSwitcherEl.innerHTML = `
+                                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="modeSwitchSlidesBtn" title="Switch to interactive HTML slides">
+                                            <i class="bi bi-file-slides me-1"></i> Interactive Slides
+                                        </button>
+                                    `;
+                                    document.getElementById('modeSwitchSlidesBtn')?.addEventListener('click', () => {
+                                        renderPptxPresentation(fileData ? fileData.arrayBuffer : null, fileName, activeUrl);
+                                    });
+                                }
+                                stageEl.innerHTML = `
+                                    <object data="${localPdfData.blobUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                                        <iframe src="${localPdfData.blobUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;"></iframe>
+                                    </object>
+                                `;
+                                return;
+                            }
+                        }
+                    }
                 } catch (e) {
                     console.warn('Could not load converted presentation PDF, using slide renderer:', e);
                 }
@@ -5082,7 +5197,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (previewTarget) {
                     const index = parseInt(previewTarget.dataset.index, 10);
                     if (inlineTopicContent && Array.isArray(inlineTopicContent.files) && inlineTopicContent.files[index]) {
-                        openFilePreviewCheckModal(inlineTopicContent.files[index], 'topicEditorModal', 'Topic Editor Draft');
+                        const file = inlineTopicContent.files[index];
+                        const topic = editingSubjectCopy?.topics?.[currentTopicIndexForEditing];
+                        if (topic?.id && file.topicId === undefined) file.topicId = topic.id;
+                        if (file.fileIndex === undefined) file.fileIndex = index;
+                        const topicTitle = document.getElementById('topicTitle')?.value || topic?.title || '';
+                        openFilePreviewCheckModal(file, 'topicEditorModal', topicTitle || 'Topic Editor Draft');
                     }
                     return;
                 }
