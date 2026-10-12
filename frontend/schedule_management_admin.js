@@ -267,8 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
     endTime.addEventListener('change', validateTimeInputs);
 
     // --- Create schedule ---
+    let isCreatingSchedule = false;
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isCreatingSchedule) return;
 
         if (!teacherSelect.value) {
             alert('Please select a Teacher.');
@@ -290,35 +292,56 @@ document.addEventListener('DOMContentLoaded', () => {
             return; // errors already shown inline — this is the fixed version of the original crash
         }
 
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+
+        isCreatingSchedule = true;
+        const origSubmitHtml = submitBtn ? submitBtn.innerHTML : 'Create Schedule';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Creating...';
+        }
+
         const days = daySelect.value === 'All Weekdays'
             ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
             : [daySelect.value];
 
-        const data = await authedFetch('/api/schedules', token, {
-            method: 'POST',
-            body: JSON.stringify({
-                teacherId: teacherSelect.value,
-                subjectId: subjectSelect.value,
-                sectionId: sectionSelect.value,
-                quarter: quarterSelect.value,
-                days,
-                startTime: startTime.value,
-                endTime: endTime.value,
-            }),
-        });
+        try {
+            const data = await authedFetch('/api/schedules', token, {
+                method: 'POST',
+                body: JSON.stringify({
+                    teacherId: teacherSelect.value,
+                    subjectId: subjectSelect.value,
+                    sectionId: sectionSelect.value,
+                    quarter: quarterSelect.value,
+                    days,
+                    startTime: startTime.value,
+                    endTime: endTime.value,
+                }),
+            });
 
-        if (!data.success) {
+            if (!data.success) {
+                alert(data.message);
+                return;
+            }
             alert(data.message);
-            return;
+            form.reset();
+            teacherSelect.value = '';
+            strandSelect.value = '';
+            renderSections();
+            subjectSelect.value = '';
+            renderSubjects();
+            loadSchedules();
+        } catch (err) {
+            console.error('Error creating schedule:', err);
+            alert('Could not create schedule. Please check your network connection.');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origSubmitHtml;
+            }
+            isCreatingSchedule = false;
         }
-        alert(data.message);
-        form.reset();
-        teacherSelect.value = '';
-        strandSelect.value = '';
-        renderSections();
-        subjectSelect.value = '';
-        renderSubjects();
-        loadSchedules();
     });
 
     // --- Master schedule table ---

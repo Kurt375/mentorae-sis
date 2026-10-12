@@ -335,7 +335,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
+    let isSubmittingQuizAttempt = false;
+
     async function showResults() {
+        if (isSubmittingQuizAttempt) return;
+        isSubmittingQuizAttempt = true;
+
+        if (nextQuestionBtn) {
+            nextQuestionBtn.disabled = true;
+        }
+
         score = 0;
         for (let i = 0; i < questions.length; i++) {
             if (userAnswers[i] === questions[i].answer) {
@@ -438,6 +447,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         retakeQuizBtn.addEventListener('click', () => {
+            isSubmittingQuizAttempt = false;
+            if (nextQuestionBtn) nextQuestionBtn.disabled = false;
             currentIndex = 0;
             score = 0;
             userAnswers.fill(null);

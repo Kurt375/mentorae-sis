@@ -286,9 +286,10 @@ async function createTopic(req, res) {
       return res.status(403).json({ success: false, message: 'Teachers must submit main topics as requests for admin approval.' });
     }
 
+    const cleanTitle = title.trim();
     const [existingTopic] = await pool.query(
-      'SELECT id FROM topics WHERE subject_id = ? AND title = ? AND is_recommendation = ? LIMIT 1',
-      [subjectId, title.trim(), isRec]
+      'SELECT id FROM topics WHERE subject_id = ? AND LOWER(TRIM(title)) = LOWER(?) AND is_recommendation = ? LIMIT 1',
+      [subjectId, cleanTitle, isRec]
     );
 
     let topicId;
@@ -301,7 +302,7 @@ async function createTopic(req, res) {
     } else {
       const [result] = await pool.query(
         'INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation, comment, color) VALUES (?, ?, ?, ?, \'approved\', ?, ?, ?, ?)',
-        [subjectId, title.trim(), description || null, req.user.id, payloadStr, isRec, comment || null, color || 'bg-card-purple']
+        [subjectId, cleanTitle, description || null, req.user.id, payloadStr, isRec, comment || null, color || 'bg-card-purple']
       );
       topicId = result.insertId;
     }
@@ -498,10 +499,29 @@ async function createTopicRequest(req, res) {
     }
 
     const payloadStr = contentPayload ? JSON.stringify(contentPayload) : null;
+    const cleanTitle = title.trim();
+
+    // Deduplication check: if the teacher already has a pending request for this subject and title, update it instead of creating duplicates
+    const [existingPending] = await pool.query(
+      'SELECT id FROM topic_requests WHERE subject_id = ? AND teacher_id = ? AND LOWER(TRIM(title)) = LOWER(?) AND status = \'pending\' LIMIT 1',
+      [subjectId, req.user.id, cleanTitle]
+    );
+
+    let requestId;
+    if (existingPending.length > 0) {
+      requestId = existingPending[0].id;
+      await pool.query(
+        'UPDATE topic_requests SET description = ?, content_payload = ? WHERE id = ?',
+        [description || null, payloadStr, requestId]
+      );
+      return res.json({ success: true, requestId, message: 'Topic request updated (duplicate submission prevented).' });
+    }
+
     const [result] = await pool.query(
       'INSERT INTO topic_requests (subject_id, teacher_id, title, description, content_payload, status) VALUES (?, ?, ?, ?, ?, \'pending\')',
-      [subjectId, req.user.id, title, description || null, payloadStr]
+      [subjectId, req.user.id, cleanTitle, description || null, payloadStr]
     );
+    requestId = result.insertId;
 
     // Notify all active admins
     const [adminRows] = await pool.query("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
@@ -601,13 +621,30 @@ async function reviewTopicRequest(req, res) {
     }
 
     if (approve) {
-      const [topicResult] = await pool.query(
-        'INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation) VALUES (?, ?, ?, ?, \'approved\', ?, 0)',
-        [request.subject_id, request.title, request.description, request.teacher_id, request.content_payload]
+      // Check if an approved topic with identical title and subject already exists to prevent duplicate insertion
+      const [existingApproved] = await pool.query(
+        'SELECT id FROM topics WHERE subject_id = ? AND LOWER(TRIM(title)) = LOWER(?) AND is_recommendation = 0 LIMIT 1',
+        [request.subject_id, request.title.trim()]
       );
+
+      let topicId;
+      if (existingApproved.length > 0) {
+        topicId = existingApproved[0].id;
+        await pool.query(
+          'UPDATE topics SET description = ?, content_payload = ? WHERE id = ?',
+          [request.description || null, request.content_payload, topicId]
+        );
+      } else {
+        const [topicResult] = await pool.query(
+          'INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation) VALUES (?, ?, ?, ?, \'approved\', ?, 0)',
+          [request.subject_id, request.title.trim(), request.description, request.teacher_id, request.content_payload]
+        );
+        topicId = topicResult.insertId;
+      }
+
       await pool.query(
         'UPDATE topic_requests SET status = \'approved\', reviewed_by = ?, reviewed_at = NOW(), topic_id = ? WHERE id = ?',
-        [req.user.id, topicResult.insertId, id]
+        [req.user.id, topicId, id]
       );
 
       // Notify the requesting teacher

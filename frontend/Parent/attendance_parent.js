@@ -355,6 +355,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (excuseForm) {
         excuseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (isSubmittingExcuse) return;
+
             const reason = document.getElementById('excuseReason').value;
             const date = document.getElementById('excuseDate').value;
             const remarks = document.getElementById('excuseRemarks').value;
@@ -362,6 +364,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!activeChild || !activeChild.id) {
                 alert('Please select a student first.');
                 return;
+            }
+
+            const submitBtn = excuseForm.querySelector('button[type="submit"]');
+            if (submitBtn && submitBtn.disabled) return;
+
+            isSubmittingExcuse = true;
+            const origBtnHtml = submitBtn ? submitBtn.innerHTML : 'Submit Note';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Submitting...';
             }
 
             try {
@@ -377,7 +389,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const modalEl = document.getElementById('excuseModal');
                 const modalInstance = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
-                isSubmittingExcuse = true;
                 if (modalInstance) {
                     modalInstance.hide();
                 }
@@ -392,6 +403,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (err) {
                 console.error('Submit excuse note error:', err);
                 alert('Could not submit excuse note. Please check connection and try again.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = origBtnHtml;
+                }
+                isSubmittingExcuse = false;
             }
         });
     }

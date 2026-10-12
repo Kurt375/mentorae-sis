@@ -786,7 +786,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Handlers ---
     async function handleFormSubmit(event) {
         event.preventDefault();
-        isSaving = true; // Set the flag to indicate a save is in progress
+        if (isSaving) return;
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
         const subjectId = document.getElementById('subjectId').value;
 
         // Warn if user filled out topic details in 'Add New Subject' mode but forgot to click "+ Add This Topic"
@@ -810,7 +812,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     addTopicBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     addTopicBtn.focus();
                 }
-                isSaving = false;
                 return; // Stop saving to prevent losing the topic
             }
         }
@@ -821,148 +822,157 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (Math.round(wwWeight + ptWeight + qaWeight) !== 100) {
             alert(`Grading component weights must sum to exactly 100%!\nCurrent total: ${Math.round(wwWeight + ptWeight + qaWeight)}% (WW: ${wwWeight}%, PT: ${ptWeight}%, QA: ${qaWeight}%)`);
-            isSaving = false;
             return;
         }
 
-        const subjectData = {
-            name: document.getElementById('subjectName').value,
-            code: document.getElementById('subjectCode').value,
-            description: document.getElementById('subjectDescription').value,
-            category: document.getElementById('subjectCategory').value,
-            gradeLevel: parseInt(document.getElementById('subjectGrade').value, 10),
-            quarter: parseInt(document.getElementById('subjectQuarter').value, 10),
-            strand: document.getElementById('subjectStrand').value,
-            strandSection: document.getElementById('subjectStrandSection').value,
-            color: document.getElementById('subjectColor').value,
-            ww_weight: wwWeight,
-            pt_weight: ptWeight,
-            qa_weight: qaWeight,
-            wwWeight: wwWeight,
-            ptWeight: ptWeight,
-            qaWeight: qaWeight
-        };
-
-        const token = localStorage.getItem('mentorae_token');
-
-        if (subjectId) { // Editing existing subject
-            let updatedSubjectId = subjectId;
-            const payloadTopics = (editingSubjectCopy && editingSubjectCopy.topics) ? editingSubjectCopy.topics : [];
-            if (token) {
-                try {
-                    let res = await authedFetch(`/api/reference/subjects/${subjectId}`, token, {
-                        method: 'PUT',
-                        body: JSON.stringify({ id: subjectId, ...subjectData, topics: payloadTopics })
-                    });
-                    // Fallback to POST if server returns Not found or method not allowed
-                    if (!res || (!res.success && (res.message === 'Not found.' || res.message === 'Subject not found.'))) {
-                        res = await authedFetch('/api/reference/subjects', token, {
-                            method: 'POST',
-                            body: JSON.stringify({ id: subjectId, ...subjectData, topics: payloadTopics })
-                        });
-                    }
-                    if (res && !res.success) {
-                        alert(res.message || 'Failed to update subject in database.');
-                        isSaving = false;
-                        return;
-                    }
-                    if (res && res.subjectId) {
-                        updatedSubjectId = res.subjectId;
-                    }
-                } catch (err) {
-                    console.error('Error updating subject in database:', err);
-                }
-            }
-
-            const index = subjects.findIndex(s => s.id == subjectId);
-            if (index !== -1) {
-                // The editingSubjectCopy already has the updated topics.
-                // Now, update its main properties from the form fields.
-                editingSubjectCopy.id = updatedSubjectId;
-                editingSubjectCopy.name = subjectData.name;
-                editingSubjectCopy.code = subjectData.code;
-                editingSubjectCopy.description = subjectData.description;
-                editingSubjectCopy.category = subjectData.category;
-                editingSubjectCopy.gradeLevel = subjectData.gradeLevel;
-                editingSubjectCopy.quarter = subjectData.quarter;
-                editingSubjectCopy.strand = subjectData.strand;
-                editingSubjectCopy.strandSection = subjectData.strandSection;
-                editingSubjectCopy.color = subjectData.color;
-                editingSubjectCopy.ww_weight = subjectData.ww_weight;
-                editingSubjectCopy.pt_weight = subjectData.pt_weight;
-                editingSubjectCopy.qa_weight = subjectData.qa_weight;
-                editingSubjectCopy.wwWeight = subjectData.ww_weight;
-                editingSubjectCopy.ptWeight = subjectData.pt_weight;
-                editingSubjectCopy.qaWeight = subjectData.qa_weight;
-
-                subjects[index] = editingSubjectCopy; // Replace original with the edited copy
-            }
-        } else { // Adding new subject
-            // Validate that staged topics with resources actually have content.
-            for (const topic of stagedTopics) {
-                if (topic.resources.includes('Practice Quiz') && (!topic.quiz || topic.quiz.length === 0)) {
-                    alert(`The topic "${topic.title}" is marked as having a 'Practice Quiz' but no questions have been added. Please edit the topic's quiz content before saving the subject.`);
-                    isSaving = false;
-                    return; // Stop submission
-                }
-                if (topic.resources.includes('Flashcards') && (!topic.flashcards || topic.flashcards.length === 0)) {
-                    alert(`The topic "${topic.title}" is marked as having 'Flashcards' but no cards have been added. Please edit the topic's flashcard content before saving the subject.`);
-                    isSaving = false;
-                    return; // Stop submission
-                }
-                // This validation is also needed because a user could check the box but not upload a file.
-                if (topic.resources.includes('File') && (!topic.files || topic.files.length === 0)) {
-                    alert(`The topic "${topic.title}" is marked as having a 'File' but no file was uploaded. Please remove and re-add the topic with a file.`);
-                    isSaving = false;
-                    return; // Stop submission
-                }
-            }
-
-            let newId = Date.now();
-            if (token) {
-                try {
-                    const res = await authedFetch('/api/reference/subjects', token, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            ...subjectData,
-                            topics: stagedTopics
-                        })
-                    });
-                    if (res && res.success && res.subjectId) {
-                        newId = res.subjectId;
-                    } else if (res && !res.success) {
-                        alert(res.message || 'Failed to save subject in database.');
-                        isSaving = false;
-                        return;
-                    }
-                } catch (err) {
-                    console.error('Error saving subject to backend:', err);
-                }
-            }
-
-            subjects.unshift({
-                id: newId,
-                ...subjectData,
-                topics: stagedTopics, // Add the staged topics
-                recommendations: []
-            });
+        const origSubmitHtml = submitBtn ? submitBtn.innerHTML : 'Save Subject';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
         }
+        isSaving = true;
 
         try {
-            saveSubjects(subjects);
-            populateStrandFilter(); // Repopulate in case a new strand was added
-            applyFiltersAndSearch(); // Re-render table with filters
-            if (subjectModal) subjectModal.hide();
-        } catch (e) {
-            // This error typically happens when localStorage is full.
-            if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                alert('Error: Could not save subject. The browser\'s local storage is full, likely because the uploaded file is too large. Please use a smaller file or remove other subjects with large attachments.');
-                // Revert the in-memory change by reloading the last valid state from storage.
-                subjects = loadSubjects();
-            } else {
-                alert('An unexpected error occurred while saving the subject.');
-                console.error(e);
+            const subjectData = {
+                name: document.getElementById('subjectName').value,
+                code: document.getElementById('subjectCode').value,
+                description: document.getElementById('subjectDescription').value,
+                category: document.getElementById('subjectCategory').value,
+                gradeLevel: parseInt(document.getElementById('subjectGrade').value, 10),
+                quarter: parseInt(document.getElementById('subjectQuarter').value, 10),
+                strand: document.getElementById('subjectStrand').value,
+                strandSection: document.getElementById('subjectStrandSection').value,
+                color: document.getElementById('subjectColor').value,
+                ww_weight: wwWeight,
+                pt_weight: ptWeight,
+                qa_weight: qaWeight,
+                wwWeight: wwWeight,
+                ptWeight: ptWeight,
+                qaWeight: qaWeight
+            };
+
+            const token = localStorage.getItem('mentorae_token');
+
+            if (subjectId) { // Editing existing subject
+                let updatedSubjectId = subjectId;
+                const payloadTopics = (editingSubjectCopy && editingSubjectCopy.topics) ? editingSubjectCopy.topics : [];
+                if (token) {
+                    try {
+                        let res = await authedFetch(`/api/reference/subjects/${subjectId}`, token, {
+                            method: 'PUT',
+                            body: JSON.stringify({ id: subjectId, ...subjectData, topics: payloadTopics })
+                        });
+                        // Fallback to POST if server returns Not found or method not allowed
+                        if (!res || (!res.success && (res.message === 'Not found.' || res.message === 'Subject not found.'))) {
+                            res = await authedFetch('/api/reference/subjects', token, {
+                                method: 'POST',
+                                body: JSON.stringify({ id: subjectId, ...subjectData, topics: payloadTopics })
+                            });
+                        }
+                        if (res && !res.success) {
+                            alert(res.message || 'Failed to update subject in database.');
+                            return;
+                        }
+                        if (res && res.subjectId) {
+                            updatedSubjectId = res.subjectId;
+                        }
+                    } catch (err) {
+                        console.error('Error updating subject in database:', err);
+                    }
+                }
+
+                const index = subjects.findIndex(s => s.id == subjectId);
+                if (index !== -1) {
+                    // The editingSubjectCopy already has the updated topics.
+                    // Now, update its main properties from the form fields.
+                    editingSubjectCopy.id = updatedSubjectId;
+                    editingSubjectCopy.name = subjectData.name;
+                    editingSubjectCopy.code = subjectData.code;
+                    editingSubjectCopy.description = subjectData.description;
+                    editingSubjectCopy.category = subjectData.category;
+                    editingSubjectCopy.gradeLevel = subjectData.gradeLevel;
+                    editingSubjectCopy.quarter = subjectData.quarter;
+                    editingSubjectCopy.strand = subjectData.strand;
+                    editingSubjectCopy.strandSection = subjectData.strandSection;
+                    editingSubjectCopy.color = subjectData.color;
+                    editingSubjectCopy.ww_weight = subjectData.ww_weight;
+                    editingSubjectCopy.pt_weight = subjectData.pt_weight;
+                    editingSubjectCopy.qa_weight = subjectData.qa_weight;
+                    editingSubjectCopy.wwWeight = subjectData.ww_weight;
+                    editingSubjectCopy.ptWeight = subjectData.pt_weight;
+                    editingSubjectCopy.qaWeight = subjectData.qa_weight;
+
+                    subjects[index] = editingSubjectCopy; // Replace original with the edited copy
+                }
+            } else { // Adding new subject
+                // Validate that staged topics with resources actually have content.
+                for (const topic of stagedTopics) {
+                    if (topic.resources.includes('Practice Quiz') && (!topic.quiz || topic.quiz.length === 0)) {
+                        alert(`The topic "${topic.title}" is marked as having a 'Practice Quiz' but no questions have been added. Please edit the topic's quiz content before saving the subject.`);
+                        return; // Stop submission
+                    }
+                    if (topic.resources.includes('Flashcards') && (!topic.flashcards || topic.flashcards.length === 0)) {
+                        alert(`The topic "${topic.title}" is marked as having 'Flashcards' but no cards have been added. Please edit the topic's flashcard content before saving the subject.`);
+                        return; // Stop submission
+                    }
+                    // This validation is also needed because a user could check the box but not upload a file.
+                    if (topic.resources.includes('File') && (!topic.files || topic.files.length === 0)) {
+                        alert(`The topic "${topic.title}" is marked as having a 'File' but no file was uploaded. Please remove and re-add the topic with a file.`);
+                        return; // Stop submission
+                    }
+                }
+
+                let newId = Date.now();
+                if (token) {
+                    try {
+                        const res = await authedFetch('/api/reference/subjects', token, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                ...subjectData,
+                                topics: stagedTopics
+                            })
+                        });
+                        if (res && res.success && res.subjectId) {
+                            newId = res.subjectId;
+                        } else if (res && !res.success) {
+                            alert(res.message || 'Failed to save subject in database.');
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Error saving subject to backend:', err);
+                    }
+                }
+
+                subjects.unshift({
+                    id: newId,
+                    ...subjectData,
+                    topics: stagedTopics, // Add the staged topics
+                    recommendations: []
+                });
             }
+
+            try {
+                saveSubjects(subjects);
+                populateStrandFilter(); // Repopulate in case a new strand was added
+                applyFiltersAndSearch(); // Re-render table with filters
+                if (subjectModal) subjectModal.hide();
+            } catch (e) {
+                // This error typically happens when localStorage is full.
+                if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    alert('Error: Could not save subject. The browser\'s local storage is full, likely because the uploaded file is too large. Please use a smaller file or remove other subjects with large attachments.');
+                    // Revert the in-memory change by reloading the last valid state from storage.
+                    subjects = loadSubjects();
+                } else {
+                    alert('An unexpected error occurred while saving the subject.');
+                    console.error(e);
+                }
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origSubmitHtml;
+            }
+            isSaving = false;
         }
     }
 

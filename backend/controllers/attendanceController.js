@@ -762,6 +762,24 @@ async function submitExcuseNote(req, res) {
     const [stRows] = await pool.query('SELECT section_id FROM users WHERE id = ?', [studentId]);
     const sectionId = stRows[0]?.section_id || null;
 
+    // Deduplication check: if a pending excuse note already exists for this student & absence date, update it
+    const [existing] = await pool.query(
+      'SELECT id FROM excuse_notes WHERE student_id = ? AND absence_date = ? AND status = \'pending\' LIMIT 1',
+      [studentId, absenceDate]
+    );
+
+    if (existing.length > 0) {
+      await pool.query(
+        'UPDATE excuse_notes SET reason = ?, remarks = ?, section_id = ? WHERE id = ?',
+        [reason, remarks || null, sectionId, existing[0].id]
+      );
+      return res.json({
+        success: true,
+        message: 'Excuse note updated (duplicate submission prevented).',
+        noteId: existing[0].id,
+      });
+    }
+
     const [result] = await pool.query(
       `INSERT INTO excuse_notes (student_id, parent_id, section_id, absence_date, reason, remarks, status)
        VALUES (?, ?, ?, ?, ?, ?, 'pending')`,

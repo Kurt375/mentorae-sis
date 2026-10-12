@@ -1946,8 +1946,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    let isSubmittingTopicForm = false;
+
     addTopicForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isSubmittingTopicForm) return;
+
         if (!currentSubject) {
             alert("Error: Cannot save because the subject data is not loaded.");
             return;
@@ -1974,90 +1978,112 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        const submitBtn = document.getElementById('saveItemBtn') || addTopicForm.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+
+        isSubmittingTopicForm = true;
+        const origBtnHtml = submitBtn ? submitBtn.innerHTML : 'Submit';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+        }
+
         const token = localStorage.getItem('mentorae_token');
 
-        if (isEditingRec) {
-            const updatedRecData = {
-                title: document.getElementById('topicTitle').value,
-                description: document.getElementById('topicDescription').value,
-                comment: document.getElementById('topicComment').value,
-                resources: selectedResources
-            };
-            currentSubject.recommendations[recIndex] = {
-                ...currentSubject.recommendations[recIndex],
-                ...updatedRecData,
-                files: newTopicRequestContent.files,
-                quiz: newTopicRequestContent.quiz,
-                flashcards: newTopicRequestContent.flashcards
-            };
-            saveSubjects(allSubjects);
-            renderRecommendations(currentSubject.recommendations);
-        } else {
-            if (destination === 'recommendation') {
-                const contentPayload = {
-                    resources: selectedResources,
+        try {
+            if (isEditingRec) {
+                const updatedRecData = {
+                    title: document.getElementById('topicTitle').value,
+                    description: document.getElementById('topicDescription').value,
+                    comment: document.getElementById('topicComment').value,
+                    resources: selectedResources
+                };
+                currentSubject.recommendations[recIndex] = {
+                    ...currentSubject.recommendations[recIndex],
+                    ...updatedRecData,
                     files: newTopicRequestContent.files,
                     quiz: newTopicRequestContent.quiz,
                     flashcards: newTopicRequestContent.flashcards
                 };
-
-                try {
-                    const res = await authedFetch('/api/content/topics', token, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            subjectName: decodedSubjectName,
-                            title: document.getElementById('topicTitle').value,
-                            description: document.getElementById('topicDescription').value,
-                            comment: document.getElementById('topicComment').value,
-                            isRecommendation: true,
-                            color: 'bg-card-purple',
-                            contentPayload: contentPayload
-                        })
-                    });
-                    if (res && res.success) {
-                        alert('Your recommendation has been saved successfully.');
-                        await fetchTopicsFromDb();
-                    } else {
-                        alert(res.message || 'Failed to save recommendation.');
-                    }
-                } catch (err) {
-                    console.error('Error saving recommendation:', err);
-                    alert('Could not save recommendation to server.');
-                }
+                saveSubjects(allSubjects);
+                renderRecommendations(currentSubject.recommendations);
+                isSavingTopicTeacher = true;
+                if (addTopicModal) addTopicModal.hide();
             } else {
-                const visibilityContainer = document.getElementById('topicVisibilityContainer');
-                let selectedSections = Array.from(visibilityContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-                const contentPayload = {
-                    resources: selectedResources,
-                    visibleTo: selectedSections,
-                    files: newTopicRequestContent.files,
-                    quiz: newTopicRequestContent.quiz,
-                    flashcards: newTopicRequestContent.flashcards
-                };
+                if (destination === 'recommendation') {
+                    const contentPayload = {
+                        resources: selectedResources,
+                        files: newTopicRequestContent.files,
+                        quiz: newTopicRequestContent.quiz,
+                        flashcards: newTopicRequestContent.flashcards
+                    };
 
-                try {
-                    const res = await authedFetch('/api/content/topic-requests', token, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            subjectName: decodedSubjectName,
-                            title: document.getElementById('topicTitle').value,
-                            description: document.getElementById('topicDescription').value,
-                            contentPayload: contentPayload
-                        })
-                    });
-                    if (res && res.success) {
-                        alert('Your request to add a new main topic has been sent to the administrator for review.');
-                    } else {
-                        alert(res.message || 'Failed to submit topic request.');
+                    try {
+                        const res = await authedFetch('/api/content/topics', token, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                subjectName: decodedSubjectName,
+                                title: document.getElementById('topicTitle').value,
+                                description: document.getElementById('topicDescription').value,
+                                comment: document.getElementById('topicComment').value,
+                                isRecommendation: true,
+                                color: 'bg-card-purple',
+                                contentPayload: contentPayload
+                            })
+                        });
+                        if (res && res.success) {
+                            alert('Your recommendation has been saved successfully.');
+                            await fetchTopicsFromDb();
+                            isSavingTopicTeacher = true;
+                            if (addTopicModal) addTopicModal.hide();
+                        } else {
+                            alert(res.message || 'Failed to save recommendation.');
+                        }
+                    } catch (err) {
+                        console.error('Error saving recommendation:', err);
+                        alert('Could not save recommendation to server.');
                     }
-                } catch (err) {
-                    console.error('Error submitting topic request:', err);
-                    alert('Could not submit request to server.');
+                } else {
+                    const visibilityContainer = document.getElementById('topicVisibilityContainer');
+                    let selectedSections = Array.from(visibilityContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+                    const contentPayload = {
+                        resources: selectedResources,
+                        visibleTo: selectedSections,
+                        files: newTopicRequestContent.files,
+                        quiz: newTopicRequestContent.quiz,
+                        flashcards: newTopicRequestContent.flashcards
+                    };
+
+                    try {
+                        const res = await authedFetch('/api/content/topic-requests', token, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                subjectName: decodedSubjectName,
+                                title: document.getElementById('topicTitle').value,
+                                description: document.getElementById('topicDescription').value,
+                                contentPayload: contentPayload
+                            })
+                        });
+                        if (res && res.success) {
+                            alert('Your request to add a new main topic has been sent to the administrator for review.');
+                            isSavingTopicTeacher = true;
+                            if (addTopicModal) addTopicModal.hide();
+                        } else {
+                            alert(res.message || 'Failed to submit topic request.');
+                        }
+                    } catch (err) {
+                        console.error('Error submitting topic request:', err);
+                        alert('Could not submit request to server.');
+                    }
                 }
             }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origBtnHtml;
+            }
+            isSubmittingTopicForm = false;
         }
-        isSavingTopicTeacher = true;
-        if (addTopicModal) addTopicModal.hide();
     });
 
     function hasUnsavedTeacherTopicChanges() {

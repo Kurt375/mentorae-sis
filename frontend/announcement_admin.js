@@ -87,8 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let isPostingAnnouncement = false;
     announcementForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isPostingAnnouncement) return;
+
         const title = document.getElementById('inputEvent').value.trim();
         const eventDate = document.getElementById('inputDate').value;
         const description = document.getElementById('inputDesc').value.trim();
@@ -99,29 +102,63 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const data = await authedFetch('/api/announcements', token, {
-            method: 'POST',
-            body: JSON.stringify({ title, eventDate, description, audience }),
-        });
+        const submitBtn = announcementForm.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
 
-        if (!data.success) {
-            alert(data.message);
-            return;
+        isPostingAnnouncement = true;
+        const origSubmitHtml = submitBtn ? submitBtn.innerHTML : 'Post Announcement';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Posting...';
         }
-        announcementForm.reset();
-        creationFormWrapper.classList.add('d-none');
-        loadAnnouncements();
+
+        try {
+            const data = await authedFetch('/api/announcements', token, {
+                method: 'POST',
+                body: JSON.stringify({ title, eventDate, description, audience }),
+            });
+
+            if (!data.success) {
+                alert(data.message);
+                return;
+            }
+            announcementForm.reset();
+            creationFormWrapper.classList.add('d-none');
+            loadAnnouncements();
+        } catch (err) {
+            console.error('Error posting announcement:', err);
+            alert('Could not post announcement. Please check your network connection.');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origSubmitHtml;
+            }
+            isPostingAnnouncement = false;
+        }
     });
 
     deleteBtn.addEventListener('click', async () => {
-        if (!selectedIds.size) return;
+        if (!selectedIds.size || deleteBtn.disabled) return;
         if (!confirm(`Delete ${selectedIds.size} announcement(s)?`)) return;
-        const data = await authedFetch('/api/announcements/delete-batch', token, {
-            method: 'POST',
-            body: JSON.stringify({ ids: Array.from(selectedIds) }),
-        });
-        alert(data.message);
-        loadAnnouncements();
+
+        const origDeleteHtml = deleteBtn.innerHTML;
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Deleting...';
+
+        try {
+            const data = await authedFetch('/api/announcements/delete-batch', token, {
+                method: 'POST',
+                body: JSON.stringify({ ids: Array.from(selectedIds) }),
+            });
+            alert(data.message);
+            loadAnnouncements();
+        } catch (err) {
+            console.error('Batch delete error:', err);
+            alert('Failed to delete announcements.');
+        } finally {
+            deleteBtn.disabled = selectedIds.size === 0;
+            deleteBtn.innerHTML = origDeleteHtml;
+        }
     });
 
     loadAnnouncements();

@@ -282,7 +282,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Action Handlers ---
-    async function handleApproveRequest(requestId) {
+    const processingRequests = new Set();
+
+    async function handleApproveRequest(requestId, triggerBtn) {
+        if (processingRequests.has(requestId)) return;
+        processingRequests.add(requestId);
+
+        const card = document.getElementById(`request-${requestId}`);
+        const actionBtns = card ? card.querySelectorAll('button') : [];
+        actionBtns.forEach(b => b.disabled = true);
+        const origHtml = triggerBtn ? triggerBtn.innerHTML : 'Approve';
+        if (triggerBtn) {
+            triggerBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Approving...';
+        }
+
         try {
             const res = await authedFetch(`/api/content/topic-requests/${requestId}/review`, token, {
                 method: 'POST',
@@ -296,13 +309,28 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Error approving request:', err);
             alert('Failed to connect to the server.');
+        } finally {
+            processingRequests.delete(requestId);
+            actionBtns.forEach(b => b.disabled = false);
+            if (triggerBtn) triggerBtn.innerHTML = origHtml;
+            loadData();
         }
-        loadData();
     }
 
-    async function handleDenyRequest(requestId) {
+    async function handleDenyRequest(requestId, triggerBtn) {
+        if (processingRequests.has(requestId)) return;
         const reason = prompt('Please provide feedback or reason for not approving (optional):', 'Needs revision or additional learning materials.');
         if (reason === null) return; // User clicked Cancel
+
+        processingRequests.add(requestId);
+        const card = document.getElementById(`request-${requestId}`);
+        const actionBtns = card ? card.querySelectorAll('button') : [];
+        actionBtns.forEach(b => b.disabled = true);
+        const origHtml = triggerBtn ? triggerBtn.innerHTML : 'Deny';
+        if (triggerBtn) {
+            triggerBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+        }
+
         try {
             const res = await authedFetch(`/api/content/topic-requests/${requestId}/review`, token, {
                 method: 'POST',
@@ -316,8 +344,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Error denying request:', err);
             alert('Failed to connect to the server.');
+        } finally {
+            processingRequests.delete(requestId);
+            actionBtns.forEach(b => b.disabled = false);
+            if (triggerBtn) triggerBtn.innerHTML = origHtml;
+            loadData();
         }
-        loadData();
     }
 
     function highlightRequestFromUrl() {
@@ -408,9 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const requestId = target.dataset.id;
             if (target.classList.contains('approve-request-btn')) {
-                handleApproveRequest(requestId);
+                handleApproveRequest(requestId, target);
             } else if (target.classList.contains('deny-request-btn')) {
-                handleDenyRequest(requestId);
+                handleDenyRequest(requestId, target);
             }
         });
     }

@@ -35,6 +35,18 @@ async function createAnnouncement(req, res) {
   }
 
   try {
+    // Prevent rapid duplicate clicks (within 30 seconds)
+    const [recent] = await pool.query(
+      `SELECT id FROM announcements 
+       WHERE title = ? AND event_date = ? AND created_by = ? 
+       AND created_at >= NOW() - INTERVAL 30 SECOND 
+       LIMIT 1`,
+      [title, eventDate, req.user.id]
+    );
+    if (recent.length > 0) {
+      return res.json({ success: true, message: 'Announcement posted (duplicate submission prevented).' });
+    }
+
     const type = classifyType(title);
     await pool.query(
       'INSERT INTO announcements (title, description, event_date, type, audience, created_by) VALUES (?, ?, ?, ?, ?, ?)',

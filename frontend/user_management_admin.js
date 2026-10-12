@@ -466,8 +466,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Create User ---
+    let isCreatingUser = false;
     createUserForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isCreatingUser) return;
 
         if (!generatedId.value.trim()) {
             if (userRoleSelect.value === 'Student') {
@@ -488,6 +490,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (manualPassword && manualPassword.length < 8) {
             alert('Password must be at least 8 characters, or left blank to auto-generate one.');
             return;
+        }
+
+        const submitBtn = createUserForm.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+
+        isCreatingUser = true;
+        const origSubmitHtml = submitBtn ? submitBtn.innerHTML : 'Create User';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Creating User...';
         }
 
         const payload = {
@@ -529,46 +541,57 @@ document.addEventListener('DOMContentLoaded', () => {
             if (matchedIds.length) payload.subjectIds = matchedIds;
         }
 
-        const data = await authedFetch('/api/users', token, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
+        try {
+            const data = await authedFetch('/api/users', token, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
 
-        if (!data.success) {
-            alert(data.message);
-            return;
-        }
+            if (!data.success) {
+                alert(data.message);
+                return;
+            }
 
-        let alertMsg = `✅ ${data.message}`;
-        if (data.parentLinkMessage) {
-            alertMsg += `\n\n🔗 ${data.parentLinkMessage}`;
-        }
-        if (data.tempPassword) {
-            alertMsg += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 STUDENT LOGIN CREDENTIALS:\n• ID / LRN: ${payload.idNumber}\n• Email: ${payload.email}\n• Temp Password: ${data.tempPassword}`;
-        }
-        if (data.createdParent) {
-            alertMsg += `\n\n👨‍👩‍👧 NEW PARENT LOGIN CREDENTIALS:\n• Parent Name: ${data.createdParent.name}\n• Parent ID: ${data.createdParent.idNumber}\n• Email: ${data.createdParent.email}\n• Temp Password: ${data.createdParent.tempPassword}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPlease share these credentials securely with the student and parent.`;
-        } else if (!data.tempPassword && !data.createdParent) {
-            alertMsg += `\n\nThe password you set has been saved for this account.`;
-        }
-        alert(alertMsg);
+            let alertMsg = `✅ ${data.message}`;
+            if (data.parentLinkMessage) {
+                alertMsg += `\n\n🔗 ${data.parentLinkMessage}`;
+            }
+            if (data.tempPassword) {
+                alertMsg += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 STUDENT LOGIN CREDENTIALS:\n• ID / LRN: ${payload.idNumber}\n• Email: ${payload.email}\n• Temp Password: ${data.tempPassword}`;
+            }
+            if (data.createdParent) {
+                alertMsg += `\n\n👨‍👩‍👧 NEW PARENT LOGIN CREDENTIALS:\n• Parent Name: ${data.createdParent.name}\n• Parent ID: ${data.createdParent.idNumber}\n• Email: ${data.createdParent.email}\n• Temp Password: ${data.createdParent.tempPassword}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nPlease share these credentials securely with the student and parent.`;
+            } else if (!data.tempPassword && !data.createdParent) {
+                alertMsg += `\n\nThe password you set has been saved for this account.`;
+            }
+            alert(alertMsg);
 
-        createUserForm.reset();
-        generatedId.value = '';
-        generatedEmail.value = '';
-        userSectionSelect.value = '';
-        userAdviserSectionSelect.value = '';
-        teacherSubjects.value = '';
-        if (studentParentContactNumber) studentParentContactNumber.value = '';
-        updateParentLinkBadge();
-        if (window.hideTeacherSubjectSuggestions) window.hideTeacherSubjectSuggestions();
-        syncRoleFieldVisibility();
-        loadUsers();
-        if (userRoleSelect.value === 'Parent' || userRoleSelect.value === 'Student') {
-            loadParentOptions();
-            updateStudentSuggestions();
-            loadParentLinks();
-            loadManageStudents();
+            createUserForm.reset();
+            generatedId.value = '';
+            generatedEmail.value = '';
+            userSectionSelect.value = '';
+            userAdviserSectionSelect.value = '';
+            teacherSubjects.value = '';
+            if (studentParentContactNumber) studentParentContactNumber.value = '';
+            updateParentLinkBadge();
+            if (window.hideTeacherSubjectSuggestions) window.hideTeacherSubjectSuggestions();
+            syncRoleFieldVisibility();
+            loadUsers();
+            if (userRoleSelect.value === 'Parent' || userRoleSelect.value === 'Student') {
+                loadParentOptions();
+                updateStudentSuggestions();
+                loadParentLinks();
+                loadManageStudents();
+            }
+        } catch (err) {
+            console.error('Error creating user:', err);
+            alert('Could not create user. Please check your network connection.');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origSubmitHtml;
+            }
+            isCreatingUser = false;
         }
     });
 

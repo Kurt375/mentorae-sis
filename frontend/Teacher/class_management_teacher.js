@@ -1381,7 +1381,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const saveBtn = tr.querySelector('.save-record-floppy-btn');
             if (saveBtn) {
                 saveBtn.addEventListener('click', async () => {
-                    await saveSingleStudentGrade(st.studentId, weights);
+                    if (saveBtn.disabled) return;
+                    saveBtn.disabled = true;
+                    const origHtml = saveBtn.innerHTML;
+                    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm text-success" style="width: 1rem; height: 1rem;"></span>';
+                    try {
+                        await saveSingleStudentGrade(st.studentId, weights);
+                    } finally {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = origHtml;
+                    }
                 });
             }
 
