@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { convertOfficeToPdf } = require('../utils/documentConverter');
 
 const CURRICULUM_SUBJECTS = [
   // ===================== GRADE 11 =====================
@@ -528,21 +529,110 @@ async function updateSubject(req, res) {
         authorId = anyUser[0]?.id;
       }
 
-      await pool.query('DELETE FROM topics WHERE subject_id = ? AND is_recommendation = 0', [actualId]);
+      // Synchronize topics non-destructively: preserve existing topic IDs and binary payloads (dataUrl, pdfDataUrl)
+      const [existingRows] = await pool.query(
+        'SELECT id, title, description, content_payload, color FROM topics WHERE subject_id = ? AND is_recommendation = 0',
+        [actualId]
+      );
+      const existingById = new Map();
+      const existingByTitle = new Map();
+      existingRows.forEach(r => {
+        existingById.set(Number(r.id), r);
+        existingByTitle.set(r.title.trim().toLowerCase(), r);
+      });
+
+      const processedIds = new Set();
+
       if (authorId) {
         for (const t of topics) {
           if (!t || !t.title) continue;
+          const cleanTitle = t.title.trim();
+          const targetId = t.id ? Number(t.id) : null;
+          const existing = (targetId && existingById.get(targetId)) || existingByTitle.get(cleanTitle.toLowerCase());
+
+          let existingPayload = {};
+          if (existing && existing.content_payload) {
+            try {
+              existingPayload = typeof existing.content_payload === 'string'
+                ? JSON.parse(existing.content_payload)
+                : existing.content_payload;
+            } catch (e) {}
+          }
+          const existingFiles = existingPayload.files || [];
+
+          // Merge incoming files with existing files to preserve dataUrl and pdfDataUrl
+          let mergedFiles = Array.isArray(t.files) ? [...t.files] : [];
+          mergedFiles = mergedFiles.map((incomingFile, idx) => {
+            const match = existingFiles.find(ef => ef.name === incomingFile.name) || existingFiles[idx];
+            if (match) {
+              const effectiveTopicId = existing ? existing.id : (incomingFile.topicId || match.topicId);
+              return {
+                ...match,
+                ...incomingFile,
+                dataUrl: incomingFile.dataUrl || match.dataUrl,
+                pdfDataUrl: incomingFile.pdfDataUrl || match.pdfDataUrl,
+                hasPdf: incomingFile.hasPdf !== undefined ? incomingFile.hasPdf : (match.hasPdf || !!match.pdfDataUrl),
+                topicId: effectiveTopicId,
+                fileIndex: idx,
+                url: `/api/content/topics/${effectiveTopicId}/files/${idx}/download`,
+                pdfUrl: (incomingFile.pdfDataUrl || match.pdfDataUrl)
+                  ? `/api/content/topics/${effectiveTopicId}/files/${idx}/download?asPdf=true`
+                  : (incomingFile.pdfUrl || match.pdfUrl)
+              };
+            }
+            return incomingFile;
+          });
+
+          // Auto-convert any newly attached PPTX/DOCX that has dataUrl but no pdfDataUrl
+          for (const f of mergedFiles) {
+            if (f && f.dataUrl && !f.pdfDataUrl) {
+              const ext = (f.name || '').split('.').pop().toLowerCase();
+              if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+                try {
+                  const conv = await convertOfficeToPdf(f.dataUrl, f.name);
+                  if (conv.success && conv.pdfDataUrl) {
+                    f.pdfDataUrl = conv.pdfDataUrl;
+                    f.hasPdf = true;
+                    if (existing) {
+                      f.pdfUrl = `/api/content/topics/${existing.id}/files/${f.fileIndex !== undefined ? f.fileIndex : 0}/download?asPdf=true`;
+                    }
+                  }
+                } catch (convErr) {
+                  console.warn('Pre-conversion warning in updateSubject:', convErr.message);
+                }
+              }
+            }
+          }
+
           const payload = {
-            resources: t.resources || [],
-            files: t.files || [],
-            quiz: t.quiz || [],
-            flashcards: t.flashcards || []
+            resources: t.resources || existingPayload.resources || [],
+            files: mergedFiles,
+            quiz: (t.quiz && t.quiz.length) ? t.quiz : (existingPayload.quiz || []),
+            flashcards: (t.flashcards && t.flashcards.length) ? t.flashcards : (existingPayload.flashcards || []),
+            visibleTo: t.visibleTo || existingPayload.visibleTo || []
           };
-          await pool.query(
-            `INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation, color)
-             VALUES (?, ?, ?, ?, 'approved', ?, 0, ?)`,
-            [actualId, t.title.trim(), t.description || '', authorId, JSON.stringify(payload), t.color || 'bg-card-blue']
-          );
+
+          if (existing) {
+            processedIds.add(existing.id);
+            await pool.query(
+              `UPDATE topics SET title = ?, description = ?, content_payload = ?, color = ? WHERE id = ?`,
+              [cleanTitle, t.description !== undefined ? t.description : existing.description, JSON.stringify(payload), t.color || existing.color || 'bg-card-blue', existing.id]
+            );
+          } else {
+            const [insertRes] = await pool.query(
+              `INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation, color)
+               VALUES (?, ?, ?, ?, 'approved', ?, 0, ?)`,
+              [actualId, cleanTitle, t.description || '', authorId, JSON.stringify(payload), t.color || 'bg-card-blue']
+            );
+            processedIds.add(insertRes.insertId);
+          }
+        }
+
+        // Only delete topics that were explicitly omitted from the topics payload
+        for (const existing of existingRows) {
+          if (!processedIds.has(existing.id)) {
+            await pool.query('DELETE FROM topics WHERE id = ?', [existing.id]);
+          }
         }
       }
     }

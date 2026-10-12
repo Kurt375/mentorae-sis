@@ -276,6 +276,11 @@
                     fullUrl = `${fullUrl}${separator}token=${encodeURIComponent(token)}`;
                 }
 
+                if (fileObj && typeof fileObj === 'object' && fileObj.name && fullUrl.includes('/api/content/topics/') && !fullUrl.includes('name=')) {
+                    const separator = fullUrl.includes('?') ? '&' : '?';
+                    fullUrl = `${fullUrl}${separator}name=${encodeURIComponent(fileObj.name)}`;
+                }
+
                 return fullUrl;
             }
 
@@ -436,6 +441,11 @@
                 // 2. PPTX
                 if (ext === 'pptx' || ext === 'ppt') {
                     let pdfDataUrlToUse = targetFile ? (targetFile.pdfUrl || targetFile.pdfDataUrl) : null;
+                    if (!pdfDataUrlToUse && targetFile && targetFile.topicId !== undefined && targetFile.fileIndex !== undefined) {
+                        pdfDataUrlToUse = `/api/content/topics/${targetFile.topicId}/files/${targetFile.fileIndex}/download?asPdf=true&name=${encodeURIComponent(fileName)}`;
+                    } else if (!pdfDataUrlToUse && resolvedUrl && resolvedUrl.includes('/api/content/topics/')) {
+                        pdfDataUrlToUse = resolvedUrl.includes('?') ? `${resolvedUrl}&asPdf=true` : `${resolvedUrl}?asPdf=true`;
+                    }
                     if (!pdfDataUrlToUse && window.MentoraePptxToPdf && (arrayBuffer || dataUrl)) {
                         try {
                             const buf = arrayBuffer || dataUrl;

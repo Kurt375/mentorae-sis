@@ -3290,6 +3290,11 @@ document.addEventListener('DOMContentLoaded', () => {
             fullUrl = `${fullUrl}${separator}token=${encodeURIComponent(token)}`;
         }
 
+        if (fileObj && typeof fileObj === 'object' && fileObj.name && fullUrl.includes('/api/content/topics/') && !fullUrl.includes('name=')) {
+            const separator = fullUrl.includes('?') ? '&' : '?';
+            fullUrl = `${fullUrl}${separator}name=${encodeURIComponent(fileObj.name)}`;
+        }
+
         return fullUrl;
     }
 
@@ -3486,18 +3491,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentPreviewBlobUrl = fileData.blobUrl;
             }
         } catch (err) {
-            console.error('Error loading file data:', err);
-            stageEl.innerHTML = `
-                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
-                    <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-3 d-block"></i>
-                    <h4 class="fw-bold text-white mb-2">Unable to load preview</h4>
-                    <p class="text-white-50 mb-4">${escapeHtml(err.message || 'The file could not be read.')}</p>
-                    <a href="${resolvedUrl || '#'}" download="${escapeHtml(fileName || 'file')}" class="btn btn-primary rounded-pill px-4 fw-bold">
-                        <i class="bi bi-download me-2"></i> Download File Instead
-                    </a>
-                </div>
-            `;
-            return;
+            const canTryPdf = ['pptx', 'ppt', 'docx', 'doc', 'pdf'].includes(ext);
+            if (!canTryPdf) {
+                console.error('Error loading file data:', err);
+                stageEl.innerHTML = `
+                    <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-3 d-block"></i>
+                        <h4 class="fw-bold text-white mb-2">Unable to load preview</h4>
+                        <p class="text-white-50 mb-4">${escapeHtml(err.message || 'The file could not be read.')}</p>
+                        <a href="${resolvedUrl || '#'}" download="${escapeHtml(fileName || 'file')}" class="btn btn-primary rounded-pill px-4 fw-bold">
+                            <i class="bi bi-download me-2"></i> Download File Instead
+                        </a>
+                    </div>
+                `;
+                return;
+            }
         }
 
         const activeUrl = fileData.blobUrl || resolvedUrl;

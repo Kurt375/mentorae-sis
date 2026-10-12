@@ -215,18 +215,23 @@ async function listTopics(req, res) {
         createdAt: r.created_at,
         resources: payload.resources || [],
         visibleTo: payload.visibleTo || [],
-        files: (payload.files || []).map((f, fIdx) => ({
-          name: f.name,
-          type: f.type || getMimeType(f.name),
-          size: f.size,
-          topicId: r.id,
-          fileIndex: fIdx,
-          url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
-          pdfUrl: f.pdfDataUrl ? `/api/content/topics/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
-          hasPdf: !!f.pdfDataUrl,
-          dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
-          pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
-        })),
+        files: (payload.files || []).map((f, fIdx) => {
+          const ext = (f.name || '').split('.').pop().toLowerCase();
+          const isDocOrPpt = ['pptx', 'ppt', 'docx', 'doc', 'pdf'].includes(ext);
+          const hasPdf = !!(f.pdfDataUrl || f.hasPdf || (isDocOrPpt && (f.dataUrl || f.url)));
+          return {
+            name: f.name,
+            type: f.type || getMimeType(f.name),
+            size: f.size,
+            topicId: r.id,
+            fileIndex: fIdx,
+            url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
+            pdfUrl: hasPdf ? `/api/content/topics/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
+            hasPdf: hasPdf,
+            dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
+            pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
+          };
+        }),
         quiz: isSpecificSubject ? (payload.quiz || []) : [],
         flashcards: isSpecificSubject ? (payload.flashcards || []) : []
       };
@@ -295,9 +300,36 @@ async function createTopic(req, res) {
     let topicId;
     if (existingTopic.length > 0) {
       topicId = existingTopic[0].id;
+      const [exRow] = await pool.query('SELECT content_payload FROM topics WHERE id = ?', [topicId]);
+      let exPayload = {};
+      if (exRow.length && exRow[0].content_payload) {
+        try {
+          exPayload = typeof exRow[0].content_payload === 'string' ? JSON.parse(exRow[0].content_payload) : exRow[0].content_payload;
+        } catch (e) {}
+      }
+      if (contentPayload && Array.isArray(contentPayload.files) && Array.isArray(exPayload.files)) {
+        contentPayload.files = contentPayload.files.map((cf, idx) => {
+          const match = exPayload.files.find(ef => ef.name === cf.name) || exPayload.files[idx];
+          if (match) {
+            return {
+              ...match,
+              ...cf,
+              dataUrl: cf.dataUrl || match.dataUrl,
+              pdfDataUrl: cf.pdfDataUrl || match.pdfDataUrl,
+              hasPdf: cf.hasPdf !== undefined ? cf.hasPdf : (match.hasPdf || !!match.pdfDataUrl),
+              topicId: topicId,
+              fileIndex: idx,
+              url: `/api/content/topics/${topicId}/files/${idx}/download`,
+              pdfUrl: (cf.pdfDataUrl || match.pdfDataUrl) ? `/api/content/topics/${topicId}/files/${idx}/download?asPdf=true` : (cf.pdfUrl || match.pdfUrl)
+            };
+          }
+          return cf;
+        });
+      }
+      const finalPayloadStr = contentPayload ? JSON.stringify(contentPayload) : payloadStr;
       await pool.query(
         'UPDATE topics SET description = ?, content_payload = ?, color = ?, comment = COALESCE(?, comment) WHERE id = ?',
-        [description || null, payloadStr, color || 'bg-card-purple', comment || null, topicId]
+        [description || null, finalPayloadStr, color || 'bg-card-purple', comment || null, topicId]
       );
     } else {
       const [result] = await pool.query(
@@ -347,6 +379,28 @@ async function downloadTopicFile(req, res) {
     }
 
     if (!topic) {
+      // Fallback: check if topicId is referenced in another topic's payload (e.g. topic was re-created)
+      const [refRows] = await pool.query(
+        'SELECT id, title, content_payload FROM topics WHERE content_payload LIKE ? ORDER BY id DESC LIMIT 1',
+        [`%${topicId}%`]
+      );
+      if (refRows.length) {
+        topic = refRows[0];
+      }
+    }
+
+    const targetFileName = name || req.query.fileName || (isNaN(parseInt(fileIndex, 10)) ? fileIndex : null);
+    if (!topic && targetFileName) {
+      const [nameRows] = await pool.query(
+        'SELECT id, title, content_payload FROM topics WHERE content_payload LIKE ? ORDER BY id DESC LIMIT 1',
+        [`%${targetFileName}%`]
+      );
+      if (nameRows.length) {
+        topic = nameRows[0];
+      }
+    }
+
+    if (!topic) {
       return res.status(404).json({ success: false, message: 'Topic not found.' });
     }
 
@@ -376,6 +430,46 @@ async function downloadTopicFile(req, res) {
       return res.status(404).json({ success: false, message: 'File not found in topic.' });
     }
 
+    // If file has no binary dataUrl or pdfDataUrl, check donor topics in database with the same file name
+    if (!file.dataUrl && !file.pdfDataUrl && file.name) {
+      const [donorRows] = await pool.query(
+        'SELECT id, content_payload FROM topics WHERE content_payload LIKE ? AND id != ? LIMIT 5',
+        [`%${file.name}%`, topic.id]
+      );
+      for (const d of donorRows) {
+        try {
+          const dp = typeof d.content_payload === 'string' ? JSON.parse(d.content_payload) : d.content_payload;
+          const df = (dp.files || []).find(f => f.name === file.name && (f.dataUrl || f.pdfDataUrl));
+          if (df) {
+            file.dataUrl = df.dataUrl || file.dataUrl;
+            file.pdfDataUrl = df.pdfDataUrl || file.pdfDataUrl;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    // On-the-fly Office to PDF conversion for instant Google Classroom view
+    if (asPdf === 'true' && !file.pdfDataUrl && file.dataUrl) {
+      const ext = (file.name || '').split('.').pop().toLowerCase();
+      if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+        try {
+          const conv = await convertOfficeToPdf(file.dataUrl, file.name || 'document.pptx');
+          if (conv && conv.success && conv.pdfDataUrl) {
+            file.pdfDataUrl = conv.pdfDataUrl;
+            file.hasPdf = true;
+            const fIdx = !isNaN(numericIdx) ? numericIdx : files.indexOf(file);
+            if (fIdx !== -1) {
+              payload.files[fIdx] = file;
+              pool.query('UPDATE topics SET content_payload = ? WHERE id = ?', [JSON.stringify(payload), topic.id]).catch(() => {});
+            }
+          }
+        } catch (convErr) {
+          console.warn('downloadTopicFile on-the-fly conversion warning:', convErr.message);
+        }
+      }
+    }
+
     let rawUrl = (asPdf === 'true' && file.pdfDataUrl) ? file.pdfDataUrl : (file.dataUrl || file.pdfDataUrl || file.url || file.filePath || file.file_path || '');
     let fileName = file.name || 'document';
     if (asPdf === 'true' && !fileName.toLowerCase().endsWith('.pdf')) {
@@ -384,6 +478,16 @@ async function downloadTopicFile(req, res) {
 
     if (!rawUrl) {
       return res.status(404).json({ success: false, message: 'File data is empty.' });
+    }
+
+    // Avoid infinite redirect loops if rawUrl points back to /api/content/topics/
+    if (rawUrl.startsWith('/api/content/topics/')) {
+      const urlMatch = rawUrl.match(/\/api\/content\/topics\/(\d+)\/files\/(\d+)\/download/);
+      if (urlMatch && urlMatch[1] !== String(topic.id)) {
+        req.params.topicId = urlMatch[1];
+        req.params.fileIndex = urlMatch[2];
+        return downloadTopicFile(req, res);
+      }
     }
 
     // Base64 Data URL
@@ -395,7 +499,9 @@ async function downloadTopicFile(req, res) {
       const header = rawUrl.substring(0, commaIdx);
       const base64Data = rawUrl.substring(commaIdx + 1);
       const mimeMatch = header.match(/^data:([^;]+)/);
-      const mimeType = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : getMimeType(fileName, file.type);
+      const mimeType = (asPdf === 'true' || rawUrl.startsWith('data:application/pdf'))
+        ? 'application/pdf'
+        : ((mimeMatch && mimeMatch[1]) ? mimeMatch[1] : getMimeType(fileName, file.type));
       const buffer = Buffer.from(base64Data, 'base64');
       return sendFileBuffer(req, res, buffer, fileName, mimeType);
     }
