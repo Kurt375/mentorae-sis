@@ -290,6 +290,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render classroom cards
     function renderClassroomCards(cardsToRender) {
+        if (!classroomsGrid) return;
+        const scrollParent = classroomsGrid.closest('.subjects-scroll-container');
+        if (scrollParent) scrollParent.scrollTop = 0;
         classroomsGrid.innerHTML = ''; // Clear existing cards
 
         if (cardsToRender.length === 0) {
@@ -328,6 +331,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render subject cards
     function renderSubjects(subjectsToRender) {
+        if (!subjectLibraryList) return;
+        const scrollParent = subjectLibraryList.closest('.subjects-scroll-container');
+        if (scrollParent) scrollParent.scrollTop = 0;
         subjectLibraryList.innerHTML = ''; // Clear existing subjects
 
         if (subjectsToRender.length === 0) {

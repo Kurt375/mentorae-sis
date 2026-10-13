@@ -90,11 +90,13 @@
                     </div>
                 </div>
 
-                <!-- My Classroom Cards Grid -->
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="classroomsGrid">
-                    <div class="col-12 text-center py-4">
-                        <div class="spinner-border text-success spinner-border-sm" role="status"></div>
-                        <span class="ms-2 small text-muted">Loading your subjects…</span>
+                <!-- My Classroom Cards Grid (Scrollable) -->
+                <div class="subjects-scroll-container">
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="classroomsGrid">
+                        <div class="col-12 text-center py-4">
+                            <div class="spinner-border text-success spinner-border-sm" role="status"></div>
+                            <span class="ms-2 small text-muted">Loading your subjects…</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -144,9 +146,11 @@
                     </div>
                 </div>
 
-                <!-- Subject Library List -->
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="subjectLibraryList">
-                    <!-- Populated dynamically by JS -->
+                <!-- Subject Library List (Scrollable) -->
+                <div class="subjects-scroll-container">
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3" id="subjectLibraryList">
+                        <!-- Populated dynamically by JS -->
+                    </div>
                 </div>
             </section>
 

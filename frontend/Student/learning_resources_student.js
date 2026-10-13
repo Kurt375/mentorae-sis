@@ -117,6 +117,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderMySubjects(subjectsToRender) {
         if (!classroomsGrid) return;
+        const scrollParent = classroomsGrid.closest('.subjects-scroll-container');
+        if (scrollParent) scrollParent.scrollTop = 0;
         classroomsGrid.innerHTML = '';
 
         if (subjectsToRender.length === 0) {
@@ -176,6 +178,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderLibrary(subjectsToRender) {
         if (!subjectLibraryList) return;
+        const scrollParent = subjectLibraryList.closest('.subjects-scroll-container');
+        if (scrollParent) scrollParent.scrollTop = 0;
         subjectLibraryList.innerHTML = '';
 
         if (libraryCountBadge) {
