@@ -503,6 +503,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Topic Management UI ---
+    function sortTopicsAscending(topicList) {
+        if (!Array.isArray(topicList)) return [];
+        return topicList.sort((a, b) => {
+            const titleA = String(a && a.title ? a.title : '').trim();
+            const titleB = String(b && b.title ? b.title : '').trim();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    }
+
     function renderTopicsList(topics) {
         if (!topicsListContainer) return;
         topicsListContainer.innerHTML = ''; // Clear existing topics
@@ -510,6 +519,8 @@ document.addEventListener('DOMContentLoaded', () => {
             topicsListContainer.innerHTML = '<p class="text-center text-muted p-3">No topics have been added to this subject yet.</p>';
             return;
         }
+
+        sortTopicsAscending(topics);
 
         const topicList = document.createElement('div');
         topicList.className = 'list-group';
@@ -551,6 +562,8 @@ document.addEventListener('DOMContentLoaded', () => {
             stagedTopicsContainer.innerHTML = '<p class="text-muted small fst-italic">No topics added yet.</p>';
             return;
         }
+
+        sortTopicsAscending(stagedTopics);
 
         const list = document.createElement('ul');
         list.className = 'list-group list-group-flush';
@@ -1051,9 +1064,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (token) {
                     authedFetch(`/api/content/topics?subjectId=${encodeURIComponent(subjectId)}`, token)
                         .then(topicRes => {
-                            if (topicRes && topicRes.success && Array.isArray(topicRes.topics)) {
-                                if (currentEditingSubjectId == subjectId && editingSubjectCopy) {
-                                    editingSubjectCopy.topics = topicRes.topics.map(t => ({
+                            if (topicRes && topicRes.success && Array.isArray(topicRes.topi                                if (currentEditingSubjectId == subjectId && editingSubjectCopy) {
+                                    editingSubjectCopy.topics = sortTopicsAscending(topicRes.topics.map(t => ({
                                         id: t.id,
                                         title: t.title,
                                         description: t.description || '',
@@ -1062,12 +1074,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                         flashcards: t.flashcards || [],
                                         files: t.files || [],
                                         color: t.color || 'bg-card-blue'
-                                    }));
+                                    })));
                                     if (subjectToEdit) {
                                         subjectToEdit.topics = JSON.parse(JSON.stringify(editingSubjectCopy.topics));
                                     }
                                     renderTopicsList(editingSubjectCopy.topics || []);
-                                }
+                                }       }
                             }
                         })
                         .catch(err => console.warn('Could not fetch live topics for subject:', err));
@@ -1351,11 +1363,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('resourceQuiz').checked) selectedResources.push('Practice Quiz');
         if (document.getElementById('resourceFlashcards').checked) selectedResources.push('Flashcards');
 
+        const cleanTitle = document.getElementById('topicTitle').value.trim();
+        const cleanDesc = document.getElementById('topicDescription').value.trim();
+
         const topicData = {
-            title: document.getElementById('topicTitle').value,
-            description: document.getElementById('topicDescription').value,
+            title: cleanTitle,
+            description: cleanDesc,
             resources: selectedResources
         };
+
+        const token = localStorage.getItem('mentorae_token');
 
         if (topicIndex !== '') { // Editing existing topic
             const fileInput = document.getElementById('topicEditorFileInput');
@@ -1397,6 +1414,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             subject.topics[topicIndex] = updatedTopic;
+
+            // Immediately persist changes to backend database if this subject already exists in database
+            if (token && currentEditingSubjectId && updatedTopic.id) {
+                try {
+                    await authedFetch(`/api/content/topics/${updatedTopic.id}`, token, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            title: cleanTitle,
+                            description: updatedTopic.description,
+                            contentPayload: {
+                                resources: updatedTopic.resources || [],
+                                files: updatedTopic.files || [],
+                                quiz: updatedTopic.quiz || [],
+                                flashcards: updatedTopic.flashcards || []
+                            }
+                        })
+                    });
+                } catch (err) {
+                    console.warn('Direct topic update notice:', err);
+                }
+            }
         } else { // Adding new topic
             // NEW: Validate and add content
             const fileInput = document.getElementById('topicEditorFileInput');
@@ -1431,11 +1469,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Immediately persist to backend if subject already exists
+            if (token && currentEditingSubjectId) {
+                try {
+                    const res = await authedFetch('/api/content/topics', token, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            subjectId: currentEditingSubjectId,
+                            title: cleanTitle,
+                            description: topicData.description,
+                            contentPayload: {
+                                resources: topicData.resources || [],
+                                files: topicData.files || [],
+                                quiz: topicData.quiz || [],
+                                flashcards: topicData.flashcards || []
+                            }
+                        })
+                    });
+                    if (res && res.topicId) {
+                        topicData.id = res.topicId;
+                    }
+                } catch (err) {
+                    console.warn('Direct topic create notice:', err);
+                }
+            }
+
             if (!subject.topics) subject.topics = [];
             subject.topics.push(topicData);
         }
 
-        // saveSubjects(subjects); // REMOVED: Defer saving until the main "Save Subject" button is clicked.
+        sortTopicsAscending(subject.topics);
+        const subjectToEdit = subjects.find(s => s.id == currentEditingSubjectId);
+        if (subjectToEdit) {
+            subjectToEdit.topics = JSON.parse(JSON.stringify(subject.topics));
+        }
         renderTopicsList(subject.topics);
         isSavingTopic = true;
         if (topicEditorModal) topicEditorModal.hide();
@@ -1526,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         stagedTopics.push(topicData);
-
+        sortTopicsAscending(stagedTopics);
         renderStagedTopics();
 
         // Reset the inline form
@@ -5145,6 +5212,9 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await authedFetch('/api/reference/subjects', token);
                 if (res && res.success && Array.isArray(res.subjects) && res.subjects.length > 0) {
+                    res.subjects.forEach(s => {
+                        if (s.topics) sortTopicsAscending(s.topics);
+                    });
                     subjects = res.subjects;
                     localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(subjects));
                     populateStrandFilter();

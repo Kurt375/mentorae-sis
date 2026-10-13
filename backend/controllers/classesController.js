@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const bcrypt = require('bcryptjs');
 const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent } = require('../utils/authz');
 const { getManilaDate } = require('../utils/dateUtils');
 
@@ -527,6 +528,41 @@ async function exportECRWorkbook(req, res) {
   }
 }
 
+/**
+ * POST /api/classes/student/:studentId/reset-password
+ * Allows a teacher or admin to reset a student's password to their default (LRN / ID Number),
+ * setting must_change_password = 1. Essential when a student has no personal email and forgets their password.
+ */
+async function resetStudentPasswordByTeacher(req, res) {
+  const { studentId } = req.params;
+  try {
+    const [[student]] = await pool.query(
+      'SELECT id, role, id_number, first_name, last_name, section_id FROM users WHERE id = ? AND role = "student"',
+      [studentId]
+    );
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student account not found.' });
+    }
+
+    const defaultPassword = student.id_number;
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+    await pool.query(
+      'UPDATE users SET password_hash = ?, temp_password = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?',
+      [passwordHash, defaultPassword, student.id]
+    );
+
+    return res.json({
+      success: true,
+      message: `Password for ${student.first_name} ${student.last_name} has been reset to default (${defaultPassword}).`,
+      defaultPassword,
+    });
+  } catch (err) {
+    console.error('resetStudentPasswordByTeacher error:', err);
+    return res.status(500).json({ success: false, message: 'Could not reset student password.' });
+  }
+}
+
 module.exports = {
   getRosterOverview,
   getMySections,
@@ -536,5 +572,6 @@ module.exports = {
   getEclassData,
   saveEclassGrades,
   exportECRWorkbook,
+  resetStudentPasswordByTeacher,
 };
 

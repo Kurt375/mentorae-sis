@@ -1955,6 +1955,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return Array.isArray(topic.visibleTo) && topic.visibleTo.includes(decodedSectionName);
         });
 
+        topicsToDisplay.sort((a, b) => {
+            const titleA = String(a && a.title ? a.title : '').trim();
+            const titleB = String(b && b.title ? b.title : '').trim();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
         currentTopicsData = topicsToDisplay;
 
         if (topicsToDisplay.length === 0) {
@@ -2055,7 +2061,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderRecommendations(recommendations) {
         recommendationsList.innerHTML = '';
-        currentRecsData = recommendations || [];
+        currentRecsData = (recommendations || []).sort((a, b) => {
+            const titleA = String(a && a.title ? a.title : '').trim();
+            const titleB = String(b && b.title ? b.title : '').trim();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
 
         if (!recommendations || recommendations.length === 0) {
             recommendationsList.innerHTML = '<div class="col-12"><p class="text-muted text-center small py-3">No recommendations for this subject yet.</p></div>';

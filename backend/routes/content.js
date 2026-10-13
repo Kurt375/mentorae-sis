@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const {
   listTopics,
   createTopic,
+  updateTopic,
   deleteTopic,
   createTopicRequest,
   listTopicRequests,
@@ -49,6 +50,7 @@ router.get('/topics/:topicId/files/:fileIndex/download', requireAuth, downloadTo
 // Topics
 router.get('/topics', requireAuth, listTopics);
 router.post('/topics', requireAuth, requireRole('teacher', 'admin'), createTopic);
+router.put('/topics/:id', requireAuth, requireRole('teacher', 'admin'), updateTopic);
 router.delete('/topics/:id', requireAuth, requireRole('teacher', 'admin'), deleteTopic);
 router.post('/topics/:id/append-content', requireAuth, requireRole('teacher', 'admin'), appendTopicContent);
 router.post('/topics/:id/cache-file-pdf', requireAuth, cacheTopicFilePdf);

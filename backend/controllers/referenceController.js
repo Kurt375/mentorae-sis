@@ -330,6 +330,14 @@ async function listSubjects(req, res) {
           topicsBySubject[t.subject_id].push(item);
         }
       });
+
+      const naturalSort = (a, b) => {
+        const tA = String(a.title || '').trim();
+        const tB = String(b.title || '').trim();
+        return tA.localeCompare(tB, undefined, { numeric: true, sensitivity: 'base' });
+      };
+      Object.keys(topicsBySubject).forEach(k => topicsBySubject[k].sort(naturalSort));
+      Object.keys(recsBySubject).forEach(k => recsBySubject[k].sort(naturalSort));
     } catch (err) {
       console.error('Error loading subject topics:', err);
     }

@@ -52,6 +52,48 @@ async function createAnnouncement(req, res) {
       'INSERT INTO announcements (title, description, event_date, type, audience, created_by) VALUES (?, ?, ?, ?, ?, ?)',
       [title, description, eventDate, type, audience || 'all', req.user.id]
     );
+
+    // Asynchronously dispatch offline announcement emails to users with real emails
+    (async () => {
+      try {
+        const [[setting]] = await pool.query(
+          "SELECT setting_value FROM system_settings WHERE setting_key = 'notify_email'"
+        );
+        if (setting && setting.setting_value === '0') return; // Email notifications toggled off
+
+        let userSql = 'SELECT email, personal_email, role FROM users WHERE is_active = 1 ';
+        const userParams = [];
+        if (audience && audience !== 'all') {
+          userSql += 'AND role = ? ';
+          userParams.push(audience);
+        }
+        const [users] = await pool.query(userSql, userParams);
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const validEmails = new Set();
+        for (const u of users) {
+          if (u.personal_email && emailRegex.test(u.personal_email.trim())) {
+            validEmails.add(u.personal_email.trim().toLowerCase());
+          } else if (u.email && emailRegex.test(u.email.trim()) && !u.email.endsWith('.tshs.edu.ph') && !u.email.endsWith('.edu.ph')) {
+            validEmails.add(u.email.trim().toLowerCase());
+          }
+        }
+
+        if (validEmails.size > 0) {
+          const { sendAnnouncementEmail } = require('../utils/mailer');
+          await sendAnnouncementEmail(Array.from(validEmails), {
+            title,
+            description,
+            eventDate,
+            type,
+            audience: audience || 'all',
+          });
+        }
+      } catch (emailErr) {
+        console.error('Background announcement email error:', emailErr);
+      }
+    })();
+
     return res.json({ success: true, message: 'Announcement posted.' });
   } catch (err) {
     console.error('createAnnouncement error:', err);

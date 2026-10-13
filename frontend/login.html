@@ -109,22 +109,20 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <!-- Step 1: Enter Email -->
+                    <!-- Step 1: Enter Email or ID Number -->
                     <div id="resetStep1">
-                        <p class="small text-muted">Enter the email address associated with your account, and we'll send
-                            you a verification code.</p>
+                        <p class="small text-muted">Enter the email address or School ID / LRN associated with your account to start password recovery.</p>
                         <form id="sendCodeForm">
                             <div class="mb-3">
-                                <label for="resetEmail" class="form-label fw-semibold text-muted small">Email
-                                    Address</label>
-                                <input type="email" class="form-control custom-input" id="resetEmail"
-                                    placeholder="your.email@example.com" required>
+                                <label for="resetIdentity" class="form-label fw-semibold text-muted small">Email Address or School ID / LRN</label>
+                                <input type="text" class="form-control custom-input" id="resetIdentity"
+                                    placeholder="Enter your Gmail or School ID / LRN" required>
                             </div>
-                            <button type="submit" class="btn btn-portal w-100 py-2">Send Verification Code</button>
+                            <button type="submit" class="btn btn-portal w-100 py-2">Continue</button>
                         </form>
                     </div>
 
-                    <!-- Step 2: Enter OTP -->
+                    <!-- Step 2A: Enter OTP (For Accounts with Real Email) -->
                     <div id="resetStep2" class="d-none">
                         <p class="small text-muted">A 6-digit verification code has been sent to <strong
                                 id="userEmailForOtp" class="text-dark"></strong>. Please enter it below.</p>
@@ -136,7 +134,49 @@
                                     placeholder="Enter 6-digit code" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Verify Code</button>
+                            <button type="button" class="btn btn-link text-muted small w-100 mt-2 text-decoration-none btnBackToStep1">Back to Start</button>
                         </form>
+                    </div>
+
+                    <!-- Step 2B: Phone Verification (For Accounts with Registered Phone but No Real Email) -->
+                    <div id="resetStepPhone" class="d-none">
+                        <div class="alert alert-info py-2 px-3 small mb-3">
+                            <i class="bi bi-telephone-fill me-1"></i> No active email is linked to this account, but a registered contact number (<strong id="maskedPhoneDisplay">••••••••</strong>) is on file.
+                        </div>
+                        <p class="small text-muted">Enter your full registered phone number (or parent's contact number) to verify your identity:</p>
+                        <form id="verifyPhoneForm">
+                            <div class="mb-3">
+                                <label for="verifyPhoneInput" class="form-label fw-semibold text-muted small">Registered Phone Number</label>
+                                <input type="text" class="form-control custom-input" id="verifyPhoneInput"
+                                    placeholder="e.g. 09123456789" required>
+                            </div>
+                            <button type="submit" class="btn btn-portal w-100 py-2">Verify Phone Number</button>
+                            <button type="button" class="btn btn-link text-muted small w-100 mt-2 text-decoration-none btnBackToStep1">Back to Start</button>
+                        </form>
+                    </div>
+
+                    <!-- Step 2C: Adviser / Administrator Reset Assistance (For Accounts with Neither Email nor Phone) -->
+                    <div id="resetStepAdviser" class="d-none text-center py-2">
+                        <div class="p-3 bg-light rounded-3 border mb-3 text-start">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-shield-lock-fill text-warning fs-4"></i>
+                                <h6 class="fw-bold m-0 text-dark">No Email Linked to Account</h6>
+                            </div>
+                            <p class="small text-muted mb-2" id="adviserHelpText">
+                                This account does not have a real Gmail or personal contact number on file.
+                            </p>
+                            <div class="small text-secondary bg-white p-2.5 rounded border">
+                                <p class="mb-1 fw-semibold text-dark"><i class="bi bi-lightbulb-fill text-success me-1"></i>How to recover your account:</p>
+                                <ul class="mb-0 ps-3">
+                                    <li><strong>Students:</strong> Your <strong>Class Adviser (Teacher)</strong> can reset your password back to your Student ID / LRN directly from their Class Management dashboard.</li>
+                                    <li><strong>Teachers / Staff:</strong> The <strong>School Administrator</strong> can reset your temporary password in User Management.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-success w-100 py-2 mb-2" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#contactUsModal">
+                            <i class="bi bi-headset me-1"></i> View School Support &amp; Office Hours
+                        </button>
+                        <button type="button" class="btn btn-link text-muted small text-decoration-none btnBackToStep1">Back to Start</button>
                     </div>
 
                     <!-- Step 3: Reset Password -->
@@ -145,10 +185,12 @@
                         <form id="resetPasswordForm">
                             <div class="mb-3"><label for="newPassword"
                                     class="form-label fw-semibold text-muted small">New Password</label><input
-                                    type="password" class="form-control custom-input" id="newPassword" required></div>
+                                    type="password" class="form-control custom-input" id="newPassword" minlength="8" required>
+                                <div class="form-text micro-text">Minimum 8 characters.</div>
+                            </div>
                             <div class="mb-3"><label for="confirmNewPassword"
                                     class="form-label fw-semibold text-muted small">Confirm New Password</label><input
-                                    type="password" class="form-control custom-input" id="confirmNewPassword" required>
+                                    type="password" class="form-control custom-input" id="confirmNewPassword" minlength="8" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Reset Password</button>
                         </form>
@@ -158,20 +200,19 @@
         </div>
     </div>
 
-    <!-- Forced Password Change Modal — shown after login when the account's
+    <!-- Forced Password Change & Initial Email Setup Modal — shown after login when the account's
          password is still its auto-generated temporary one (e.g. the ID number),
-         so it never stays in place unnoticed. Cannot be dismissed without changing it. -->
+         so it never stays in place unnoticed. Students and teachers can set their real Gmail or skip for now. -->
     <div class="modal fade" id="forcePasswordChangeModal" tabindex="-1" aria-labelledby="forcePasswordChangeModalLabel"
         aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header border-0">
                     <h5 class="modal-title text-secondary" id="forcePasswordChangeModalLabel"><i
-                            class="bi bi-shield-exclamation text-warning me-2"></i>Change Your Password</h5>
+                            class="bi bi-shield-check text-success me-2"></i>Account Security &amp; Setup</h5>
                 </div>
                 <div class="modal-body p-4 pt-0">
-                    <p class="small text-muted">For your security, this account is still using its temporary starting
-                        password. Please set a new password to continue.</p>
+                    <p class="small text-muted">Welcome to Mentorae! Please choose your new permanent password and optionally add your active email address.</p>
                     <form id="forcePasswordChangeForm">
                         <div class="mb-3">
                             <label for="fpcCurrentPassword" class="form-label fw-semibold text-muted small">Current
@@ -191,7 +232,29 @@
                             <input type="password" class="form-control custom-input" id="fpcConfirmPassword"
                                 minlength="8" required>
                         </div>
-                        <button type="submit" class="btn btn-portal w-100 py-2">Change Password &amp; Continue</button>
+
+                        <!-- Optional Personal Email Collection with Skip Checkbox -->
+                        <div class="p-3 bg-light rounded-3 mb-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="fpcPersonalEmail" class="form-label fw-semibold text-dark small m-0">
+                                    <i class="bi bi-envelope-at text-success me-1"></i>Active Personal / Gmail Account
+                                </label>
+                                <span class="badge bg-success-subtle text-success micro-text">Recommended</span>
+                            </div>
+                            <input type="email" class="form-control custom-input bg-white" id="fpcPersonalEmail"
+                                placeholder="e.g. yourname@gmail.com">
+                            <div class="form-text micro-text text-muted mt-1" id="fpcEmailHelp">
+                                Receive school announcements in your inbox and recover your password easily with OTP. (You can also use a parent or guardian's email).
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="fpcSkipEmail">
+                                <label class="form-check-label small text-muted" for="fpcSkipEmail">
+                                    I don't have an email account right now (Skip for now)
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-portal w-100 py-2">Complete Setup &amp; Continue</button>
                     </form>
                 </div>
             </div>

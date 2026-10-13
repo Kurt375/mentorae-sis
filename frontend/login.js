@@ -179,6 +179,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showForcePasswordChange(authToken, onDone) {
         forcePasswordChangeForm.reset();
+        const fpcPersonalEmail = document.getElementById('fpcPersonalEmail');
+        const fpcSkipEmail = document.getElementById('fpcSkipEmail');
+
+        if (fpcSkipEmail && fpcPersonalEmail) {
+            fpcSkipEmail.checked = false;
+            fpcPersonalEmail.disabled = false;
+            fpcSkipEmail.onchange = () => {
+                if (fpcSkipEmail.checked) {
+                    fpcPersonalEmail.value = '';
+                    fpcPersonalEmail.disabled = true;
+                } else {
+                    fpcPersonalEmail.disabled = false;
+                }
+            };
+        }
+
         forcePasswordChangeModal.show();
 
         forcePasswordChangeForm.onsubmit = async (e) => {
@@ -196,6 +212,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            let personalEmail = null;
+            if (fpcPersonalEmail && (!fpcSkipEmail || !fpcSkipEmail.checked)) {
+                const emailVal = fpcPersonalEmail.value.trim();
+                if (emailVal) {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(emailVal)) {
+                        alert('Please enter a valid email address (e.g., yourname@gmail.com) or check "Skip for now".');
+                        fpcPersonalEmail.focus();
+                        return;
+                    }
+                    personalEmail = emailVal;
+                }
+            }
+
             const submitBtn = forcePasswordChangeForm.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
 
@@ -203,12 +233,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`${API_BASE}/api/auth/change-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-                    body: JSON.stringify({ currentPassword, newPassword }),
+                    body: JSON.stringify({ currentPassword, newPassword, personalEmail }),
                 });
                 const data = await res.json();
 
                 if (!data.success) {
-                    alert(data.message || 'Could not change your password.');
+                    alert(data.message || 'Could not update your password.');
                     return;
                 }
 
@@ -230,78 +260,121 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // 4. Forgot Password Modal — real OTP flow
+    // 4. Forgot Password Modal — Multi-channel OTP and identity recovery
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const forgotPasswordModalEl = document.getElementById('forgotPasswordModal');
     const forgotPasswordModal = new bootstrap.Modal(forgotPasswordModalEl);
 
     const resetStep1 = document.getElementById('resetStep1');
     const resetStep2 = document.getElementById('resetStep2');
+    const resetStepPhone = document.getElementById('resetStepPhone');
+    const resetStepAdviser = document.getElementById('resetStepAdviser');
     const resetStep3 = document.getElementById('resetStep3');
 
     const sendCodeForm = document.getElementById('sendCodeForm');
     const verifyCodeForm = document.getElementById('verifyCodeForm');
+    const verifyPhoneForm = document.getElementById('verifyPhoneForm');
     const resetPasswordForm = document.getElementById('resetPasswordForm');
 
+    const resetIdentityInput = document.getElementById('resetIdentity');
     const userEmailForOtp = document.getElementById('userEmailForOtp');
-    const resetEmailInput = document.getElementById('resetEmail');
     const otpCodeInput = document.getElementById('otpCode');
+    const verifyPhoneInput = document.getElementById('verifyPhoneInput');
+    const maskedPhoneDisplay = document.getElementById('maskedPhoneDisplay');
+    const adviserHelpText = document.getElementById('adviserHelpText');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
 
-    let userEmail = null;
+    let currentIdentity = null;
     let resetToken = null; 
     let isResetSaving = false; 
+
+    function backToStep1() {
+        if (resetStep1) resetStep1.classList.remove('d-none');
+        if (resetStep2) resetStep2.classList.add('d-none');
+        if (resetStepPhone) resetStepPhone.classList.add('d-none');
+        if (resetStepAdviser) resetStepAdviser.classList.add('d-none');
+        if (resetStep3) resetStep3.classList.add('d-none');
+        if (verifyCodeForm) verifyCodeForm.reset();
+        if (verifyPhoneForm) verifyPhoneForm.reset();
+    }
+
+    document.querySelectorAll('.btnBackToStep1').forEach(btn => {
+        btn.addEventListener('click', backToStep1);
+    });
 
     if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
+            backToStep1();
             forgotPasswordModal.show();
         });
     }
 
-    // Step 1: Send verification code
+    // Step 1: Send verification code or verify account presence
     if (sendCodeForm) {
         sendCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            userEmail = resetEmailInput.value.trim();
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!userEmail || !emailRegex.test(userEmail)) {
-                alert('Please enter a valid email address.');
+            currentIdentity = resetIdentityInput ? resetIdentityInput.value.trim() : '';
+            if (!currentIdentity) {
+                alert('Please enter your Gmail or School ID / LRN.');
                 return;
             }
+
+            const submitBtn = sendCodeForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
 
             try {
                 const res = await fetch(`${API_BASE}/api/auth/forgot-password/send-code`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: userEmail }),
+                    body: JSON.stringify({ identity: currentIdentity }),
                 });
                 const data = await res.json();
-                alert(data.message);
-                if (data.success) {
-                    userEmailForOtp.textContent = userEmail;
-                    resetStep1.classList.add('d-none');
+
+                if (!data.success) {
+                    alert(data.message || 'Could not verify account.');
+                    return;
+                }
+
+                resetStep1.classList.add('d-none');
+
+                if (data.method === 'email') {
+                    if (userEmailForOtp) userEmailForOtp.textContent = data.maskedEmail || currentIdentity;
                     resetStep2.classList.remove('d-none');
+                } else if (data.method === 'phone_verification') {
+                    if (maskedPhoneDisplay) maskedPhoneDisplay.textContent = data.maskedPhone || '••••••••';
+                    resetStepPhone.classList.remove('d-none');
+                } else if (data.method === 'adviser_required') {
+                    if (adviserHelpText) adviserHelpText.textContent = data.message;
+                    resetStepAdviser.classList.remove('d-none');
+                } else {
+                    alert(data.message || 'Verification initiated.');
                 }
             } catch (err) {
                 console.error(err);
                 alert('Could not reach the server. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     }
 
-    // Step 2: Verify OTP code
+    // Step 2A: Verify OTP code
     if (verifyCodeForm) {
         verifyCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const enteredOtp = otpCodeInput.value.trim();
+            if (!enteredOtp) return;
+
+            const submitBtn = verifyCodeForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
 
             try {
                 const res = await fetch(`${API_BASE}/api/auth/forgot-password/verify-code`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: userEmail, otp: enteredOtp }),
+                    body: JSON.stringify({ identity: currentIdentity, otp: enteredOtp }),
                 });
                 const data = await res.json();
 
@@ -311,12 +384,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 resetToken = data.resetToken;
-                alert('Verification successful!');
+                alert('Identity verified! Please set your new password.');
                 resetStep2.classList.add('d-none');
                 resetStep3.classList.remove('d-none');
             } catch (err) {
                 console.error(err);
                 alert('Could not reach the server. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    }
+
+    // Step 2B: Verify Registered Phone (for accounts without real email)
+    if (verifyPhoneForm) {
+        verifyPhoneForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phoneNumber = verifyPhoneInput.value.trim();
+            if (!phoneNumber) {
+                alert('Please enter your registered phone number.');
+                return;
+            }
+
+            const submitBtn = verifyPhoneForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/forgot-password/verify-phone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identity: currentIdentity, phoneNumber }),
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    alert(data.message || 'Phone number does not match our records.');
+                    return;
+                }
+
+                resetToken = data.resetToken;
+                alert('Phone number verified! Please set your new password.');
+                resetStepPhone.classList.add('d-none');
+                resetStep3.classList.remove('d-none');
+            } catch (err) {
+                console.error(err);
+                alert('Could not reach the server. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     }
@@ -328,14 +442,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const newPassword = newPasswordInput.value;
             const confirmNewPassword = confirmNewPasswordInput.value;
 
-            if (!newPassword || newPassword.length < 6) {
-                alert('Password must be at least 6 characters long.');
+            if (!newPassword || newPassword.length < 8) {
+                alert('Password must be at least 8 characters long.');
                 return;
             }
             if (newPassword !== confirmNewPassword) {
                 alert('Passwords do not match.');
                 return;
             }
+
+            const submitBtn = resetPasswordForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
 
             try {
                 const res = await fetch(`${API_BASE}/api/auth/forgot-password/reset`, {
@@ -344,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ resetToken, newPassword }),
                 });
                 const data = await res.json();
-                alert(data.message);
+                alert(data.message || 'Password successfully updated! You can now log in.');
                 if (data.success) {
                     isResetSaving = true;
                     forgotPasswordModal.hide();
@@ -352,19 +469,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error(err);
                 alert('Could not reach the server. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     }
 
-    // Reset modal to step 1 when it's hidden, and warn if canceling active progress
+    // Reset modal to step 1 when it's hidden
     if (forgotPasswordModalEl) {
         forgotPasswordModalEl.addEventListener('hide.bs.modal', (event) => {
             if (isResetSaving) return;
 
-            const isBeyondStep1 = (resetStep2 && !resetStep2.classList.contains('d-none')) || (resetStep3 && !resetStep3.classList.contains('d-none'));
-            const hasTypedEmail = resetEmailInput && resetEmailInput.value.trim() !== '';
+            const isBeyondStep1 = (resetStep2 && !resetStep2.classList.contains('d-none')) ||
+                (resetStepPhone && !resetStepPhone.classList.contains('d-none')) ||
+                (resetStep3 && !resetStep3.classList.contains('d-none'));
+            const hasTyped = resetIdentityInput && resetIdentityInput.value.trim() !== '';
 
-            if (isBeyondStep1 || hasTypedEmail) {
+            if (isBeyondStep1 && hasTyped) {
                 const confirmCancel = confirm('Are you sure you want to cancel the password reset process? Any entered information will be discarded.');
                 if (!confirmCancel) {
                     event.preventDefault();
@@ -374,13 +495,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         forgotPasswordModalEl.addEventListener('hidden.bs.modal', () => {
             isResetSaving = false;
-            resetStep1.classList.remove('d-none');
-            resetStep2.classList.add('d-none');
-            resetStep3.classList.add('d-none');
-            sendCodeForm.reset();
-            verifyCodeForm.reset();
-            resetPasswordForm.reset();
-            userEmail = null;
+            backToStep1();
+            if (sendCodeForm) sendCodeForm.reset();
+            if (verifyCodeForm) verifyCodeForm.reset();
+            if (verifyPhoneForm) verifyPhoneForm.reset();
+            if (resetPasswordForm) resetPasswordForm.reset();
+            currentIdentity = null;
             resetToken = null;
         });
     }

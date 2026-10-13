@@ -348,6 +348,8 @@
 /* Avatar centered and overlapping the boundary */
 .profile-avatar-anchor {
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
     position: relative;
     margin-top: -65px;

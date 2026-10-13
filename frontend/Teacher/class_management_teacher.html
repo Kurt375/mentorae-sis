@@ -1034,13 +1034,22 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white border-0 py-2.5 px-4 d-flex justify-content-between">
+                <div
+                    class="modal-footer bg-white border-0 py-2.5 px-4 d-flex justify-content-between align-items-center">
                     <input type="file" id="modalStudentPhotoInput" accept="image/png,image/jpeg,image/webp"
                         class="d-none">
-                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
-                        id="modalUploadIdPhotoBtn">
-                        <i class="bi bi-camera-fill me-1.5"></i>Update Official ID Photo
-                    </button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
+                            id="modalUploadIdPhotoBtn">
+                            <i class="bi bi-camera-fill me-1.5"></i>Update Official ID Photo
+                        </button>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 fw-semibold"
+                            id="modalResetStudentPasswordBtn"
+                            title="Reset this student's password back to their default Student ID / LRN">
+                            <i class="bi bi-key-fill text-warning me-1"></i>Reset Password to LRN
+                        </button>
+                    </div>
                     <button type="button" class="btn btn-sm btn-secondary rounded-pill px-4"
                         data-bs-dismiss="modal">Close</button>
                 </div>

@@ -106,9 +106,9 @@ async function login(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM users 
-       WHERE (email = ? OR email = ? OR email = ? OR id_number = ? OR (role = 'admin' AND LOWER(?) IN ('admin', 'administrator'))) 
+       WHERE (email = ? OR email = ? OR email = ? OR personal_email = ? OR id_number = ? OR (role = 'admin' AND LOWER(?) IN ('admin', 'administrator'))) 
        LIMIT 1`,
-      [trimmedIdentity, tshsAlias, shortAlias, trimmedIdentity, trimmedIdentity]
+      [trimmedIdentity, tshsAlias, shortAlias, trimmedIdentity, trimmedIdentity, trimmedIdentity]
     );
     const user = rows[0];
 
@@ -213,49 +213,104 @@ async function logout(req, res) {
   return res.json({ success: true, message: 'Logged out.' });
 }
 
-/** POST /api/auth/forgot-password/send-code  { email } — Step 1 of the login page's modal */
+/** POST /api/auth/forgot-password/send-code  { identity or email } — Step 1 of the login page's modal */
 async function sendResetCode(req, res) {
-  const { email } = req.body;
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailPattern.test(email)) {
-    return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+  const input = (req.body.identity || req.body.email || '').trim();
+  if (!input) {
+    return res.status(400).json({ success: false, message: 'Please enter your email address or School ID / LRN.' });
   }
 
-  const genericResponse = { success: true, message: 'If that email is registered, a verification code has been sent.' };
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const genericResponse = { success: true, method: 'email', message: 'If that account is registered with an email, a verification code has been sent.' };
 
   try {
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
+    const [rows] = await pool.query(
+      `SELECT id, role, id_number, first_name, last_name, email, personal_email, contact_number 
+       FROM users 
+       WHERE email = ? OR personal_email = ? OR id_number = ? 
+       LIMIT 1`,
+      [input, input, input]
+    );
     const user = rows[0];
     if (!user) return res.json(genericResponse);
 
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-    const expiresAt = new Date(Date.now() + (Number(process.env.OTP_EXPIRES_MIN) || 10) * 60000);
+    // Determine deliverable email address (personal email or non-internal vanity email)
+    let deliverableEmail = null;
+    if (user.personal_email && emailPattern.test(user.personal_email.trim())) {
+      deliverableEmail = user.personal_email.trim();
+    } else if (user.email && emailPattern.test(user.email.trim()) && !user.email.endsWith('.tshs.edu.ph') && !user.email.endsWith('.edu.ph')) {
+      deliverableEmail = user.email.trim();
+    }
 
-    await pool.query('INSERT INTO password_resets (user_id, otp_hash, expires_at) VALUES (?, ?, ?)', [
-      user.id,
-      otpHash,
-      expiresAt,
-    ]);
+    if (deliverableEmail) {
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+      const expiresAt = new Date(Date.now() + (Number(process.env.OTP_EXPIRES_MIN) || 10) * 60000);
 
-    await sendOtpEmail(user.email, fullName(user), otp);
+      await pool.query('INSERT INTO password_resets (user_id, otp_hash, expires_at) VALUES (?, ?, ?)', [
+        user.id,
+        otpHash,
+        expiresAt,
+      ]);
 
-    return res.json(genericResponse);
+      await sendOtpEmail(deliverableEmail, fullName(user), otp);
+
+      const [localPart, domain] = deliverableEmail.split('@');
+      const maskedLocal = localPart.length > 2 ? `${localPart[0]}***${localPart.slice(-1)}` : `${localPart[0]}***`;
+      const maskedEmail = `${maskedLocal}@${domain}`;
+
+      return res.json({
+        success: true,
+        method: 'email',
+        identity: input,
+        maskedEmail,
+        message: `A verification code has been sent to ${maskedEmail}.`,
+      });
+    }
+
+    // No deliverable email: Check if registered phone is available
+    const cleanPhone = user.contact_number ? user.contact_number.trim() : '';
+    if (cleanPhone && cleanPhone.replace(/\D/g, '').length >= 7) {
+      const digits = cleanPhone.replace(/\D/g, '');
+      const last4 = digits.slice(-4);
+      return res.json({
+        success: true,
+        method: 'phone_verification',
+        identity: input,
+        maskedPhone: `••••••${last4}`,
+        message: `No real email is registered, but a contact number ending in ${last4} was found. Verify using your registered phone number.`,
+      });
+    }
+
+    // Neither deliverable email nor registered phone
+    return res.json({
+      success: true,
+      method: 'adviser_required',
+      identity: input,
+      role: user.role,
+      message: user.role === 'student'
+        ? 'No personal email or phone number is linked to this account. Please approach your Class Adviser or School Administrator to reset your password back to your Student ID / LRN.'
+        : 'No personal email or phone number is linked to this account. Please approach the School Administrator to reset your password.',
+    });
   } catch (err) {
     console.error('sendResetCode error:', err);
     return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
   }
 }
 
-/** POST /api/auth/forgot-password/verify-code  { email, otp } — Step 2 */
+/** POST /api/auth/forgot-password/verify-code  { identity, otp } — Step 2 */
 async function verifyResetCode(req, res) {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json({ success: false, message: 'Missing email or code.' });
+  const identity = (req.body.identity || req.body.email || '').trim();
+  const otp = (req.body.otp || '').trim();
+  if (!identity || !otp) {
+    return res.status(400).json({ success: false, message: 'Missing email/ID or code.' });
   }
 
   try {
-    const [userRows] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    const [userRows] = await pool.query(
+      'SELECT id FROM users WHERE email = ? OR personal_email = ? OR id_number = ? LIMIT 1',
+      [identity, identity, identity]
+    );
     const user = userRows[0];
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid verification code.' });
@@ -273,9 +328,8 @@ async function verifyResetCode(req, res) {
       return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
     }
 
-    await pool.query('UPDATE password_resets SET verified = 1 WHERE id = ?', [resetRow.id]);
+    await pool.query('UPDATE password_resets SET verified = 1, used = 1 WHERE id = ?', [resetRow.id]);
 
-    // Short-lived token proving this email just verified an OTP, needed for step 3
     const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id, resetId: resetRow.id }, process.env.JWT_SECRET, {
       expiresIn: '10m',
     });
@@ -283,6 +337,43 @@ async function verifyResetCode(req, res) {
     return res.json({ success: true, message: 'Verification successful!', resetToken });
   } catch (err) {
     console.error('verifyResetCode error:', err);
+    return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
+  }
+}
+
+/** POST /api/auth/forgot-password/verify-phone  { identity, phoneNumber } — Verification without email */
+async function verifyResetPhone(req, res) {
+  const identity = (req.body.identity || req.body.email || '').trim();
+  const phoneNumber = (req.body.phoneNumber || '').trim();
+  if (!identity || !phoneNumber) {
+    return res.status(400).json({ success: false, message: 'Please enter your registered phone number.' });
+  }
+
+  try {
+    const [userRows] = await pool.query(
+      'SELECT id, contact_number FROM users WHERE email = ? OR personal_email = ? OR id_number = ? LIMIT 1',
+      [identity, identity, identity]
+    );
+    const user = userRows[0];
+    if (!user || !user.contact_number) {
+      return res.status(400).json({ success: false, message: 'Could not verify account identity.' });
+    }
+
+    const cleanInput = phoneNumber.replace(/\D/g, '');
+    const cleanStored = user.contact_number.replace(/\D/g, '');
+
+    const isMatch = cleanInput === cleanStored || (cleanInput.length >= 7 && cleanStored.endsWith(cleanInput)) || (cleanStored.length >= 7 && cleanInput.endsWith(cleanStored));
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Phone number does not match our records.' });
+    }
+
+    const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id }, process.env.JWT_SECRET, {
+      expiresIn: '10m',
+    });
+
+    return res.json({ success: true, message: 'Phone identity verified!', resetToken });
+  } catch (err) {
+    console.error('verifyResetPhone error:', err);
     return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
   }
 }
@@ -338,7 +429,7 @@ async function resetPassword(req, res) {
  * on success so the prompt doesn't keep coming back.
  */
 async function changePassword(req, res) {
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword, personalEmail } = req.body;
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ success: false, message: 'Current and new password are required.' });
   }
@@ -362,12 +453,23 @@ async function changePassword(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = ?, temp_password = NULL, must_change_password = 0 WHERE id = ?', [
-      passwordHash,
-      req.user.id,
-    ]);
+    const updates = ['password_hash = ?', 'temp_password = NULL', 'must_change_password = 0'];
+    const params = [passwordHash];
 
-    return res.json({ success: true, message: 'Your password has been updated.' });
+    if (personalEmail && typeof personalEmail === 'string' && personalEmail.trim()) {
+      const cleanEmail = personalEmail.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+      }
+      updates.push('personal_email = ?');
+      params.push(cleanEmail);
+    }
+
+    params.push(req.user.id);
+    await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+
+    return res.json({ success: true, message: 'Your password and profile have been updated.' });
   } catch (err) {
     console.error('changePassword error:', err);
     return res.status(500).json({ success: false, message: 'Could not update your password.' });
@@ -726,4 +828,4 @@ async function getStatusSummary(req, res) {
   }
 }
 
-module.exports = { login, logout, sendResetCode, verifyResetCode, resetPassword, changePassword, me, getProfile, updateProfile, getStatusSummary };
+module.exports = { login, logout, sendResetCode, verifyResetCode, verifyResetPhone, resetPassword, changePassword, me, getProfile, updateProfile, getStatusSummary };

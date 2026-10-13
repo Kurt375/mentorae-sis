@@ -545,6 +545,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const modalResetStudentPasswordBtn = document.getElementById('modalResetStudentPasswordBtn');
+    if (modalResetStudentPasswordBtn) {
+        modalResetStudentPasswordBtn.addEventListener('click', async () => {
+            if (!currentModalStudent) return;
+            const studentName = currentModalStudent.name || 'this student';
+            const studentIdNum = currentModalStudent.idNumber || currentModalStudent.id || '';
+            const confirmMsg = `Reset the password for ${studentName} back to their Student ID / LRN (${studentIdNum})?\n\nThey will be required to set a new permanent password on their next login.`;
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                modalResetStudentPasswordBtn.disabled = true;
+                const res = await fetch(`${API_BASE}/api/classes/student/${currentModalStudent.id}/reset-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`Password successfully reset!\n\nTemporary Password: ${data.defaultPassword}\n\nThe student can now log in using their Student ID as their password and will be prompted to create a new one.`);
+                } else {
+                    alert(data.message || 'Could not reset password.');
+                }
+            } catch (err) {
+                console.error('Reset student password error:', err);
+                alert('Network error while resetting password.');
+            } finally {
+                modalResetStudentPasswordBtn.disabled = false;
+            }
+        });
+    }
+
     function populateBadgeStudentDropdown(students) {
         if (!studentSelectBadge) return;
         studentSelectBadge.innerHTML = '';

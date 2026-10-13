@@ -1959,6 +1959,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return isPublic;
         });
 
+        topicsToDisplay.sort((a, b) => {
+            const titleA = String(a && a.title ? a.title : '').trim();
+            const titleB = String(b && b.title ? b.title : '').trim();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
         currentTeacherTopics = topicsToDisplay;
 
         if (topicsToDisplay.length > 0) {
@@ -2027,7 +2033,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderRecommendations(recommendations) {
         recommendationsList.innerHTML = '';
-        currentTeacherRecs = recommendations || [];
+        currentTeacherRecs = (recommendations || []).sort((a, b) => {
+            const titleA = String(a && a.title ? a.title : '').trim();
+            const titleB = String(b && b.title ? b.title : '').trim();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
         if (!recommendations || recommendations.length === 0) {
             recommendationsList.innerHTML = '<div class="col-12"><p class="text-muted text-center small py-3">No recommendations have been added for this subject yet.</p></div>';
             return;

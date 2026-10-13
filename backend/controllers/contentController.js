@@ -237,10 +237,16 @@ async function listTopics(req, res) {
       };
     });
 
+    const naturalSort = (a, b) => {
+      const tA = String(a.title || '').trim();
+      const tB = String(b.title || '').trim();
+      return tA.localeCompare(tB, undefined, { numeric: true, sensitivity: 'base' });
+    };
+
     return res.json({
       success: true,
-      topics: formatted.filter(t => !t.isRecommendation),
-      recommendations: formatted.filter(t => t.isRecommendation)
+      topics: formatted.filter(t => !t.isRecommendation).sort(naturalSort),
+      recommendations: formatted.filter(t => t.isRecommendation).sort(naturalSort)
     });
   } catch (err) {
     console.error('listTopics error:', err);
@@ -248,9 +254,9 @@ async function listTopics(req, res) {
   }
 }
 
-/** POST /api/content/topics  { subjectId, subjectName, title, description, contentPayload, isRecommendation, comment, color } */
+/** POST /api/content/topics  { subjectId, subjectName, title, description, contentPayload, isRecommendation, comment, color, id } */
 async function createTopic(req, res) {
-  let { subjectId, subjectName, title, description, contentPayload, isRecommendation, comment, color } = req.body;
+  let { subjectId, subjectName, title, description, contentPayload, isRecommendation, comment, color, id } = req.body;
   if (!title) {
     return res.status(400).json({ success: false, message: 'Topic title is required.' });
   }
@@ -292,14 +298,21 @@ async function createTopic(req, res) {
     }
 
     const cleanTitle = title.trim();
-    const [existingTopic] = await pool.query(
-      'SELECT id FROM topics WHERE subject_id = ? AND LOWER(TRIM(title)) = LOWER(?) AND is_recommendation = ? LIMIT 1',
-      [subjectId, cleanTitle, isRec]
-    );
+    let topicId = id ? Number(id) : null;
+    if (topicId) {
+      const [existingById] = await pool.query('SELECT id FROM topics WHERE id = ? LIMIT 1', [topicId]);
+      if (existingById.length === 0) topicId = null;
+    }
 
-    let topicId;
-    if (existingTopic.length > 0) {
-      topicId = existingTopic[0].id;
+    if (!topicId) {
+      const [existingTopic] = await pool.query(
+        'SELECT id FROM topics WHERE subject_id = ? AND LOWER(TRIM(title)) = LOWER(?) AND is_recommendation = ? LIMIT 1',
+        [subjectId, cleanTitle, isRec]
+      );
+      if (existingTopic.length > 0) topicId = existingTopic[0].id;
+    }
+
+    if (topicId) {
       const [exRow] = await pool.query('SELECT content_payload FROM topics WHERE id = ?', [topicId]);
       let exPayload = {};
       if (exRow.length && exRow[0].content_payload) {
@@ -328,8 +341,8 @@ async function createTopic(req, res) {
       }
       const finalPayloadStr = contentPayload ? JSON.stringify(contentPayload) : payloadStr;
       await pool.query(
-        'UPDATE topics SET description = ?, content_payload = ?, color = ?, comment = COALESCE(?, comment) WHERE id = ?',
-        [description || null, finalPayloadStr, color || 'bg-card-purple', comment || null, topicId]
+        'UPDATE topics SET title = ?, description = ?, content_payload = ?, color = ?, comment = COALESCE(?, comment) WHERE id = ?',
+        [cleanTitle, description || null, finalPayloadStr, color || 'bg-card-purple', comment || null, topicId]
       );
     } else {
       const [result] = await pool.query(
@@ -342,6 +355,84 @@ async function createTopic(req, res) {
   } catch (err) {
     console.error('createTopic error:', err);
     return res.status(500).json({ success: false, message: 'Could not create topic.' });
+  }
+}
+
+/** PUT /api/content/topics/:id */
+async function updateTopic(req, res) {
+  const { id } = req.params;
+  let { title, description, contentPayload, color, comment } = req.body;
+  if (!title) {
+    return res.status(400).json({ success: false, message: 'Topic title is required.' });
+  }
+
+  try {
+    await ensureContentTables();
+    const cleanTitle = title.trim();
+
+    const [existing] = await pool.query('SELECT * FROM topics WHERE id = ? LIMIT 1', [id]);
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Topic not found.' });
+    }
+
+    const exRow = existing[0];
+    let exPayload = {};
+    if (exRow.content_payload) {
+      try {
+        exPayload = typeof exRow.content_payload === 'string' ? JSON.parse(exRow.content_payload) : exRow.content_payload;
+      } catch (e) {}
+    }
+
+    let finalPayload = contentPayload || exPayload;
+    if (contentPayload && Array.isArray(contentPayload.files) && Array.isArray(exPayload.files)) {
+      finalPayload.files = contentPayload.files.map((cf, idx) => {
+        const match = exPayload.files.find(ef => ef.name === cf.name) || exPayload.files[idx];
+        if (match) {
+          return {
+            ...match,
+            ...cf,
+            dataUrl: cf.dataUrl || match.dataUrl,
+            pdfDataUrl: cf.pdfDataUrl || match.pdfDataUrl,
+            hasPdf: cf.hasPdf !== undefined ? cf.hasPdf : (match.hasPdf || !!match.pdfDataUrl),
+            topicId: Number(id),
+            fileIndex: idx,
+            url: `/api/content/topics/${id}/files/${idx}/download`,
+            pdfUrl: (cf.pdfDataUrl || match.pdfDataUrl) ? `/api/content/topics/${id}/files/${idx}/download?asPdf=true` : (cf.pdfUrl || match.pdfUrl)
+          };
+        }
+        return cf;
+      });
+    }
+
+    if (finalPayload && Array.isArray(finalPayload.files)) {
+      for (const file of finalPayload.files) {
+        if (!file.pdfDataUrl && file.dataUrl) {
+          const ext = (file.name || '').split('.').pop().toLowerCase();
+          if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+            try {
+              const conv = await convertOfficeToPdf(file.dataUrl, file.name);
+              if (conv.success && conv.pdfDataUrl) {
+                file.pdfDataUrl = conv.pdfDataUrl;
+                file.hasPdf = true;
+              }
+            } catch (e) {
+              console.warn('Document pre-conversion notice in updateTopic:', e.message);
+            }
+          }
+        }
+      }
+    }
+
+    const payloadStr = finalPayload ? JSON.stringify(finalPayload) : null;
+    await pool.query(
+      'UPDATE topics SET title = ?, description = ?, content_payload = ?, color = COALESCE(?, color), comment = COALESCE(?, comment) WHERE id = ?',
+      [cleanTitle, description !== undefined ? description : exRow.description, payloadStr, color || null, comment || null, id]
+    );
+
+    return res.json({ success: true, message: 'Topic updated successfully.', topicId: Number(id) });
+  } catch (err) {
+    console.error('updateTopic error:', err);
+    return res.status(500).json({ success: false, message: 'Could not update topic.' });
   }
 }
 
@@ -1811,6 +1902,7 @@ async function getClassTopicQuizResults(req, res) {
 module.exports = {
   listTopics,
   createTopic,
+  updateTopic,
   deleteTopic,
   createTopicRequest,
   listTopicRequests,
