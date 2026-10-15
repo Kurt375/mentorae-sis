@@ -5,8 +5,8 @@ const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
 const { getManilaDate } = require('../utils/dateUtils');
 
-const MAX_FAILED_ATTEMPTS = Infinity;
-const LOCK_MINUTES = 0;
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCK_MINUTES = 15;
 
 function fullName(user) {
   const mi = user.middle_initial ? ` ${user.middle_initial}` : '';
@@ -128,6 +128,14 @@ async function login(req, res) {
       return res.status(403).json({ success: false, message: 'This account has been deactivated. Contact the administrator.' });
     }
 
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      return res.status(423).json({
+        success: false,
+        message: `Too many failed attempts. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
     let passwordOk = await bcrypt.compare(password, user.password_hash);
     if (!passwordOk) {
       const devFallbacks = ['Password123!', 'password123', 'ChangeMe123!', 'ChangeMe!', 'admin123', 'admin'];
@@ -142,7 +150,22 @@ async function login(req, res) {
     }
 
     if (!passwordOk) {
+      const attempts = user.failed_attempts + 1;
+      const lockUntil = attempts >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCK_MINUTES * 60000) : null;
+
+      await pool.query('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?', [
+        attempts,
+        lockUntil,
+        user.id,
+      ]);
       await logAttempt(false, user.id);
+
+      if (lockUntil) {
+        return res.status(423).json({
+          success: false,
+          message: `Too many failed attempts. Your account is locked for ${LOCK_MINUTES} minutes.`,
+        });
+      }
       return res.status(401).json({ success: false, message: 'Incorrect email/ID or password.' });
     }
 

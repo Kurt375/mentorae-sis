@@ -75,7 +75,6 @@ app.get('/api/health', (req, res) => {
     success: true,
     message: 'Mentorae SIS API is running.',
     activeDatabase,
-    version: '2026.10.15-auth-unlimited',
   });
 });
 
