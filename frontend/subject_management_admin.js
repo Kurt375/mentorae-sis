@@ -1064,7 +1064,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (token) {
                     authedFetch(`/api/content/topics?subjectId=${encodeURIComponent(subjectId)}`, token)
                         .then(topicRes => {
-                            if (topicRes && topicRes.success && Array.isArray(topicRes.topi                                if (currentEditingSubjectId == subjectId && editingSubjectCopy) {
+                            if (topicRes && topicRes.success && Array.isArray(topicRes.topics)) {
+                                if (currentEditingSubjectId == subjectId && editingSubjectCopy) {
                                     editingSubjectCopy.topics = sortTopicsAscending(topicRes.topics.map(t => ({
                                         id: t.id,
                                         title: t.title,
@@ -1079,7 +1080,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         subjectToEdit.topics = JSON.parse(JSON.stringify(editingSubjectCopy.topics));
                                     }
                                     renderTopicsList(editingSubjectCopy.topics || []);
-                                }       }
+                                }
                             }
                         })
                         .catch(err => console.warn('Could not fetch live topics for subject:', err));
