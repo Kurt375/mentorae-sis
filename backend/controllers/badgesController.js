@@ -140,7 +140,7 @@ async function getLeaderboard(req, res) {
   try {
     let sectionId = req.query.sectionId || null;
     let scope = req.query.scope === 'school' ? 'school' : 'section';
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
 
     // Students and parents are permanently locked to their specific section cohort
     if (req.user.role === 'student') {

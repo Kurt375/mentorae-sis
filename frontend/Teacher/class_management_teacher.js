@@ -626,10 +626,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!sectionLeaderboardList) return;
         sectionLeaderboardList.innerHTML = '<p class="text-muted small py-3 text-center mb-0"><i class="bi bi-arrow-repeat me-2"></i>Loading live section leaderboard...</p>';
 
-        let url = `/api/badges/leaderboard?scope=section&sectionId=${sectionId}&limit=10`;
+        let url = `/api/badges/leaderboard?scope=section&sectionId=${sectionId}&limit=100`;
         const secObj = mySections.find(s => String(s.id) === String(sectionId));
         if (sectionId === 'all') {
-            url = `/api/badges/leaderboard?scope=school&limit=10`;
+            url = `/api/badges/leaderboard?scope=school&limit=200`;
             if (leaderboardSectionLabel) leaderboardSectionLabel.textContent = 'All Classes Handled • Academic Standings';
         } else if (leaderboardSectionLabel && secObj) {
             leaderboardSectionLabel.textContent = `Grade ${secObj.grade_level} - ${secObj.strandCode || ''} (${secObj.name}) • Live Academic Standings`;
