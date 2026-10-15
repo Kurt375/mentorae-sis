@@ -529,6 +529,27 @@
                         <tbody id="usersTableBody"></tbody>
                     </table>
                 </div>
+
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 mt-3 pt-2 border-top" id="usersTablePaginationBar">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="micro-text text-muted" id="usersTablePaginationInfo">Showing 0 of 0 accounts</span>
+                        <div class="d-inline-flex align-items-center gap-1 ms-2">
+                            <label for="usersPageSizeSelect" class="micro-text text-muted mb-0">Show:</label>
+                            <select id="usersPageSizeSelect" class="form-select form-select-sm auto-width-select py-0.5 px-2 micro-text">
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="250">250</option>
+                                <option value="500" selected>500 (All)</option>
+                                <option value="1000">1000</option>
+                            </select>
+                        </div>
+                    </div>
+                    <nav aria-label="User Accounts Pagination" id="usersPaginationNav" class="d-none">
+                        <ul class="pagination pagination-sm m-0" id="usersPaginationList">
+                            <!-- Injected dynamically -->
+                        </ul>
+                    </nav>
+                </div>
             </section>
 
         </main>
@@ -746,7 +767,7 @@
     <script src="config.js"></script>
     <script src="session.js"></script>
     <script src="avatar_cropper.js"></script>
-    <script src="user_management_admin.js?v=20261010-1"></script>
+    <script src="user_management_admin.js?v=20261015-1"></script>
 </body>
 
 </html>

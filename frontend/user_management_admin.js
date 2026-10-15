@@ -631,7 +631,9 @@ document.addEventListener('DOMContentLoaded', () => {
         loadOverview();
         const role = document.getElementById('roleFilterDropdown').value;
         const search = document.getElementById('tableSearchField').value.trim();
-        const params = new URLSearchParams({ page, limit: 25 });
+        const pageSizeSelect = document.getElementById('usersPageSizeSelect');
+        const limit = pageSizeSelect ? parseInt(pageSizeSelect.value, 10) || 500 : 500;
+        const params = new URLSearchParams({ page, limit });
         if (role && role !== 'All') params.set('role', role);
         if (search) params.set('search', search);
 
@@ -639,20 +641,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
 
+        const totalCount = data && data.total !== undefined ? Number(data.total) : (data && data.users ? data.users.length : 0);
         const countBadge = document.getElementById('userAccountsCountBadge');
-        if (countBadge) {
-            if (!data.success || !data.users || !data.users.length) {
-                countBadge.textContent = '0 accounts found';
-            } else {
-                const totalCount = data.total !== undefined ? data.total : data.users.length;
-                countBadge.textContent = `${Number(totalCount).toLocaleString()} account${totalCount === 1 ? '' : 's'} found`;
-            }
-        }
+        const paginationInfo = document.getElementById('usersTablePaginationInfo');
 
-        if (!data.success || !data.users || !data.users.length) {
+        if (!data || !data.success || !data.users || !data.users.length) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No users found.</td></tr>';
+            if (countBadge) countBadge.textContent = '0 accounts found';
+            if (paginationInfo) paginationInfo.textContent = 'Showing 0 of 0 accounts';
+            renderUsersPagination(0, 1, limit);
             return;
         }
+
+        const startIdx = (page - 1) * limit + 1;
+        const endIdx = Math.min(page * limit, totalCount);
+        if (countBadge) {
+            if (totalCount <= limit && page === 1) {
+                countBadge.textContent = `${totalCount.toLocaleString()} account${totalCount === 1 ? '' : 's'} (All loaded)`;
+            } else {
+                countBadge.textContent = `${totalCount.toLocaleString()} account${totalCount === 1 ? '' : 's'} found`;
+            }
+        }
+        if (paginationInfo) {
+            paginationInfo.textContent = `Showing ${startIdx.toLocaleString()}–${endIdx.toLocaleString()} of ${totalCount.toLocaleString()} accounts`;
+        }
+        renderUsersPagination(totalCount, page, limit);
 
         for (const u of data.users) {
             const name = `${u.first_name} ${u.middle_initial ? u.middle_initial + ' ' : ''}${u.last_name}`;
@@ -923,6 +936,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAssignSectionModal();
             });
         });
+    }
+
+    function renderUsersPagination(total, page, limit) {
+        const nav = document.getElementById('usersPaginationNav');
+        const list = document.getElementById('usersPaginationList');
+        if (!nav || !list) return;
+
+        const totalPages = Math.ceil(total / limit);
+        if (totalPages <= 1) {
+            nav.classList.add('d-none');
+            list.innerHTML = '';
+            return;
+        }
+
+        nav.classList.remove('d-none');
+        list.innerHTML = '';
+
+        // Previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${page <= 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<button type="button" class="page-link py-1 px-2.5 micro-text" ${page <= 1 ? 'tabindex="-1"' : ''}>&laquo; Prev</button>`;
+        if (page > 1) {
+            prevLi.querySelector('button').addEventListener('click', () => loadUsers(page - 1));
+        }
+        list.appendChild(prevLi);
+
+        // Calculate pages with ellipsis
+        const pages = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (page > 3) pages.push('...');
+            const start = Math.max(2, page - 1);
+            const end = Math.min(totalPages - 1, page + 1);
+            for (let i = start; i <= end; i++) {
+                if (!pages.includes(i)) pages.push(i);
+            }
+            if (page < totalPages - 2) pages.push('...');
+            if (!pages.includes(totalPages)) pages.push(totalPages);
+        }
+
+        pages.forEach(p => {
+            const li = document.createElement('li');
+            if (p === '...') {
+                li.className = 'page-item disabled';
+                li.innerHTML = '<span class="page-link py-1 px-2 micro-text">&hellip;</span>';
+            } else {
+                li.className = `page-item ${p === page ? 'active' : ''}`;
+                li.innerHTML = `<button type="button" class="page-link py-1 px-2.5 micro-text">${p}</button>`;
+                if (p !== page) {
+                    li.querySelector('button').addEventListener('click', () => loadUsers(p));
+                }
+            }
+            list.appendChild(li);
+        });
+
+        // Next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${page >= totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<button type="button" class="page-link py-1 px-2.5 micro-text" ${page >= totalPages ? 'tabindex="-1"' : ''}>Next &raquo;</button>`;
+        if (page < totalPages) {
+            nextLi.querySelector('button').addEventListener('click', () => loadUsers(page + 1));
+        }
+        list.appendChild(nextLi);
     }
 
     // --- Modal Helpers & Singleton Event Handlers ---
@@ -1536,9 +1614,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('tableSearchField').addEventListener('input', () => loadUsers(1));
     document.getElementById('roleFilterDropdown').addEventListener('change', () => loadUsers(1));
+    const pageSizeSelect = document.getElementById('usersPageSizeSelect');
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', () => loadUsers(1));
+    }
 
     document.getElementById('btnDownloadTable').addEventListener('click', () => {
-        window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/users/export?token=${encodeURIComponent(token)}`, '_blank');
+        const role = document.getElementById('roleFilterDropdown')?.value || 'All';
+        const search = document.getElementById('tableSearchField')?.value.trim() || '';
+        const params = new URLSearchParams({ token });
+        if (role && role !== 'All') params.set('role', role);
+        if (search) params.set('search', search);
+        window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/users/export?${params.toString()}`, '_blank');
     });
 
     document.getElementById('btnDownloadTemplate').addEventListener('click', (e) => {

@@ -318,7 +318,7 @@ async function createUser(req, res) {
 /** GET /api/users?role=&search=&page=&limit= */
 async function listUsers(req, res) {
   try {
-    const { page, limit, offset } = parsePagination(req.query, { limit: 25, maxLimit: 1000 });
+    const { page, limit, offset } = parsePagination(req.query, { limit: 500, maxLimit: 2000 });
     const { whereClause, params } = buildUserFilter(req.query);
 
     const [[{ total }]] = await pool.query(
