@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,17 +13,20 @@
             --accent-teal: #008080;
             --bg-light: #f8fafc;
         }
+
         body {
             background-color: var(--bg-light);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             color: #334155;
         }
+
         .header-banner {
             background: linear-gradient(135deg, #1B365D 0%, #0f2341 100%);
             color: white;
             padding: 3.5rem 1rem 3rem;
             border-bottom: 4px solid var(--accent-teal);
         }
+
         .action-card {
             background: white;
             border-radius: 16px;
@@ -31,6 +35,7 @@
             padding: 2rem;
             border: 1px solid #e2e8f0;
         }
+
         .btn-download-primary {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: white;
@@ -47,15 +52,18 @@
             text-decoration: none;
             cursor: pointer;
         }
+
         .btn-download-primary:hover {
             background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
             color: white;
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
         }
+
         .btn-download-primary:active {
             transform: translateY(0);
         }
+
         .content-card {
             background: white;
             border-radius: 14px;
@@ -64,6 +72,7 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             margin-bottom: 2rem;
         }
+
         h2.section-title {
             color: var(--primary-navy);
             font-weight: 700;
@@ -74,6 +83,7 @@
             align-items: center;
             gap: 0.6rem;
         }
+
         h3.scenario-title {
             color: #0f172a;
             font-weight: 600;
@@ -81,6 +91,7 @@
             margin-top: 1.5rem;
             margin-bottom: 0.75rem;
         }
+
         .callout-box {
             background-color: #f0fdf4;
             border-left: 5px solid #16a34a;
@@ -88,6 +99,7 @@
             padding: 1.25rem;
             margin-bottom: 1.5rem;
         }
+
         .callout-info {
             background-color: #eff6ff;
             border-left: 5px solid #2563eb;
@@ -95,20 +107,25 @@
             padding: 1.25rem;
             margin-bottom: 1.5rem;
         }
+
         .table-custom {
             border: 1px solid #cbd5e1;
             border-radius: 8px;
             overflow: hidden;
         }
+
         .table-custom thead {
             background-color: var(--primary-navy);
             color: white;
         }
-        .table-custom th, .table-custom td {
+
+        .table-custom th,
+        .table-custom td {
             vertical-align: middle;
             font-size: 0.95rem;
             padding: 0.75rem 1rem;
         }
+
         .badge-step {
             background-color: #e0f2fe;
             color: #0369a1;
@@ -117,29 +134,43 @@
             padding: 0.35rem 0.65rem;
             border-radius: 6px;
         }
+
         @media print {
-            .no-print { display: none !important; }
-            .content-card { box-shadow: none; border: none; padding: 0; }
-            .header-banner { padding: 1.5rem 0; }
+            .no-print {
+                display: none !important;
+            }
+
+            .content-card {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+
+            .header-banner {
+                padding: 1.5rem 0;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <!-- Header Banner -->
     <header class="header-banner text-center">
         <div class="container">
-            <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-white bg-opacity-10 text-white small mb-3">
+            <div
+                class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-white bg-opacity-10 text-white small mb-3">
                 <i class="bi bi-shield-check"></i> Official Pilot Testing Kit &bull; Talisay Senior High School
             </div>
             <h1 class="display-5 fw-bold mb-2">Mentorae Student Information System</h1>
-            <p class="lead opacity-75 mb-0">On-Site Stakeholder Usability Evaluation, Seed Checklist & Real-Time Bug Tracker</p>
+            <p class="lead opacity-75 mb-0">On-Site Stakeholder Usability Evaluation, Seed Checklist & Real-Time Bug
+                Tracker</p>
         </div>
     </header>
 
     <!-- Main Container -->
     <main class="container mb-5">
-        
+
         <!-- Action Download Card -->
         <div class="action-card mb-4 no-print">
             <div class="row align-items-center g-3">
@@ -151,16 +182,19 @@
                         <div>
                             <h4 class="fw-bold mb-1 text-dark">Mentorae_SIS_OnSite_Pilot_Testing_Kit.docx</h4>
                             <p class="text-muted mb-0 small">
-                                Microsoft Word Document (.docx) &bull; 21.3 KB &bull; Contains all 15 scenarios, database seed checklist, SUS survey, and defect tracker.
+                                Microsoft Word Document (.docx) &bull; 21.3 KB &bull; Contains all 15 scenarios,
+                                database seed checklist, SUS survey, and defect tracker.
                             </p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-4 text-lg-end d-flex flex-wrap gap-2 justify-content-lg-end">
-                    <button id="directDownloadBtn" class="btn btn-download-primary" title="Click to download DOCX immediately">
+                    <button id="directDownloadBtn" class="btn btn-download-primary"
+                        title="Click to download DOCX immediately">
                         <i class="bi bi-cloud-arrow-down-fill fs-4"></i> Download .DOCX
                     </button>
-                    <button class="btn btn-outline-secondary px-3" onclick="window.print()" title="Print or save as PDF">
+                    <button class="btn btn-outline-secondary px-3" onclick="window.print()"
+                        title="Print or save as PDF">
                         <i class="bi bi-printer-fill me-1"></i> Print / PDF
                     </button>
                 </div>
@@ -173,11 +207,15 @@
 
         <!-- Web Viewer Sections -->
         <article class="content-card">
-            
+
             <section class="mb-5">
-                <h2 class="section-title"><i class="bi bi-clipboard2-pulse-fill text-primary"></i> 1. System Architecture & Workflow Audit</h2>
+                <h2 class="section-title"><i class="bi bi-clipboard2-pulse-fill text-primary"></i> 1. System
+                    Architecture & Workflow Audit</h2>
                 <div class="callout-info">
-                    <strong>Deployment Context:</strong> Mentorae SIS is built on Express.js and MySQL. The system enforces strict role-based access control (RBAC) across five distinct persona types, automated schedule collision detection, DepEd Order 15 s.2026 grading transmutation, and time-restricted QR turnstile access.
+                    <strong>Deployment Context:</strong> Mentorae SIS is built on Express.js and MySQL. The system
+                    enforces strict role-based access control (RBAC) across five distinct persona types, automated
+                    schedule collision detection, DepEd Order 15 s.2026 grading transmutation, and time-restricted QR
+                    turnstile access.
                 </div>
 
                 <div class="table-responsive mb-4">
@@ -193,33 +231,46 @@
                         <tbody>
                             <tr>
                                 <td><strong>Administrator</strong></td>
-                                <td><code>/dashboard_admin.html</code><br><code>/user_management_admin.html</code><br><code>/schedule_management_admin.html</code></td>
-                                <td>Full user creation, automated sequential ID (<code>YY-NNNNN</code>) generation, schedule conflict auditing, subject weights config, database backup/restore.</td>
-                                <td>Exempt from session locks and maintenance mode; handles grade promotion and graduation status.</td>
+                                <td><code>/dashboard_admin.html</code><br><code>/user_management_admin.html</code><br><code>/schedule_management_admin.html</code>
+                                </td>
+                                <td>Full user creation, automated sequential ID (<code>YY-NNNNN</code>) generation,
+                                    schedule conflict auditing, subject weights config, database backup/restore.</td>
+                                <td>Exempt from session locks and maintenance mode; handles grade promotion and
+                                    graduation status.</td>
                             </tr>
                             <tr>
                                 <td><strong>Teacher / Adviser</strong></td>
-                                <td><code>Teacher/dashboard_teacher.html</code><br><code>Teacher/class_management_teacher.html</code><br><code>Teacher/attendance_confirmation_teacher.html</code></td>
-                                <td>QR attendance confirmation, DepEd ECR score encoding (WW, PT, QA), badge gamification awarding, module uploads, SF9 report card printing.</td>
-                                <td><strong>Session Lock:</strong> Confirmation restricted to active class periods (±5 min) or Advisory Window (07:00–08:30 AM). Can only grade assigned sections.</td>
+                                <td><code>Teacher/dashboard_teacher.html</code><br><code>Teacher/class_management_teacher.html</code><br><code>Teacher/attendance_confirmation_teacher.html</code>
+                                </td>
+                                <td>QR attendance confirmation, DepEd ECR score encoding (WW, PT, QA), badge
+                                    gamification awarding, module uploads, SF9 report card printing.</td>
+                                <td><strong>Session Lock:</strong> Confirmation restricted to active class periods (±5
+                                    min) or Advisory Window (07:00–08:30 AM). Can only grade assigned sections.</td>
                             </tr>
                             <tr>
                                 <td><strong>Student</strong></td>
-                                <td><code>Student/dashboard_student.html</code><br><code>Student/attendance_student.html</code><br><code>Student/grade_performance_student.html</code><br><code>Student/leaderboard_student.html</code></td>
-                                <td>Dynamic QR attendance pass generation, personal logs, transmuted grades & Prescriptive Learning Path, practice quizzes, and leaderboard ranks.</td>
-                                <td>Can only view own records; forced password reset on first login; cannot alter grades or logs.</td>
+                                <td><code>Student/dashboard_student.html</code><br><code>Student/attendance_student.html</code><br><code>Student/grade_performance_student.html</code><br><code>Student/leaderboard_student.html</code>
+                                </td>
+                                <td>Dynamic QR attendance pass generation, personal logs, transmuted grades &
+                                    Prescriptive Learning Path, practice quizzes, and leaderboard ranks.</td>
+                                <td>Can only view own records; forced password reset on first login; cannot alter grades
+                                    or logs.</td>
                             </tr>
                             <tr>
                                 <td><strong>Parent</strong></td>
-                                <td><code>Parent/dashboard_parent.html</code><br><code>Parent/attendance_parent.html</code><br><code>Parent/grade_performance_parent.html</code></td>
-                                <td>Multi-child switching (Smart Sibling Linking), real-time arrival/departure alerts, excuse letter filing, quarterly grade monitoring.</td>
+                                <td><code>Parent/dashboard_parent.html</code><br><code>Parent/attendance_parent.html</code><br><code>Parent/grade_performance_parent.html</code>
+                                </td>
+                                <td>Multi-child switching (Smart Sibling Linking), real-time arrival/departure alerts,
+                                    excuse letter filing, quarterly grade monitoring.</td>
                                 <td>Restricted strictly to linked children in <code>parent_student_links</code>.</td>
                             </tr>
                             <tr>
                                 <td><strong>Security / Turnstile</strong></td>
                                 <td><code>/attendance_scanner_teacher.html</code></td>
-                                <td>Front-gate camera QR scanning for campus entry and departure without personal credentials.</td>
-                                <td>Requires 6-digit Scanner Access Key; valid strictly between 06:00 AM and 04:00 PM.</td>
+                                <td>Front-gate camera QR scanning for campus entry and departure without personal
+                                    credentials.</td>
+                                <td>Requires 6-digit Scanner Access Key; valid strictly between 06:00 AM and 04:00 PM.
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -228,21 +279,29 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="p-3 bg-light rounded border h-100">
-                            <h6 class="fw-bold text-dark"><i class="bi bi-clock-history me-1 text-primary"></i> Attendance Rules & Cutoffs</h6>
+                            <h6 class="fw-bold text-dark"><i class="bi bi-clock-history me-1 text-primary"></i>
+                                Attendance Rules & Cutoffs</h6>
                             <ul class="small mb-0 ps-3">
-                                <li><strong>Time-In (1st Scan):</strong> On/before 07:45 AM = <code>Present</code>; After 07:45 AM = <code>Late</code>.</li>
-                                <li><strong>Time-Out (2nd Scan):</strong> On/after 15:30 PM = <code>Out</code>; Before 15:30 PM = <code>Excused</code> (Early Leave).</li>
-                                <li><strong>3rd Scan:</strong> Returns HTTP 409 Conflict (Already marked out today).</li>
+                                <li><strong>Time-In (1st Scan):</strong> On/before 07:45 AM = <code>Present</code>;
+                                    After 07:45 AM = <code>Late</code>.</li>
+                                <li><strong>Time-Out (2nd Scan):</strong> On/after 15:30 PM = <code>Out</code>; Before
+                                    15:30 PM = <code>Excused</code> (Early Leave).</li>
+                                <li><strong>3rd Scan:</strong> Returns HTTP 409 Conflict (Already marked out today).
+                                </li>
                             </ul>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="p-3 bg-light rounded border h-100">
-                            <h6 class="fw-bold text-dark"><i class="bi bi-award-fill me-1 text-success"></i> DepEd DO15 s.2026 Grading</h6>
+                            <h6 class="fw-bold text-dark"><i class="bi bi-award-fill me-1 text-success"></i> DepEd DO15
+                                s.2026 Grading</h6>
                             <ul class="small mb-0 ps-3">
-                                <li><strong>Transmutation:</strong> 70.00% Raw Score = 75.0% Transmuted Passing Grade.</li>
-                                <li><strong>Descriptors:</strong> &ge;90 (Advancing), 80-89 (Benchmarking), 75-79 (Connecting), 65-74 (Developing), &lt;65 (Emerging).</li>
-                                <li><strong>Components:</strong> Written Works (WW), Performance Tasks (PT), Quarterly Assessment (QA).</li>
+                                <li><strong>Transmutation:</strong> 70.00% Raw Score = 75.0% Transmuted Passing Grade.
+                                </li>
+                                <li><strong>Descriptors:</strong> &ge;90 (Advancing), 80-89 (Benchmarking), 75-79
+                                    (Connecting), 65-74 (Developing), &lt;65 (Emerging).</li>
+                                <li><strong>Components:</strong> Written Works (WW), Performance Tasks (PT), Quarterly
+                                    Assessment (QA).</li>
                             </ul>
                         </div>
                     </div>
@@ -250,164 +309,256 @@
             </section>
 
             <section class="mb-5">
-                <h2 class="section-title"><i class="bi bi-list-task text-primary"></i> 2. Role-Based User Task Scenarios</h2>
-                
+                <h2 class="section-title"><i class="bi bi-list-task text-primary"></i> 2. Role-Based User Task Scenarios
+                </h2>
+
                 <!-- Track A -->
                 <div class="mb-4">
-                    <h4 class="text-primary fw-bold"><i class="bi bi-person-gear"></i> Track A: Administrator Scenarios</h4>
-                    
+                    <h4 class="text-primary fw-bold"><i class="bi bi-person-gear"></i> Track A: Administrator Scenarios
+                    </h4>
+
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task A-1: New Faculty Onboarding & Smart Student-Parent Enrollment</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Provision a new teacher and enroll a student with automated sibling-parent link resolution.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>/user_management_admin.html</code></p>
+                        <h3 class="scenario-title m-0 text-dark">Task A-1: New Faculty Onboarding & Smart Student-Parent
+                            Enrollment</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Provision a new teacher and enroll a
+                            student with automated sibling-parent link resolution.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong> <code>/user_management_admin.html</code>
+                        </p>
                         <p class="small mb-1"><strong>Instructions:</strong></p>
                         <ol class="small mb-2 ps-3">
-                            <li>Click <strong>+ Add User / Create Account</strong>. Select Role: <code>Teacher</code>, generate ID and email, save.</li>
-                            <li>Re-open modal, select Role: <code>Student</code>, generate sequential ID and email. Enter Name: <code>Juan Dela Cruz</code>, Program: <code>4Ps</code>, Parent Name: <code>Elena Dela Cruz</code>, Parent Contact: <code>09175551234</code>, Section: <code>11 - Newton</code>, submit.</li>
+                            <li>Click <strong>+ Add User / Create Account</strong>. Select Role: <code>Teacher</code>,
+                                generate ID and email, save.</li>
+                            <li>Re-open modal, select Role: <code>Student</code>, generate sequential ID and email.
+                                Enter Name: <code>Juan Dela Cruz</code>, Program: <code>4Ps</code>, Parent Name:
+                                <code>Elena Dela Cruz</code>, Parent Contact: <code>09175551234</code>, Section:
+                                <code>11 - Newton</code>, submit.</li>
                         </ol>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> User provisioned with temp password equal to ID; Elena Dela Cruz automatically created and linked in <code>parent_student_links</code> without duplicates.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> User provisioned with temp
+                            password equal to ID; Elena Dela Cruz automatically created and linked in
+                            <code>parent_student_links</code> without duplicates.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task A-2: Schedule Creation with Real-Time Conflict Detection</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Schedule a class timetable block and verify collision prevention.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>/schedule_management_admin.html</code></p>
+                        <h3 class="scenario-title m-0 text-dark">Task A-2: Schedule Creation with Real-Time Conflict
+                            Detection</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Schedule a class timetable block and
+                            verify collision prevention.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>/schedule_management_admin.html</code></p>
                         <p class="small mb-1"><strong>Instructions:</strong></p>
                         <ol class="small mb-2 ps-3">
-                            <li>Create schedule for Teacher: <code>Maria Santos</code>, Subject: <code>GENMATH</code>, Section: <code>11 - Newton</code>, Monday 08:00 - 09:30 AM.</li>
-                            <li>Immediately attempt to schedule Maria Santos for Section 11-Curie on Monday 09:00 - 10:30 AM (overlapping by 30 mins).</li>
+                            <li>Create schedule for Teacher: <code>Maria Santos</code>, Subject: <code>GENMATH</code>,
+                                Section: <code>11 - Newton</code>, Monday 08:00 - 09:30 AM.</li>
+                            <li>Immediately attempt to schedule Maria Santos for Section 11-Curie on Monday 09:00 -
+                                10:30 AM (overlapping by 30 mins).</li>
                         </ol>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> First schedule writes cleanly (HTTP 201); second schedule is blocked by conflict engine (HTTP 409 Conflict toast alert).</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> First schedule writes
+                            cleanly (HTTP 201); second schedule is blocked by conflict engine (HTTP 409 Conflict toast
+                            alert).</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task A-3: Curriculum Weights Configuration & Emergency Maintenance Drill</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Configure DepEd subject criteria weights and test emergency maintenance mode cutoff.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>/subject_management_admin.html</code> & <code>/system_settings_admin.html</code></p>
+                        <h3 class="scenario-title m-0 text-dark">Task A-3: Curriculum Weights Configuration & Emergency
+                            Maintenance Drill</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Configure DepEd subject criteria weights
+                            and test emergency maintenance mode cutoff.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>/subject_management_admin.html</code> & <code>/system_settings_admin.html</code></p>
                         <p class="small mb-1"><strong>Instructions:</strong></p>
                         <ol class="small mb-2 ps-3">
-                            <li>On Subject Management, adjust <code>COPRO1</code> grading weights to WW: 30%, PT: 40%, QA: 30%. Save.</li>
-                            <li>On System Settings, toggle Maintenance Mode to ON. In incognito, attempt to browse teacher or student portal.</li>
+                            <li>On Subject Management, adjust <code>COPRO1</code> grading weights to WW: 30%, PT: 40%,
+                                QA: 30%. Save.</li>
+                            <li>On System Settings, toggle Maintenance Mode to ON. In incognito, attempt to browse
+                                teacher or student portal.</li>
                         </ol>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Teacher/Student requests are intercepted by HTTP 503 and redirected to <code>login.html?reason=maintenance</code>. Admin session remains unrestricted.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Teacher/Student requests
+                            are intercepted by HTTP 503 and redirected to <code>login.html?reason=maintenance</code>.
+                            Admin session remains unrestricted.</p>
                     </div>
                 </div>
 
                 <!-- Track B -->
                 <div class="mb-4">
-                    <h4 class="text-primary fw-bold"><i class="bi bi-person-video3"></i> Track B: Teacher / Subject Instructor Scenarios</h4>
-                    
+                    <h4 class="text-primary fw-bold"><i class="bi bi-person-video3"></i> Track B: Teacher / Subject
+                        Instructor Scenarios</h4>
+
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task B-1: Classroom QR Scanning & Arrival Verification</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Scan student QR pass and confirm morning attendance during the advisory window.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>/attendance_scanner_teacher.html</code> & <code>Teacher/attendance_confirmation_teacher.html</code></p>
+                        <h3 class="scenario-title m-0 text-dark">Task B-1: Classroom QR Scanning & Arrival Verification
+                        </h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Scan student QR pass and confirm morning
+                            attendance during the advisory window.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>/attendance_scanner_teacher.html</code> &
+                            <code>Teacher/attendance_confirmation_teacher.html</code></p>
                         <p class="small mb-1"><strong>Instructions:</strong></p>
                         <ol class="small mb-2 ps-3">
-                            <li>Scan student QR code <code>26-00001</code> (or enter in manual simulation box). Verify green Present ticket with photo.</li>
-                            <li>Navigate to Attendance Confirmation, select Section: 11-Newton, and click <strong>Confirm Arrival</strong>.</li>
+                            <li>Scan student QR code <code>26-00001</code> (or enter in manual simulation box). Verify
+                                green Present ticket with photo.</li>
+                            <li>Navigate to Attendance Confirmation, select Section: 11-Newton, and click
+                                <strong>Confirm Arrival</strong>.</li>
                         </ol>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Log updates with <code>overridden_by = teacher_id</code>; in-app notification dispatches to linked parent.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Log updates with
+                            <code>overridden_by = teacher_id</code>; in-app notification dispatches to linked parent.
+                        </p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task B-2: DepEd Electronic Class Record (ECR) Grade Encoding & Export</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Encode WW/PT/QA scores, check auto-transmutation, and export the official macro-enabled .xlsm workbook.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>Teacher/class_management_teacher.html</code> & <code>Teacher/subject_detail_teacher.html</code></p>
+                        <h3 class="scenario-title m-0 text-dark">Task B-2: DepEd Electronic Class Record (ECR) Grade
+                            Encoding & Export</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Encode WW/PT/QA scores, check
+                            auto-transmutation, and export the official macro-enabled .xlsm workbook.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>Teacher/class_management_teacher.html</code> &
+                            <code>Teacher/subject_detail_teacher.html</code></p>
                         <p class="small mb-1"><strong>Instructions:</strong></p>
                         <ol class="small mb-2 ps-3">
                             <li>Select Section: 11-Newton, Subject: GENMATH. Open e-Class Record view.</li>
-                            <li>For Juan Dela Cruz, input WW: 26.0, PT: 18.0, QA: 42.0. Observe Raw Average: 86.0 and DepEd Transmuted Grade: 91.0 (Advancing).</li>
-                            <li>Click <strong>Sync & Save Grades</strong>, then click <strong>Export Official DepEd ECR (.xlsm)</strong>.</li>
+                            <li>For Juan Dela Cruz, input WW: 26.0, PT: 18.0, QA: 42.0. Observe Raw Average: 86.0 and
+                                DepEd Transmuted Grade: 91.0 (Advancing).</li>
+                            <li>Click <strong>Sync & Save Grades</strong>, then click <strong>Export Official DepEd ECR
+                                    (.xlsm)</strong>.</li>
                         </ol>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Grades sync to database; browser downloads official macro-enabled <code>.xlsm</code> sheet preserving official DepEd formulas.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Grades sync to database;
+                            browser downloads official macro-enabled <code>.xlsm</code> sheet preserving official DepEd
+                            formulas.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task B-3: Competency Badge Awarding & Leaderboard Elevation</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Reward a student with achievement badges and verify points propagation.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>Teacher/class_management_teacher.html</code></p>
-                        <p class="small mb-1"><strong>Instructions:</strong> Click "Award Badges" on Juan Dela Cruz. Select <strong>Top Scorer (15 pts)</strong> and <strong>Critical Thinker (15 pts)</strong>. Confirm award.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Student profile accumulates 30 total points and rises to Rank #1 on Section Leaderboard.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task B-3: Competency Badge Awarding & Leaderboard
+                            Elevation</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Reward a student with achievement badges
+                            and verify points propagation.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>Teacher/class_management_teacher.html</code></p>
+                        <p class="small mb-1"><strong>Instructions:</strong> Click "Award Badges" on Juan Dela Cruz.
+                            Select <strong>Top Scorer (15 pts)</strong> and <strong>Critical Thinker (15 pts)</strong>.
+                            Confirm award.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Student profile
+                            accumulates 30 total points and rises to Rank #1 on Section Leaderboard.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task B-4: Learning Module Upload & Revision Management</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Publish a multi-file learning module and execute a version update with student alert.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>Teacher/learning_resources_teacher.html</code></p>
-                        <p class="small mb-1"><strong>Instructions:</strong> Create module "Module 1: Functions and Graphs", attach PDF, and publish. Then click "Update File" to replace with v2.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Old file archives to <code>lesson_module_file_versions</code>; active file displays v2 badge; student receives update notification.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task B-4: Learning Module Upload & Revision Management
+                        </h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Publish a multi-file learning module and
+                            execute a version update with student alert.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>Teacher/learning_resources_teacher.html</code></p>
+                        <p class="small mb-1"><strong>Instructions:</strong> Create module "Module 1: Functions and
+                            Graphs", attach PDF, and publish. Then click "Update File" to replace with v2.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Old file archives to
+                            <code>lesson_module_file_versions</code>; active file displays v2 badge; student receives
+                            update notification.</p>
                     </div>
                 </div>
 
                 <!-- Track C -->
                 <div class="mb-4">
-                    <h4 class="text-primary fw-bold"><i class="bi bi-mortarboard-fill"></i> Track C: Student Scenarios</h4>
-                    
+                    <h4 class="text-primary fw-bold"><i class="bi bi-mortarboard-fill"></i> Track C: Student Scenarios
+                    </h4>
+
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task C-1: First-Time Login & Mandatory Security Reset</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Sign in with temporary credentials and complete mandatory password hardening.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task C-1: First-Time Login & Mandatory Security Reset
+                        </h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Sign in with temporary credentials and
+                            complete mandatory password hardening.</p>
                         <p class="small mb-1"><strong>Starting Point:</strong> <code>/login.html</code></p>
-                        <p class="small mb-1"><strong>Instructions:</strong> Enter ID: <code>26-00001</code> and Password: <code>26-00001</code>. When prompted by the security modal, change password to <code>StudentPass2026!</code>.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Password updates with bcrypt hash; <code>must_change_password</code> clears; dashboard opens.</p>
+                        <p class="small mb-1"><strong>Instructions:</strong> Enter ID: <code>26-00001</code> and
+                            Password: <code>26-00001</code>. When prompted by the security modal, change password to
+                            <code>StudentPass2026!</code>.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Password updates with
+                            bcrypt hash; <code>must_change_password</code> clears; dashboard opens.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task C-2: Digital QR Pass Generation & Attendance Verification</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Access unique attendance pass and verify daily arrival logs.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>Student/attendance_student.html</code></p>
-                        <p class="small mb-1"><strong>Instructions:</strong> View QR pass encoding personal ID. Scroll to monthly calendar to verify Time-In log from morning scan.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> QR displays student ID; calendar cell displays green Present pill with exact timestamp.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task C-2: Digital QR Pass Generation & Attendance
+                            Verification</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Access unique attendance pass and verify
+                            daily arrival logs.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>Student/attendance_student.html</code></p>
+                        <p class="small mb-1"><strong>Instructions:</strong> View QR pass encoding personal ID. Scroll
+                            to monthly calendar to verify Time-In log from morning scan.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> QR displays student ID;
+                            calendar cell displays green Present pill with exact timestamp.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task C-3: Grade Audit & Prescriptive Learning Path Intervention</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Review subject component scores and complete an ML recommended practice quiz.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>Student/grade_performance_student.html</code></p>
-                        <p class="small mb-1"><strong>Instructions:</strong> Inspect transmuted grade (91.0). In Prescriptive Learning Path, click recommended quiz and complete test.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Interactive quiz taker records score in <code>topic_quiz_attempts</code> with instant percentage feedback.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task C-3: Grade Audit & Prescriptive Learning Path
+                            Intervention</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Review subject component scores and
+                            complete an ML recommended practice quiz.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>Student/grade_performance_student.html</code></p>
+                        <p class="small mb-1"><strong>Instructions:</strong> Inspect transmuted grade (91.0). In
+                            Prescriptive Learning Path, click recommended quiz and complete test.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Interactive quiz taker
+                            records score in <code>topic_quiz_attempts</code> with instant percentage feedback.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task C-4: Gamification Badge Shelf & School Leaderboard Standings</h3>
-                        <p class="small text-muted mb-2"><strong>Goal:</strong> Inspect earned competency badges and check position on class and school leaderboards.</p>
-                        <p class="small mb-1"><strong>Starting Point:</strong> <code>Student/achievements_student.html</code> & <code>Student/leaderboard_student.html</code></p>
-                        <p class="small mb-1"><strong>Instructions:</strong> View badge shelf with active Top Scorer and Critical Thinker badges. Switch to leaderboard to view Rank #1 standing.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Badges illuminate with earn dates; leaderboard highlights student at Rank #1 with Gold Trophy icon.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task C-4: Gamification Badge Shelf & School Leaderboard
+                            Standings</h3>
+                        <p class="small text-muted mb-2"><strong>Goal:</strong> Inspect earned competency badges and
+                            check position on class and school leaderboards.</p>
+                        <p class="small mb-1"><strong>Starting Point:</strong>
+                            <code>Student/achievements_student.html</code> &
+                            <code>Student/leaderboard_student.html</code></p>
+                        <p class="small mb-1"><strong>Instructions:</strong> View badge shelf with active Top Scorer and
+                            Critical Thinker badges. Switch to leaderboard to view Rank #1 standing.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Badges illuminate with
+                            earn dates; leaderboard highlights student at Rank #1 with Gold Trophy icon.</p>
                     </div>
                 </div>
 
                 <!-- Track D & E -->
                 <div class="mb-4">
-                    <h4 class="text-primary fw-bold"><i class="bi bi-people-fill"></i> Track D & E: Parent & Security Scenarios</h4>
-                    
+                    <h4 class="text-primary fw-bold"><i class="bi bi-people-fill"></i> Track D & E: Parent & Security
+                        Scenarios</h4>
+
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task D-1: Real-Time Attendance Notification & Status Monitoring (Parent)</h3>
-                        <p class="small mb-1"><strong>Instructions:</strong> Log in as <code>elena.delacruz@parent.tshs.edu.ph</code>. Verify arrival pill and read in-app alert.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Bell badge decrements upon reading; status displays confirmed arrival time.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task D-1: Real-Time Attendance Notification & Status
+                            Monitoring (Parent)</h3>
+                        <p class="small mb-1"><strong>Instructions:</strong> Log in as
+                            <code>elena.delacruz@parent.tshs.edu.ph</code>. Verify arrival pill and read in-app alert.
+                        </p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Bell badge decrements upon
+                            reading; status displays confirmed arrival time.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task D-2: Filing an Absence Excuse Request (Parent)</h3>
-                        <p class="small mb-1"><strong>Instructions:</strong> On <code>Parent/attendance_parent.html</code>, submit excuse note for tomorrow with reason Medical Appointment.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Excuse note writes to <code>excuse_notes</code> table with yellow Pending badge and notifies adviser.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task D-2: Filing an Absence Excuse Request (Parent)
+                        </h3>
+                        <p class="small mb-1"><strong>Instructions:</strong> On
+                            <code>Parent/attendance_parent.html</code>, submit excuse note for tomorrow with reason
+                            Medical Appointment.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Excuse note writes to
+                            <code>excuse_notes</code> table with yellow Pending badge and notifies adviser.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task D-3: Multi-Child Sibling Profile Switching (Parent)</h3>
-                        <p class="small mb-1"><strong>Instructions:</strong> Use "Select Child" dropdown to switch between Juan (Grade 11 STEM) and Maria (Grade 12 TVL).</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Dashboard dynamically re-renders to display Maria's academic performance and attendance.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task D-3: Multi-Child Sibling Profile Switching
+                            (Parent)</h3>
+                        <p class="small mb-1"><strong>Instructions:</strong> Use "Select Child" dropdown to switch
+                            between Juan (Grade 11 STEM) and Maria (Grade 12 TVL).</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Dashboard dynamically
+                            re-renders to display Maria's academic performance and attendance.</p>
                     </div>
 
                     <div class="card mb-3 p-3 border-0 bg-light">
-                        <h3 class="scenario-title m-0 text-dark">Task E-1: Standalone Gate Turnstile Access via Scanner Key (Security)</h3>
-                        <p class="small mb-1"><strong>Instructions:</strong> On <code>login.html</code> Scanner Access box, enter <code>839201</code>. Scan student QR passes.</p>
-                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Turnstile scanner initializes immediately without user credentials, recording gate check-ins.</p>
+                        <h3 class="scenario-title m-0 text-dark">Task E-1: Standalone Gate Turnstile Access via Scanner
+                            Key (Security)</h3>
+                        <p class="small mb-1"><strong>Instructions:</strong> On <code>login.html</code> Scanner Access
+                            box, enter <code>839201</code>. Scan student QR passes.</p>
+                        <p class="small mb-0 text-success"><strong>Expected Outcome:</strong> Turnstile scanner
+                            initializes immediately without user credentials, recording gate check-ins.</p>
                     </div>
                 </div>
             </section>
 
             <section class="mb-5">
-                <h2 class="section-title"><i class="bi bi-database-check text-primary"></i> 3. Pre-Populated Database Seeding Checklist</h2>
+                <h2 class="section-title"><i class="bi bi-database-check text-primary"></i> 3. Pre-Populated Database
+                    Seeding Checklist</h2>
                 <div class="table-responsive">
                     <table class="table table-custom table-hover">
                         <thead>
@@ -483,8 +634,10 @@
             </section>
 
             <section class="mb-5">
-                <h2 class="section-title"><i class="bi bi-star-fill text-warning"></i> 4. System Usability Scale (SUS) Survey</h2>
-                <p class="small text-muted">Standard 10-Item Likert scale questionnaire (1 = Strongly Disagree, 5 = Strongly Agree). Benchmark target: &ge;68.0.</p>
+                <h2 class="section-title"><i class="bi bi-star-fill text-warning"></i> 4. System Usability Scale (SUS)
+                    Survey</h2>
+                <p class="small text-muted">Standard 10-Item Likert scale questionnaire (1 = Strongly Disagree, 5 =
+                    Strongly Agree). Benchmark target: &ge;68.0.</p>
                 <div class="table-responsive mb-4">
                     <table class="table table-custom table-hover">
                         <thead>
@@ -499,16 +652,96 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td>1</td><td>I think that I would like to use Mentorae SIS frequently in our school.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>2</td><td>I found the school portal unnecessarily complex.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>3</td><td>I thought the portal was easy to use.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>4</td><td>I think that I would need technical support to use this portal.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>5</td><td>I found the various functions in this system were well integrated.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>6</td><td>I thought there was too much inconsistency in this system.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>7</td><td>I imagine that most users would learn this system very quickly.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>8</td><td>I found the portal very cumbersome or awkward to use.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>9</td><td>I felt very confident using the portal.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
-                            <tr><td>10</td><td>I needed to learn a lot of things before I could get going.</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td><td class="text-center">[ ]</td></tr>
+                            <tr>
+                                <td>1</td>
+                                <td>I think that I would like to use Mentorae SIS frequently in our school.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>I found the school portal unnecessarily complex.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>I thought the portal was easy to use.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>I think that I would need technical support to use this portal.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>I found the various functions in this system were well integrated.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>6</td>
+                                <td>I thought there was too much inconsistency in this system.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>7</td>
+                                <td>I imagine that most users would learn this system very quickly.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>8</td>
+                                <td>I found the portal very cumbersome or awkward to use.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>9</td>
+                                <td>I felt very confident using the portal.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
+                            <tr>
+                                <td>10</td>
+                                <td>I needed to learn a lot of things before I could get going.</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                                <td class="text-center">[ ]</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -517,29 +750,34 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="p-3 bg-light rounded border">
-                            <strong>Q1 (Attendance):</strong> How did digital QR scanning compare to pen-and-paper logs? Did session locking cause friction?
+                            <strong>Q1 (Attendance):</strong> How did digital QR scanning compare to pen-and-paper logs?
+                            Did session locking cause friction?
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="p-3 bg-light rounded border">
-                            <strong>Q2 (DepEd ECR Grading):</strong> How intuitive was WW/PT/QA score input and exporting the macro-enabled .xlsm workbook?
+                            <strong>Q2 (DepEd ECR Grading):</strong> How intuitive was WW/PT/QA score input and
+                            exporting the macro-enabled .xlsm workbook?
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="p-3 bg-light rounded border">
-                            <strong>Q3 (Student Gamification):</strong> Did badges and leaderboard ranks motivate you? Was the Prescriptive Path clear?
+                            <strong>Q3 (Student Gamification):</strong> Did badges and leaderboard ranks motivate you?
+                            Was the Prescriptive Path clear?
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="p-3 bg-light rounded border">
-                            <strong>Q4 (Parent Communication):</strong> Did real-time arrival notifications give peace of mind? Was excuse filing simple?
+                            <strong>Q4 (Parent Communication):</strong> Did real-time arrival notifications give peace
+                            of mind? Was excuse filing simple?
                         </div>
                     </div>
                 </div>
             </section>
 
             <section>
-                <h2 class="section-title"><i class="bi bi-bug-fill text-danger"></i> 5. Real-Time Bug & Issue Tracker Template</h2>
+                <h2 class="section-title"><i class="bi bi-bug-fill text-danger"></i> 5. Real-Time Bug & Issue Tracker
+                    Template</h2>
                 <div class="table-responsive">
                     <table class="table table-custom table-hover">
                         <thead>
@@ -638,4 +876,5 @@
         });
     </script>
 </body>
+
 </html>

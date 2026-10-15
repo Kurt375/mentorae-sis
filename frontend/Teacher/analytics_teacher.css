@@ -201,4 +201,35 @@ body.dashboard-bg {
     border-color: #94a3b8 !important;
     color: #0f172a !important;
     transform: translateY(-1px);
-}
+}
+
+/* =========================================================================
+   Student Risk Assessment Directory Scrollable Container
+   ========================================================================= */
+#riskAssessmentDirectory {
+    max-height: 480px;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 6px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+}
+
+#riskAssessmentDirectory::-webkit-scrollbar {
+    width: 8px;
+}
+
+#riskAssessmentDirectory::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+#riskAssessmentDirectory::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#riskAssessmentDirectory::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
