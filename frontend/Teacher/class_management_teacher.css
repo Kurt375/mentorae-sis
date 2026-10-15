@@ -1200,27 +1200,45 @@
 
 /* Custom Sleek Scrollbar */
 .roster-table-scroll-container::-webkit-scrollbar,
-.grade-table-scroll-container::-webkit-scrollbar {
+.grade-table-scroll-container::-webkit-scrollbar,
+.leaderboard-scroll-container::-webkit-scrollbar,
+#sectionLeaderboardList::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .roster-table-scroll-container::-webkit-scrollbar-track,
-.grade-table-scroll-container::-webkit-scrollbar-track {
+.grade-table-scroll-container::-webkit-scrollbar-track,
+.leaderboard-scroll-container::-webkit-scrollbar-track,
+#sectionLeaderboardList::-webkit-scrollbar-track {
     background: #f1f5f9;
     border-radius: 4px;
 }
 
 .roster-table-scroll-container::-webkit-scrollbar-thumb,
-.grade-table-scroll-container::-webkit-scrollbar-thumb {
+.grade-table-scroll-container::-webkit-scrollbar-thumb,
+.leaderboard-scroll-container::-webkit-scrollbar-thumb,
+#sectionLeaderboardList::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
 }
 
 .roster-table-scroll-container::-webkit-scrollbar-thumb:hover,
-.grade-table-scroll-container::-webkit-scrollbar-thumb:hover {
+.grade-table-scroll-container::-webkit-scrollbar-thumb:hover,
+.leaderboard-scroll-container::-webkit-scrollbar-thumb:hover,
+#sectionLeaderboardList::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* Section Leaderboard Vertical Scroll Container */
+.leaderboard-scroll-container,
+#sectionLeaderboardList {
+    max-height: 480px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+}
+
 
 
 
