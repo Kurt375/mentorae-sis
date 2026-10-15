@@ -36,6 +36,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function showLoginAlert(message, type = 'danger') {
+        if (loginAlertBox && loginAlertMessage) {
+            loginAlertMessage.textContent = message;
+            loginAlertBox.className = `alert alert-${type} alert-dismissible fade show mb-4`;
+            loginAlertBox.classList.remove('d-none');
+            loginAlertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            alert(message);
+        }
+    }
+
+    function hideLoginAlert() {
+        if (loginAlertBox) {
+            loginAlertBox.classList.add('d-none');
+        }
+    }
+
     if (contactUsLink && contactUsModal) {
         contactUsLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -65,9 +82,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 2. Real login request
+    // Exponential backoff with Full Jitter: Sleep = rand(0, min(cap, base * 2^attempt))
+    async function sleepWithJitter(attempt, baseDelay = 700, capDelay = 4000) {
+        const exponential = Math.min(capDelay, baseDelay * Math.pow(2, attempt));
+        const jittered = Math.floor(Math.random() * exponential);
+        return new Promise((resolve) => setTimeout(resolve, jittered));
+    }
+
+    // 2. Resilient Login Request with Anti-Spam Guard & Jittered Auto-Retry
+    let isLoginSubmitting = false;
+
     loginForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (isLoginSubmitting) return; // Prevent double/triple-click stampedes
 
         const identity = document.getElementById('loginEmail').value.trim();
         const password = passwordInput ? passwordInput.value : '';
@@ -84,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : '';
 
         if (!identity || !password) {
-            alert('Please fill out all the input fields correctly.');
+            showLoginAlert('Please enter your email or ID number, and password.', 'warning');
             return;
         }
 
@@ -92,51 +119,106 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isLocalEnv) {
                 captchaResponse = 'dev-bypass-token';
             } else {
-                alert('Please verify you are not a robot by completing the reCAPTCHA challenge.');
+                showLoginAlert('Please verify you are not a robot by completing the reCAPTCHA challenge.', 'warning');
                 return;
             }
         }
 
         const submitBtn = loginForm.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
+        const originalBtnHtml = submitBtn.innerHTML;
 
-        try {
-            // Note: credentials: 'include' removed to allow cross-origin requests from Vercel
-            const res = await fetch(`${API_BASE}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identity, password, captchaToken: captchaResponse }),
-            });
-            const data = await res.json();
-
-            if (!data.success) {
-                alert(data.message || 'Login failed.');
-                if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
-                return;
+        const setButtonLoading = (loading, statusText = 'Signing in to Portal...') => {
+            isLoginSubmitting = loading;
+            submitBtn.disabled = loading;
+            if (loading) {
+                submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${statusText}`;
+            } else {
+                submitBtn.innerHTML = originalBtnHtml;
             }
+        };
 
-            localStorage.setItem('mentorae_token', data.token);
-            localStorage.setItem('mentorae_user', JSON.stringify(data.user));
-            if (data.sessionTimeoutMinutes) {
-                localStorage.setItem('mentorae_session_timeout_minutes', String(data.sessionTimeoutMinutes));
-            }
+        setButtonLoading(true);
+        hideLoginAlert();
 
-            if (data.user.mustChangePassword) {
-                // Don't navigate away yet -- force the password change first.
-                showForcePasswordChange(data.token, () => {
-                    window.location.href = destinations[data.user.role] || 'login.html';
+        const MAX_RETRIES = 2; // Auto-retry for transient 502/503/504 gateway or cold-start timeouts
+        let attempt = 0;
+
+        while (attempt <= MAX_RETRIES) {
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identity, password, captchaToken: captchaResponse }),
                 });
-                return;
-            }
 
-            window.location.href = destinations[data.user.role] || 'login.html';
-        } catch (err) {
-            console.error('Fetch error:', err);
-            alert('Could not reach the server. Please try again.');
-            if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
-        } finally {
-            submitBtn.disabled = false;
+                // 1. Rate Limiting (429)
+                if (res.status === 429) {
+                    const retryHeader = res.headers.get('Retry-After');
+                    const waitSec = retryHeader ? parseInt(retryHeader, 10) : 15;
+                    showLoginAlert(`Traffic is currently high. Please wait ${waitSec} seconds before trying again.`, 'warning');
+                    if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+                    setButtonLoading(false);
+                    return;
+                }
+
+                // 2. Account Lockout (423)
+                if (res.status === 423) {
+                    const data = await res.json().catch(() => ({}));
+                    showLoginAlert(data.message || 'Account temporarily locked due to multiple failed attempts. Please try again in 15 minutes.', 'danger');
+                    if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+                    setButtonLoading(false);
+                    return;
+                }
+
+                // 3. Transient Server Errors (502 / 503 / 504) -> Auto-retry with Jitter
+                if ([502, 503, 504].includes(res.status) && attempt < MAX_RETRIES) {
+                    attempt++;
+                    setButtonLoading(true, `Server busy, retrying (${attempt}/${MAX_RETRIES})...`);
+                    await sleepWithJitter(attempt);
+                    continue;
+                }
+
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok || !data.success) {
+                    showLoginAlert(data.message || 'Login failed. Please check your credentials.', 'danger');
+                    if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+                    setButtonLoading(false);
+                    return;
+                }
+
+                // Successful authentication
+                localStorage.setItem('mentorae_token', data.token);
+                localStorage.setItem('mentorae_user', JSON.stringify(data.user));
+                if (data.sessionTimeoutMinutes) {
+                    localStorage.setItem('mentorae_session_timeout_minutes', String(data.sessionTimeoutMinutes));
+                }
+
+                if (data.user.mustChangePassword) {
+                    showForcePasswordChange(data.token, () => {
+                        window.location.href = destinations[data.user.role] || 'login.html';
+                    });
+                    return;
+                }
+
+                window.location.href = destinations[data.user.role] || 'login.html';
+                return;
+            } catch (err) {
+                console.error('Fetch error during login:', err);
+                if (attempt < MAX_RETRIES) {
+                    attempt++;
+                    setButtonLoading(true, `Connecting... (${attempt}/${MAX_RETRIES})`);
+                    await sleepWithJitter(attempt);
+                } else {
+                    showLoginAlert('Unable to reach the authentication server. Please check your internet connection.', 'danger');
+                    if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+                    setButtonLoading(false);
+                    return;
+                }
+            }
         }
+
+        setButtonLoading(false);
     });
 
     // 3. Scanner Code Submission — verifies against the server and opens the scanner

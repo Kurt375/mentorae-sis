@@ -1,4 +1,6 @@
 process.env.TZ = 'Asia/Manila';
+// Expand libuv worker threadpool for concurrent bcrypt and crypto operations
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '64';
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config({ path: path.join(__dirname, '../.env') });

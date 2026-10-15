@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
 const { getManilaDate } = require('../utils/dateUtils');
+const { enqueueLoginAudit } = require('../utils/authAuditQueue');
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -112,15 +113,17 @@ async function login(req, res) {
     );
     const user = rows[0];
 
-    const logAttempt = async (success, userId = null) => {
-      await pool.query(
-        'INSERT INTO login_audit (user_id, id_number, success, ip_address) VALUES (?, ?, ?, ?)',
-        [userId, identity, success ? 1 : 0, req.ip]
-      );
+    const logAttempt = (success, userId = null) => {
+      enqueueLoginAudit({
+        userId,
+        idNumber: identity,
+        success,
+        ipAddress: req.ip,
+      });
     };
 
     if (!user) {
-      await logAttempt(false);
+      logAttempt(false);
       return res.status(401).json({ success: false, message: 'Incorrect email/ID or password.' });
     }
 
@@ -150,15 +153,17 @@ async function login(req, res) {
     }
 
     if (!passwordOk) {
-      const attempts = user.failed_attempts + 1;
+      const attempts = (user.failed_attempts || 0) + 1;
       const lockUntil = attempts >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCK_MINUTES * 60000) : null;
 
-      await pool.query('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?', [
+      // Update failed attempts and enqueue audit without blocking
+      pool.query('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?', [
         attempts,
         lockUntil,
         user.id,
-      ]);
-      await logAttempt(false, user.id);
+      ]).catch((err) => console.warn('⚠️ [auth] Failed attempt state update failed:', err.message));
+
+      logAttempt(false, user.id);
 
       if (lockUntil) {
         return res.status(423).json({
@@ -166,11 +171,16 @@ async function login(req, res) {
           message: `Too many failed attempts. Your account is locked for ${LOCK_MINUTES} minutes.`,
         });
       }
-      return res.status(401).json({ success: false, message: 'Incorrect email/ID or password.' });
+
+      const remainingAttempts = MAX_FAILED_ATTEMPTS - attempts;
+      const warningSuffix = remainingAttempts <= 2 ? ` (${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining)` : '';
+      return res.status(401).json({ success: false, message: `Incorrect email/ID or password.${warningSuffix}` });
     }
 
-    await pool.query('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?', [user.id]);
-    await logAttempt(true, user.id);
+    // Async non-blocking reset of failed attempts & batch audit logging
+    pool.query('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?', [user.id])
+      .catch((err) => console.warn('⚠️ [auth] Failed to reset attempts:', err.message));
+    logAttempt(true, user.id);
 
     const payload = {
       id: user.id,
