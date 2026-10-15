@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const errJson = await res.json();
                     if (errJson && errJson.message) errMsg = errJson.message;
-                } catch(e) {}
+                } catch (e) { }
                 throw new Error(errMsg);
             }
             const blob = await res.blob();
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Revoke prior active blob URL
         if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
-            try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) {}
+            try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
             currentViewerActiveBlobUrl = null;
         }
 
@@ -294,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stageEl.innerHTML = '';
             if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
             if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
-                try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) {}
+                try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
                 currentViewerActiveBlobUrl = null;
             }
             if (filesModal) filesModal.show();
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         finalPdfBlobUrl = URL.createObjectURL(blob);
                         targetFile.pdfBlobUrl = finalPdfBlobUrl;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             // Step 2: Check if pre-converted PDF is available on the server
@@ -546,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                             'Authorization': `Bearer ${token}`
                                         },
                                         body: JSON.stringify({ fileName, pdfDataUrl: convertedDataUrl })
-                                    }).catch(() => {});
+                                    }).catch(() => { });
                                 }
                             }
                         }
@@ -1316,9 +1316,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    const rawChildren = Array.from(sec.children).filter(c => 
-                        c.tagName !== 'HEADER' && 
-                        c.tagName !== 'FOOTER' && 
+                    const rawChildren = Array.from(sec.children).filter(c =>
+                        c.tagName !== 'HEADER' &&
+                        c.tagName !== 'FOOTER' &&
                         !c.classList.contains('docx-page-footer-badge')
                     );
                     if (rawChildren.length <= 1) return;
@@ -1573,13 +1573,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                                 restoredMediaFiles.add(fileName);
                                 renderedSrcs.push(u);
-                            } catch (e) {}
+                            } catch (e) { }
                         }
                     }
 
                     // Wait for all images to decode so paginateDocxContainer knows true pixel heights
                     const allImgs = Array.from(hostEl.querySelectorAll('img'));
-                    await Promise.all(allImgs.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
+                    await Promise.all(allImgs.map(img => img.decode ? img.decode().catch(() => { }) : Promise.resolve()));
 
                     // Native Word vector shapes banner if applicable
                     if (hasShapesOrSmartArt) {
