@@ -1669,10 +1669,14 @@ async function bulkImportStudents(req, res) {
           const pTypedFullName = `${pParsed.firstName} ${pParsed.lastName}`.trim().toLowerCase();
 
           let parentUser = null;
-          if (parentContact && parentsByPhone.has(parentContact)) {
-            parentUser = parentsByPhone.get(parentContact);
-          } else if (pTypedFullName && parentsByName.has(pTypedFullName)) {
+          if (pTypedFullName && parentsByName.has(pTypedFullName)) {
             parentUser = parentsByName.get(pTypedFullName);
+          } else if (parentContact && parentsByPhone.has(parentContact)) {
+            const candidate = parentsByPhone.get(parentContact);
+            const candFullName = `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim().toLowerCase();
+            if (candFullName === pTypedFullName || stringSimilarity(candFullName, pTypedFullName) >= 0.85) {
+              parentUser = candidate;
+            }
           }
 
           let isNewParent = false;
@@ -1787,12 +1791,14 @@ async function bulkImportStudents(req, res) {
 
       try {
         let teacherUser = null;
-        if (contactNumber && teachersByPhone.has(contactNumber)) {
-          teacherUser = teachersByPhone.get(contactNumber);
-        } else {
-          const tFullName = `${firstName} ${lastName}`.trim().toLowerCase();
-          if (tFullName && teachersByName.has(tFullName)) {
-            teacherUser = teachersByName.get(tFullName);
+        const tFullName = `${firstName} ${lastName}`.trim().toLowerCase();
+        if (tFullName && teachersByName.has(tFullName)) {
+          teacherUser = teachersByName.get(tFullName);
+        } else if (contactNumber && teachersByPhone.has(contactNumber)) {
+          const candidate = teachersByPhone.get(contactNumber);
+          const candFullName = `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim().toLowerCase();
+          if (candFullName === tFullName || stringSimilarity(candFullName, tFullName) >= 0.85) {
+            teacherUser = candidate;
           }
         }
 
