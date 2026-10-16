@@ -26,9 +26,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const studentParentContactNumber = document.getElementById('studentParentContactNumber');
     const parentChildrenNames = document.getElementById('parentChildrenNames');
     const userAdviserSectionSelect = document.getElementById('userAdviserSectionSelect');
+    const userAdviserRoleSelect = document.getElementById('userAdviserRoleSelect');
     const teacherSubjects = document.getElementById('teacherSubjects');
     const createUserForm = document.getElementById('createUserForm');
     const createUserPassword = document.getElementById('createUserPassword');
+
+    if (userAdviserSectionSelect && userAdviserRoleSelect) {
+        userAdviserSectionSelect.addEventListener('change', () => {
+            const hasSection = Boolean(userAdviserSectionSelect.value);
+            userAdviserRoleSelect.disabled = !hasSection;
+            if (!hasSection) userAdviserRoleSelect.value = 'lead';
+        });
+    }
+
+    const editAdviserSectionSelectEl = document.getElementById('editAdviserSectionSelect');
+    const editAdviserRoleSelectEl = document.getElementById('editAdviserRoleSelect');
+    if (editAdviserSectionSelectEl && editAdviserRoleSelectEl) {
+        editAdviserSectionSelectEl.addEventListener('change', () => {
+            const hasSection = Boolean(editAdviserSectionSelectEl.value);
+            editAdviserRoleSelectEl.disabled = !hasSection;
+            if (!hasSection) editAdviserRoleSelectEl.value = 'lead';
+        });
+    }
 
     function escapeHtml(str) {
         return (str || '').replace(/[&<>'"]/g, tag => ({
@@ -524,7 +543,10 @@ document.addEventListener('DOMContentLoaded', () => {
             payload.childrenNames = parentChildrenNames.value.trim();
         }
         if (userRoleSelect.value === 'Teacher') {
-            if (userAdviserSectionSelect.value) payload.adviserSectionId = userAdviserSectionSelect.value;
+            if (userAdviserSectionSelect.value) {
+                payload.advisorySectionId = userAdviserSectionSelect.value;
+                payload.advisoryRole = userAdviserRoleSelect ? userAdviserRoleSelect.value : 'lead';
+            }
             const typedNames = teacherSubjects.value.trim()
                 ? teacherSubjects.value.split(',').map(s => s.trim()).filter(Boolean)
                 : [];
@@ -571,6 +593,10 @@ document.addEventListener('DOMContentLoaded', () => {
             generatedEmail.value = '';
             userSectionSelect.value = '';
             userAdviserSectionSelect.value = '';
+            if (userAdviserRoleSelect) {
+                userAdviserRoleSelect.value = 'lead';
+                userAdviserRoleSelect.disabled = true;
+            }
             teacherSubjects.value = '';
             if (studentParentContactNumber) studentParentContactNumber.value = '';
             updateParentLinkBadge();
@@ -678,10 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let roleCellHtml = `<span class="badge badge-role ${roleBadgeClass[u.role] || 'bg-secondary text-white'}">${roleLabel}</span>`;
             if (u.role === 'teacher') {
                 if (u.advisoryClass) {
+                    const isCoAdv = u.advisoryRole === 'co' || u.advisory_role === 'co';
                     roleCellHtml += `
                         <div class="mt-1">
-                            <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 text-truncate" style="max-width: 220px; font-size: 0.72rem;" title="Advisory Class: ${u.advisoryClass}">
-                                <i class="bi bi-shield-check"></i> Adv: ${u.advisoryClass}
+                            <span class="badge ${isCoAdv ? 'bg-info-subtle text-info-emphasis border border-info-subtle' : 'bg-success-subtle text-success border border-success-subtle'} d-inline-flex align-items-center gap-1 text-truncate" style="max-width: 220px; font-size: 0.72rem;" title="${isCoAdv ? 'Co-Advisory Class' : 'Advisory Class'}: ${u.advisoryClass}">
+                                <i class="bi ${isCoAdv ? 'bi-people-fill' : 'bi-shield-check'}"></i> ${isCoAdv ? 'Co-Adv' : 'Adv'}: ${u.advisoryClass}
                             </span>
                         </div>`;
                 } else {
@@ -902,12 +929,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('editParentNameWrap').classList.toggle('d-none', !isStudent);
                 document.getElementById('editChildrenNamesWrap').classList.toggle('d-none', !isParent);
                 document.getElementById('editAdviserSectionWrap').classList.toggle('d-none', !isTeacher);
+                const editAdviserRoleWrap = document.getElementById('editAdviserRoleWrap');
+                if (editAdviserRoleWrap) editAdviserRoleWrap.classList.toggle('d-none', !isTeacher);
                 document.getElementById('editSubjectsHandledWrap').classList.toggle('d-none', !isTeacher);
 
                 document.getElementById('editProgramSelect').value = u.program || 'none';
                 document.getElementById('editParentName').value = u.parent_name || '';
                 document.getElementById('editChildrenNames').value = u.children_names || '';
-                document.getElementById('editAdviserSectionSelect').value = u.adviserSectionId || '';
+                const editSecSelect = document.getElementById('editAdviserSectionSelect');
+                const editRoleSelect = document.getElementById('editAdviserRoleSelect');
+                if (editSecSelect) editSecSelect.value = u.adviserSectionId || '';
+                if (editRoleSelect) {
+                    editRoleSelect.value = u.advisoryRole || 'lead';
+                    editRoleSelect.disabled = !u.adviserSectionId;
+                }
                 const subjSelect = document.getElementById('editSubjectsHandledSelect');
                 Array.from(subjSelect.options).forEach(o => { o.selected = (u.subjectIds || []).map(String).includes(o.value); });
 
@@ -923,6 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     parentName: document.getElementById('editParentName')?.value || '',
                     childrenNames: document.getElementById('editChildrenNames')?.value || '',
                     adviserSection: document.getElementById('editAdviserSectionSelect')?.value || '',
+                    adviserRole: document.getElementById('editAdviserRoleSelect')?.value || 'lead',
                     subjectsHandled: Array.from(document.getElementById('editSubjectsHandledSelect')?.selectedOptions || []).map(o => o.value).sort().join(',')
                 };
             });
@@ -1020,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
             parentName: document.getElementById('editParentName')?.value || '',
             childrenNames: document.getElementById('editChildrenNames')?.value || '',
             adviserSection: document.getElementById('editAdviserSectionSelect')?.value || '',
+            adviserRole: document.getElementById('editAdviserRoleSelect')?.value || 'lead',
             subjectsHandled: Array.from(document.getElementById('editSubjectsHandledSelect')?.selectedOptions || []).map(o => o.value).sort().join(',')
         };
         return JSON.stringify(currentSnapshot) !== JSON.stringify(originalUserEditSnapshot);
@@ -1213,6 +1250,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.childrenNames = document.getElementById('editChildrenNames').value.trim();
             } else if (roleLabel === 'teacher') {
                 payload.adviserSectionId = document.getElementById('editAdviserSectionSelect').value || null;
+                payload.advisoryRole = document.getElementById('editAdviserRoleSelect')?.value || 'lead';
                 payload.subjectIds = Array.from(document.getElementById('editSubjectsHandledSelect').selectedOptions).map(o => o.value);
             }
 

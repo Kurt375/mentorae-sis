@@ -101,7 +101,7 @@ async function generateEmail(req, res) {
 async function createUser(req, res) {
   const {
     firstName, middleInitial, lastName, contactNumber, idNumber, email, role, sectionId, password, program, parentName,
-    childNames, advisorySectionId, subjectIds, parentContactNumber,
+    childNames, advisorySectionId, advisoryRole, subjectIds, parentContactNumber,
   } = req.body;
 
   const validRoles = ['Student', 'Teacher', 'Parent', 'Admin', 'Security'];
@@ -284,8 +284,13 @@ async function createUser(req, res) {
     if (role === 'Teacher' && advisorySectionId) {
       const [[section]] = await pool.query('SELECT id FROM sections WHERE id = ?', [advisorySectionId]);
       if (section) {
-        await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [result.insertId, advisorySectionId]);
-        advisoryMessage = 'Set as adviser of the selected section.';
+        if (advisoryRole === 'co') {
+          await pool.query('UPDATE sections SET co_adviser_id = ? WHERE id = ?', [result.insertId, advisorySectionId]);
+          advisoryMessage = 'Set as co-adviser of the selected section.';
+        } else {
+          await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [result.insertId, advisorySectionId]);
+          advisoryMessage = 'Set as adviser of the selected section.';
+        }
       } else {
         advisoryMessage = 'That advisory section could not be found -- not assigned.';
       }
@@ -334,6 +339,7 @@ async function listUsers(req, res) {
       `SELECT u.id, u.role, u.id_number, u.first_name, u.middle_initial, u.last_name, u.contact_number, u.email,
               u.is_active, u.created_at, u.profile_picture_url, u.temp_password, u.must_change_password,
               advSec.id AS advisory_section_id, advSec.name AS advisory_section_name, advSec.grade_level AS advisory_grade_level,
+              advSec.adviser_id AS advisory_lead_id, advSec.co_adviser_id AS advisory_co_id,
               advSt.code AS advisory_strand_code,
               studSec.id AS student_section_id, studSec.name AS student_section_name, studSec.grade_level AS student_grade_level,
               studSt.code AS student_strand_code
@@ -349,7 +355,11 @@ async function listUsers(req, res) {
 
     const users = rows.map((u) => {
       let advisoryClass = null;
+      let advisoryRole = null;
       if (u.advisory_section_name) {
+        if (u.advisory_co_id === u.id) advisoryRole = 'co';
+        else if (u.advisory_lead_id === u.id) advisoryRole = 'lead';
+
         const parts = [];
         if (u.advisory_grade_level) parts.push(`Grade ${u.advisory_grade_level}`);
         if (u.advisory_strand_code) parts.push(u.advisory_strand_code);
@@ -369,6 +379,7 @@ async function listUsers(req, res) {
       return {
         ...u,
         advisoryClass,
+        advisoryRole,
         studentSection,
       };
     });
@@ -393,6 +404,7 @@ async function exportUsers(req, res) {
       `SELECT u.role, u.id_number, u.first_name, u.middle_initial, u.last_name, u.contact_number, u.email,
               u.temp_password, u.is_active, u.created_at,
               advSec.name AS advisory_section_name, advSec.grade_level AS advisory_grade_level, advSt.code AS advisory_strand_code,
+              advSec.adviser_id AS advisory_lead_id, advSec.co_adviser_id AS advisory_co_id,
               studSec.name AS student_section_name, studSec.grade_level AS student_grade_level, studSt.code AS student_strand_code
        FROM users u
        LEFT JOIN sections advSec ON (advSec.adviser_id = u.id OR advSec.co_adviser_id = u.id)
@@ -413,7 +425,9 @@ async function exportUsers(req, res) {
           if (u.advisory_grade_level) parts.push(`Grade ${u.advisory_grade_level}`);
           if (u.advisory_strand_code) parts.push(u.advisory_strand_code);
           const prefix = parts.join(' - ');
-          sectionOrAdvisory = `Advisory: ${prefix ? `${prefix} (${u.advisory_section_name})` : u.advisory_section_name}`;
+          const isCo = u.advisory_co_id === u.id;
+          const rolePrefix = isCo ? 'Co-Advisory' : 'Advisory';
+          sectionOrAdvisory = `${rolePrefix}: ${prefix ? `${prefix} (${u.advisory_section_name})` : u.advisory_section_name}`;
         } else {
           sectionOrAdvisory = 'No Advisory';
         }
@@ -484,13 +498,19 @@ async function getUser(req, res) {
     }
 
     let adviserSectionId = null;
+    let advisoryRole = 'lead';
     let subjectIds = [];
     let parentName = '';
     let childrenNames = '';
 
     if (user.role === 'teacher') {
-      const [[section]] = await pool.query('SELECT id FROM sections WHERE adviser_id = ? OR co_adviser_id = ? LIMIT 1', [user.id, user.id]);
-      if (section) adviserSectionId = section.id;
+      const [[section]] = await pool.query('SELECT id, adviser_id, co_adviser_id FROM sections WHERE adviser_id = ? OR co_adviser_id = ? LIMIT 1', [user.id, user.id]);
+      if (section) {
+        adviserSectionId = section.id;
+        if (section.co_adviser_id === user.id) {
+          advisoryRole = 'co';
+        }
+      }
       const [subjects] = await pool.query('SELECT subject_id FROM teacher_subjects WHERE teacher_id = ?', [user.id]);
       subjectIds = subjects.map(s => s.subject_id);
     } else if (user.role === 'student') {
@@ -518,6 +538,7 @@ async function getUser(req, res) {
       user: {
         ...user,
         adviserSectionId,
+        advisoryRole,
         subjectIds,
         parent_name: parentName,
         children_names: childrenNames,
@@ -546,6 +567,7 @@ async function updateUser(req, res) {
     parentName,
     childrenNames,
     adviserSectionId,
+    advisoryRole,
     subjectIds
   } = req.body;
   try {
@@ -654,7 +676,11 @@ async function updateUser(req, res) {
         await pool.query('UPDATE sections SET adviser_id = NULL WHERE adviser_id = ?', [user.id]);
         await pool.query('UPDATE sections SET co_adviser_id = NULL WHERE co_adviser_id = ?', [user.id]);
         if (adviserSectionId) {
-          await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [user.id, adviserSectionId]);
+          if (advisoryRole === 'co') {
+            await pool.query('UPDATE sections SET co_adviser_id = ? WHERE id = ?', [user.id, adviserSectionId]);
+          } else {
+            await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [user.id, adviserSectionId]);
+          }
         }
       }
       if (Array.isArray(subjectIds)) {

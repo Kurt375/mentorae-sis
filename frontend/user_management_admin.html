@@ -247,14 +247,22 @@
                     <!-- 3. TEACHER FIELDS -->
                     <div id="teacherRoleFields" class="role-specific-block d-none">
                         <div class="row g-3 mb-3">
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <label for="userAdviserSectionSelect"
                                     class="form-label text-dark fw-bold micro-text mb-1">Advisory Section</label>
                                 <select class="form-select form-input" id="userAdviserSectionSelect">
                                     <option value="">— Not an adviser —</option>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-8">
+                            <div class="col-12 col-md-3" id="userAdviserRoleWrap">
+                                <label for="userAdviserRoleSelect"
+                                    class="form-label text-dark fw-bold micro-text mb-1">Advisory Role</label>
+                                <select class="form-select form-input" id="userAdviserRoleSelect" disabled>
+                                    <option value="lead" selected>Lead Adviser</option>
+                                    <option value="co">Co-Adviser</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
                                 <label for="teacherSubjects" class="form-label text-dark fw-bold micro-text mb-1">
                                     Subjects Handled <span class="text-muted fw-normal">(Type to search and
                                         select)</span>
@@ -670,13 +678,20 @@
                             <label class="form-label fw-bold micro-text mb-1">Child/Children's Name(s)</label>
                             <input type="text" class="form-control form-input" id="editChildrenNames">
                         </div>
-                        <div class="col-12 col-md-6" id="editAdviserSectionWrap">
+                        <div class="col-12 col-md-4" id="editAdviserSectionWrap">
                             <label class="form-label fw-bold micro-text mb-1">Advisory Section</label>
                             <select class="form-select form-input" id="editAdviserSectionSelect">
                                 <option value="">— Not an adviser —</option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-6" id="editSubjectsHandledWrap">
+                        <div class="col-12 col-md-3" id="editAdviserRoleWrap">
+                            <label class="form-label fw-bold micro-text mb-1">Advisory Role</label>
+                            <select class="form-select form-input" id="editAdviserRoleSelect">
+                                <option value="lead" selected>Lead Adviser</option>
+                                <option value="co">Co-Adviser</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-5" id="editSubjectsHandledWrap">
                             <label class="form-label fw-bold micro-text mb-1">Subjects Handled</label>
                             <select class="form-select form-input" id="editSubjectsHandledSelect" multiple
                                 size="4"></select>
@@ -768,7 +783,7 @@
     <script src="config.js"></script>
     <script src="session.js"></script>
     <script src="avatar_cropper.js"></script>
-    <script src="user_management_admin.js?v=20261016-1"></script>
+    <script src="user_management_admin.js?v=20261016-2"></script>
 </body>
 
 </html>
