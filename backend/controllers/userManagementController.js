@@ -324,7 +324,7 @@ async function listUsers(req, res) {
     const [[{ total }]] = await pool.query(
       `SELECT COUNT(DISTINCT u.id) AS total
        FROM users u
-       LEFT JOIN sections advSec ON advSec.adviser_id = u.id
+       LEFT JOIN sections advSec ON (advSec.adviser_id = u.id OR advSec.co_adviser_id = u.id)
        LEFT JOIN sections studSec ON studSec.id = u.section_id
        ${whereClause}`,
       params
@@ -338,7 +338,7 @@ async function listUsers(req, res) {
               studSec.id AS student_section_id, studSec.name AS student_section_name, studSec.grade_level AS student_grade_level,
               studSt.code AS student_strand_code
        FROM users u
-       LEFT JOIN sections advSec ON advSec.adviser_id = u.id
+       LEFT JOIN sections advSec ON (advSec.adviser_id = u.id OR advSec.co_adviser_id = u.id)
        LEFT JOIN strands advSt ON advSt.id = advSec.strand_id
        LEFT JOIN sections studSec ON studSec.id = u.section_id
        LEFT JOIN strands studSt ON studSt.id = studSec.strand_id
@@ -395,7 +395,7 @@ async function exportUsers(req, res) {
               advSec.name AS advisory_section_name, advSec.grade_level AS advisory_grade_level, advSt.code AS advisory_strand_code,
               studSec.name AS student_section_name, studSec.grade_level AS student_grade_level, studSt.code AS student_strand_code
        FROM users u
-       LEFT JOIN sections advSec ON advSec.adviser_id = u.id
+       LEFT JOIN sections advSec ON (advSec.adviser_id = u.id OR advSec.co_adviser_id = u.id)
        LEFT JOIN strands advSt ON advSt.id = advSec.strand_id
        LEFT JOIN sections studSec ON studSec.id = u.section_id
        LEFT JOIN strands studSt ON studSt.id = studSec.strand_id
@@ -489,7 +489,7 @@ async function getUser(req, res) {
     let childrenNames = '';
 
     if (user.role === 'teacher') {
-      const [[section]] = await pool.query('SELECT id FROM sections WHERE adviser_id = ?', [user.id]);
+      const [[section]] = await pool.query('SELECT id FROM sections WHERE adviser_id = ? OR co_adviser_id = ? LIMIT 1', [user.id, user.id]);
       if (section) adviserSectionId = section.id;
       const [subjects] = await pool.query('SELECT subject_id FROM teacher_subjects WHERE teacher_id = ?', [user.id]);
       subjectIds = subjects.map(s => s.subject_id);
@@ -652,6 +652,7 @@ async function updateUser(req, res) {
     if (user.role === 'teacher') {
       if (adviserSectionId !== undefined) {
         await pool.query('UPDATE sections SET adviser_id = NULL WHERE adviser_id = ?', [user.id]);
+        await pool.query('UPDATE sections SET co_adviser_id = NULL WHERE co_adviser_id = ?', [user.id]);
         if (adviserSectionId) {
           await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [user.id, adviserSectionId]);
         }

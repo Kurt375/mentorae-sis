@@ -147,19 +147,25 @@ async function browseStrands(req, res) {
 async function browseSections(req, res) {
   try {
     const [rows] = await pool.query(
-      `SELECT s.id, s.name, s.grade_level, s.strand_id, s.adviser_id,
+      `SELECT s.id, s.name, s.grade_level, s.strand_id, s.adviser_id, s.co_adviser_id,
               st.code AS strandCode, st.title AS strandTitle,
               adv.first_name AS advFirst, adv.middle_initial AS advMiddle, adv.last_name AS advLast,
+              coadv.first_name AS coadvFirst, coadv.middle_initial AS coadvMiddle, coadv.last_name AS coadvLast,
               (SELECT COUNT(*) FROM users u WHERE u.section_id = s.id AND u.role = 'student') AS enrollees
        FROM sections s
        JOIN strands st ON st.id = s.strand_id
        LEFT JOIN users adv ON adv.id = s.adviser_id
+       LEFT JOIN users coadv ON coadv.id = s.co_adviser_id
        ORDER BY st.code ASC, s.grade_level ASC, s.name ASC`
     );
     const records = rows.map((r) => {
       const adviserName = r.advLast
         ? `${r.advFirst} ${r.advMiddle ? r.advMiddle + ' ' : ''}${r.advLast}`
         : 'Unassigned';
+      const coAdviserName = r.coadvLast
+        ? `${r.coadvFirst} ${r.coadvMiddle ? r.coadvMiddle + ' ' : ''}${r.coadvLast}`
+        : null;
+      const combinedAdvisers = coAdviserName ? `${adviserName} & ${coAdviserName}` : adviserName;
       return {
         id: r.id,
         name: r.name,
@@ -169,11 +175,13 @@ async function browseSections(req, res) {
         gradeLevel: r.grade_level,
         adviserId: r.adviser_id,
         adviserName,
+        coAdviserId: r.co_adviser_id,
+        coAdviserName,
         enrollees: r.enrollees,
         f1: r.name,
         f2: `${r.strandCode} - ${r.strandTitle}`,
         f3: `Grade ${r.grade_level}`,
-        f4: adviserName,
+        f4: combinedAdvisers,
         f5: `${r.enrollees} Students`,
       };
     });
@@ -212,7 +220,7 @@ async function browseAdvisers(req, res) {
 
 /** POST /api/database/sections — Create a new section */
 async function createSection(req, res) {
-  const { name, strandId, gradeLevel, adviserId } = req.body;
+  const { name, strandId, gradeLevel, adviserId, coAdviserId } = req.body;
   if (!name || !strandId || !gradeLevel) {
     return res.status(400).json({ success: false, message: 'Section name, strand, and grade level are required.' });
   }
@@ -222,6 +230,7 @@ async function createSection(req, res) {
     const gLevel = parseInt(gradeLevel, 10);
     const sId = parseInt(strandId, 10);
     const advId = adviserId && !isNaN(parseInt(adviserId, 10)) ? parseInt(adviserId, 10) : null;
+    const coAdvId = coAdviserId && !isNaN(parseInt(coAdviserId, 10)) ? parseInt(coAdviserId, 10) : null;
 
     const [existing] = await pool.query(
       'SELECT id FROM sections WHERE strand_id = ? AND grade_level = ? AND name = ? LIMIT 1',
@@ -232,8 +241,8 @@ async function createSection(req, res) {
     }
 
     const [result] = await pool.query(
-      'INSERT INTO sections (strand_id, grade_level, name, adviser_id) VALUES (?, ?, ?, ?)',
-      [sId, gLevel, cleanName, advId]
+      'INSERT INTO sections (strand_id, grade_level, name, adviser_id, co_adviser_id) VALUES (?, ?, ?, ?, ?)',
+      [sId, gLevel, cleanName, advId, coAdvId]
     );
 
     return res.status(201).json({
@@ -250,7 +259,7 @@ async function createSection(req, res) {
 /** PUT /api/database/sections/:id — Update existing section */
 async function updateSection(req, res) {
   const sectionId = req.params.id;
-  const { name, strandId, gradeLevel, adviserId } = req.body;
+  const { name, strandId, gradeLevel, adviserId, coAdviserId } = req.body;
   if (!sectionId || !name || !strandId || !gradeLevel) {
     return res.status(400).json({ success: false, message: 'Section ID, name, strand, and grade level are required.' });
   }
@@ -260,6 +269,7 @@ async function updateSection(req, res) {
     const gLevel = parseInt(gradeLevel, 10);
     const sId = parseInt(strandId, 10);
     const advId = adviserId && !isNaN(parseInt(adviserId, 10)) ? parseInt(adviserId, 10) : null;
+    const coAdvId = coAdviserId && !isNaN(parseInt(coAdviserId, 10)) ? parseInt(coAdviserId, 10) : null;
 
     const [target] = await pool.query('SELECT id FROM sections WHERE id = ?', [sectionId]);
     if (target.length === 0) {
@@ -275,8 +285,8 @@ async function updateSection(req, res) {
     }
 
     await pool.query(
-      'UPDATE sections SET strand_id = ?, grade_level = ?, name = ?, adviser_id = ? WHERE id = ?',
-      [sId, gLevel, cleanName, advId, sectionId]
+      'UPDATE sections SET strand_id = ?, grade_level = ?, name = ?, adviser_id = ?, co_adviser_id = ? WHERE id = ?',
+      [sId, gLevel, cleanName, advId, coAdvId, sectionId]
     );
 
     return res.json({ success: true, message: `Section "${cleanName}" updated successfully.` });
@@ -537,19 +547,22 @@ async function exportSectionsCSV(req, res) {
     const [rows] = await pool.query(
       `SELECT s.name, s.grade_level, st.code AS strandCode, st.title AS strandTitle,
               adv.first_name AS advFirst, adv.middle_initial AS advMiddle, adv.last_name AS advLast,
+              coadv.first_name AS coadvFirst, coadv.middle_initial AS coadvMiddle, coadv.last_name AS coadvLast,
               (SELECT COUNT(*) FROM users u WHERE u.section_id = s.id AND u.role = 'student') AS enrollees
        FROM sections s
        JOIN strands st ON st.id = s.strand_id
        LEFT JOIN users adv ON adv.id = s.adviser_id
+       LEFT JOIN users coadv ON coadv.id = s.co_adviser_id
        ORDER BY st.code ASC, s.grade_level ASC, s.name ASC`
     );
-    const headers = ['Section Name', 'Strand Code', 'Strand Title', 'Grade Level', 'Class Adviser', 'Active Enrollees'];
+    const headers = ['Section Name', 'Strand Code', 'Strand Title', 'Grade Level', 'Class Adviser', 'Co-Adviser', 'Active Enrollees'];
     const dataRows = rows.map((r) => [
       r.name || '',
       r.strandCode || '',
       r.strandTitle || '',
       `Grade ${r.grade_level}`,
       r.advLast ? `${r.advFirst} ${r.advMiddle ? r.advMiddle + ' ' : ''}${r.advLast}` : 'Unassigned',
+      r.coadvLast ? `${r.coadvFirst} ${r.coadvMiddle ? r.coadvMiddle + ' ' : ''}${r.coadvLast}` : 'Unassigned',
       r.enrollees || 0,
     ]);
     return sendDataExport(res, {

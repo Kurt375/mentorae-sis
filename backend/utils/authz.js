@@ -48,7 +48,10 @@ async function canViewStudent(user, studentId) {
   }
   if (user.role === 'teacher') {
     const teaches = await teacherTeachesStudent(user.id, studentId);
-    return teaches ? { ok: true } : { ok: false, status: 403, message: 'You do not teach this student.' };
+    if (teaches) return { ok: true };
+    const isAdv = await isTeacherAdviserOfStudent(user.id, studentId);
+    if (isAdv) return { ok: true };
+    return { ok: false, status: 403, message: 'You do not teach or advise this student.' };
   }
   return { ok: false, status: 403, message: 'You do not have permission to view this.' };
 }
@@ -59,13 +62,43 @@ async function getParentIdsForStudent(studentId) {
   return rows.map((r) => r.parent_id);
 }
 
-/** The adviser (teacher user id) of a student's section, or null. */
+/** The primary adviser (teacher user id) of a student's section, or null. */
 async function getAdviserIdForStudent(studentId) {
   const [rows] = await pool.query(
     `SELECT sec.adviser_id FROM users u JOIN sections sec ON sec.id = u.section_id WHERE u.id = ?`,
     [studentId]
   );
   return rows[0]?.adviser_id || null;
+}
+
+/** Both primary adviser and co-adviser IDs for a student's section. */
+async function getAdviserIdsForStudent(studentId) {
+  const [rows] = await pool.query(
+    `SELECT sec.adviser_id, sec.co_adviser_id FROM users u JOIN sections sec ON sec.id = u.section_id WHERE u.id = ?`,
+    [studentId]
+  );
+  if (!rows[0]) return [];
+  return [rows[0].adviser_id, rows[0].co_adviser_id].filter(Boolean);
+}
+
+/** Check if teacher is either the adviser or co-adviser of the student's section. */
+async function isTeacherAdviserOfStudent(teacherId, studentId) {
+  const [rows] = await pool.query(
+    `SELECT 1 FROM users u 
+     JOIN sections sec ON sec.id = u.section_id 
+     WHERE u.id = ? AND (sec.adviser_id = ? OR sec.co_adviser_id = ?) LIMIT 1`,
+    [studentId, teacherId, teacherId]
+  );
+  return !!rows[0];
+}
+
+/** Check if teacher is either the adviser or co-adviser of a section. */
+async function teacherIsSectionAdviser(teacherId, sectionId) {
+  const [rows] = await pool.query(
+    `SELECT 1 FROM sections WHERE id = ? AND (adviser_id = ? OR co_adviser_id = ?) LIMIT 1`,
+    [sectionId, teacherId, teacherId]
+  );
+  return !!rows[0];
 }
 
 module.exports = {
@@ -75,4 +108,7 @@ module.exports = {
   canViewStudent,
   getParentIdsForStudent,
   getAdviserIdForStudent,
+  getAdviserIdsForStudent,
+  isTeacherAdviserOfStudent,
+  teacherIsSectionAdviser,
 };

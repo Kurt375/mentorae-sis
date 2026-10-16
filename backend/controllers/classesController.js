@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
-const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent } = require('../utils/authz');
+const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent, isTeacherAdviserOfStudent } = require('../utils/authz');
 const { getManilaDate } = require('../utils/dateUtils');
 
 /**
@@ -46,9 +46,9 @@ async function getRosterOverview(req, res) {
            LEFT JOIN sections sec ON sec.id = u.section_id
            WHERE u.role = 'student'
              AND (u.section_id IN (SELECT section_id FROM schedules WHERE teacher_id = ?)
-                  OR u.section_id IN (SELECT id FROM sections WHERE adviser_id = ?))
+                  OR u.section_id IN (SELECT id FROM sections WHERE adviser_id = ? OR co_adviser_id = ?))
            ORDER BY u.last_name`,
-          [today, req.user.id, req.user.id]
+          [today, req.user.id, req.user.id, req.user.id]
         );
       }
     } else {
@@ -93,8 +93,8 @@ async function getRosterOverview(req, res) {
          FROM users u
          WHERE u.role = 'student'
            AND (u.section_id IN (SELECT section_id FROM schedules WHERE teacher_id = ?)
-                OR u.section_id IN (SELECT id FROM sections WHERE adviser_id = ?))`,
-        [today, req.user.id, req.user.id]
+                OR u.section_id IN (SELECT id FROM sections WHERE adviser_id = ? OR co_adviser_id = ?))`,
+        [today, req.user.id, req.user.id, req.user.id]
       );
     }
 
@@ -124,29 +124,29 @@ async function getMySections(req, res) {
   try {
     let [rows] = await pool.query(
       `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
-              IF(sec.adviser_id = ?, 1, 0) AS isAdvisory,
+              IF(sec.adviser_id = ? OR sec.co_adviser_id = ?, 1, 0) AS isAdvisory,
               GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') AS subjectsTaught
        FROM sections sec
        JOIN strands st ON st.id = sec.strand_id
        LEFT JOIN schedules sch ON sch.section_id = sec.id AND sch.teacher_id = ?
        LEFT JOIN subjects sub ON sub.id = sch.subject_id
-       WHERE sch.teacher_id = ? OR sec.adviser_id = ?
-       GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id
+       WHERE sch.teacher_id = ? OR sec.adviser_id = ? OR sec.co_adviser_id = ?
+       GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id, sec.co_adviser_id
        ORDER BY isAdvisory DESC, st.code, sec.grade_level, sec.name`,
-      [req.user.id, req.user.id, req.user.id, req.user.id]
+      [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
     );
     if (!rows.length || req.user.role === 'admin') {
       [rows] = await pool.query(
         `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
-                IF(sec.adviser_id = ?, 1, 0) AS isAdvisory,
+                IF(sec.adviser_id = ? OR sec.co_adviser_id = ?, 1, 0) AS isAdvisory,
                 GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') AS subjectsTaught
          FROM sections sec
          JOIN strands st ON st.id = sec.strand_id
          LEFT JOIN schedules sch ON sch.section_id = sec.id
          LEFT JOIN subjects sub ON sub.id = sch.subject_id
-         GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id
+         GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id, sec.co_adviser_id
          ORDER BY isAdvisory DESC, st.code, sec.grade_level, sec.name`,
-        [req.user.id]
+        [req.user.id, req.user.id]
       );
     }
     return res.json({ success: true, sections: rows });
@@ -210,7 +210,7 @@ async function getMyAssignedClasses(req, res) {
          sec.name AS sectionName,
          sec.grade_level AS gradeLevel,
          st.code AS strand,
-         IF(sec.adviser_id = ?, 1, 0) AS isAdvisory,
+         IF(sec.adviser_id = ? OR sec.co_adviser_id = ?, 1, 0) AS isAdvisory,
          (SELECT COUNT(*) FROM users u WHERE u.section_id = sec.id AND u.role = 'student') AS studentCount
        FROM schedules sch
        JOIN subjects sub ON sub.id = sch.subject_id
@@ -218,7 +218,7 @@ async function getMyAssignedClasses(req, res) {
        JOIN strands st ON st.id = sec.strand_id
        WHERE sch.teacher_id = ?
        ORDER BY sec.name, sub.name`,
-      [req.user.id, req.user.id]
+      [req.user.id, req.user.id, req.user.id]
     );
 
     return res.json({ success: true, assignedClasses: rows });
@@ -249,7 +249,7 @@ async function updateStudentAvatar(req, res) {
 
     if (req.user.role !== 'admin') {
       const teaches = await teacherTeachesStudent(req.user.id, studentId);
-      const isAdviser = (await getAdviserIdForStudent(studentId)) === req.user.id;
+      const isAdviser = await isTeacherAdviserOfStudent(req.user.id, studentId);
       if (!teaches && !isAdviser) {
         return res.status(403).json({
           success: false,

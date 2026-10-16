@@ -102,11 +102,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const addAdvSel = document.getElementById('addSectionAdviser');
         if (addAdvSel) addAdvSel.innerHTML = adviserOptions;
 
+        const addCoAdvSel = document.getElementById('addSectionCoAdviser');
+        if (addCoAdvSel) addCoAdvSel.innerHTML = adviserOptions;
+
         const editStrandSel = document.getElementById('editSectionStrand');
         if (editStrandSel) editStrandSel.innerHTML = strandOptions;
 
         const editAdvSel = document.getElementById('editSectionAdviser');
         if (editAdvSel) editAdvSel.innerHTML = adviserOptions;
+
+        const editCoAdvSel = document.getElementById('editSectionCoAdviser');
+        if (editCoAdvSel) editCoAdvSel.innerHTML = adviserOptions;
     }
 
     function setupCategoryFilters(category) {
@@ -528,9 +534,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-3 py-2"><span class="badge bg-light text-dark border">${escapeHtml(r.f2 || r.strandCode)}</span></td>
                     <td class="px-3 py-2"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">${escapeHtml(r.f3 || ('Grade ' + r.gradeLevel))}</span></td>
                     <td class="px-3 py-2">
-                        ${r.adviserName && r.adviserName !== 'Unassigned'
-                    ? `<i class="bi bi-person-badge text-primary me-1"></i>${escapeHtml(r.adviserName)}`
-                    : '<span class="text-muted fst-italic">Unassigned</span>'}
+                        <div>
+                            ${r.adviserName && r.adviserName !== 'Unassigned'
+                        ? `<div class="d-flex align-items-center gap-1.5"><i class="bi bi-person-badge text-success"></i><span class="fw-semibold">${escapeHtml(r.adviserName)}</span> <span class="badge bg-success-subtle text-success border border-success-subtle micro-text">Lead</span></div>`
+                        : '<span class="text-muted fst-italic">Unassigned</span>'}
+                        </div>
+                        ${r.coAdviserName && r.coAdviserName !== 'Unassigned'
+                        ? `<div class="d-flex align-items-center gap-1.5 mt-1 text-secondary micro-text"><i class="bi bi-person-check text-primary"></i><span>Co-Adv: ${escapeHtml(r.coAdviserName)}</span></div>`
+                        : ''}
                     </td>
                     <td class="px-3 py-2 fw-semibold">${escapeHtml(r.f5 || (r.enrollees + ' Students'))}</td>
                     <td class="px-3 py-2 text-end text-nowrap">
@@ -539,7 +550,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             data-name="${escapeHtml(r.name || r.f1)}"
                             data-strand-id="${r.strandId || ''}"
                             data-grade-level="${r.gradeLevel || ''}"
-                            data-adviser-id="${r.adviserId || ''}">
+                            data-adviser-id="${r.adviserId || ''}"
+                            data-co-adviser-id="${r.coAdviserId || ''}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
                         <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-delete-section"
@@ -761,12 +773,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const strandId = btn.dataset.strandId;
                 const gradeLevel = btn.dataset.gradeLevel;
                 const adviserId = btn.dataset.adviserId;
+                const coAdviserId = btn.dataset.coAdviserId;
 
                 document.getElementById('editSectionId').value = id;
                 document.getElementById('editSectionName').value = name;
                 document.getElementById('editSectionStrand').value = strandId;
                 document.getElementById('editSectionGrade').value = gradeLevel;
                 document.getElementById('editSectionAdviser').value = adviserId || '';
+                document.getElementById('editSectionCoAdviser').value = coAdviserId || '';
 
                 if (modalEditSection) modalEditSection.show();
             });
@@ -803,6 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const strandId = document.getElementById('addSectionStrand').value;
             const gradeLevel = document.getElementById('addSectionGrade').value;
             const adviserId = document.getElementById('addSectionAdviser').value || null;
+            const coAdviserId = document.getElementById('addSectionCoAdviser').value || null;
 
             if (!name || !strandId || !gradeLevel) {
                 alert('Please fill out all required fields.');
@@ -816,7 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await authedFetch('/api/database/sections', token, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, strandId, gradeLevel, adviserId })
+                    body: JSON.stringify({ name, strandId, gradeLevel, adviserId, coAdviserId })
                 });
 
                 if (!res.success) {
@@ -846,6 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const strandId = document.getElementById('editSectionStrand').value;
             const gradeLevel = document.getElementById('editSectionGrade').value;
             const adviserId = document.getElementById('editSectionAdviser').value || null;
+            const coAdviserId = document.getElementById('editSectionCoAdviser').value || null;
 
             if (!name || !strandId || !gradeLevel) {
                 alert('Please fill out all required fields.');
@@ -859,7 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await authedFetch(`/api/database/sections/${id}`, token, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, strandId, gradeLevel, adviserId })
+                    body: JSON.stringify({ name, strandId, gradeLevel, adviserId, coAdviserId })
                 });
 
                 if (!res.success) {

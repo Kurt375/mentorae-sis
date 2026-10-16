@@ -1016,8 +1016,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const gwaText = overallGrade !== null ? `${overallGrade} (${overallRemarks})` : '--';
         if (rcGwa) rcGwa.textContent = gwaText;
-        if (rcGradingPeriod) rcGradingPeriod.textContent = grades[0]?.term ? `Academic Year 2026-2027 • ${grades[0].term}` : 'Academic Year 2026-2027';
-        if (rcAdviserName) rcAdviserName.textContent = student?.adviserName || (grades.find((g) => g.teacherName && g.teacherName !== 'No Teacher Assigned')?.teacherName) || 'Class Adviser';
+        if (rcAdviserName) {
+            const adv = student?.adviserName || (grades.find((g) => g.teacherName && g.teacherName !== 'No Teacher Assigned')?.teacherName) || 'Class Adviser';
+            rcAdviserName.textContent = student?.coAdviserName ? `${adv} / ${student.coAdviserName}` : adv;
+        }
 
         if (rcTableBody) {
             if (!grades || grades.length === 0) {

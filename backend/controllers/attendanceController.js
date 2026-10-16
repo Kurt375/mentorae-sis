@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { parsePagination, paginatedMeta } = require('../utils/pagination');
-const { teacherTeachesSection, canViewStudent, getParentIdsForStudent, getAdviserIdForStudent } = require('../utils/authz');
+const { teacherTeachesSection, canViewStudent, getParentIdsForStudent, getAdviserIdForStudent, getAdviserIdsForStudent } = require('../utils/authz');
 const { notify, notifyMany } = require('../utils/notifications');
 const {
   getManilaDate,
@@ -192,9 +192,9 @@ async function checkSessionLock(teacherId, sectionId, subjectId) {
   const today = getManilaDayOfWeek();
   const nowStr = getManilaTime();
 
-  // Check if this teacher is the official section adviser
-  const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
-  const isAdviser = Boolean(sec && sec.adviser_id === teacherId);
+  // Check if this teacher is the official section adviser or co-adviser
+  const [[sec]] = await pool.query('SELECT adviser_id, co_adviser_id FROM sections WHERE id = ?', [sectionId]);
+  const isAdviser = Boolean(sec && (sec.adviser_id === teacherId || sec.co_adviser_id === teacherId));
 
   // Helper to format HH:MM:SS to 12-hour format (e.g. 8:30 AM)
   const formatTime12 = (t) => {
@@ -330,8 +330,8 @@ async function getConfirmationRoster(req, res) {
   }
 
   try {
-    const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
-    const isAdviser = Boolean(sec && sec.adviser_id === req.user.id);
+    const [[sec]] = await pool.query('SELECT adviser_id, co_adviser_id FROM sections WHERE id = ?', [sectionId]);
+    const isAdviser = Boolean(sec && (sec.adviser_id === req.user.id || sec.co_adviser_id === req.user.id));
 
     if (req.user.role === 'teacher') {
       const teaches = await teacherTeachesSection(req.user.id, sectionId);
@@ -494,14 +494,16 @@ async function confirmAttendanceOut(req, res) {
     });
 
     if (isEarly) {
-      const adviserId = await getAdviserIdForStudent(studentId);
-      await notify({
-        recipientId: adviserId,
-        type: 'adviser_early_leave',
-        title: 'Student left early',
-        message: `A student from your section left campus early today (${record.time_out}).`,
-        relatedStudentId: studentId,
-      });
+      const adviserIds = await getAdviserIdsForStudent(studentId);
+      for (const advId of adviserIds) {
+        await notify({
+          recipientId: advId,
+          type: 'adviser_early_leave',
+          title: 'Student left early',
+          message: `A student from your section left campus early today (${record.time_out}).`,
+          relatedStudentId: studentId,
+        });
+      }
     }
 
     return res.json({ success: true, message: 'Time-out confirmed.' });
@@ -524,8 +526,8 @@ async function finishSectionConfirmation(req, res) {
 
   try {
     if (req.user.role === 'teacher') {
-      const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
-      const isAdviser = Boolean(sec && sec.adviser_id === req.user.id);
+      const [[sec]] = await pool.query('SELECT adviser_id, co_adviser_id FROM sections WHERE id = ?', [sectionId]);
+      const isAdviser = Boolean(sec && (sec.adviser_id === req.user.id || sec.co_adviser_id === req.user.id));
       const teaches = await teacherTeachesSection(req.user.id, sectionId);
       if (!teaches && !isAdviser) {
         return res.status(403).json({ success: false, message: 'You do not teach or advise this section.' });
@@ -562,14 +564,16 @@ async function finishSectionConfirmation(req, res) {
       });
 
       if (isEarly) {
-        const adviserId = await getAdviserIdForStudent(record.student_id);
-        await notify({
-          recipientId: adviserId,
-          type: 'adviser_early_leave',
-          title: 'Student left early',
-          message: `A student from your section left campus early today (${record.time_out}).`,
-          relatedStudentId: record.student_id,
-        });
+        const adviserIds = await getAdviserIdsForStudent(record.student_id);
+        for (const advId of adviserIds) {
+          await notify({
+            recipientId: advId,
+            type: 'adviser_early_leave',
+            title: 'Student left early',
+            message: `A student from your section left campus early today (${record.time_out}).`,
+            relatedStudentId: record.student_id,
+          });
+        }
       }
     }
 
@@ -610,8 +614,8 @@ async function getSectionDailyHistory(req, res) {
 
   try {
     if (req.user.role === 'teacher') {
-      const [[sec]] = await pool.query('SELECT adviser_id FROM sections WHERE id = ?', [sectionId]);
-      const isAdviser = Boolean(sec && sec.adviser_id === req.user.id);
+      const [[sec]] = await pool.query('SELECT adviser_id, co_adviser_id FROM sections WHERE id = ?', [sectionId]);
+      const isAdviser = Boolean(sec && (sec.adviser_id === req.user.id || sec.co_adviser_id === req.user.id));
       const teaches = await teacherTeachesSection(req.user.id, sectionId);
       if (!teaches && !isAdviser) {
         return res.status(403).json({ success: false, message: 'You do not teach or advise this section.' });
@@ -818,10 +822,10 @@ async function listExcuseNotes(req, res) {
       where.push('en.parent_id = ?');
       params.push(req.user.id);
     } else if (req.user.role === 'teacher') {
-      // Find sections where teacher is adviser or instructor
+      // Find sections where teacher is adviser, co-adviser, or instructor
       const [secRows] = await pool.query(
-        'SELECT id FROM sections WHERE adviser_id = ? UNION SELECT DISTINCT section_id FROM schedules WHERE teacher_id = ?',
-        [req.user.id, req.user.id]
+        'SELECT id FROM sections WHERE adviser_id = ? OR co_adviser_id = ? UNION SELECT DISTINCT section_id FROM schedules WHERE teacher_id = ?',
+        [req.user.id, req.user.id, req.user.id]
       );
       const secIds = secRows.map((s) => s.id);
       if (!secIds.length) {
@@ -967,8 +971,8 @@ async function getTeacherPendingSummary(req, res) {
         `SELECT DISTINCT sec.id
          FROM sections sec
          LEFT JOIN schedules sch ON sch.section_id = sec.id AND sch.teacher_id = ?
-         WHERE sec.adviser_id = ? OR sch.teacher_id = ?`,
-        [teacherId, teacherId, teacherId]
+         WHERE (sec.adviser_id = ? OR sec.co_adviser_id = ?) OR sch.teacher_id = ?`,
+        [teacherId, teacherId, teacherId, teacherId]
       );
       sectionIds = secs.map((s) => s.id);
     }

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS sections (
   grade_level  TINYINT NOT NULL,               -- 11 or 12
   name         VARCHAR(150) NOT NULL,          -- e.g. "Biomedical Engineering"
   adviser_id   INT NULL,                       -- teacher user id
+  co_adviser_id INT NULL,                      -- co-adviser teacher user id
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (strand_id)  REFERENCES strands(id) ON DELETE CASCADE,
   UNIQUE KEY uniq_section (strand_id, grade_level, name)
@@ -69,6 +70,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE sections ADD CONSTRAINT fk_section_adviser FOREIGN KEY (adviser_id) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE sections ADD CONSTRAINT fk_section_co_adviser FOREIGN KEY (co_adviser_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- Parent <-> Student links (a parent can have more than one child)
 CREATE TABLE IF NOT EXISTS parent_student_links (

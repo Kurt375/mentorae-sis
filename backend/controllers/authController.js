@@ -513,9 +513,9 @@ async function getProfile(req, res) {
         `SELECT sec.name, sec.grade_level, st.code AS strandCode
          FROM sections sec
          LEFT JOIN strands st ON st.id = sec.strand_id
-         WHERE sec.adviser_id = ?
+         WHERE sec.adviser_id = ? OR sec.co_adviser_id = ?
          LIMIT 1`,
-        [req.user.id]
+        [req.user.id, req.user.id]
       );
       if (advRows[0]) {
         const adv = advRows[0];
@@ -803,9 +803,9 @@ async function getStatusSummary(req, res) {
         `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode
          FROM sections sec
          LEFT JOIN strands st ON st.id = sec.strand_id
-         WHERE sec.adviser_id = ?
+         WHERE sec.adviser_id = ? OR sec.co_adviser_id = ?
          LIMIT 1`,
-        [req.user.id]
+        [req.user.id, req.user.id]
       );
       if (advRows[0]) {
         const adv = advRows[0];

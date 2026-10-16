@@ -229,11 +229,13 @@ async function computeStudentGradePerformance(studentId) {
     `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
             u.section_id, s.name AS sectionName, s.grade_level AS gradeLevel,
             st.code AS strandCode, st.title AS strandTitle,
-            CONCAT(adv.first_name, ' ', adv.last_name) AS adviserName
+            CONCAT(adv.first_name, ' ', adv.last_name) AS adviserName,
+            CONCAT(coadv.first_name, ' ', coadv.last_name) AS coAdviserName
      FROM users u
      LEFT JOIN sections s ON s.id = u.section_id
      LEFT JOIN strands st ON st.id = s.strand_id
      LEFT JOIN users adv ON adv.id = s.adviser_id
+     LEFT JOIN users coadv ON coadv.id = s.co_adviser_id
      WHERE u.id = ?`,
     [studentId]
   );
@@ -512,6 +514,7 @@ async function computeStudentGradePerformance(studentId) {
     sectionFormatted: sectionStr || 'Senior High School',
     trackStrand: s.strandCode ? `Academic Track - ${s.strandCode}` : 'Academic Track - SHS',
     adviserName: s.adviserName || 'Class Adviser',
+    coAdviserName: s.coAdviserName || null,
     rank: rank,
     rankLabel: getRankSuffix(rank),
     totalStudents: totalStudents,
@@ -707,12 +710,14 @@ async function getSectionReportCards(req, res) {
   try {
     // 1. Fetch section and adviser info
     const [[sec]] = await pool.query(
-      `SELECT sec.id, sec.name AS sectionName, sec.grade_level, sec.adviser_id,
+      `SELECT sec.id, sec.name AS sectionName, sec.grade_level, sec.adviser_id, sec.co_adviser_id,
               st.code AS strandCode, st.title AS strandName, st.department AS track,
-              CONCAT(adv.first_name, ' ', IFNULL(CONCAT(adv.middle_initial, ' '), ''), adv.last_name) AS adviserName
+              CONCAT(adv.first_name, ' ', IFNULL(CONCAT(adv.middle_initial, ' '), ''), adv.last_name) AS adviserName,
+              CONCAT(coadv.first_name, ' ', IFNULL(CONCAT(coadv.middle_initial, ' '), ''), coadv.last_name) AS coAdviserName
        FROM sections sec
        JOIN strands st ON st.id = sec.strand_id
        LEFT JOIN users adv ON adv.id = sec.adviser_id
+       LEFT JOIN users coadv ON coadv.id = sec.co_adviser_id
        WHERE sec.id = ?`,
       [sectionId]
     );
@@ -721,7 +726,7 @@ async function getSectionReportCards(req, res) {
     }
 
     if (req.user.role === 'teacher') {
-      const isAdviser = sec.adviser_id === req.user.id;
+      const isAdviser = Boolean(sec.adviser_id === req.user.id || sec.co_adviser_id === req.user.id);
       const teaches = await teacherTeachesSection(req.user.id, sectionId);
       if (!isAdviser && !teaches) {
         return res.status(403).json({ success: false, message: 'You are not authorized to view report cards for this section.' });
@@ -750,6 +755,7 @@ async function getSectionReportCards(req, res) {
           strandName: sec.strandName,
           track: sec.track || 'Academic Track',
           adviserName: fallbackAdviserName,
+          coAdviserName: sec.coAdviserName || null,
         },
         term,
         reportCards: [],
@@ -869,6 +875,7 @@ async function getSectionReportCards(req, res) {
         strandName: sec.strandName,
         track: sec.track || 'Academic Track',
         adviserName: fallbackAdviserName,
+        coAdviserName: sec.coAdviserName || null,
       },
       term,
       reportCards,
