@@ -1379,10 +1379,34 @@ async function bulkImportStudents(req, res) {
   // Pre-fetch reference data to eliminate hundreds of remote DB queries
   // ----------------------------------------------------
   const [allSections] = await pool.query(
-    `SELECT sec.id, sec.name, sec.grade_level, st.code AS strand_code
+    `SELECT sec.id, sec.name, sec.grade_level, sec.strand_id, st.code AS strand_code
      FROM sections sec
      JOIN strands st ON st.id = sec.strand_id`
   );
+
+  function levenshteinDistance(a, b) {
+    const m = a.length, n = b.length;
+    const d = [];
+    for (let i = 0; i <= m; i++) d[i] = [i];
+    for (let j = 0; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      }
+    }
+    return d[m][n];
+  }
+
+  function stringSimilarity(a, b) {
+    if (!a || !b) return 0;
+    const s1 = String(a).trim().toLowerCase();
+    const s2 = String(b).trim().toLowerCase();
+    if (s1 === s2) return 1.0;
+    const maxLen = Math.max(s1.length, s2.length);
+    if (maxLen === 0) return 1.0;
+    return (maxLen - levenshteinDistance(s1, s2)) / maxLen;
+  }
 
   function findSectionCached(strandCode, gradeLevel, sectionName) {
     if (!sectionName) return null;
@@ -1413,6 +1437,19 @@ async function bulkImportStudents(req, res) {
     const prefixMatches = allSections.filter(s => s.name.trim().toLowerCase().startsWith(normName));
     if (prefixMatches.length === 1) return prefixMatches[0];
 
+    // Fuzzy fallback for minor typos (>= 85% similarity)
+    let best = null;
+    let bestSim = 0;
+    for (const s of allSections) {
+      if (normGrade && String(s.grade_level).trim() !== normGrade) continue;
+      const sim = stringSimilarity(normName, s.name.trim().toLowerCase());
+      if (sim > bestSim) {
+        bestSim = sim;
+        best = s;
+      }
+    }
+    if (bestSim >= 0.85) return best;
+
     return null;
   }
 
@@ -1426,7 +1463,22 @@ async function bulkImportStudents(req, res) {
     );
     if (exact) return exact;
     const prefix = allSubjects.find(s => s.name.trim().toLowerCase().startsWith(norm));
-    return prefix || null;
+    if (prefix) return prefix;
+
+    // Fuzzy match for minor typos in subject names (>= 85% similarity)
+    let bestSubj = null;
+    let bestSubjSim = 0;
+    for (const s of allSubjects) {
+      const sim = Math.max(
+        stringSimilarity(norm, s.name.trim().toLowerCase()),
+        s.code ? stringSimilarity(norm, s.code.trim().toLowerCase()) : 0
+      );
+      if (sim > bestSubjSim) {
+        bestSubjSim = sim;
+        bestSubj = s;
+      }
+    }
+    return bestSubjSim >= 0.85 ? bestSubj : null;
   }
 
   const [existingUsers] = await pool.query(
@@ -1793,32 +1845,105 @@ async function bulkImportStudents(req, res) {
           tTempPass = '(Existing account)';
         }
 
-        // Handle Advisory Section (supports Lead Adviser and Co-Adviser automatically)
+        // Handle Advisory Section (supports Lead Adviser, Co-Adviser, Grade prefixes, New Section Counterpart Auto-Creation, and Typo/Fuzzy matching)
         let advisoryAssigned = null;
         if (advisorySectionName) {
           const rawAdv = String(advisorySectionName).trim();
           const isCo = /\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/i.test(rawAdv);
-          const cleanSecName = rawAdv
-            .replace(/\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/gi, '')
+          let stripped = rawAdv.replace(/\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/gi, '').trim();
+
+          let extractedGrade = null;
+          const gradeMatch = stripped.match(/^(?:grade\s*|g)?(11|12)\s*[-–—:]*\s*/i);
+          if (gradeMatch) {
+            extractedGrade = parseInt(gradeMatch[1], 10);
+            stripped = stripped.replace(/^(?:grade\s*|g)?(11|12)\s*[-–—:]*\s*/i, '').trim();
+          }
+
+          const cleanSecName = stripped
             .replace(/[:\-–—\(\)]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim()
             .toLowerCase();
-
           const normClean = cleanSecName.replace(/[^a-z0-9]/g, '');
-          const sec = allSections.find(s => {
-            const sName = s.name.trim().toLowerCase();
-            if (sName === cleanSecName) return true;
-            return sName.replace(/[^a-z0-9]/g, '') === normClean;
-          });
 
-          if (sec) {
+          // 1. Try exact match with grade if grade is specified
+          let sec = null;
+          if (extractedGrade) {
+            sec = allSections.find(s =>
+              s.grade_level === extractedGrade &&
+              (s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '') === normClean)
+            );
+          } else {
+            // 2. Try exact match without grade
+            sec = allSections.find(s =>
+              s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '') === normClean
+            );
+          }
+
+          let autoCorrectNote = '';
+
+          // 3. Typo / Fuzzy match against existing sections (>= 85% similarity)
+          if (!sec) {
+            let bestMatch = null;
+            let bestSim = 0;
+            for (const s of allSections) {
+              if (extractedGrade && s.grade_level !== extractedGrade) continue;
+              const sim = stringSimilarity(cleanSecName, s.name.trim().toLowerCase());
+              if (sim > bestSim) {
+                bestSim = sim;
+                bestMatch = s;
+              }
+            }
+            if (!bestMatch && !extractedGrade) {
+              for (const s of allSections) {
+                const sim = stringSimilarity(cleanSecName, s.name.trim().toLowerCase());
+                if (sim > bestSim) {
+                  bestSim = sim;
+                  bestMatch = s;
+                }
+              }
+            }
+            if (bestSim >= 0.85 && bestMatch) {
+              sec = bestMatch;
+              autoCorrectNote = ` (Auto-corrected from "${stripped}")`;
+            }
+          }
+
+          // 4. Auto-create new section if it exists in another grade (e.g. Grade 11 counterpart of Grade 12 section)
+          if (!sec && extractedGrade) {
+            const counterpart = allSections.find(s =>
+              s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '') === normClean
+            );
+            if (counterpart && counterpart.strand_id) {
+              try {
+                const [newSecRes] = await pool.query(
+                  'INSERT INTO sections (strand_id, grade_level, name, adviser_id, co_adviser_id) VALUES (?, ?, ?, ?, ?)',
+                  [counterpart.strand_id, extractedGrade, counterpart.name, isCo ? null : teacherUserId, isCo ? teacherUserId : null]
+                );
+                const newSecObj = {
+                  id: newSecRes.insertId,
+                  name: counterpart.name,
+                  grade_level: extractedGrade,
+                  strand_id: counterpart.strand_id,
+                  strand_code: counterpart.strand_code
+                };
+                allSections.push(newSecObj);
+                sec = newSecObj;
+                advisoryAssigned = `${counterpart.name} (Grade ${extractedGrade} ${isCo ? 'Co-Adviser' : 'Lead Adviser'} - New Section Created)`;
+              } catch (createErr) {
+                console.error('Auto-create section error:', createErr);
+              }
+            }
+          }
+
+          // 5. Update adviser/co-adviser in database
+          if (sec && !advisoryAssigned) {
             if (isCo) {
               await pool.query('UPDATE sections SET co_adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
-              advisoryAssigned = `${sec.name} (Co-Adviser)`;
+              advisoryAssigned = `${sec.name} (Co-Adviser)${autoCorrectNote}`;
             } else {
               await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
-              advisoryAssigned = `${sec.name} (Lead Adviser)`;
+              advisoryAssigned = `${sec.name} (Lead Adviser)${autoCorrectNote}`;
             }
           }
         }
@@ -1849,7 +1974,11 @@ async function bulkImportStudents(req, res) {
 
         let msg = `Created Teacher account (${tIdNumber}).`;
         if (!isNewTeacher) msg = `Updated existing Teacher account (${tIdNumber}).`;
-        if (advisoryAssigned) msg += ` Assigned adviser for ${advisoryAssigned}.`;
+        if (advisoryAssigned) {
+          msg += ` Assigned advisory: ${advisoryAssigned}.`;
+        } else if (advisorySectionName) {
+          msg += ` Advisory section "${advisorySectionName}" was not found (please verify or create it in Database Management).`;
+        }
         if (subjectsAssigned.length) msg += ` Linked ${subjectsAssigned.length} subject(s).`;
 
         results.push({
