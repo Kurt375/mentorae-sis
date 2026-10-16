@@ -1122,10 +1122,10 @@ async function downloadImportTemplate(req, res) {
 
     const teacherSampleRows = [
       ['Andrey M. Augustine', '09612345678', 'Arts & Social Sciences 1', 'Creative Composition, Philippine Governance'],
-      ['Benice I. Zuela', '09612345679', 'Engineering', 'Finite Mathematics 1, Physics 1'],
+      ['Benice I. Zuela', '09612345679', 'Arts & Social Sciences 1 (Co-Adviser)', 'Finite Mathematics 1, Physics 1'],
       ['Charmaine N. Cruz', '09612345671', 'Sports Management', 'Human Movement 1'],
       ['Dan E. Daranobo', '09612345672', 'Education 1', 'Creative Writing, English for Academic and Professional Purposes'],
-      ['Elsa A. Macy', '09612345673', 'Biomedical Engineering', 'Physics 1, Chemistry 1'],
+      ['Elsa A. Macy', '09612345673', 'Biomedical Engineering (Co-Adviser)', 'Physics 1, Chemistry 1'],
     ];
 
     teacherSampleRows.forEach((r, idx) => {
@@ -1793,13 +1793,33 @@ async function bulkImportStudents(req, res) {
           tTempPass = '(Existing account)';
         }
 
-        // Handle Advisory Section
+        // Handle Advisory Section (supports Lead Adviser and Co-Adviser automatically)
         let advisoryAssigned = null;
         if (advisorySectionName) {
-          const sec = allSections.find(s => s.name.trim().toLowerCase() === advisorySectionName.trim().toLowerCase());
+          const rawAdv = String(advisorySectionName).trim();
+          const isCo = /\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/i.test(rawAdv);
+          const cleanSecName = rawAdv
+            .replace(/\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/gi, '')
+            .replace(/[:\-–—\(\)]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+          const normClean = cleanSecName.replace(/[^a-z0-9]/g, '');
+          const sec = allSections.find(s => {
+            const sName = s.name.trim().toLowerCase();
+            if (sName === cleanSecName) return true;
+            return sName.replace(/[^a-z0-9]/g, '') === normClean;
+          });
+
           if (sec) {
-            await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
-            advisoryAssigned = sec.name;
+            if (isCo) {
+              await pool.query('UPDATE sections SET co_adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
+              advisoryAssigned = `${sec.name} (Co-Adviser)`;
+            } else {
+              await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
+              advisoryAssigned = `${sec.name} (Lead Adviser)`;
+            }
           }
         }
 
