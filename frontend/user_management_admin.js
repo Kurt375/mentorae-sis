@@ -1810,23 +1810,126 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
 
-            // Credentials Download
+            // Credentials Download (.xlsx)
             const allCreds = data.credentials || [];
             if (allCreds.length > 0) {
-                const csvRows = ['Role,Name,ID Number,Email,Temporary Password'];
-                allCreds.forEach(c => csvRows.push(`"${c.role || 'User'}","${c.name}",${c.idNumber},${c.email},${c.tempPassword}`));
-                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
+                let downloadUrl = null;
+                let downloadFileName = 'mentorae-new-user-credentials.xlsx';
+                let btnLabel = '<i class="bi bi-file-earmark-excel-fill"></i> Download Credentials (.xlsx)';
+
+                if (typeof XLSX !== 'undefined') {
+                    const wb = XLSX.utils.book_new();
+
+                    // 1. All Credentials Sheet
+                    const allRows = [
+                        ['Role', 'Full Name', 'ID Number / LRN', 'Email Address', 'Temporary Password']
+                    ];
+                    allCreds.forEach(c => {
+                        allRows.push([
+                            c.role || 'User',
+                            c.name || '',
+                            String(c.idNumber || ''),
+                            c.email || '',
+                            String(c.tempPassword || '')
+                        ]);
+                    });
+                    const wsAll = XLSX.utils.aoa_to_sheet(allRows);
+                    wsAll['!cols'] = [
+                        { wch: 14 }, // Role
+                        { wch: 30 }, // Name
+                        { wch: 20 }, // ID Number
+                        { wch: 34 }, // Email
+                        { wch: 22 }  // Temp Password
+                    ];
+                    XLSX.utils.book_append_sheet(wb, wsAll, 'All Credentials');
+
+                    // 2. Tab for Students
+                    const cat = data.categorizedCredentials;
+                    if (cat && cat.students && cat.students.length > 0) {
+                        const studentRows = [
+                            ['Full Name', 'LRN / ID Number', 'Grade Level', 'Section', 'Email Address', 'Temporary Password']
+                        ];
+                        cat.students.forEach(s => {
+                            studentRows.push([
+                                s.name || '',
+                                String(s.idNumber || ''),
+                                s.gradeLevel ? `Grade ${s.gradeLevel}` : '',
+                                s.section || '',
+                                s.email || '',
+                                String(s.tempPassword || '')
+                            ]);
+                        });
+                        const wsStudents = XLSX.utils.aoa_to_sheet(studentRows);
+                        wsStudents['!cols'] = [
+                            { wch: 30 }, { wch: 20 }, { wch: 14 }, { wch: 24 }, { wch: 34 }, { wch: 22 }
+                        ];
+                        XLSX.utils.book_append_sheet(wb, wsStudents, 'Students');
+                    }
+
+                    // 3. Tab for Parents
+                    if (cat && cat.parents && cat.parents.filter(p => p.isNew).length > 0) {
+                        const parentRows = [
+                            ['Parent Name', 'ID Number', 'Student / Child', 'Email Address', 'Temporary Password']
+                        ];
+                        cat.parents.filter(p => p.isNew).forEach(p => {
+                            parentRows.push([
+                                p.name || '',
+                                String(p.idNumber || ''),
+                                p.childName || '',
+                                p.email || '',
+                                String(p.tempPassword || '')
+                            ]);
+                        });
+                        const wsParents = XLSX.utils.aoa_to_sheet(parentRows);
+                        wsParents['!cols'] = [
+                            { wch: 30 }, { wch: 20 }, { wch: 30 }, { wch: 34 }, { wch: 22 }
+                        ];
+                        XLSX.utils.book_append_sheet(wb, wsParents, 'Parents');
+                    }
+
+                    // 4. Tab for Teachers
+                    if (cat && cat.teachers && cat.teachers.filter(t => t.isNew).length > 0) {
+                        const teacherRows = [
+                            ['Teacher Name', 'ID Number', 'Advisory Section', 'Email Address', 'Temporary Password']
+                        ];
+                        cat.teachers.filter(t => t.isNew).forEach(t => {
+                            teacherRows.push([
+                                t.name || '',
+                                String(t.idNumber || ''),
+                                t.advisorySection || 'None',
+                                t.email || '',
+                                String(t.tempPassword || '')
+                            ]);
+                        });
+                        const wsTeachers = XLSX.utils.aoa_to_sheet(teacherRows);
+                        wsTeachers['!cols'] = [
+                            { wch: 30 }, { wch: 20 }, { wch: 28 }, { wch: 34 }, { wch: 22 }
+                        ];
+                        XLSX.utils.book_append_sheet(wb, wsTeachers, 'Teachers');
+                    }
+
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    downloadUrl = URL.createObjectURL(blob);
+                } else {
+                    const csvRows = ['Role,Name,ID Number,Email,Temporary Password'];
+                    allCreds.forEach(c => csvRows.push(`"${c.role || 'User'}","${c.name}",${c.idNumber},${c.email},${c.tempPassword}`));
+                    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+                    downloadUrl = URL.createObjectURL(blob);
+                    downloadFileName = 'mentorae-new-user-credentials.csv';
+                    btnLabel = '<i class="bi bi-file-earmark-arrow-down"></i> Download Credentials (.csv)';
+                }
+
                 credsEl.innerHTML = `
                     <div class="alert alert-success d-flex align-items-start gap-2 text-sm mb-0 rounded-3 shadow-xs">
                         <i class="bi bi-key-fill fs-5 text-success mt-0.5"></i>
                         <div>
                             <strong>${allCreds.length} Temporary Password(s) Generated!</strong>
                             <p class="mb-2 text-muted small">
-                                Download this credentials list now so you can distribute them to students, parents, and teachers. For security, temporary passwords will not be displayed again.
+                                Download this credentials Excel file now so you can distribute them to students, parents, and teachers. For security, temporary passwords will not be displayed again.
                             </p>
-                            <a href="${url}" download="mentorae-new-user-credentials.csv" class="btn btn-sm btn-success fw-bold d-inline-flex align-items-center gap-1.5 text-white">
-                                <i class="bi bi-file-earmark-arrow-down"></i> Download Credentials (.csv)
+                            <a href="${downloadUrl}" download="${downloadFileName}" class="btn btn-sm btn-success fw-bold d-inline-flex align-items-center gap-1.5 text-white shadow-xs">
+                                ${btnLabel}
                             </a>
                         </div>
                     </div>
