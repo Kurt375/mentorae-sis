@@ -12,5 +12,5 @@ window.MENTORAE_CONFIG = {
     window.location.hostname === "0.0.0.0"
   )
     ? `http://${window.location.hostname && window.location.hostname !== "" ? window.location.hostname : "localhost"}:5000`
-    : (localStorage.getItem('MENTORAE_API_URL') || "https://mentorae-sis-backend.onrender.com")
+    : (localStorage.getItem('MENTORAE_API_URL') || "https://mentorae-sis-backend.vercel.app")
 };
