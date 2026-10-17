@@ -320,6 +320,7 @@ async function listSubjects(req, res) {
           resources: payload.resources || [],
           quiz: payload.quiz || [],
           flashcards: payload.flashcards || [],
+          visibleTo: payload.visibleTo || ['All Sections'],
           files: (payload.files || []).map(f => ({ name: f.name, type: f.type, size: f.size }))
         };
         if (t.is_recommendation) {
@@ -436,18 +437,33 @@ async function createSubject(req, res) {
 
     // If staged topics were provided, insert them into topics table
     if (newSubjectId && Array.isArray(topics) && topics.length > 0) {
+      let authorId = req.user?.id;
+      if (authorId) {
+        const [u] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [authorId]);
+        if (u.length === 0) authorId = null;
+      }
+      if (!authorId && req.user?.email) {
+        const [u] = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [req.user.email]);
+        if (u.length > 0) authorId = u[0].id;
+      }
+      if (!authorId) {
+        const [anyAdmin] = await pool.query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+        authorId = anyAdmin[0]?.id || 2;
+      }
+
       for (const t of topics) {
         if (!t.title) continue;
         const payload = {
           resources: t.resources || [],
           files: t.files || [],
           quiz: t.quiz || [],
-          flashcards: t.flashcards || []
+          flashcards: t.flashcards || [],
+          visibleTo: (t.visibleTo && t.visibleTo.length) ? t.visibleTo : ['All Sections']
         };
         await pool.query(
           `INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation, color)
            VALUES (?, ?, ?, ?, 'approved', ?, 0, ?)`,
-          [newSubjectId, t.title.trim(), t.description || '', req.user?.id || 1, JSON.stringify(payload), t.color || 'bg-card-blue']
+          [newSubjectId, t.title.trim(), t.description || '', authorId, JSON.stringify(payload), t.color || 'bg-card-blue']
         );
       }
     }
@@ -532,9 +548,17 @@ async function updateSubject(req, res) {
     // 4. If topics array was supplied, synchronize the topics table for this subject
     if (actualId && Array.isArray(topics)) {
       let authorId = req.user?.id;
+      if (authorId) {
+        const [u] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [authorId]);
+        if (u.length === 0) authorId = null;
+      }
+      if (!authorId && req.user?.email) {
+        const [u] = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [req.user.email]);
+        if (u.length > 0) authorId = u[0].id;
+      }
       if (!authorId) {
-        const [anyUser] = await pool.query('SELECT id FROM users ORDER BY id ASC LIMIT 1');
-        authorId = anyUser[0]?.id;
+        const [anyAdmin] = await pool.query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+        authorId = anyAdmin[0]?.id || 2;
       }
 
       // Synchronize topics non-destructively: preserve existing topic IDs and binary payloads (dataUrl, pdfDataUrl)
@@ -617,7 +641,7 @@ async function updateSubject(req, res) {
             files: mergedFiles,
             quiz: (t.quiz && t.quiz.length) ? t.quiz : (existingPayload.quiz || []),
             flashcards: (t.flashcards && t.flashcards.length) ? t.flashcards : (existingPayload.flashcards || []),
-            visibleTo: t.visibleTo || existingPayload.visibleTo || []
+            visibleTo: (t.visibleTo && t.visibleTo.length) ? t.visibleTo : (existingPayload.visibleTo && existingPayload.visibleTo.length ? existingPayload.visibleTo : ['All Sections'])
           };
 
           if (existing) {

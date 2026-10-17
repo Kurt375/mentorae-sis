@@ -1047,7 +1047,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fetch authoritative live topics with full content (quizzes, flashcards, files)
                 const token = localStorage.getItem('mentorae_token');
                 if (token) {
-                    authedFetch(`/api/content/topics?subjectId=${encodeURIComponent(subjectId)}`, token)
+                    const subjNameParam = encodeURIComponent(editingSubjectCopy.name || '');
+                    authedFetch(`/api/content/topics?subjectId=${encodeURIComponent(subjectId)}&subjectName=${subjNameParam}`, token)
                         .then(topicRes => {
                             if (topicRes && topicRes.success && Array.isArray(topicRes.topics)) {
                                 if (currentEditingSubjectId == subjectId && editingSubjectCopy) {
@@ -1059,11 +1060,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                         quiz: t.quiz || [],
                                         flashcards: t.flashcards || [],
                                         files: t.files || [],
+                                        visibleTo: t.visibleTo || ['All Sections'],
                                         color: t.color || 'bg-card-blue'
                                     })));
                                     if (subjectToEdit) {
                                         subjectToEdit.topics = JSON.parse(JSON.stringify(editingSubjectCopy.topics));
                                     }
+                                    saveSubjects(subjects);
                                     renderTopicsList(editingSubjectCopy.topics || []);
                                 }
                             }
@@ -1418,7 +1421,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 resources: updatedTopic.resources || [],
                                 files: updatedTopic.files || [],
                                 quiz: updatedTopic.quiz || [],
-                                flashcards: updatedTopic.flashcards || []
+                                flashcards: updatedTopic.flashcards || [],
+                                visibleTo: updatedTopic.visibleTo || ['All Sections']
                             }
                         })
                     });
@@ -1467,6 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST',
                         body: JSON.stringify({
                             subjectId: currentEditingSubjectId,
+                            subjectName: subject.name,
                             title: cleanTitle,
                             description: topicData.description,
                             contentPayload: {

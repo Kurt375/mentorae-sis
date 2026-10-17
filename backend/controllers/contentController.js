@@ -176,9 +176,12 @@ async function listTopics(req, res) {
     let whereClause = "WHERE t.status = 'approved'";
     const params = [];
 
-    if (subjectId) {
-      whereClause += ' AND t.subject_id = ?';
-      params.push(subjectId);
+    if (subjectId && subjectName) {
+      whereClause += ' AND (t.subject_id = ? OR LOWER(TRIM(s.name)) = LOWER(?) OR LOWER(TRIM(s.code)) = LOWER(?))';
+      params.push(subjectId, String(subjectName).trim(), String(subjectName).trim());
+    } else if (subjectId) {
+      whereClause += ' AND (t.subject_id = ? OR LOWER(TRIM(s.name)) = LOWER(?) OR LOWER(TRIM(s.code)) = LOWER(?))';
+      params.push(subjectId, String(subjectId).trim(), String(subjectId).trim());
     } else if (subjectName) {
       const cleanName = String(subjectName).trim();
       whereClause += ' AND (LOWER(TRIM(s.name)) = LOWER(?) OR LOWER(TRIM(s.code)) = LOWER(?))';
@@ -263,17 +266,23 @@ async function createTopic(req, res) {
   }
 
   try {
-    if (!subjectId && subjectName) {
+    let resolvedSubjectId = null;
+    if (subjectId) {
+      const [checkSubj] = await pool.query('SELECT id FROM subjects WHERE id = ? LIMIT 1', [subjectId]);
+      if (checkSubj.length > 0) resolvedSubjectId = checkSubj[0].id;
+    }
+    if (!resolvedSubjectId && subjectName) {
       const cleanSubj = String(subjectName).trim();
       const [subjRows] = await pool.query(
         'SELECT id FROM subjects WHERE LOWER(TRIM(name)) = LOWER(?) OR LOWER(TRIM(code)) = LOWER(?) LIMIT 1',
         [cleanSubj, cleanSubj]
       );
-      if (subjRows.length) subjectId = subjRows[0].id;
+      if (subjRows.length) resolvedSubjectId = subjRows[0].id;
     }
-    if (!subjectId) {
+    if (!resolvedSubjectId) {
       return res.status(400).json({ success: false, message: 'Valid subject is required.' });
     }
+    subjectId = resolvedSubjectId;
 
     // Auto-convert any attached PPTX/DOCX files to PDF so students and teachers get instant Google Classroom view
     if (contentPayload && Array.isArray(contentPayload.files)) {

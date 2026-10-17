@@ -2304,11 +2304,11 @@ document.addEventListener('DOMContentLoaded', () => {
             addTopicForm.reset();
             document.getElementById('topicId').value = '';
             document.getElementById('recommendationId').value = '';
-            document.getElementById('addTopicModalLabel').textContent = 'Add New Topic';
-            saveItemBtn.textContent = 'Post Topic';
+            document.getElementById('addTopicModalLabel').textContent = 'Add Content';
+            saveItemBtn.textContent = 'Submit';
 
             destinationContainer.classList.remove('d-none');
-            itemDestination.value = 'topic';
+            itemDestination.value = 'recommendation';
 
             itemDestination.dispatchEvent(new Event('change'));
 
@@ -2382,27 +2382,13 @@ document.addEventListener('DOMContentLoaded', () => {
     itemDestination.addEventListener('change', () => {
         if (itemDestination.value === 'recommendation') {
             topicCommentContainer.classList.remove('d-none');
-            const commentInput = topicCommentContainer.querySelector('input');
-            if (commentInput) commentInput.required = false;
+            topicCommentContainer.querySelector('input').required = true;
             topicVisibilityContainer.classList.add('d-none');
-            saveItemBtn.textContent = 'Save Recommendation';
-            document.getElementById('addTopicModalLabel').textContent = 'Add Recommendation';
-        } else if (itemDestination.value === 'topic') {
-            topicCommentContainer.classList.add('d-none');
-            const commentInput = topicCommentContainer.querySelector('input');
-            if (commentInput) commentInput.required = false;
-            topicVisibilityContainer.classList.remove('d-none');
-            populateVisibilityOptions();
-            saveItemBtn.textContent = 'Post Topic';
-            document.getElementById('addTopicModalLabel').textContent = 'Add New Topic';
         } else { // 'request'
             topicCommentContainer.classList.add('d-none');
-            const commentInput = topicCommentContainer.querySelector('input');
-            if (commentInput) commentInput.required = false;
+            topicCommentContainer.querySelector('input').required = false;
             topicVisibilityContainer.classList.remove('d-none');
             populateVisibilityOptions();
-            saveItemBtn.textContent = 'Submit Request';
-            document.getElementById('addTopicModalLabel').textContent = 'Request New Topic';
         }
         // Always update content manager visibility based on the current checkbox states
         document.querySelectorAll('.resource-checkbox').forEach(checkbox => {
@@ -2489,45 +2475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isSavingTopicTeacher = true;
                 if (addTopicModal) addTopicModal.hide();
             } else {
-                if (destination === 'topic') {
-                    const visibilityContainer = document.getElementById('topicVisibilityContainer');
-                    let selectedSections = Array.from(visibilityContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-                    if (selectedSections.length === 0) {
-                        selectedSections = ['All Sections'];
-                    }
-                    const contentPayload = {
-                        resources: selectedResources,
-                        visibleTo: selectedSections,
-                        files: newTopicRequestContent.files,
-                        quiz: newTopicRequestContent.quiz,
-                        flashcards: newTopicRequestContent.flashcards
-                    };
-
-                    try {
-                        const res = await authedFetch('/api/content/topics', token, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                subjectName: decodedSubjectName,
-                                title: document.getElementById('topicTitle').value,
-                                description: document.getElementById('topicDescription').value,
-                                isRecommendation: false,
-                                color: 'bg-card-blue',
-                                contentPayload: contentPayload
-                            })
-                        });
-                        if (res && res.success) {
-                            alert('Your topic has been posted successfully!');
-                            await fetchTopicsFromDb();
-                            isSavingTopicTeacher = true;
-                            if (addTopicModal) addTopicModal.hide();
-                        } else {
-                            alert(res?.message || 'Failed to post topic.');
-                        }
-                    } catch (err) {
-                        console.error('Error posting topic:', err);
-                        alert('Could not post topic to server: ' + (err.message || ''));
-                    }
-                } else if (destination === 'recommendation') {
+                if (destination === 'recommendation') {
                     const contentPayload = {
                         resources: selectedResources,
                         files: newTopicRequestContent.files,
