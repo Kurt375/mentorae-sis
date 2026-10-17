@@ -1990,10 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Quick Bulk Add Content Button
                 actionButtons.push(`<button type="button" class="btn btn-sm btn-outline-success fw-semibold px-3 py-1.5 rounded-pill d-inline-flex align-items-center gap-1.5 text-nowrap btn-quick-append-content" data-topic-id="${topic.id || ''}" data-topic-index="${index}" data-topic-title="${escapeHtml(topic.title)}"><i class="bi bi-plus-circle"></i> Add Content</button>`);
-                // Delete Topic Button
-                if (topic.id) {
-                    actionButtons.push(`<button type="button" class="btn btn-sm btn-outline-danger fw-semibold px-2.5 py-1.5 rounded-pill d-inline-flex align-items-center gap-1 text-nowrap btn-delete-topic" data-topic-id="${topic.id}" data-topic-title="${escapeHtml(topic.title)}" title="Delete topic"><i class="bi bi-trash"></i></button>`);
-                }
+
 
                 let materialsHtml = '';
                 if (actionButtons.length > 0) {
@@ -2266,29 +2263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     topicsList.addEventListener('click', async (e) => {
         const target = e.target;
 
-        const deleteTopicBtn = target.closest('.btn-delete-topic');
-        if (deleteTopicBtn) {
-            const topicId = deleteTopicBtn.dataset.topicId;
-            const topicTitle = deleteTopicBtn.dataset.topicTitle || 'this topic';
-            if (confirm(`Are you sure you want to delete the topic "${topicTitle}"? This cannot be undone.`)) {
-                const token = localStorage.getItem('mentorae_token');
-                if (topicId && token) {
-                    try {
-                        const delRes = await authedFetch(`/api/content/topics/${topicId}`, token, { method: 'DELETE' });
-                        if (delRes && delRes.success) {
-                            alert('Topic deleted successfully.');
-                            await fetchTopicsFromDb();
-                        } else {
-                            alert(delRes?.message || 'Failed to delete topic.');
-                        }
-                    } catch (err) {
-                        console.error('Error deleting topic:', err);
-                        alert('Could not delete topic from server.');
-                    }
-                }
-            }
-            return;
-        }
+
 
         const openFileBtn = target.closest('.btn-open-topic-files');
         if (openFileBtn) {

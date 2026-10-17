@@ -468,8 +468,25 @@ async function updateTopic(req, res) {
 async function deleteTopic(req, res) {
   const { id } = req.params;
   try {
-    const [result] = await pool.query('DELETE FROM topics WHERE id = ?', [id]);
-    return res.json({ success: true, message: 'Topic deleted successfully.' });
+    const [rows] = await pool.query('SELECT id, is_recommendation, created_by FROM topics WHERE id = ? LIMIT 1', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'Topic not found.' });
+    }
+    const topic = rows[0];
+
+    // Main curriculum topics (is_recommendation = 0) can ONLY be deleted by administrators.
+    // Teachers and students are strictly forbidden from deleting topics.
+    if (!topic.is_recommendation && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only administrators have permission to delete topics.' });
+    }
+
+    // Recommendations (is_recommendation = 1) cannot be deleted by students either
+    if (topic.is_recommendation && req.user.role !== 'admin' && req.user.role !== 'teacher') {
+      return res.status(403).json({ success: false, message: 'You do not have permission to delete this recommendation.' });
+    }
+
+    await pool.query('DELETE FROM topics WHERE id = ?', [id]);
+    return res.json({ success: true, message: topic.is_recommendation ? 'Recommendation deleted successfully.' : 'Topic deleted successfully.' });
   } catch (err) {
     console.error('deleteTopic error:', err);
     return res.status(500).json({ success: false, message: 'Could not delete topic.' });
