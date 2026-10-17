@@ -109,6 +109,26 @@ async function createUser(req, res) {
   if (!firstName || !lastName || !contactNumber || !idNumber || !email || !role || !validRoles.includes(role)) {
     return res.status(400).json({ success: false, message: 'All fields are required and role must be valid.' });
   }
+
+  const nameRegex = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s.\-']{2,50}$/;
+  if (!nameRegex.test(firstName.trim())) {
+    return res.status(400).json({ success: false, message: 'First name must contain letters only (minimum 2 characters).' });
+  }
+  if (!nameRegex.test(lastName.trim())) {
+    return res.status(400).json({ success: false, message: 'Last name must contain letters only (minimum 2 characters).' });
+  }
+
+  if (role === 'Student' && !/^\d{12}$/.test(idNumber.trim())) {
+    return res.status(400).json({ success: false, message: 'Student LRN must be exactly 12 digits (numeric only).' });
+  }
+
+  if (contactNumber && !/^09\d{9}$/.test(contactNumber.trim())) {
+    return res.status(400).json({ success: false, message: 'Contact number must be an 11-digit Philippine mobile number starting with 09.' });
+  }
+  if (parentContactNumber && !/^09\d{9}$/.test(parentContactNumber.trim())) {
+    return res.status(400).json({ success: false, message: 'Parent contact number must be an 11-digit Philippine mobile number starting with 09.' });
+  }
+
   const userProgram = role === 'Student' && validPrograms.includes(program) ? program : 'none';
 
   if (password !== undefined && password !== null && password !== '' && password.length < 8) {
@@ -587,20 +607,21 @@ async function updateUser(req, res) {
       updates.push('is_active = ?');
       params.push(archived ? 0 : 1);
     }
+    const nameRegex = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s.\-']{2,50}$/;
     if (firstName !== undefined) {
-      if (typeof firstName !== 'string' || !firstName.trim()) {
-        return res.status(400).json({ success: false, message: 'First name cannot be empty.' });
+      if (typeof firstName !== 'string' || !nameRegex.test(firstName.trim())) {
+        return res.status(400).json({ success: false, message: 'First name must contain letters only (minimum 2 characters).' });
       }
       updates.push('first_name = ?');
       params.push(firstName.trim());
     }
     if (middleInitial !== undefined) {
       updates.push('middle_initial = ?');
-      params.push(typeof middleInitial === 'string' ? middleInitial.trim() || null : null);
+      params.push(typeof middleInitial === 'string' ? middleInitial.trim().slice(0, 3) || null : null);
     }
     if (lastName !== undefined) {
-      if (typeof lastName !== 'string' || !lastName.trim()) {
-        return res.status(400).json({ success: false, message: 'Last name cannot be empty.' });
+      if (typeof lastName !== 'string' || !nameRegex.test(lastName.trim())) {
+        return res.status(400).json({ success: false, message: 'Last name must contain letters only (minimum 2 characters).' });
       }
       updates.push('last_name = ?');
       params.push(lastName.trim());
@@ -608,8 +629,8 @@ async function updateUser(req, res) {
     if (contactNumber !== undefined) {
       if (typeof contactNumber === 'string' && contactNumber.trim()) {
         const cleanVal = contactNumber.trim();
-        if (/[a-zA-Z]/.test(cleanVal) || cleanVal.replace(/\D/g, '').length < 7) {
-          return res.status(400).json({ success: false, message: 'Enter a valid contact number.' });
+        if (!/^09\d{9}$/.test(cleanVal)) {
+          return res.status(400).json({ success: false, message: 'Contact number must be an 11-digit Philippine mobile number starting with 09.' });
         }
         updates.push('contact_number = ?');
         params.push(cleanVal);
@@ -628,6 +649,9 @@ async function updateUser(req, res) {
     if (idNumber !== undefined) {
       if (typeof idNumber !== 'string' || !idNumber.trim()) {
         return res.status(400).json({ success: false, message: 'LRN / ID Number cannot be empty.' });
+      }
+      if (user.role === 'student' && !/^\d{12}$/.test(idNumber.trim())) {
+        return res.status(400).json({ success: false, message: 'Student LRN must be exactly 12 digits (numeric only).' });
       }
       const [dup] = await pool.query('SELECT id FROM users WHERE id_number = ? AND id != ?', [idNumber.trim(), req.params.id]);
       if (dup.length) {

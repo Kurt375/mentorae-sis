@@ -14,3 +14,24 @@ window.MENTORAE_CONFIG = {
     ? `http://${window.location.hostname && window.location.hostname !== "" ? window.location.hostname : "localhost"}:5000`
     : (localStorage.getItem('MENTORAE_API_URL') || "https://mentorae-sis-backend.vercel.app")
 };
+
+// Automatically mount universal input restrictions and sanitizers across all portal pages
+try {
+  if (typeof document !== 'undefined' && !window.MentoraeValidators) {
+    const scripts = document.getElementsByTagName('script');
+    let configSrc = '';
+    for (let i = 0; i < scripts.length; i++) {
+      if (scripts[i].src && scripts[i].src.includes('config.js')) {
+        configSrc = scripts[i].src;
+        break;
+      }
+    }
+    const inputScriptUrl = configSrc ? configSrc.replace('config.js', 'input_restrictions.js') : 'input_restrictions.js';
+    const script = document.createElement('script');
+    script.src = inputScriptUrl;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+} catch (e) {
+  console.warn('Could not auto-inject input_restrictions.js:', e);
+}

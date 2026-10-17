@@ -447,7 +447,16 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const enteredOtp = otpCodeInput.value.trim();
-            if (!enteredOtp) return;
+            if (!enteredOtp) {
+                alert('Please enter the 6-digit verification code.');
+                otpCodeInput.focus();
+                return;
+            }
+            if (!/^\d{6}$/.test(enteredOtp)) {
+                alert('Verification code must be exactly 6 digits (numbers only).');
+                otpCodeInput.focus();
+                return;
+            }
 
             const submitBtn = verifyCodeForm.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
@@ -485,6 +494,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const phoneNumber = verifyPhoneInput.value.trim();
             if (!phoneNumber) {
                 alert('Please enter your registered phone number.');
+                verifyPhoneInput.focus();
+                return;
+            }
+            if (!/^09\d{9}$/.test(phoneNumber)) {
+                alert('Please enter your full 11-digit registered phone number starting with 09 (e.g., 09123456789).');
+                verifyPhoneInput.focus();
                 return;
             }
 
