@@ -1952,11 +1952,11 @@ document.addEventListener('DOMContentLoaded', () => {
         topicsList.innerHTML = '';
 
         const topicsToDisplay = (topics || []).filter(topic => {
-            const isPublic = !topic.visibleTo || topic.visibleTo.length === 0;
-            if (currentSectionContext) {
-                return isPublic || topic.visibleTo.includes(currentSectionContext);
+            const isPublic = !topic.visibleTo || topic.visibleTo.length === 0 || topic.visibleTo.includes('All Sections');
+            if (currentSectionContext && currentSectionContext !== 'All Sections') {
+                return isPublic || (Array.isArray(topic.visibleTo) && topic.visibleTo.includes(currentSectionContext));
             }
-            return isPublic;
+            return true;
         });
 
         topicsToDisplay.sort((a, b) => {
@@ -1990,6 +1990,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 // Quick Bulk Add Content Button
                 actionButtons.push(`<button type="button" class="btn btn-sm btn-outline-success fw-semibold px-3 py-1.5 rounded-pill d-inline-flex align-items-center gap-1.5 text-nowrap btn-quick-append-content" data-topic-id="${topic.id || ''}" data-topic-index="${index}" data-topic-title="${escapeHtml(topic.title)}"><i class="bi bi-plus-circle"></i> Add Content</button>`);
+                // Delete Topic Button
+                if (topic.id) {
+                    actionButtons.push(`<button type="button" class="btn btn-sm btn-outline-danger fw-semibold px-2.5 py-1.5 rounded-pill d-inline-flex align-items-center gap-1 text-nowrap btn-delete-topic" data-topic-id="${topic.id}" data-topic-title="${escapeHtml(topic.title)}" title="Delete topic"><i class="bi bi-trash"></i></button>`);
+                }
 
                 let materialsHtml = '';
                 if (actionButtons.length > 0) {
@@ -2259,8 +2263,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Event Handlers ---
-    topicsList.addEventListener('click', (e) => {
+    topicsList.addEventListener('click', async (e) => {
         const target = e.target;
+
+        const deleteTopicBtn = target.closest('.btn-delete-topic');
+        if (deleteTopicBtn) {
+            const topicId = deleteTopicBtn.dataset.topicId;
+            const topicTitle = deleteTopicBtn.dataset.topicTitle || 'this topic';
+            if (confirm(`Are you sure you want to delete the topic "${topicTitle}"? This cannot be undone.`)) {
+                const token = localStorage.getItem('mentorae_token');
+                if (topicId && token) {
+                    try {
+                        const delRes = await authedFetch(`/api/content/topics/${topicId}`, token, { method: 'DELETE' });
+                        if (delRes && delRes.success) {
+                            alert('Topic deleted successfully.');
+                            await fetchTopicsFromDb();
+                        } else {
+                            alert(delRes?.message || 'Failed to delete topic.');
+                        }
+                    } catch (err) {
+                        console.error('Error deleting topic:', err);
+                        alert('Could not delete topic from server.');
+                    }
+                }
+            }
+            return;
+        }
 
         const openFileBtn = target.closest('.btn-open-topic-files');
         if (openFileBtn) {
@@ -2276,11 +2304,11 @@ document.addEventListener('DOMContentLoaded', () => {
             addTopicForm.reset();
             document.getElementById('topicId').value = '';
             document.getElementById('recommendationId').value = '';
-            document.getElementById('addTopicModalLabel').textContent = 'Add Content';
-            saveItemBtn.textContent = 'Submit';
+            document.getElementById('addTopicModalLabel').textContent = 'Add New Topic';
+            saveItemBtn.textContent = 'Post Topic';
 
             destinationContainer.classList.remove('d-none');
-            itemDestination.value = 'recommendation';
+            itemDestination.value = 'topic';
 
             itemDestination.dispatchEvent(new Event('change'));
 
@@ -2290,7 +2318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    recommendationsList.addEventListener('click', (e) => {
+    recommendationsList.addEventListener('click', async (e) => {
         const target = e.target;
 
         const openRecFileBtn = target.closest('.btn-open-rec-files');
@@ -2307,6 +2335,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.classList.contains('delete-rec-btn')) {
             if (confirm('Are you sure you want to delete this recommendation?')) {
+                const rec = currentTeacherRecs[recIndex] || (currentSubject && currentSubject.recommendations ? currentSubject.recommendations[recIndex] : null);
+                if (rec && rec.id) {
+                    const token = localStorage.getItem('mentorae_token');
+                    await authedFetch(`/api/content/topics/${rec.id}`, token, { method: 'DELETE' }).catch(() => {});
+                }
                 currentSubject.recommendations.splice(recIndex, 1);
                 saveSubjects(allSubjects);
                 renderRecommendations(currentSubject.recommendations);
@@ -2349,13 +2382,27 @@ document.addEventListener('DOMContentLoaded', () => {
     itemDestination.addEventListener('change', () => {
         if (itemDestination.value === 'recommendation') {
             topicCommentContainer.classList.remove('d-none');
-            topicCommentContainer.querySelector('input').required = true;
+            const commentInput = topicCommentContainer.querySelector('input');
+            if (commentInput) commentInput.required = false;
             topicVisibilityContainer.classList.add('d-none');
-        } else { // 'request'
+            saveItemBtn.textContent = 'Save Recommendation';
+            document.getElementById('addTopicModalLabel').textContent = 'Add Recommendation';
+        } else if (itemDestination.value === 'topic') {
             topicCommentContainer.classList.add('d-none');
-            topicCommentContainer.querySelector('input').required = false;
+            const commentInput = topicCommentContainer.querySelector('input');
+            if (commentInput) commentInput.required = false;
             topicVisibilityContainer.classList.remove('d-none');
             populateVisibilityOptions();
+            saveItemBtn.textContent = 'Post Topic';
+            document.getElementById('addTopicModalLabel').textContent = 'Add New Topic';
+        } else { // 'request'
+            topicCommentContainer.classList.add('d-none');
+            const commentInput = topicCommentContainer.querySelector('input');
+            if (commentInput) commentInput.required = false;
+            topicVisibilityContainer.classList.remove('d-none');
+            populateVisibilityOptions();
+            saveItemBtn.textContent = 'Submit Request';
+            document.getElementById('addTopicModalLabel').textContent = 'Request New Topic';
         }
         // Always update content manager visibility based on the current checkbox states
         document.querySelectorAll('.resource-checkbox').forEach(checkbox => {
@@ -2442,7 +2489,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 isSavingTopicTeacher = true;
                 if (addTopicModal) addTopicModal.hide();
             } else {
-                if (destination === 'recommendation') {
+                if (destination === 'topic') {
+                    const visibilityContainer = document.getElementById('topicVisibilityContainer');
+                    let selectedSections = Array.from(visibilityContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+                    if (selectedSections.length === 0) {
+                        selectedSections = ['All Sections'];
+                    }
+                    const contentPayload = {
+                        resources: selectedResources,
+                        visibleTo: selectedSections,
+                        files: newTopicRequestContent.files,
+                        quiz: newTopicRequestContent.quiz,
+                        flashcards: newTopicRequestContent.flashcards
+                    };
+
+                    try {
+                        const res = await authedFetch('/api/content/topics', token, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                subjectName: decodedSubjectName,
+                                title: document.getElementById('topicTitle').value,
+                                description: document.getElementById('topicDescription').value,
+                                isRecommendation: false,
+                                color: 'bg-card-blue',
+                                contentPayload: contentPayload
+                            })
+                        });
+                        if (res && res.success) {
+                            alert('Your topic has been posted successfully!');
+                            await fetchTopicsFromDb();
+                            isSavingTopicTeacher = true;
+                            if (addTopicModal) addTopicModal.hide();
+                        } else {
+                            alert(res?.message || 'Failed to post topic.');
+                        }
+                    } catch (err) {
+                        console.error('Error posting topic:', err);
+                        alert('Could not post topic to server: ' + (err.message || ''));
+                    }
+                } else if (destination === 'recommendation') {
                     const contentPayload = {
                         resources: selectedResources,
                         files: newTopicRequestContent.files,

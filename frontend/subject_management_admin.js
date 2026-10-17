@@ -829,23 +829,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAddTopicsSectionVisible = addTopicsSection && !addTopicsSection.classList.contains('d-none');
         if (isAddTopicsSectionVisible) {
             const inlineTitle = (document.getElementById('inlineTopicTitle')?.value || '').trim();
-            const inlineDesc = (document.getElementById('inlineTopicDescription')?.value || '').trim();
-            const hasCheckedResources = (
-                document.getElementById('inlineResourceFile')?.checked ||
-                document.getElementById('inlineResourceQuiz')?.checked ||
-                document.getElementById('inlineResourceFlashcards')?.checked ||
-                (inlineTopicContent && inlineTopicContent.quiz && inlineTopicContent.quiz.length > 0) ||
-                (inlineTopicContent && inlineTopicContent.flashcards && inlineTopicContent.flashcards.length > 0)
-            );
-
-            if (inlineTitle || inlineDesc || hasCheckedResources) {
-                alert(`You entered topic details ("${inlineTitle || 'Untitled Topic'}") but forgot to click "+ Add This Topic".\n\nPlease click "+ Add This Topic" first to save this topic, or clear the topic fields before saving the subject.`);
-                const addTopicBtn = document.getElementById('addStagedTopicBtn');
-                if (addTopicBtn) {
-                    addTopicBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    addTopicBtn.focus();
-                }
-                return; // Stop saving to prevent losing the topic
+            if (inlineTitle) {
+                await handleAddStagedTopic();
             }
         }
 
@@ -1178,6 +1163,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 subject.topics.splice(topicIndex, 1);
+                const subjectToEdit = subjects.find(s => s.id == currentEditingSubjectId);
+                if (subjectToEdit) {
+                    subjectToEdit.topics = JSON.parse(JSON.stringify(subject.topics));
+                }
+                saveSubjects(subjects);
                 renderTopicsList(subject.topics);
             }
         }
@@ -1483,15 +1473,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 resources: topicData.resources || [],
                                 files: topicData.files || [],
                                 quiz: topicData.quiz || [],
-                                flashcards: topicData.flashcards || []
+                                flashcards: topicData.flashcards || [],
+                                visibleTo: ['All Sections']
                             }
                         })
                     });
                     if (res && res.topicId) {
                         topicData.id = res.topicId;
+                    } else if (res && !res.success) {
+                        alert(res.message || 'Failed to save topic to server.');
                     }
                 } catch (err) {
-                    console.warn('Direct topic create notice:', err);
+                    console.error('Direct topic create notice:', err);
+                    alert('Could not save topic to server: ' + (err.message || ''));
                 }
             }
 
@@ -1504,6 +1498,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (subjectToEdit) {
             subjectToEdit.topics = JSON.parse(JSON.stringify(subject.topics));
         }
+        saveSubjects(subjects);
         renderTopicsList(subject.topics);
         isSavingTopic = true;
         if (topicEditorModal) topicEditorModal.hide();

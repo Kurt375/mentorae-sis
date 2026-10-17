@@ -180,14 +180,15 @@ async function listTopics(req, res) {
       whereClause += ' AND t.subject_id = ?';
       params.push(subjectId);
     } else if (subjectName) {
-      whereClause += ' AND s.name = ?';
-      params.push(subjectName);
+      const cleanName = String(subjectName).trim();
+      whereClause += ' AND (LOWER(TRIM(s.name)) = LOWER(?) OR LOWER(TRIM(s.code)) = LOWER(?))';
+      params.push(cleanName, cleanName);
     }
 
     const [rows] = await pool.query(
       `SELECT t.*, s.name AS subject_name, u.first_name, u.last_name
        FROM topics t
-       JOIN subjects s ON s.id = t.subject_id
+       LEFT JOIN subjects s ON s.id = t.subject_id
        LEFT JOIN users u ON u.id = t.created_by
        ${whereClause}
        ORDER BY t.created_at DESC`,
@@ -263,7 +264,11 @@ async function createTopic(req, res) {
 
   try {
     if (!subjectId && subjectName) {
-      const [subjRows] = await pool.query('SELECT id FROM subjects WHERE name = ? LIMIT 1', [subjectName]);
+      const cleanSubj = String(subjectName).trim();
+      const [subjRows] = await pool.query(
+        'SELECT id FROM subjects WHERE LOWER(TRIM(name)) = LOWER(?) OR LOWER(TRIM(code)) = LOWER(?) LIMIT 1',
+        [cleanSubj, cleanSubj]
+      );
       if (subjRows.length) subjectId = subjRows[0].id;
     }
     if (!subjectId) {
@@ -292,9 +297,9 @@ async function createTopic(req, res) {
     const payloadStr = contentPayload ? JSON.stringify(contentPayload) : null;
     const isRec = isRecommendation ? 1 : 0;
 
-    // Non-admin can only create recommendations directly
-    if (req.user.role !== 'admin' && !isRec) {
-      return res.status(403).json({ success: false, message: 'Teachers must submit main topics as requests for admin approval.' });
+    // Allow both admins and teachers to create topics and recommendations
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+      return res.status(403).json({ success: false, message: 'You do not have permission to create topics.' });
     }
 
     const cleanTitle = title.trim();

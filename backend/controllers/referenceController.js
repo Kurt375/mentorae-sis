@@ -636,10 +636,12 @@ async function updateSubject(req, res) {
           }
         }
 
-        // Only delete topics that were explicitly omitted from the topics payload
-        for (const existing of existingRows) {
-          if (!processedIds.has(existing.id)) {
-            await pool.query('DELETE FROM topics WHERE id = ?', [existing.id]);
+        // Only delete topics that were explicitly omitted if a non-empty topics array was provided
+        if (topics.length > 0) {
+          for (const existing of existingRows) {
+            if (!processedIds.has(existing.id)) {
+              await pool.query('DELETE FROM topics WHERE id = ?', [existing.id]);
+            }
           }
         }
       }
