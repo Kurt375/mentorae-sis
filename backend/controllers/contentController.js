@@ -350,9 +350,23 @@ async function createTopic(req, res) {
         [cleanTitle, description || null, finalPayloadStr, color || 'bg-card-purple', comment || null, topicId]
       );
     } else {
+      let createdBy = req.user ? req.user.id : null;
+      if (createdBy) {
+        const [userExists] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [createdBy]);
+        if (userExists.length === 0) createdBy = null;
+      }
+      if (!createdBy && req.user && req.user.email) {
+        const [emailExists] = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [req.user.email]);
+        if (emailExists.length > 0) createdBy = emailExists[0].id;
+      }
+      if (!createdBy) {
+        const [fallbackUser] = await pool.query("SELECT id FROM users WHERE role IN ('admin', 'teacher') ORDER BY id ASC LIMIT 1");
+        if (fallbackUser.length > 0) createdBy = fallbackUser[0].id;
+      }
+
       const [result] = await pool.query(
         'INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation, comment, color) VALUES (?, ?, ?, ?, \'approved\', ?, ?, ?, ?)',
-        [subjectId, cleanTitle, description || null, req.user.id, payloadStr, isRec, comment || null, color || 'bg-card-purple']
+        [subjectId, cleanTitle, description || null, createdBy, payloadStr, isRec, comment || null, color || 'bg-card-purple']
       );
       topicId = result.insertId;
     }
@@ -879,9 +893,18 @@ async function reviewTopicRequest(req, res) {
           [request.description || null, request.content_payload, topicId]
         );
       } else {
+        let createdBy = request.teacher_id;
+        if (createdBy) {
+          const [userExists] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [createdBy]);
+          if (userExists.length === 0) createdBy = null;
+        }
+        if (!createdBy) {
+          const [fallbackUser] = await pool.query("SELECT id FROM users WHERE role IN ('admin', 'teacher') ORDER BY id ASC LIMIT 1");
+          if (fallbackUser.length > 0) createdBy = fallbackUser[0].id;
+        }
         const [topicResult] = await pool.query(
           'INSERT INTO topics (subject_id, title, description, created_by, status, content_payload, is_recommendation) VALUES (?, ?, ?, ?, \'approved\', ?, 0)',
-          [request.subject_id, request.title.trim(), request.description, request.teacher_id, request.content_payload]
+          [request.subject_id, request.title.trim(), request.description, createdBy, request.content_payload]
         );
         topicId = topicResult.insertId;
       }
@@ -899,7 +922,7 @@ async function reviewTopicRequest(req, res) {
         message: `Great news! Your request to add main topic "${request.title}" to ${request.subject_name || 'your subject'} has been approved by the school administrator.`
       });
 
-      return res.json({ success: true, topicId: topicResult.insertId, message: 'Topic request approved.' });
+      return res.json({ success: true, topicId, message: 'Topic request approved.' });
     } else {
       await pool.query(
         'UPDATE topic_requests SET status = \'rejected\', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?',
