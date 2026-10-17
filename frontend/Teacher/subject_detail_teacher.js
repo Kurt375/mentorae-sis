@@ -2338,7 +2338,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rec = currentTeacherRecs[recIndex] || (currentSubject && currentSubject.recommendations ? currentSubject.recommendations[recIndex] : null);
                 if (rec && rec.id) {
                     const token = localStorage.getItem('mentorae_token');
-                    await authedFetch(`/api/content/topics/${rec.id}`, token, { method: 'DELETE' }).catch(() => {});
+                    await authedFetch(`/api/content/topics/${rec.id}`, token, { method: 'DELETE' }).catch(() => { });
                 }
                 currentSubject.recommendations.splice(recIndex, 1);
                 saveSubjects(allSubjects);
