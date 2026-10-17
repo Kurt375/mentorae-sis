@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent, isTeacherAdviserOfStudent } = require('../utils/authz');
 const { getManilaDate } = require('../utils/dateUtils');
 

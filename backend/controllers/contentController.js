@@ -1211,9 +1211,18 @@ async function cacheTopicFilePdf(req, res) {
   }
 }
 
-const PREVIEW_DIR = path.join(__dirname, '../uploads/temp_previews');
-if (!fs.existsSync(PREVIEW_DIR)) {
-  fs.mkdirSync(PREVIEW_DIR, { recursive: true });
+const os = require('os');
+const isVercel = Boolean(process.env.VERCEL);
+const PREVIEW_DIR = isVercel
+  ? path.join(os.tmpdir(), 'temp_previews')
+  : path.join(__dirname, '../uploads/temp_previews');
+
+try {
+  if (!fs.existsSync(PREVIEW_DIR)) {
+    fs.mkdirSync(PREVIEW_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('Could not initialize PREVIEW_DIR directory:', err.message);
 }
 
 // Clean up previews older than 24 hours periodically

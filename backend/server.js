@@ -109,6 +109,10 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Mentorae SIS API listening on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Mentorae SIS API listening on port ${PORT}`);
+  });
+}
+
+module.exports = app;

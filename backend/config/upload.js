@@ -3,8 +3,18 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 
-const UPLOAD_ROOT = path.join(__dirname, '..', 'uploads', 'lesson-files');
-fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
+const os = require('os');
+
+const isVercel = Boolean(process.env.VERCEL);
+const UPLOAD_ROOT = isVercel
+  ? path.join(os.tmpdir(), 'lesson-files')
+  : path.join(__dirname, '..', 'uploads', 'lesson-files');
+
+try {
+  fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
+} catch (err) {
+  console.warn('Could not initialize UPLOAD_ROOT directory:', err.message);
+}
 
 // NOTE: this writes to local disk. That's fine for local dev / a
 // single-instance deployment with a persistent volume, but Railway's

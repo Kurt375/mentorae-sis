@@ -3,9 +3,19 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 
-const CONVERTED_DIR = path.join(__dirname, '../uploads/converted');
-if (!fs.existsSync(CONVERTED_DIR)) {
-  fs.mkdirSync(CONVERTED_DIR, { recursive: true });
+const os = require('os');
+
+const isVercel = Boolean(process.env.VERCEL);
+const CONVERTED_DIR = isVercel
+  ? path.join(os.tmpdir(), 'converted')
+  : path.join(__dirname, '../uploads/converted');
+
+try {
+  if (!fs.existsSync(CONVERTED_DIR)) {
+    fs.mkdirSync(CONVERTED_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('Could not initialize CONVERTED_DIR directory:', err.message);
 }
 
 /**
