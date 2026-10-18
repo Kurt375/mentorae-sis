@@ -104,7 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.hostname === '' ||
             window.location.protocol === 'file:' ||
             window.location.hostname.startsWith('192.168.') ||
-            window.location.hostname.startsWith('10.');
+            window.location.hostname.startsWith('10.') ||
+            /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname);
 
         let captchaResponse = (typeof grecaptcha !== 'undefined' && typeof grecaptcha.getResponse === 'function')
             ? grecaptcha.getResponse()
@@ -608,7 +609,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname) ||
             window.location.protocol === 'file:' ||
             window.location.hostname.startsWith('192.168.') ||
-            window.location.hostname.startsWith('10.');
+            window.location.hostname.startsWith('10.') ||
+            /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname);
 
         if (captchaEl && isLocal && (typeof grecaptcha === 'undefined' || !captchaEl.children.length)) {
             captchaEl.innerHTML = '<div style="font-size: 11px; color: #166534; background: #f0fdf4; border: 1px dashed #86efac; border-radius: 6px; padding: 6px 10px; margin-top: 6px; text-align: center;">✅ Local/Offline Mode: reCAPTCHA auto-bypassed for testing</div>';

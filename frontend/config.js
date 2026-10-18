@@ -9,6 +9,7 @@ window.MENTORAE_CONFIG = {
     window.location.protocol === "file:" ||
     window.location.hostname.startsWith("192.168.") ||
     window.location.hostname.startsWith("10.") ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname) ||
     window.location.hostname === "0.0.0.0"
   )
     ? `http://${window.location.hostname && window.location.hostname !== "" ? window.location.hostname : "localhost"}:5000`

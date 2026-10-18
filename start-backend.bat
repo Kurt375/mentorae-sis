@@ -21,5 +21,6 @@ if %errorlevel% neq 0 (
 echo [INFO] Starting Node.js Backend Server on port 5000...
 echo [INFO] System will prioritize Cloud Database (TiDB) and auto-fallback to Local MySQL if blocked!
 cd /d "%~dp0backend"
+set UV_THREADPOOL_SIZE=64
 node server.js
 pause

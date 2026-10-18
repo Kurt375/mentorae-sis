@@ -31,6 +31,8 @@ async function verifyRecaptcha(token, remoteIp) {
     remoteIp === '::ffff:127.0.0.1' ||
     remoteIp.startsWith('192.168.') ||
     remoteIp.startsWith('10.') ||
+    /^::ffff:172\.(1[6-9]|2[0-9]|3[0-1])\./.test(remoteIp) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(remoteIp) ||
     process.env.NODE_ENV === 'development';
 
   if (!token) {
