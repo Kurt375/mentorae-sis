@@ -1380,8 +1380,17 @@ async function bulkImportStudents(req, res) {
   function get(row, ...names) {
     const keys = Object.keys(row);
     for (const name of names) {
-      const key = keys.find((k) => k.trim().toLowerCase() === name.toLowerCase());
+      const target = name.trim().toLowerCase();
+      const key = keys.find((k) => k.trim().toLowerCase() === target);
       if (key && String(row[key]).trim() !== '') return String(row[key]).trim();
+    }
+    // Partial fallback for headers like "Advisory Class", "Advisory Section", etc.
+    for (const name of names) {
+      const target = name.trim().toLowerCase();
+      if (target.length >= 4) {
+        const key = keys.find((k) => k.trim().toLowerCase().includes(target));
+        if (key && String(row[key]).trim() !== '') return String(row[key]).trim();
+      }
     }
     return '';
   }
@@ -1429,10 +1438,12 @@ async function bulkImportStudents(req, res) {
   // Pre-fetch reference data to eliminate hundreds of remote DB queries
   // ----------------------------------------------------
   const [allSections] = await pool.query(
-    `SELECT sec.id, sec.name, sec.grade_level, sec.strand_id, st.code AS strand_code
+    `SELECT sec.id, sec.name, sec.grade_level, sec.strand_id, sec.adviser_id, sec.co_adviser_id, st.code AS strand_code
      FROM sections sec
      JOIN strands st ON st.id = sec.strand_id`
   );
+  const allStrandCodes = [...new Set(allSections.map(s => (s.strand_code || '').trim().toLowerCase()).filter(Boolean))];
+  allStrandCodes.push('stem', 'abm', 'humss', 'tvl', 'gas', 'assh', 'bae', 'he', 'ict');
 
   function levenshteinDistance(a, b) {
     const m = a.length, n = b.length;
@@ -1823,7 +1834,7 @@ async function bulkImportStudents(req, res) {
       }
 
       const contactNumber = cleanPhone(get(row, 'Contact Number', 'Contact', 'Phone'));
-      const advisorySectionName = get(row, 'Advisory Section', 'Advisory', 'Section');
+      const advisorySectionName = get(row, 'Advisory Section', 'Advisory Class', 'Advisory', 'Adviser', 'Section', 'Advisory Section Name', 'Class');
       const subjectsHandled = get(row, 'Subjects Handled', 'Subjects', 'Subject');
 
       const rowLabel = `${firstName} ${lastName}`.trim() || (rawName || `(row ${rowNum})`);
@@ -1901,18 +1912,26 @@ async function bulkImportStudents(req, res) {
           tTempPass = '(Existing account)';
         }
 
-        // Handle Advisory Section (supports Lead Adviser, Co-Adviser, Grade prefixes, New Section Counterpart Auto-Creation, and Typo/Fuzzy matching)
+        // Handle Advisory Section (supports Lead Adviser, Co-Adviser, Grade/Strand prefixes, Parentheses, New Section Counterpart Auto-Creation, and Typo/Fuzzy matching)
         let advisoryAssigned = null;
         if (advisorySectionName) {
           const rawAdv = String(advisorySectionName).trim();
-          const isCo = /\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/i.test(rawAdv);
-          let stripped = rawAdv.replace(/\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r)\b/gi, '').trim();
+          const isCo = /\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r|\(co\)|co-advisory)\b/i.test(rawAdv);
+          let stripped = rawAdv.replace(/\b(co[- ]?advis[eo]r|\(co[- ]?advis[eo]r\)|assistant[- ]?advis[eo]r|lead[- ]?advis[eo]r|\(lead[- ]?advis[eo]r\)|lead|advis[eo]r|\(advis[eo]r\)|advisory)\b/gi, '').trim();
+
+          const parenMatch = stripped.match(/\(([^)]+)\)/);
+          const insideParen = parenMatch ? parenMatch[1].trim() : '';
 
           let extractedGrade = null;
-          const gradeMatch = stripped.match(/^(?:grade\s*|g)?(11|12)\s*[-–—:]*\s*/i);
+          const gradeMatch = stripped.match(/(?:grade\s*|g)?\b(11|12)\b/i);
           if (gradeMatch) {
             extractedGrade = parseInt(gradeMatch[1], 10);
-            stripped = stripped.replace(/^(?:grade\s*|g)?(11|12)\s*[-–—:]*\s*/i, '').trim();
+            stripped = stripped.replace(/(?:grade\s*|g)?\b(11|12)\b/i, '').trim();
+          }
+
+          for (const sc of allStrandCodes) {
+            const reg = new RegExp(`\\b${sc}\\b`, 'gi');
+            stripped = stripped.replace(reg, '').trim();
           }
 
           const cleanSecName = stripped
@@ -1921,30 +1940,53 @@ async function bulkImportStudents(req, res) {
             .trim()
             .toLowerCase();
           const normClean = cleanSecName.replace(/[^a-z0-9]/g, '');
+          const normParen = insideParen.replace(/[^a-z0-9]/g, '').toLowerCase();
 
-          // 1. Try exact match with grade if grade is specified
           let sec = null;
-          if (extractedGrade) {
+          // 1. Try match against text inside parentheses if present (e.g. Grade 11 - STEM (Engineering))
+          if (insideParen) {
             sec = allSections.find(s =>
-              s.grade_level === extractedGrade &&
-              (s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '') === normClean)
+              (!extractedGrade || s.grade_level === extractedGrade) &&
+              (s.name.trim().toLowerCase() === insideParen.toLowerCase() || s.name.replace(/[^a-z0-9]/g, '').toLowerCase() === normParen)
             );
-          } else {
-            // 2. Try exact match without grade
+          }
+
+          // 2. Try match against stripped section name
+          if (!sec && cleanSecName) {
             sec = allSections.find(s =>
-              s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '') === normClean
+              (!extractedGrade || s.grade_level === extractedGrade) &&
+              (s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '').toLowerCase() === normClean)
+            );
+          }
+
+          // 3. Substring containment match
+          if (!sec && cleanSecName) {
+            sec = allSections.find(s =>
+              (!extractedGrade || s.grade_level === extractedGrade) &&
+              (cleanSecName.includes(s.name.trim().toLowerCase()) || s.name.trim().toLowerCase().includes(cleanSecName))
+            );
+          }
+
+          // 4. Try without grade restriction
+          if (!sec && (cleanSecName || insideParen)) {
+            sec = allSections.find(s =>
+              (insideParen && (s.name.trim().toLowerCase() === insideParen.toLowerCase() || s.name.replace(/[^a-z0-9]/g, '').toLowerCase() === normParen)) ||
+              (cleanSecName && (s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '').toLowerCase() === normClean))
             );
           }
 
           let autoCorrectNote = '';
 
-          // 3. Typo / Fuzzy match against existing sections (>= 85% similarity)
-          if (!sec) {
+          // 5. Typo / Fuzzy match against existing sections (>= 75% similarity)
+          if (!sec && (cleanSecName || insideParen)) {
             let bestMatch = null;
             let bestSim = 0;
             for (const s of allSections) {
               if (extractedGrade && s.grade_level !== extractedGrade) continue;
-              const sim = stringSimilarity(cleanSecName, s.name.trim().toLowerCase());
+              const sim = Math.max(
+                cleanSecName ? stringSimilarity(cleanSecName, s.name.trim().toLowerCase()) : 0,
+                insideParen ? stringSimilarity(insideParen, s.name.trim().toLowerCase()) : 0
+              );
               if (sim > bestSim) {
                 bestSim = sim;
                 bestMatch = s;
@@ -1952,20 +1994,23 @@ async function bulkImportStudents(req, res) {
             }
             if (!bestMatch && !extractedGrade) {
               for (const s of allSections) {
-                const sim = stringSimilarity(cleanSecName, s.name.trim().toLowerCase());
+                const sim = Math.max(
+                  cleanSecName ? stringSimilarity(cleanSecName, s.name.trim().toLowerCase()) : 0,
+                  insideParen ? stringSimilarity(insideParen, s.name.trim().toLowerCase()) : 0
+                );
                 if (sim > bestSim) {
                   bestSim = sim;
                   bestMatch = s;
                 }
               }
             }
-            if (bestSim >= 0.85 && bestMatch) {
+            if (bestSim >= 0.75 && bestMatch) {
               sec = bestMatch;
-              autoCorrectNote = ` (Auto-corrected from "${stripped}")`;
+              autoCorrectNote = ` (Auto-matched from "${rawAdv}")`;
             }
           }
 
-          // 4. Auto-create new section if it exists in another grade (e.g. Grade 11 counterpart of Grade 12 section)
+          // 6. Auto-create new section if it exists in another grade (e.g. Grade 11 counterpart of Grade 12 section)
           if (!sec && extractedGrade) {
             const counterpart = allSections.find(s =>
               s.name.trim().toLowerCase() === cleanSecName || s.name.replace(/[^a-z0-9]/g, '') === normClean
@@ -1981,7 +2026,9 @@ async function bulkImportStudents(req, res) {
                   name: counterpart.name,
                   grade_level: extractedGrade,
                   strand_id: counterpart.strand_id,
-                  strand_code: counterpart.strand_code
+                  strand_code: counterpart.strand_code,
+                  adviser_id: isCo ? null : teacherUserId,
+                  co_adviser_id: isCo ? teacherUserId : null,
                 };
                 allSections.push(newSecObj);
                 sec = newSecObj;
@@ -1992,14 +2039,23 @@ async function bulkImportStudents(req, res) {
             }
           }
 
-          // 5. Update adviser/co-adviser in database
+          // 7. Update adviser/co-adviser in database safely without destroying existing assignments
           if (sec && !advisoryAssigned) {
             if (isCo) {
               await pool.query('UPDATE sections SET co_adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
+              sec.co_adviser_id = teacherUserId;
               advisoryAssigned = `${sec.name} (Co-Adviser)${autoCorrectNote}`;
             } else {
-              await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
-              advisoryAssigned = `${sec.name} (Lead Adviser)${autoCorrectNote}`;
+              // If lead adviser is already taken by another teacher and co_adviser is empty, assign as Co-Adviser
+              if (sec.adviser_id && sec.adviser_id !== teacherUserId && !sec.co_adviser_id) {
+                await pool.query('UPDATE sections SET co_adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
+                sec.co_adviser_id = teacherUserId;
+                advisoryAssigned = `${sec.name} (Co-Adviser)${autoCorrectNote}`;
+              } else {
+                await pool.query('UPDATE sections SET adviser_id = ? WHERE id = ?', [teacherUserId, sec.id]);
+                sec.adviser_id = teacherUserId;
+                advisoryAssigned = `${sec.name} (Lead Adviser)${autoCorrectNote}`;
+              }
             }
           }
         }

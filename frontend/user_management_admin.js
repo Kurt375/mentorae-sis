@@ -740,10 +740,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (u.role === 'teacher') {
                 if (u.advisoryClass) {
                     const isCoAdv = u.advisoryRole === 'co' || u.advisory_role === 'co';
+                    const advTypeLabel = isCoAdv ? 'Co-Adviser' : 'Adviser';
                     roleCellHtml += `
                         <div class="mt-1">
-                            <span class="badge ${isCoAdv ? 'bg-info-subtle text-info-emphasis border border-info-subtle' : 'bg-success-subtle text-success border border-success-subtle'} d-inline-flex align-items-center gap-1 text-truncate" style="max-width: 220px; font-size: 0.72rem;" title="${isCoAdv ? 'Co-Advisory Class' : 'Advisory Class'}: ${u.advisoryClass}">
-                                <i class="bi ${isCoAdv ? 'bi-people-fill' : 'bi-shield-check'}"></i> ${isCoAdv ? 'Co-Adv' : 'Adv'}: ${u.advisoryClass}
+                            <span class="badge ${isCoAdv ? 'bg-info-subtle text-info-emphasis border border-info-subtle' : 'bg-success-subtle text-success border border-success-subtle'} d-inline-flex align-items-center gap-1" style="max-width: 280px; font-size: 0.72rem;" title="${advTypeLabel}: ${u.advisoryClass}">
+                                <i class="bi ${isCoAdv ? 'bi-people-fill text-info' : 'bi-shield-check text-success'}"></i> <strong>${advTypeLabel}:</strong> <span class="text-truncate">${u.advisoryClass}</span>
                             </span>
                         </div>`;
                 } else {
