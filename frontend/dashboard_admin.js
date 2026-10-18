@@ -36,12 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await authedFetch('/api/analytics/institutional-overview', token);
             if (!data.success) return;
-            const stEl = document.getElementById('dashboardEnrolledStudents');
+            const usersEl = document.getElementById('dashboardTotalUsers') || document.getElementById('dashboardEnrolledStudents');
             const secEl = document.getElementById('dashboardActiveSections');
             const attEl = document.getElementById('dashboardAttendanceRate');
             const gpaEl = document.getElementById('dashboardSchoolGpa');
 
-            if (stEl) stEl.textContent = Number(data.enrolledStudents || 0).toLocaleString();
+            if (usersEl) usersEl.textContent = Number(data.totalUsers ?? data.enrolledStudents ?? 0).toLocaleString();
             if (secEl) secEl.textContent = Number(data.activeSections || 0).toLocaleString();
             if (attEl) attEl.textContent = `${Number(data.attendanceRate || 0)}%`;
             if (gpaEl) gpaEl.textContent = Number(data.schoolGpa || 0).toFixed(1);

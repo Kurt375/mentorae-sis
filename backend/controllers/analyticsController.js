@@ -606,6 +606,7 @@ async function getSystemStatus(req, res) {
 /** GET /api/analytics/institutional-overview — High-level KPI metrics for the Main Executive Dashboard */
 async function getInstitutionalOverview(req, res) {
   try {
+    const [[usersTotal]] = await pool.query("SELECT COUNT(id) AS count FROM users");
     const [[st]] = await pool.query("SELECT COUNT(id) AS count FROM users WHERE role = 'student'");
     const [[sec]] = await pool.query("SELECT COUNT(id) AS count FROM sections");
     
@@ -633,6 +634,7 @@ async function getInstitutionalOverview(req, res) {
 
     return res.json({
       success: true,
+      totalUsers: Number(usersTotal.count || 0),
       enrolledStudents: Number(st.count || 0),
       activeSections: Number(sec.count || 0),
       attendanceRate: Number(attendanceRate || 0),
