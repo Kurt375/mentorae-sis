@@ -20,14 +20,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveSubjects(subjectsToSave) {
-        localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(subjectsToSave));
+        try {
+            localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(subjectsToSave));
+        } catch (e) {
+            console.warn('localStorage full or quota exceeded (safely persisting via backend):', e);
+            try {
+                // If quota exceeded (e.g. iOS / Android mobile quota), strip large base64 dataUrls and save metadata only
+                const lightweight = (subjectsToSave || []).map(s => {
+                    const clone = { ...s };
+                    if (Array.isArray(clone.topics)) {
+                        clone.topics = clone.topics.map(t => ({
+                            ...t,
+                            files: (t.files || []).map(f => ({ name: f.name, size: f.size, url: f.url, pdfUrl: f.pdfUrl }))
+                        }));
+                    }
+                    if (Array.isArray(clone.recommendations)) {
+                        clone.recommendations = clone.recommendations.map(r => ({
+                            ...r,
+                            files: (r.files || []).map(f => ({ name: f.name, size: f.size, url: f.url, pdfUrl: f.pdfUrl }))
+                        }));
+                    }
+                    return clone;
+                });
+                localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(lightweight));
+            } catch (err2) {
+                console.warn('Could not cache metadata to localStorage:', err2);
+            }
+        }
     }
 
     function readFileAsDataURL(file) {
         return new Promise((resolve, reject) => {
+            if (!file) {
+                return reject(new Error('No file provided.'));
+            }
+            if (file.size === 0) {
+                return reject(new Error('Selected file is 0 bytes or still downloading from iCloud/cloud storage.'));
+            }
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(reader.error);
+            reader.onerror = () => reject(reader.error || new Error('FileReader failed to read the file.'));
             reader.readAsDataURL(file);
         });
     }
@@ -2606,8 +2638,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileInput = document.getElementById('requestFileInput');
         if (fileInput.files.length === 0) return;
         let file = fileInput.files[0];
+        if (!file || file.size === 0) {
+            alert('The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.');
+            fileInput.value = '';
+            return;
+        }
+
         const ext = (file.name || '').split('.').pop().toLowerCase();
-        const allowedExtensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp'];
+        const allowedExtensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
         if (!allowedExtensions.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
             alert('Unsupported file type. Please upload a valid document or media file (PDF, Office, image, or text).');
             fileInput.value = '';
@@ -2649,6 +2687,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Pre-convert Office documents in background for 100% pixel-perfect classroom viewing
             if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
                 const token = localStorage.getItem('mentorae_token');
+                const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
                 if (token) {
                     authedFetch('/api/content/convert-document', token, {
                         method: 'POST',
@@ -2658,8 +2697,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             fileItem.pdfDataUrl = res.pdfDataUrl;
                             fileItem.convertedToPdf = true;
                             renderRequestFiles();
-                        } else if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
-                            // Client canvas fallback only if server conversion was not available
+                        } else if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf && !isMobileDevice) {
+                            // Client canvas fallback only on desktop to prevent mobile WebKit RAM exhaustion
                             window.MentoraePptxToPdf.convert(dataUrl).then(pdfUrl => {
                                 if (pdfUrl && !fileItem.pdfDataUrl) {
                                     fileItem.pdfDataUrl = pdfUrl;
@@ -2670,7 +2709,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }).catch(err => {
                         console.warn('Server conversion notice:', err);
-                        if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf) {
+                        if ((ext === 'pptx' || ext === 'ppt') && window.MentoraePptxToPdf && !isMobileDevice) {
                             window.MentoraePptxToPdf.convert(dataUrl).then(pdfUrl => {
                                 if (pdfUrl && !fileItem.pdfDataUrl) {
                                     fileItem.pdfDataUrl = pdfUrl;
@@ -2683,11 +2722,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (error) {
-            alert('Error reading file.');
+            console.error('Error reading file:', error);
+            alert('Could not read the file from your device. If using iOS, please ensure the file is downloaded to your device from iCloud Drive before uploading.');
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Add File';
+                submitBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add File';
             }
         }
     });

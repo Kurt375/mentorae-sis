@@ -138,7 +138,32 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     function saveSubjects(subjectsToSave) {
-        localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(subjectsToSave));
+        try {
+            localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(subjectsToSave));
+        } catch (e) {
+            console.warn('localStorage full or quota exceeded (safely persisting via backend):', e);
+            try {
+                const lightweight = (subjectsToSave || []).map(s => {
+                    const clone = { ...s };
+                    if (Array.isArray(clone.topics)) {
+                        clone.topics = clone.topics.map(t => ({
+                            ...t,
+                            files: (t.files || []).map(f => ({ name: f.name, size: f.size, url: f.url, pdfUrl: f.pdfUrl }))
+                        }));
+                    }
+                    if (Array.isArray(clone.recommendations)) {
+                        clone.recommendations = clone.recommendations.map(r => ({
+                            ...r,
+                            files: (r.files || []).map(f => ({ name: f.name, size: f.size, url: f.url, pdfUrl: f.pdfUrl }))
+                        }));
+                    }
+                    return clone;
+                });
+                localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(lightweight));
+            } catch (err2) {
+                console.warn('Could not cache metadata to localStorage:', err2);
+            }
+        }
     }
 
     function loadSubjects() {
