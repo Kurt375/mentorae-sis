@@ -60,10 +60,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const ptsEl = document.getElementById('metricPointsEarned');
             const badgeEl = document.getElementById('metricBadgesCount');
 
-            if (gradeEl && overallGrade != null) gradeEl.textContent = `${overallGrade}%`;
-            if (attEl && attendanceRate != null) attEl.textContent = `${attendanceRate}%`;
-            if (ptsEl && badgePoints != null) ptsEl.textContent = badgePoints;
-            if (badgeEl && badgeCount != null) badgeEl.textContent = badgeCount;
+            if (gradeEl) {
+                gradeEl.textContent = (overallGrade !== null && overallGrade !== undefined && overallGrade !== '')
+                    ? `${overallGrade}%`
+                    : '—';
+            }
+            if (attEl) {
+                attEl.textContent = (attendanceRate !== null && attendanceRate !== undefined && attendanceRate !== '')
+                    ? `${attendanceRate}%`
+                    : '0%';
+            }
+            if (ptsEl) ptsEl.textContent = badgePoints != null ? badgePoints : 0;
+            if (badgeEl) badgeEl.textContent = badgeCount != null ? badgeCount : 0;
         }
 
         // Live Recent Activity

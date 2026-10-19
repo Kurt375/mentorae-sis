@@ -270,7 +270,7 @@ async function getRiskAssessment(req, res) {
 
         let riskTier = 'Low Risk';
         let riskClass = 'bg-low-risk text-success';
-        let detailText = `Grade: ${r.overallGrade ? r.overallGrade + '%' : '92%'} | Attendance: ${r.attendanceRate ? r.attendanceRate + '%' : '95%'}`;
+        let detailText = `Grade: ${r.overallGrade ? r.overallGrade + '%' : 'No grades yet'} | Attendance: ${r.attendanceRate ? r.attendanceRate + '%' : '0%'}`;
         let detailColor = 'text-muted';
         let action = {
           label: 'Not Applicable',
@@ -309,7 +309,7 @@ async function getRiskAssessment(req, res) {
               url: `subject_detail_teacher.html?subject=${encodeURIComponent(lowest.subjectName)}&from=analytics`,
             };
           } else {
-            detailText = `Grade: ${r.overallGrade ? r.overallGrade + '%' : '78%'} | Attendance: ${r.attendanceRate ? r.attendanceRate + '%' : '88%'}`;
+            detailText = `Grade: ${r.overallGrade ? r.overallGrade + '%' : 'No grades yet'} | Attendance: ${r.attendanceRate ? r.attendanceRate + '%' : '0%'}`;
             action = {
               label: 'Create Intervention Topic',
               disabled: false,

@@ -657,7 +657,7 @@ async function getStatusSummary(req, res) {
         'SELECT ROUND(AVG(average), 1) AS overallGrade FROM grades WHERE student_id = ?',
         [req.user.id]
       );
-      const overallGrade = gradeRows[0]?.overallGrade !== null ? Number(gradeRows[0]?.overallGrade) : 92.0;
+      const overallGrade = gradeRows[0]?.overallGrade !== null ? Number(gradeRows[0]?.overallGrade) : null;
 
       // Attendance Rate
       const [attRateRows] = await pool.query(
