@@ -2632,6 +2632,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>`).join('')}</div>`;
     }
+    const requestFileInputEl = document.getElementById('requestFileInput');
+    if (requestFileInputEl) {
+        requestFileInputEl.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                const ext = (file.name || '').split('.').pop().toLowerCase();
+                if (ext === 'ppt' || ext === 'pptx') {
+                    e.target.value = '';
+                    alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                }
+            }
+        });
+    }
 
     document.getElementById('requestFileUploadForm').addEventListener('submit', async e => {
         e.preventDefault();
@@ -2645,9 +2658,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const ext = (file.name || '').split('.').pop().toLowerCase();
-        const allowedExtensions = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
+        if (ext === 'ppt' || ext === 'pptx') {
+            alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+            fileInput.value = '';
+            return;
+        }
+
+        const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
         if (!allowedExtensions.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
-            alert('Unsupported file type. Please upload a valid document or media file (PDF, Office, image, or text).');
+            alert('Unsupported file type. Please upload a valid document or media file (PDF, Word, image, or video).');
             fileInput.value = '';
             return;
         }

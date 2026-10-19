@@ -1483,6 +1483,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!file || file.size === 0) {
                         return alert('The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.');
                     }
+                    const ext = (file.name || '').split('.').pop().toLowerCase();
+                    if (ext === 'ppt' || ext === 'pptx') {
+                        updateSaveTopicLoading(false);
+                        isSubmittingTopicModal = false;
+                        fileInput.value = '';
+                        return alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                    }
                     updateSaveTopicLoading(true, 'Processing File...');
                     file = await optimizePresentationIfEligible(file);
                     if (file.size > 35 * 1024 * 1024) {
@@ -1534,6 +1541,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     let file = fileInput.files[0];
                     if (!file || file.size === 0) {
                         return alert('The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.');
+                    }
+                    const ext = (file.name || '').split('.').pop().toLowerCase();
+                    if (ext === 'ppt' || ext === 'pptx') {
+                        updateSaveTopicLoading(false);
+                        isSubmittingTopicModal = false;
+                        fileInput.value = '';
+                        return alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
                     }
                     updateSaveTopicLoading(true, 'Processing File...');
                     file = await optimizePresentationIfEligible(file);
@@ -5974,6 +5988,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (container) container.classList.toggle('d-none', !checkbox.checked);
             });
         });
+
+        // Fast client-side validation to reject PowerPoint presentations immediately
+        const topicEditorFileInputEl = document.getElementById('topicEditorFileInput');
+        if (topicEditorFileInputEl) {
+            topicEditorFileInputEl.addEventListener('change', (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    const ext = (file.name || '').split('.').pop().toLowerCase();
+                    if (ext === 'ppt' || ext === 'pptx') {
+                        e.target.value = '';
+                        alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                    }
+                }
+            });
+        }
 
         updateDateTime();
         setInterval(updateDateTime, 1000);

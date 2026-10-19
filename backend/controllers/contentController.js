@@ -232,8 +232,8 @@ async function listTopics(req, res) {
             url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
             pdfUrl: hasPdf ? `/api/content/topics/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
             hasPdf: hasPdf,
-            dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
-            pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
+            dataUrl: undefined,
+            pdfDataUrl: undefined
           };
         }),
         quiz: isSpecificSubject ? (payload.quiz || []) : [],
@@ -284,7 +284,20 @@ async function createTopic(req, res) {
     }
     subjectId = resolvedSubjectId;
 
-    // Auto-convert any attached PPTX/DOCX files to PDF so students and teachers get instant Google Classroom view
+    // Disallow PowerPoint uploads to preserve storage and ensure mobile compatibility
+    if (contentPayload && Array.isArray(contentPayload.files)) {
+      for (const file of contentPayload.files) {
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        if (ext === 'pptx' || ext === 'ppt') {
+          return res.status(400).json({
+            success: false,
+            message: 'PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
+          });
+        }
+      }
+    }
+
+    // Auto-convert any attached DOCX files to PDF so students and teachers get instant Google Classroom view
     if (contentPayload && Array.isArray(contentPayload.files)) {
       for (const file of contentPayload.files) {
         if (!file.pdfDataUrl && file.dataUrl) {
@@ -430,6 +443,18 @@ async function updateTopic(req, res) {
         }
         return cf;
       });
+    }
+
+    if (finalPayload && Array.isArray(finalPayload.files)) {
+      for (const file of finalPayload.files) {
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        if (ext === 'pptx' || ext === 'ppt') {
+          return res.status(400).json({
+            success: false,
+            message: 'PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
+          });
+        }
+      }
     }
 
     if (finalPayload && Array.isArray(finalPayload.files)) {
@@ -763,7 +788,20 @@ async function createTopicRequest(req, res) {
       return res.status(400).json({ success: false, message: 'Valid subject is required.' });
     }
 
-    // Auto-convert any attached PPTX/DOCX files to PDF so students and teachers get instant Google Classroom view
+    // Disallow PowerPoint uploads to preserve storage and ensure mobile compatibility
+    if (contentPayload && Array.isArray(contentPayload.files)) {
+      for (const file of contentPayload.files) {
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        if (ext === 'pptx' || ext === 'ppt') {
+          return res.status(400).json({
+            success: false,
+            message: 'PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
+          });
+        }
+      }
+    }
+
+    // Auto-convert any attached DOCX files to PDF so students and teachers get instant Google Classroom view
     if (contentPayload && Array.isArray(contentPayload.files)) {
       for (const file of contentPayload.files) {
         if (!file.pdfDataUrl && file.dataUrl) {

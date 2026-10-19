@@ -51,8 +51,9 @@
                 <!-- File Upload Section -->
                 <div class="card bg-light border-dashed p-4 mb-4 text-center" id="dropZone">
                     <i class="bi bi-upload fs-1 text-secondary"></i>
-                    <p class="mt-2 text-muted">Drag & drop files here or click to browse</p>
-                    <input type="file" id="fileUploadInput" class="d-none" multiple>
+                    <p class="mt-2 text-muted mb-1">Drag & drop files here or click to browse</p>
+                    <p class="micro-text text-secondary mb-3">Allowed: PDF, Word (.docx), Images, MP4 (Max 35MB). <em>PowerPoint (.pptx) must be saved as PDF first.</em></p>
+                    <input type="file" id="fileUploadInput" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.webm,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,image/*" multiple>
                     <button class="btn btn-success" id="browseFilesBtn"><i class="bi bi-folder2-open me-2"></i>Browse
                         Files</button>
                 </div>

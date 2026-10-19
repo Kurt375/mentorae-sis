@@ -170,14 +170,27 @@
                 <div class="modal-body">
                     <div id="requestFilesContainer" class="mb-4"></div>
                     <div class="card bg-light border p-3">
-                        <h6 class="fw-bold mb-3">Upload New File</h6>
+                        <h6 class="fw-bold mb-2">Upload New File</h6>
+                        
+                        <div class="alert alert-info py-2.5 px-3 small border-0 bg-info-subtle text-info-emphasis rounded-3 mb-3 shadow-xs">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="bi bi-file-earmark-pdf-fill fs-5 text-primary mt-0.5 flex-shrink-0"></i>
+                                <div class="lh-sm">
+                                    <div class="fw-bold mb-1 text-dark">Supported Formats: PDF, Word (.docx), Images, or MP4 Video (Max 35MB)</div>
+                                    <div class="text-secondary" style="font-size: 0.82rem;">
+                                        <strong>Why PowerPoint (.pptx / .ppt) is restricted:</strong> Slide presentations often contain heavy, uncompressed media that slow down portal performance and cannot be previewed natively on student mobile phones. For instant loading and universal mobile compatibility, please export or save your slides as a <strong>PDF</strong> (in PowerPoint: <em>File &rarr; Export &rarr; Create PDF</em>) before uploading!
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <form id="requestFileUploadForm">
                             <div class="mb-3">
                                 <label for="requestFileInput" class="form-label">Select File</label>
-                                <input class="form-control" type="file" id="requestFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.png,.jpg,.jpeg,.webp,.heic,.heif,.key,.pages,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*" required>
+                                <input class="form-control" type="file" id="requestFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.webm,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,image/*" required>
                                 <div class="form-text mt-1.5 text-muted small">
-                                    <i class="bi bi-info-circle text-primary me-1"></i><strong>Max file size: 35MB.</strong>
-                                    <span class="d-block mt-0.5 text-secondary">Tip: For faster uploads and smoother mobile viewing, export presentations as <em>"PDF Standard / Minimum Size"</em> or compress large PDFs before uploading.</span>
+                                    <i class="bi bi-info-circle text-primary me-1"></i><strong>Allowed: PDF, DOCX, Images, MP4 (Max 35MB).</strong>
+                                    <span class="d-block mt-0.5 text-secondary">Presentations must be saved as PDF prior to uploading.</span>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-success">Upload File</button>
