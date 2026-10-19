@@ -184,6 +184,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const systemBadgesGrid = document.getElementById('systemBadgesGrid');
     const activityTimeline = document.getElementById('activityTimeline');
 
+    // Multi-Student Badge Awarding Controls & State
+    const btnModeSingleStudent = document.getElementById('btnModeSingleStudent');
+    const btnModeMultipleStudents = document.getElementById('btnModeMultipleStudents');
+    const singleStudentSelectorWrapper = document.getElementById('singleStudentSelectorWrapper');
+    const multipleStudentsSelectorWrapper = document.getElementById('multipleStudentsSelectorWrapper');
+    const btnSelectAllStudentsBadge = document.getElementById('btnSelectAllStudentsBadge');
+    const btnClearAllStudentsBadge = document.getElementById('btnClearAllStudentsBadge');
+    const badgeSelectedStudentsCounter = document.getElementById('badgeSelectedStudentsCounter');
+    const badgeStudentSearchFilter = document.getElementById('badgeStudentSearchFilter');
+    const btnClearBadgeStudentSearch = document.getElementById('btnClearBadgeStudentSearch');
+    const badgeStudentsCheckboxList = document.getElementById('badgeStudentsCheckboxList');
+
+    let badgeAwardMode = 'single'; // 'single' | 'multiple'
+    const selectedMultiStudentIds = new Set();
+
     const btnSaveAllGradesNow = document.getElementById('btnSaveAllGradesNow');
     const btnResetGrades = document.getElementById('btnResetGrades');
 
@@ -578,25 +593,155 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function populateBadgeStudentDropdown(students) {
-        if (!studentSelectBadge) return;
-        studentSelectBadge.innerHTML = '';
+    function updateSelectedStudentsBadgeCounter(selectedCount, totalCount) {
+        if (!badgeSelectedStudentsCounter) return;
+        badgeSelectedStudentsCounter.innerHTML = `<i class="bi bi-person-check-fill me-1"></i> ${selectedCount} of ${totalCount} Selected`;
+    }
 
-        if (!students || !students.length) {
-            studentSelectBadge.innerHTML = '<option value="">No students in section</option>';
+    function renderBadgeStudentsCheckboxList(students) {
+        if (!badgeStudentsCheckboxList) return;
+        const studentList = students || currentRoster || [];
+        const filterQuery = (badgeStudentSearchFilter ? badgeStudentSearchFilter.value : '').toLowerCase().trim();
+
+        if (!studentList.length) {
+            badgeStudentsCheckboxList.innerHTML = '<p class="text-muted small text-center my-3">No students enrolled in this section.</p>';
+            updateSelectedStudentsBadgeCounter(0, 0);
             return;
         }
 
-        students.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = `${s.name} (${s.idNumber || s.id})`;
-            studentSelectBadge.appendChild(opt);
+        const filtered = studentList.filter(s => {
+            if (!filterQuery) return true;
+            const name = (s.name || '').toLowerCase();
+            const idNum = String(s.idNumber || s.id || '').toLowerCase();
+            return name.includes(filterQuery) || idNum.includes(filterQuery);
         });
 
-        // Load activity for the first student
-        if (students.length > 0) {
-            loadActivity(students[0].id);
+        if (!filtered.length) {
+            badgeStudentsCheckboxList.innerHTML = '<p class="text-muted small text-center my-3">No matching students found.</p>';
+            updateSelectedStudentsBadgeCounter(selectedMultiStudentIds.size, studentList.length);
+            return;
+        }
+
+        badgeStudentsCheckboxList.innerHTML = filtered.map(s => {
+            const isChecked = selectedMultiStudentIds.has(String(s.id));
+            const initials = (s.name || 'S')
+                .split(' ')
+                .filter(Boolean)
+                .map(part => part[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase();
+
+            return `
+                <div class="badge-student-item ${isChecked ? 'selected' : ''}" data-student-id="${s.id}">
+                    <input class="form-check-input badge-student-checkbox" type="checkbox" value="${s.id}" ${isChecked ? 'checked' : ''} id="chkStudentBadge_${s.id}">
+                    <div class="badge-student-avatar">${initials}</div>
+                    <div class="flex-grow-1 text-truncate">
+                        <label class="form-check-label fw-semibold text-dark text-sm d-block text-truncate mb-0" for="chkStudentBadge_${s.id}" style="cursor: pointer;">
+                            ${escapeHtml(s.name || 'Student')}
+                        </label>
+                        <span class="micro-text text-muted">ID/LRN: ${escapeHtml(String(s.idNumber || s.id))}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        badgeStudentsCheckboxList.querySelectorAll('.badge-student-item').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.tagName && e.target.tagName.toLowerCase() === 'input') return;
+                const cb = row.querySelector('.badge-student-checkbox');
+                if (cb) {
+                    cb.checked = !cb.checked;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            });
+
+            const cb = row.querySelector('.badge-student-checkbox');
+            if (cb) {
+                cb.addEventListener('change', () => {
+                    const sId = String(cb.value);
+                    if (cb.checked) {
+                        selectedMultiStudentIds.add(sId);
+                        row.classList.add('selected');
+                    } else {
+                        selectedMultiStudentIds.delete(sId);
+                        row.classList.remove('selected');
+                    }
+                    updateSelectedStudentsBadgeCounter(selectedMultiStudentIds.size, studentList.length);
+                    updateMultiSelectActivityPreview();
+                });
+            }
+        });
+
+        updateSelectedStudentsBadgeCounter(selectedMultiStudentIds.size, studentList.length);
+    }
+
+    function updateMultiSelectActivityPreview() {
+        if (badgeAwardMode !== 'multiple' || !activityTimeline) return;
+        const total = selectedMultiStudentIds.size;
+        if (total === 0) {
+            activityTimeline.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-people d-block mb-2 fs-3 opacity-50"></i>
+                    <p class="m-0 text-sm fw-semibold">No students selected</p>
+                    <p class="m-0 micro-text text-muted">Check students on the right to award badges simultaneously.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const selectedStudents = (currentRoster || []).filter(s => selectedMultiStudentIds.has(String(s.id)));
+        const previewLimit = 8;
+        const shown = selectedStudents.slice(0, previewLimit);
+        const remainder = selectedStudents.length - shown.length;
+
+        activityTimeline.innerHTML = `
+            <div class="pb-2 mb-2 border-bottom">
+                <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2.5 py-1 rounded-pill text-xs">
+                    <i class="bi bi-check2-circle me-1"></i> ${total} Selected Recipient(s)
+                </span>
+            </div>
+            <div class="d-flex flex-column gap-1.5">
+                ${shown.map(s => `
+                    <div class="d-flex align-items-center gap-2 py-1 px-2 rounded-2 bg-light border border-light-subtle">
+                        <i class="bi bi-person-check text-success"></i>
+                        <div class="text-truncate">
+                            <div class="text-xs fw-semibold text-dark text-truncate">${escapeHtml(s.name)}</div>
+                            <div class="micro-text text-muted">ID: ${escapeHtml(String(s.idNumber || s.id))}</div>
+                        </div>
+                    </div>
+                `).join('')}
+                ${remainder > 0 ? `<div class="text-muted micro-text text-center py-1 bg-light rounded-pill">+ ${remainder} more student(s)</div>` : ''}
+            </div>
+        `;
+    }
+
+    function populateBadgeStudentDropdown(students) {
+        if (studentSelectBadge) {
+            studentSelectBadge.innerHTML = '';
+            if (!students || !students.length) {
+                studentSelectBadge.innerHTML = '<option value="">No students in section</option>';
+            } else {
+                students.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = `${s.name} (${s.idNumber || s.id})`;
+                    studentSelectBadge.appendChild(opt);
+                });
+            }
+        }
+
+        // Reset multi-select when section students change
+        selectedMultiStudentIds.clear();
+        renderBadgeStudentsCheckboxList(students);
+
+        // Load activity preview based on current mode
+        if (badgeAwardMode === 'single') {
+            if (students && students.length > 0) {
+                loadActivity(students[0].id);
+            }
+        } else {
+            updateMultiSelectActivityPreview();
         }
     }
 
@@ -873,14 +1018,93 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Award Badge(s) Button Click
+    // Award Badge Mode Switcher Event Listeners
+    if (btnModeSingleStudent) {
+        btnModeSingleStudent.addEventListener('click', () => {
+            badgeAwardMode = 'single';
+            btnModeSingleStudent.classList.add('btn-success', 'shadow-xs');
+            btnModeSingleStudent.classList.remove('btn-light', 'text-secondary');
+            btnModeMultipleStudents.classList.remove('btn-success', 'shadow-xs');
+            btnModeMultipleStudents.classList.add('btn-light', 'text-secondary');
+
+            if (singleStudentSelectorWrapper) singleStudentSelectorWrapper.classList.remove('d-none');
+            if (multipleStudentsSelectorWrapper) multipleStudentsSelectorWrapper.classList.add('d-none');
+
+            // Restore recent activity for currently selected single student
+            const studentId = studentSelectBadge ? studentSelectBadge.value : null;
+            if (studentId) {
+                loadActivity(studentId);
+            }
+        });
+    }
+
+    if (btnModeMultipleStudents) {
+        btnModeMultipleStudents.addEventListener('click', () => {
+            badgeAwardMode = 'multiple';
+            btnModeMultipleStudents.classList.add('btn-success', 'shadow-xs');
+            btnModeMultipleStudents.classList.remove('btn-light', 'text-secondary');
+            btnModeSingleStudent.classList.remove('btn-success', 'shadow-xs');
+            btnModeSingleStudent.classList.add('btn-light', 'text-secondary');
+
+            if (singleStudentSelectorWrapper) singleStudentSelectorWrapper.classList.add('d-none');
+            if (multipleStudentsSelectorWrapper) multipleStudentsSelectorWrapper.classList.remove('d-none');
+
+            renderBadgeStudentsCheckboxList(currentRoster);
+            updateMultiSelectActivityPreview();
+        });
+    }
+
+    if (btnSelectAllStudentsBadge) {
+        btnSelectAllStudentsBadge.addEventListener('click', () => {
+            (currentRoster || []).forEach(s => selectedMultiStudentIds.add(String(s.id)));
+            renderBadgeStudentsCheckboxList(currentRoster);
+            updateMultiSelectActivityPreview();
+        });
+    }
+
+    if (btnClearAllStudentsBadge) {
+        btnClearAllStudentsBadge.addEventListener('click', () => {
+            selectedMultiStudentIds.clear();
+            renderBadgeStudentsCheckboxList(currentRoster);
+            updateMultiSelectActivityPreview();
+        });
+    }
+
+    if (badgeStudentSearchFilter) {
+        badgeStudentSearchFilter.addEventListener('input', () => {
+            if (btnClearBadgeStudentSearch) {
+                btnClearBadgeStudentSearch.style.display = badgeStudentSearchFilter.value ? 'block' : 'none';
+            }
+            renderBadgeStudentsCheckboxList(currentRoster);
+        });
+    }
+
+    if (btnClearBadgeStudentSearch) {
+        btnClearBadgeStudentSearch.addEventListener('click', () => {
+            badgeStudentSearchFilter.value = '';
+            btnClearBadgeStudentSearch.style.display = 'none';
+            renderBadgeStudentsCheckboxList(currentRoster);
+        });
+    }
+
+    // Award Badge(s) Button Click (Supports Single and Multiple Students)
     if (btnAwardBadges) {
         btnAwardBadges.addEventListener('click', async () => {
-            const studentId = studentSelectBadge ? studentSelectBadge.value : null;
+            let targetStudentIds = [];
 
-            if (!studentId) {
-                alert('Please select a student first.');
-                return;
+            if (badgeAwardMode === 'single') {
+                const sId = studentSelectBadge ? studentSelectBadge.value : null;
+                if (!sId) {
+                    alert('Please select a student first.');
+                    return;
+                }
+                targetStudentIds = [sId];
+            } else {
+                if (selectedMultiStudentIds.size === 0) {
+                    alert('Please select at least one student from the list.');
+                    return;
+                }
+                targetStudentIds = Array.from(selectedMultiStudentIds);
             }
 
             // Exclude any system automated badges
@@ -898,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const res = await authedFetch('/api/badges/award', token, {
                     method: 'POST',
                     body: JSON.stringify({
-                        studentId: studentId,
+                        studentIds: targetStudentIds,
                         badgeIds: badgeIdsArray
                     })
                 });
@@ -906,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (res.success) {
                     alert(`✅ Success: ${res.message || 'Badge(s) awarded successfully!'}`);
 
-                    // Clear selections
+                    // Clear badge selections
                     selectedBadgeIds.clear();
                     badgesSelectionGrid.querySelectorAll('.badge-card').forEach(card => {
                         if (card.dataset.systemAwarded === 'true') return;
@@ -915,11 +1139,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (cb) cb.checked = false;
                     });
 
-                    // Refresh Activity Timeline & Section Leaderboard
-                    await Promise.all([
-                        loadActivity(studentId),
-                        loadLeaderboard(currentSectionId)
-                    ]);
+                    // Clear multi-select student selections
+                    selectedMultiStudentIds.clear();
+                    renderBadgeStudentsCheckboxList(currentRoster);
+                    updateMultiSelectActivityPreview();
+
+                    // Refresh Section Leaderboard & Activity
+                    const refreshPromises = [loadLeaderboard(currentSectionId)];
+                    if (badgeAwardMode === 'single' && targetStudentIds[0]) {
+                        refreshPromises.push(loadActivity(targetStudentIds[0]));
+                    }
+                    await Promise.all(refreshPromises);
                 } else {
                     alert(`❌ Error: ${res.message || 'Could not award badge.'}`);
                 }
@@ -943,6 +1173,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (cb) cb.checked = false;
                 });
             }
+            selectedMultiStudentIds.clear();
+            renderBadgeStudentsCheckboxList(currentRoster);
+            updateMultiSelectActivityPreview();
             const giveBadgesSection = document.getElementById('giveBadgesSection');
             if (giveBadgesSection) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });

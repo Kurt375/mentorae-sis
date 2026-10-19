@@ -51,18 +51,40 @@ async function getCatalog(req, res) {
   }
 }
 
-/** POST /api/badges/award  { studentId, badgeIds: [] } */
+/** POST /api/badges/award  { studentId, studentIds: [], badgeIds: [] } */
 async function awardBadges(req, res) {
-  const { studentId, badgeIds } = req.body;
-  if (!studentId || !Array.isArray(badgeIds) || !badgeIds.length) {
-    return res.status(400).json({ success: false, message: 'studentId and at least one badgeId are required.' });
+  let { studentId, studentIds, badgeIds } = req.body;
+  if (!studentIds && studentId) {
+    studentIds = [studentId];
+  }
+  if (!Array.isArray(studentIds) || !studentIds.length || !Array.isArray(badgeIds) || !badgeIds.length) {
+    return res.status(400).json({ success: false, message: 'studentId(s) and at least one badgeId are required.' });
+  }
+
+  // Sanitize and deduplicate studentIds
+  const cleanStudentIds = Array.from(new Set(studentIds.map((id) => Number(id) || id).filter(Boolean)));
+  if (!cleanStudentIds.length) {
+    return res.status(400).json({ success: false, message: 'Valid studentId(s) required.' });
   }
 
   try {
     if (req.user.role === 'teacher') {
-      const teaches = await teacherTeachesStudent(req.user.id, studentId);
-      if (!teaches) {
-        return res.status(403).json({ success: false, message: 'You do not teach this student.' });
+      // Efficient batch authorization check for all target students
+      const [allowedRows] = await pool.query(
+        `SELECT id FROM users WHERE id IN (?) AND section_id IN (
+           SELECT section_id FROM schedules WHERE teacher_id = ?
+           UNION
+           SELECT id AS section_id FROM sections WHERE adviser_id = ? OR co_adviser_id = ?
+         )`,
+        [cleanStudentIds, req.user.id, req.user.id, req.user.id]
+      );
+      const allowedSet = new Set(allowedRows.map((r) => String(r.id)));
+      const unauthorized = cleanStudentIds.filter((id) => !allowedSet.has(String(id)));
+      if (unauthorized.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `You do not teach student ID(s): ${unauthorized.join(', ')}.`,
+        });
       }
 
       // Teachers cannot award automated system badges
@@ -80,21 +102,25 @@ async function awardBadges(req, res) {
       return res.status(400).json({ success: false, message: 'No valid badges selected.' });
     }
 
-    for (const badge of catalogRows) {
-      await pool.query('INSERT IGNORE INTO student_badges (student_id, badge_id, awarded_by) VALUES (?, ?, ?)', [
-        studentId,
-        badge.id,
-        req.user.id,
-      ]);
-      await pool.query('INSERT INTO activity_log (student_id, description) VALUES (?, ?)', [
-        studentId,
-        `Awarded "${badge.name}" badge`,
-      ]);
+    for (const sId of cleanStudentIds) {
+      for (const badge of catalogRows) {
+        await pool.query('INSERT IGNORE INTO student_badges (student_id, badge_id, awarded_by) VALUES (?, ?, ?)', [
+          sId,
+          badge.id,
+          req.user.id,
+        ]);
+        await pool.query('INSERT INTO activity_log (student_id, description) VALUES (?, ?)', [
+          sId,
+          `Awarded "${badge.name}" badge`,
+        ]);
+      }
     }
 
+    const badgeNames = catalogRows.map((b) => b.name).join(', ');
+    const countLabel = cleanStudentIds.length === 1 ? '1 student' : `${cleanStudentIds.length} students`;
     return res.json({
       success: true,
-      message: `Awarded "${catalogRows.map((b) => b.name).join(', ')}" badge(s).`,
+      message: `Awarded "${badgeNames}" badge(s) to ${countLabel}.`,
     });
   } catch (err) {
     console.error('awardBadges error:', err);

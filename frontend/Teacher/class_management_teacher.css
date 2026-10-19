@@ -1239,7 +1239,76 @@
     padding-right: 4px;
 }
 
+/* Multi-Student Selection in Badge Awarding */
+.badge-student-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.75rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 0.35rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    user-select: none;
+}
 
+.badge-student-item:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateX(2px);
+}
 
+.badge-student-item.selected {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+    box-shadow: 0 1px 3px rgba(25, 135, 84, 0.1);
+}
 
+.badge-student-item .form-check-input {
+    cursor: pointer;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.badge-student-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+.badge-student-item.selected .badge-student-avatar {
+    background: #198754;
+    color: #ffffff;
+}
+
+#badgeStudentsCheckboxList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#badgeStudentsCheckboxList::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+#badgeStudentsCheckboxList::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#badgeStudentsCheckboxList::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
 

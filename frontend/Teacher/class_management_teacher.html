@@ -274,14 +274,61 @@
                         </div>
 
                         <div class="mb-4">
-                            <label for="studentSelectBadge" class="form-label text-muted text-sm fw-medium mb-2">Select
-                                Student</label>
-                            <select class="form-select shadow-sm rounded-3" id="studentSelectBadge">
-                                <option value="Juan Dela Cruz" selected>Juan Dela Cruz</option>
-                                <option value="Maria Santos">Maria Santos</option>
-                                <option value="Pedro Garcia">Pedro Garcia</option>
-                                <option value="Ana Reyes">Ana Reyes</option>
-                            </select>
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-2">
+                                <label class="form-label text-muted text-sm fw-medium mb-0">Select Recipient(s)</label>
+                                <div class="btn-group btn-group-sm p-1 bg-light rounded-pill border shadow-2xs" role="group" id="badgeAwardModeGroup">
+                                    <button type="button" class="btn btn-sm rounded-pill btn-success fw-semibold px-3 py-1 shadow-xs" id="btnModeSingleStudent" data-mode="single">
+                                        <i class="bi bi-person me-1"></i> Single Student
+                                    </button>
+                                    <button type="button" class="btn btn-sm rounded-pill btn-light text-secondary fw-semibold px-3 py-1" id="btnModeMultipleStudents" data-mode="multiple">
+                                        <i class="bi bi-people-fill me-1"></i> Multiple Students
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Single Student Selector -->
+                            <div id="singleStudentSelectorWrapper">
+                                <select class="form-select shadow-sm rounded-3" id="studentSelectBadge">
+                                    <option value="" selected>Loading students...</option>
+                                </select>
+                                <div class="form-text text-xs text-muted mt-1.5 d-flex align-items-center gap-1">
+                                    <i class="bi bi-clock-history text-secondary"></i>
+                                    <span>Recent activity on the left shows badges and logs for this student.</span>
+                                </div>
+                            </div>
+
+                            <!-- Multiple Students Selector -->
+                            <div id="multipleStudentsSelectorWrapper" class="d-none">
+                                <div class="card border rounded-3 p-3 bg-light shadow-2xs">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-2.5 py-1 fw-semibold text-xs" id="btnSelectAllStudentsBadge">
+                                                <i class="bi bi-check-all me-1"></i> Select Entire Class
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 fw-semibold text-xs" id="btnClearAllStudentsBadge">
+                                                <i class="bi bi-x-circle me-1"></i> Deselect All
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1.5 rounded-pill fw-semibold text-xs" id="badgeSelectedStudentsCounter">
+                                                <i class="bi bi-person-check-fill me-1"></i> 0 of 0 Selected
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="input-group input-group-sm mb-2">
+                                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control border-start-0" id="badgeStudentSearchFilter" placeholder="Filter student by name or LRN...">
+                                        <button class="btn btn-outline-secondary border-start-0" type="button" id="btnClearBadgeStudentSearch" title="Clear filter" style="display: none;">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="overflow-y-auto p-1 bg-white rounded-2 border" id="badgeStudentsCheckboxList" style="max-height: 230px;">
+                                        <p class="text-muted small text-center my-3">No students found.</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-4">
