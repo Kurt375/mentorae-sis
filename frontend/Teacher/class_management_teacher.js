@@ -638,7 +638,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const data = await authedFetch(url, token);
             if (!data.success || !Array.isArray(data.leaderboard)) {
-                sectionLeaderboardList.innerHTML = '<p class="text-muted small py-3 text-center mb-0">Select a section to see rankings.</p>';
+                const msg = data && data.message ? data.message : 'Select a section to see rankings.';
+                sectionLeaderboardList.innerHTML = `<p class="text-muted small py-3 text-center mb-0">${msg}</p>`;
                 if (leaderboardTotalStudents) leaderboardTotalStudents.innerHTML = '<i class="bi bi-people-fill"></i> <span>0 Students</span>';
                 return;
             }
@@ -651,9 +652,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!list.length) {
                 sectionLeaderboardList.innerHTML = `
                     <div class="text-center py-4 text-muted">
-                        <i class="bi bi-trophy display-6 d-block mb-2 opacity-50"></i>
-                        <h6 class="fw-bold text-dark">No Badge Points Awarded Yet</h6>
-                        <p class="m-0 small">Award badges to students below to start building their academic leaderboard standing.</p>
+                        <i class="bi bi-people display-6 d-block mb-2 opacity-50"></i>
+                        <h6 class="fw-bold text-dark">No Students Enrolled Yet</h6>
+                        <p class="m-0 small">No students are currently enrolled in this section.</p>
                     </div>
                 `;
                 return;

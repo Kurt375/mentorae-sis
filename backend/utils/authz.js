@@ -1,21 +1,29 @@
 const pool = require('../config/db');
 
-/** True if this teacher has any schedule entry for this section (i.e. actually teaches it). */
+/** True if this teacher has any schedule entry for this section (i.e. actually teaches it) OR is the section's adviser / co-adviser. */
 async function teacherTeachesSection(teacherId, sectionId) {
-  const [rows] = await pool.query('SELECT 1 FROM schedules WHERE teacher_id = ? AND section_id = ? LIMIT 1', [
-    teacherId,
-    sectionId,
-  ]);
+  const [rows] = await pool.query(
+    `SELECT 1 FROM schedules WHERE teacher_id = ? AND section_id = ?
+     UNION
+     SELECT 1 FROM sections WHERE id = ? AND (adviser_id = ? OR co_adviser_id = ?)
+     LIMIT 1`,
+    [teacherId, sectionId, sectionId, teacherId, teacherId]
+  );
   return !!rows[0];
 }
 
-/** True if this teacher has ever taught this specific student (via a shared section on any of their schedules). */
+/** True if this teacher has ever taught this specific student (via a shared section on any of their schedules) OR advises their section. */
 async function teacherTeachesStudent(teacherId, studentId) {
   const [rows] = await pool.query(
     `SELECT 1 FROM schedules sch
      JOIN users u ON u.section_id = sch.section_id
-     WHERE sch.teacher_id = ? AND u.id = ? LIMIT 1`,
-    [teacherId, studentId]
+     WHERE sch.teacher_id = ? AND u.id = ?
+     UNION
+     SELECT 1 FROM users u
+     JOIN sections sec ON sec.id = u.section_id
+     WHERE (sec.adviser_id = ? OR sec.co_adviser_id = ?) AND u.id = ?
+     LIMIT 1`,
+    [teacherId, studentId, teacherId, teacherId, studentId]
   );
   return !!rows[0];
 }
