@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let subjects = [];
     let isSaving = false; // To prevent unsaved changes prompt during save.
     let isSavingTopic = false; // To prevent unsaved changes prompt during topic save.
+    let isSubmittingTopicModal = false; // Prevents duplicate clicks and tracks topic modal saving state
     let editingSubjectCopy = null; // To hold a deep copy of the subject being edited.
     let currentEditingSubjectId = null; // To track which subject's topics are being edited
     let stagedTopics = []; // To hold topics when creating a new subject
@@ -1120,6 +1121,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (topicEditorForm) topicEditorForm.reset();
             if (document.getElementById('topicEditorModalLabel')) document.getElementById('topicEditorModalLabel').textContent = 'Edit Topic';
+            const saveTopicBtn = document.getElementById('btnSaveTopic');
+            if (saveTopicBtn) {
+                saveTopicBtn.disabled = false;
+                saveTopicBtn.innerHTML = 'Save Topic';
+            }
+            const cancelTopicBtn = document.getElementById('btnCancelTopicEditor');
+            if (cancelTopicBtn) {
+                cancelTopicBtn.disabled = false;
+            }
+            isSubmittingTopicModal = false;
             document.getElementById('topicId').value = topicIndex;
             document.getElementById('topicTitle').value = topic.title;
             document.getElementById('topicDescription').value = topic.description;
@@ -1317,6 +1328,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleAddNewTopicClick() {
         if (topicEditorForm) topicEditorForm.reset();
         if (document.getElementById('topicEditorModalLabel')) document.getElementById('topicEditorModalLabel').textContent = 'Add New Topic';
+        const saveTopicBtn = document.getElementById('btnSaveTopic');
+        if (saveTopicBtn) {
+            saveTopicBtn.disabled = false;
+            saveTopicBtn.innerHTML = 'Save Topic';
+        }
+        const cancelTopicBtn = document.getElementById('btnCancelTopicEditor');
+        if (cancelTopicBtn) {
+            cancelTopicBtn.disabled = false;
+        }
+        isSubmittingTopicModal = false;
         document.getElementById('topicId').value = '';
         
         inlineTopicContent = { files: [], quiz: [], flashcards: [] };
@@ -1340,6 +1361,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleTopicFormSubmit(event) {
         if (event) event.preventDefault();
+        if (isSubmittingTopicModal) return;
+
         const titleInput = document.getElementById('topicTitle');
         const descriptionInput = document.getElementById('topicDescription');
         const title = titleInput.value.trim();
@@ -1361,21 +1384,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cleanTitle = document.getElementById('topicTitle').value.trim();
         const cleanDesc = document.getElementById('topicDescription').value.trim();
+        const fileInput = document.getElementById('topicEditorFileInput');
 
-        const topicData = {
-            title: cleanTitle,
-            description: cleanDesc,
-            resources: selectedResources
-        };
-
-        const token = localStorage.getItem('mentorae_token');
-
+        // Validate required resources before starting async processing and changing button state
         if (topicIndex !== '') { // Editing existing topic
-            const fileInput = document.getElementById('topicEditorFileInput');
             const oldTopic = subject.topics[topicIndex];
             const existingFiles = (inlineTopicContent.files || oldTopic.files || []);
 
-            // Validation for editing
             if (selectedResources.includes('File') && existingFiles.length === 0 && (!fileInput.files || fileInput.files.length === 0)) {
                 return alert('You have selected "File" as a resource but have not chosen a file.');
             }
@@ -1385,57 +1400,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedResources.includes('Flashcards') && inlineTopicContent.flashcards.length === 0) {
                 return alert('You have selected "Flashcards" but no cards have been added. Please use the "Manage Flashcards Content" button.');
             }
-
-            const updatedTopic = { ...oldTopic, ...topicData };
-            updatedTopic.quiz = [...inlineTopicContent.quiz];
-            updatedTopic.flashcards = [...inlineTopicContent.flashcards];
-            updatedTopic.files = [...(inlineTopicContent.files || oldTopic.files || [])];
-
-            // Handle file upload for editing (only if a new file is selected)
-            if (selectedResources.includes('File') && fileInput.files && fileInput.files.length > 0) {
-                let file = fileInput.files[0];
-                file = await optimizePresentationIfEligible(file);
-                if (file.size > 25 * 1024 * 1024) {
-                    return alert(`File "${file.name}" is too large (max 25MB).`);
-                }
-                try {
-                    const fileDataUrl = await readFileAsDataURL(file);
-                    updatedTopic.files.push({ name: file.name, size: file.size, dataUrl: fileDataUrl });
-                } catch (error) {
-                    console.error("Error reading file:", error);
-                    return alert("There was an error reading the file.");
-                }
-            } else if (!selectedResources.includes('File')) {
-                updatedTopic.files = [];
-            }
-
-            subject.topics[topicIndex] = updatedTopic;
-
-            // Immediately persist changes to backend database if this subject already exists in database
-            if (token && currentEditingSubjectId && updatedTopic.id) {
-                try {
-                    await authedFetch(`/api/content/topics/${updatedTopic.id}`, token, {
-                        method: 'PUT',
-                        body: JSON.stringify({
-                            title: cleanTitle,
-                            description: updatedTopic.description,
-                            contentPayload: {
-                                resources: updatedTopic.resources || [],
-                                files: updatedTopic.files || [],
-                                quiz: updatedTopic.quiz || [],
-                                flashcards: updatedTopic.flashcards || [],
-                                visibleTo: updatedTopic.visibleTo || ['All Sections']
-                            }
-                        })
-                    });
-                } catch (err) {
-                    console.warn('Direct topic update notice:', err);
-                }
-            }
         } else { // Adding new topic
-            // NEW: Validate and add content
-            const fileInput = document.getElementById('topicEditorFileInput');
-            if (selectedResources.includes('File') && fileInput.files.length === 0) {
+            if (selectedResources.includes('File') && (!fileInput.files || fileInput.files.length === 0)) {
                 return alert('You have selected "File" as a resource but have not chosen a file.');
             }
             if (selectedResources.includes('Practice Quiz') && inlineTopicContent.quiz.length === 0) {
@@ -1444,71 +1410,159 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedResources.includes('Flashcards') && inlineTopicContent.flashcards.length === 0) {
                 return alert('You have selected "Flashcards" but no cards have been added. Please use the "Manage Flashcards Content" button.');
             }
+        }
 
-            topicData.files = [];
-            topicData.quiz = [...inlineTopicContent.quiz];
-            topicData.flashcards = [...inlineTopicContent.flashcards];
-            topicData.createdAt = new Date().toISOString();
-            topicData.createdBy = 'admin';
+        const saveTopicBtn = document.getElementById('btnSaveTopic') || (topicEditorForm ? topicEditorForm.querySelector('button[type="submit"]') : null);
+        const cancelTopicBtn = document.getElementById('btnCancelTopicEditor') || (topicEditorForm ? topicEditorForm.querySelector('button[data-bs-dismiss="modal"]') : null);
+        const origSaveBtnHtml = saveTopicBtn ? saveTopicBtn.innerHTML : 'Save Topic';
 
-            if (selectedResources.includes('File') && fileInput.files.length > 0) {
-                let file = fileInput.files[0];
-                file = await optimizePresentationIfEligible(file);
-                if (file.size > 25 * 1024 * 1024) {
-                    return alert(`File "${file.name}" is too large (max 25MB).`);
-                }
-                try {
-                    const fileDataUrl = await readFileAsDataURL(file);
-                    topicData.files.push({ name: file.name, size: file.size, dataUrl: fileDataUrl });
-                } catch (error) {
-                    console.error("Error reading file:", error);
-                    return alert("There was an error reading the file.");
+        const updateSaveTopicLoading = (isLoading, label = 'Saving Topic...') => {
+            if (saveTopicBtn) {
+                saveTopicBtn.disabled = isLoading;
+                if (isLoading) {
+                    saveTopicBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true"></span> ${label}`;
+                } else {
+                    saveTopicBtn.innerHTML = origSaveBtnHtml;
                 }
             }
+            if (cancelTopicBtn) {
+                cancelTopicBtn.disabled = isLoading;
+            }
+        };
 
-            // Immediately persist to backend if subject already exists
-            if (token && currentEditingSubjectId) {
-                try {
-                    const res = await authedFetch('/api/content/topics', token, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            subjectId: currentEditingSubjectId,
-                            subjectName: subject.name,
-                            title: cleanTitle,
-                            description: topicData.description,
-                            contentPayload: {
-                                resources: topicData.resources || [],
-                                files: topicData.files || [],
-                                quiz: topicData.quiz || [],
-                                flashcards: topicData.flashcards || [],
-                                visibleTo: ['All Sections']
-                            }
-                        })
-                    });
-                    if (res && res.topicId) {
-                        topicData.id = res.topicId;
-                    } else if (res && !res.success) {
-                        alert(res.message || 'Failed to save topic to server.');
+        const topicData = {
+            title: cleanTitle,
+            description: cleanDesc,
+            resources: selectedResources
+        };
+
+        const token = localStorage.getItem('mentorae_token');
+
+        isSubmittingTopicModal = true;
+        updateSaveTopicLoading(true, 'Saving Topic...');
+
+        try {
+            if (topicIndex !== '') { // Editing existing topic
+                const oldTopic = subject.topics[topicIndex];
+                const updatedTopic = { ...oldTopic, ...topicData };
+                updatedTopic.quiz = [...inlineTopicContent.quiz];
+                updatedTopic.flashcards = [...inlineTopicContent.flashcards];
+                updatedTopic.files = [...(inlineTopicContent.files || oldTopic.files || [])];
+
+                // Handle file upload for editing (only if a new file is selected)
+                if (selectedResources.includes('File') && fileInput.files && fileInput.files.length > 0) {
+                    updateSaveTopicLoading(true, 'Processing File...');
+                    let file = fileInput.files[0];
+                    file = await optimizePresentationIfEligible(file);
+                    if (file.size > 25 * 1024 * 1024) {
+                        return alert(`File "${file.name}" is too large (max 25MB).`);
                     }
-                } catch (err) {
-                    console.error('Direct topic create notice:', err);
-                    alert('Could not save topic to server: ' + (err.message || ''));
+                    try {
+                        const fileDataUrl = await readFileAsDataURL(file);
+                        updatedTopic.files.push({ name: file.name, size: file.size, dataUrl: fileDataUrl });
+                    } catch (error) {
+                        console.error("Error reading file:", error);
+                        return alert("There was an error reading the file.");
+                    }
+                } else if (!selectedResources.includes('File')) {
+                    updatedTopic.files = [];
                 }
+
+                subject.topics[topicIndex] = updatedTopic;
+
+                // Immediately persist changes to backend database if this subject already exists in database
+                if (token && currentEditingSubjectId && updatedTopic.id) {
+                    updateSaveTopicLoading(true, 'Saving to Server...');
+                    try {
+                        await authedFetch(`/api/content/topics/${updatedTopic.id}`, token, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                title: cleanTitle,
+                                description: updatedTopic.description,
+                                contentPayload: {
+                                    resources: updatedTopic.resources || [],
+                                    files: updatedTopic.files || [],
+                                    quiz: updatedTopic.quiz || [],
+                                    flashcards: updatedTopic.flashcards || [],
+                                    visibleTo: updatedTopic.visibleTo || ['All Sections']
+                                }
+                            })
+                        });
+                    } catch (err) {
+                        console.warn('Direct topic update notice:', err);
+                    }
+                }
+            } else { // Adding new topic
+                topicData.files = [];
+                topicData.quiz = [...inlineTopicContent.quiz];
+                topicData.flashcards = [...inlineTopicContent.flashcards];
+                topicData.createdAt = new Date().toISOString();
+                topicData.createdBy = 'admin';
+
+                if (selectedResources.includes('File') && fileInput.files.length > 0) {
+                    updateSaveTopicLoading(true, 'Processing File...');
+                    let file = fileInput.files[0];
+                    file = await optimizePresentationIfEligible(file);
+                    if (file.size > 25 * 1024 * 1024) {
+                        return alert(`File "${file.name}" is too large (max 25MB).`);
+                    }
+                    try {
+                        const fileDataUrl = await readFileAsDataURL(file);
+                        topicData.files.push({ name: file.name, size: file.size, dataUrl: fileDataUrl });
+                    } catch (error) {
+                        console.error("Error reading file:", error);
+                        return alert("There was an error reading the file.");
+                    }
+                }
+
+                // Immediately persist to backend if subject already exists
+                if (token && currentEditingSubjectId) {
+                    updateSaveTopicLoading(true, 'Saving to Server...');
+                    try {
+                        const res = await authedFetch('/api/content/topics', token, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                subjectId: currentEditingSubjectId,
+                                subjectName: subject.name,
+                                title: cleanTitle,
+                                description: topicData.description,
+                                contentPayload: {
+                                    resources: topicData.resources || [],
+                                    files: topicData.files || [],
+                                    quiz: topicData.quiz || [],
+                                    flashcards: topicData.flashcards || [],
+                                    visibleTo: ['All Sections']
+                                }
+                            })
+                        });
+                        if (res && res.topicId) {
+                            topicData.id = res.topicId;
+                        } else if (res && !res.success) {
+                            alert(res.message || 'Failed to save topic to server.');
+                        }
+                    } catch (err) {
+                        console.error('Direct topic create notice:', err);
+                        alert('Could not save topic to server: ' + (err.message || ''));
+                    }
+                }
+
+                if (!subject.topics) subject.topics = [];
+                subject.topics.push(topicData);
             }
 
-            if (!subject.topics) subject.topics = [];
-            subject.topics.push(topicData);
+            sortTopicsAscending(subject.topics);
+            const subjectToEdit = subjects.find(s => s.id == currentEditingSubjectId);
+            if (subjectToEdit) {
+                subjectToEdit.topics = JSON.parse(JSON.stringify(subject.topics));
+            }
+            saveSubjects(subjects);
+            renderTopicsList(subject.topics);
+            isSavingTopic = true;
+            if (topicEditorModal) topicEditorModal.hide();
+        } finally {
+            updateSaveTopicLoading(false);
+            isSubmittingTopicModal = false;
         }
-
-        sortTopicsAscending(subject.topics);
-        const subjectToEdit = subjects.find(s => s.id == currentEditingSubjectId);
-        if (subjectToEdit) {
-            subjectToEdit.topics = JSON.parse(JSON.stringify(subject.topics));
-        }
-        saveSubjects(subjects);
-        renderTopicsList(subject.topics);
-        isSavingTopic = true;
-        if (topicEditorModal) topicEditorModal.hide();
     }
 
     async function handleAddStagedTopic() {
@@ -5819,6 +5873,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             topicEditorModalEl.addEventListener('hidden.bs.modal', () => {
+                const saveTopicBtn = document.getElementById('btnSaveTopic');
+                if (saveTopicBtn) {
+                    saveTopicBtn.disabled = false;
+                    saveTopicBtn.innerHTML = 'Save Topic';
+                }
+                const cancelTopicBtn = document.getElementById('btnCancelTopicEditor');
+                if (cancelTopicBtn) {
+                    cancelTopicBtn.disabled = false;
+                }
+                isSubmittingTopicModal = false;
                 if (isTransitioningToSubmodal) return;
                 isSavingTopic = false;
                 if (subjectModal) {
