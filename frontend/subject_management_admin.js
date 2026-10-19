@@ -615,11 +615,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             topicItem.innerHTML = `
                 <div class="d-flex align-items-start gap-2.5 me-3 flex-grow-1" style="min-width: 0;">
-                    <input type="checkbox" class="form-check-input topic-select-chk mt-1 flex-shrink-0" data-index="${index}" data-id="${topic.id || ''}" style="width: 1.15rem; height: 1.15rem; cursor: pointer;" title="Select topic for batch actions">
-                    <div class="flex-grow-1" style="min-width: 0;">
+                    <input type="checkbox" class="form-check-input topic-select-chk mt-1 flex-shrink-0" id="topicChk_${index}" data-index="${index}" data-id="${topic.id || ''}" style="width: 1.25rem; height: 1.25rem; cursor: pointer;" title="Select topic">
+                    <label for="topicChk_${index}" class="flex-grow-1 mb-0 user-select-none" style="min-width: 0; cursor: pointer;">
                         <h6 class="mb-1 text-break fw-semibold">${topic.title}</h6>
                         <small class="text-muted text-break">${topic.description || ''}</small>
-                    </div>
+                    </label>
                 </div>
                 <div class="d-inline-flex gap-2 mt-2 mt-sm-0 flex-shrink-0">
                     ${resourceButtons.join('')}
@@ -1180,12 +1180,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleTopicsContainerClick(event) {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
+        if (!event) return;
+
+        // If clicking on a checkbox or its label, DO NOT preventDefault! Let browser toggle naturally!
+        if (event.target.closest('.topic-select-chk') || event.target.closest('label')) {
+            setTimeout(updateTopicSelectionState, 0);
+            return;
         }
+
         const target = event.target.closest('button');
         if (!target) return;
+
+        event.preventDefault();
+        event.stopPropagation();
 
         const subject = editingSubjectCopy; // Work on the temporary copy
         if (!subject) return;
@@ -5714,7 +5721,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const addNewTopicBtn = document.getElementById('addNewTopicBtn');
         if (addNewTopicBtn) addNewTopicBtn.addEventListener('click', handleAddNewTopicClick);
         
-        if (topicsListContainer) topicsListContainer.addEventListener('click', handleTopicsContainerClick);
+        if (topicsListContainer) {
+            topicsListContainer.addEventListener('click', handleTopicsContainerClick);
+            topicsListContainer.addEventListener('change', (e) => {
+                if (e.target.classList.contains('topic-select-chk')) {
+                    updateTopicSelectionState();
+                }
+            });
+        }
         if (topicEditorForm) topicEditorForm.addEventListener('submit', handleTopicFormSubmit);
 
         // Select All Topics Checkbox Listener
