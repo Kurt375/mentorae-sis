@@ -2669,8 +2669,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (file.size > 25 * 1024 * 1024) {
-            alert(`File "${file.name}" is too large (max 25MB).`);
+        if (file.size > 35 * 1024 * 1024) {
+            alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add File';

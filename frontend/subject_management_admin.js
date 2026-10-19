@@ -1485,8 +1485,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     updateSaveTopicLoading(true, 'Processing File...');
                     file = await optimizePresentationIfEligible(file);
-                    if (file.size > 25 * 1024 * 1024) {
-                        return alert(`File "${file.name}" is too large (max 25MB).`);
+                    if (file.size > 35 * 1024 * 1024) {
+                        return alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);
                     }
                     try {
                         const fileDataUrl = await readFileAsDataURL(file);
@@ -1537,8 +1537,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     updateSaveTopicLoading(true, 'Processing File...');
                     file = await optimizePresentationIfEligible(file);
-                    if (file.size > 25 * 1024 * 1024) {
-                        return alert(`File "${file.name}" is too large (max 25MB).`);
+                    if (file.size > 35 * 1024 * 1024) {
+                        return alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);
                     }
                     try {
                         const fileDataUrl = await readFileAsDataURL(file);
@@ -1666,8 +1666,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             file = await optimizePresentationIfEligible(file);
-            if (file.size > 25 * 1024 * 1024) {
-                alert(`File "${file.name}" is too large (max 25MB).`);
+            if (file.size > 35 * 1024 * 1024) {
+                alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);
                 addStagedTopicBtn.disabled = false;
                 addStagedTopicBtn.innerHTML = `<i class="bi bi-plus-lg me-1"></i> Add This Topic`;
                 return;
@@ -5172,8 +5172,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         file = await optimizePresentationIfEligible(file);
-        if (file.size > 25 * 1024 * 1024) { // Max 25MB
-            alert(`File "${file.name}" is too large (max 25MB).`);
+        if (file.size > 35 * 1024 * 1024) { // Max 35MB
+            alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);
             return;
         }
 
