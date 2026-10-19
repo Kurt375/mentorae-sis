@@ -602,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // --- UI Rendering ---
     function renderSubjectTable(subjectsToRender) {
-        subjectsTableBody.innerHTML = '';
+        if (!subjectsTableBody) return;
         if (subjectsToRender.length === 0) {
             subjectsTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-4">No subjects match your criteria.</td></tr>`;
             return;
@@ -616,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'bg-card-red': { label: 'Red', color: '#ef4444' },
         };
 
-        subjectsToRender.forEach(subject => {
+        const rowsHtml = subjectsToRender.map(subject => {
             const name = subject.name || '';
             const code = subject.code || '';
             const category = subject.category || subject.classification || 'Core Subject';
@@ -636,34 +636,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const colorClass = subject.color || 'bg-card-blue';
             const colorInfo = colorMap[colorClass] || colorMap['bg-card-blue'];
 
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="p-3 align-middle">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="rounded-circle d-inline-block flex-shrink-0 shadow-sm border" style="width: 13px; height: 13px; background-color: ${colorInfo.color};" title="Card Color: ${colorInfo.label}"></span>
-                        <span class="fw-semibold text-dark">${name}</span>
-                    </div>
-                </td>
-                <td class="p-3 align-middle">${code}</td>
-                <td class="p-3 align-middle">
-                    <div class="fw-semibold text-dark">${category}</div>
-                    <span class="badge bg-success-subtle text-success border micro-text mt-1 d-inline-block" title="Grading Component Weights">
-                        WW: ${subject.ww_weight || subject.wwWeight || 20}% | PT: ${subject.pt_weight || subject.ptWeight || 50}% | QA: ${subject.qa_weight || subject.qaWeight || 30}%
-                    </span>
-                </td>
-                <td class="p-3 align-middle">${gradeLevel}</td>
-                <td class="p-3 align-middle">${termDisplay}</td>
-                <td class="p-3 align-middle">${strandSection}</td>
-                <td class="p-3 align-middle">${strand}</td>
-                <td class="p-3 align-middle text-end">
-                    <div class="d-inline-flex gap-2">
-                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${subject.id}">Edit</button>
-                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${subject.id}">Delete</button>
-                    </div>
-                </td>
+            return `
+                <tr>
+                    <td class="p-3 align-middle">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block flex-shrink-0 shadow-sm border" style="width: 13px; height: 13px; background-color: ${colorInfo.color};" title="Card Color: ${colorInfo.label}"></span>
+                            <span class="fw-semibold text-dark">${name}</span>
+                        </div>
+                    </td>
+                    <td class="p-3 align-middle">${code}</td>
+                    <td class="p-3 align-middle">
+                        <div class="fw-semibold text-dark">${category}</div>
+                        <span class="badge bg-success-subtle text-success border micro-text mt-1 d-inline-block" title="Grading Component Weights">
+                            WW: ${subject.ww_weight || subject.wwWeight || 20}% | PT: ${subject.pt_weight || subject.ptWeight || 50}% | QA: ${subject.qa_weight || subject.qaWeight || 30}%
+                        </span>
+                    </td>
+                    <td class="p-3 align-middle">${gradeLevel}</td>
+                    <td class="p-3 align-middle">${termDisplay}</td>
+                    <td class="p-3 align-middle">${strandSection}</td>
+                    <td class="p-3 align-middle">${strand}</td>
+                    <td class="p-3 align-middle text-end">
+                        <div class="d-inline-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${subject.id}">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${subject.id}">Delete</button>
+                        </div>
+                    </td>
+                </tr>
             `;
-            subjectsTableBody.appendChild(row);
-        });
+        }).join('');
+
+        subjectsTableBody.innerHTML = rowsHtml;
     }
 
     const STRANDS_BY_GRADE = {
@@ -5205,13 +5207,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         populateStrandFilter();
-        applyFiltersAndSearch(); // Initial render
+        applyFiltersAndSearch(); // Initial instant render from cache
 
-        // Authoritative load from backend database
-        const token = localStorage.getItem('mentorae_token');
-        if (token) {
+        // IMMEDIATELY bind search & filter event listeners (Zero waiting for network calls!)
+        if (tableSearch) tableSearch.addEventListener('input', applyFiltersAndSearch);
+        if (gradeFilter) {
+            gradeFilter.addEventListener('change', () => {
+                populateStrandFilter();
+                applyFiltersAndSearch();
+            });
+        }
+        if (categoryFilter) categoryFilter.addEventListener('change', applyFiltersAndSearch);
+        if (strandFilter) {
+            strandFilter.addEventListener('change', () => {
+                if (strandFilter.value !== 'All') {
+                    const autoGrade = STRAND_GRADE_MAP[strandFilter.value];
+                    if (autoGrade && gradeFilter.value !== autoGrade) {
+                        const chosen = strandFilter.value;
+                        gradeFilter.value = autoGrade;
+                        populateStrandFilter();
+                        strandFilter.value = chosen;
+                    }
+                }
+                applyFiltersAndSearch();
+            });
+        }
+        if (quarterFilter) quarterFilter.addEventListener('change', applyFiltersAndSearch);
+        if (subjectsTableBody) subjectsTableBody.addEventListener('click', handleTableClick);
+        if (addSubjectBtn) addSubjectBtn.addEventListener('click', handleModalOpen);
+
+        // Fetch authoritative data from backend asynchronously in parallel without blocking UI interactions
+        loadAuthoritativeBackendData();
+
+        async function loadAuthoritativeBackendData() {
+            const token = localStorage.getItem('mentorae_token');
+            if (!token) return;
+
             try {
-                const res = await authedFetch('/api/reference/subjects', token);
+                const [res, secRes] = await Promise.all([
+                    authedFetch('/api/reference/subjects', token).catch(err => {
+                        console.warn('Could not fetch subjects from backend:', err);
+                        return null;
+                    }),
+                    authedFetch('/api/reference/sections', token).catch(err => {
+                        console.warn('Could not fetch sections from backend:', err);
+                        return null;
+                    })
+                ]);
+
                 if (res && res.success && Array.isArray(res.subjects) && res.subjects.length > 0) {
                     res.subjects.forEach(s => {
                         if (s.topics) sortTopicsAscending(s.topics);
@@ -5219,23 +5262,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     subjects = res.subjects;
                     localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(subjects));
                     populateStrandFilter();
-                    applyFiltersAndSearch();
+                    applyFiltersAndSearch(); // Seamlessly refreshes table while preserving user's typed search
                 }
-            } catch (err) {
-                console.warn('Could not fetch subjects from backend:', err);
-            }
 
-            // Load institutional grading weights policy from backend
-            loadCategoryWeightsPolicy();
+                loadCategoryWeightsPolicy();
 
-            try {
-                const secRes = await authedFetch('/api/reference/sections', token);
                 if (secRes && secRes.success && Array.isArray(secRes.sections) && secRes.sections.length > 0) {
                     allSectionsList = secRes.sections;
                     updateModalSectionOptions();
                 }
             } catch (err) {
-                console.warn('Could not fetch sections from backend:', err);
+                console.warn('Background sync error:', err);
             }
         }
 
@@ -5316,29 +5353,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isSaving = false;
             });
         }
-        subjectsTableBody.addEventListener('click', handleTableClick);
-        if (addSubjectBtn) addSubjectBtn.addEventListener('click', handleModalOpen);
 
-        // Add new event listeners for filters
-        tableSearch.addEventListener('input', applyFiltersAndSearch);
-        gradeFilter.addEventListener('change', () => {
-            populateStrandFilter();
-            applyFiltersAndSearch();
-        });
-        categoryFilter.addEventListener('change', applyFiltersAndSearch);
-        strandFilter.addEventListener('change', () => {
-            if (strandFilter.value !== 'All') {
-                const autoGrade = STRAND_GRADE_MAP[strandFilter.value];
-                if (autoGrade && gradeFilter.value !== autoGrade) {
-                    const chosen = strandFilter.value;
-                    gradeFilter.value = autoGrade;
-                    populateStrandFilter();
-                    strandFilter.value = chosen;
-                }
-            }
-            applyFiltersAndSearch();
-        });
-        quarterFilter.addEventListener('change', applyFiltersAndSearch);
 
         // Subject Category and Grading Weights Event Listeners (Admin Control)
         const subjectCategorySelect = document.getElementById('subjectCategory');
