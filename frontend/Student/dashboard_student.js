@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gradeEl) {
                 gradeEl.textContent = (overallGrade !== null && overallGrade !== undefined && overallGrade !== '')
                     ? `${overallGrade}%`
-                    : '—';
+                    : '0%';
             }
             if (attEl) {
                 attEl.textContent = (attendanceRate !== null && attendanceRate !== undefined && attendanceRate !== '')
