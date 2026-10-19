@@ -518,6 +518,43 @@ async function deleteTopic(req, res) {
   }
 }
 
+/** POST /api/content/topics/bulk-delete */
+async function bulkDeleteTopics(req, res) {
+  const { topicIds } = req.body;
+  if (!Array.isArray(topicIds) || !topicIds.length) {
+    return res.status(400).json({ success: false, message: 'No topic IDs provided.' });
+  }
+
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+    return res.status(403).json({ success: false, message: 'You do not have permission to delete topics.' });
+  }
+
+  try {
+    const validIds = topicIds.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+    if (!validIds.length) {
+      return res.json({ success: true, count: 0, message: 'No valid topics to delete.' });
+    }
+
+    let deleteSql = 'DELETE FROM topics WHERE id IN (?)';
+    const params = [validIds];
+
+    if (req.user.role === 'teacher') {
+      deleteSql += ' AND is_recommendation = 1 AND created_by = ?';
+      params.push(req.user.id);
+    }
+
+    const [result] = await pool.query(deleteSql, params);
+    return res.json({
+      success: true,
+      count: result.affectedRows,
+      message: `Successfully deleted ${result.affectedRows} topic(s).`
+    });
+  } catch (err) {
+    console.error('bulkDeleteTopics error:', err);
+    return res.status(500).json({ success: false, message: 'Could not bulk delete topics.' });
+  }
+}
+
 /** GET /api/content/topics/:topicId/files/:fileIndex/download */
 async function downloadTopicFile(req, res) {
   const { topicId, fileIndex } = req.params;
@@ -2005,6 +2042,7 @@ module.exports = {
   createTopic,
   updateTopic,
   deleteTopic,
+  bulkDeleteTopics,
   createTopicRequest,
   listTopicRequests,
   reviewTopicRequest,

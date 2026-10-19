@@ -541,13 +541,57 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updateTopicSelectionState() {
+        if (!topicsListContainer) return;
+        const checkboxes = topicsListContainer.querySelectorAll('.topic-select-chk');
+        const checked = topicsListContainer.querySelectorAll('.topic-select-chk:checked');
+        const deleteBtn = document.getElementById('btnDeleteSelectedTopics');
+        const countBadge = document.getElementById('selectedTopicsCountBadge');
+        const selectAllChk = document.getElementById('selectAllTopicsChk');
+        const totalLabel = document.getElementById('topicsTotalCountLabel');
+
+        const totalCount = checkboxes.length;
+        const selectedCount = checked.length;
+
+        if (countBadge) countBadge.textContent = selectedCount;
+        if (totalLabel) totalLabel.textContent = `${totalCount} topic${totalCount === 1 ? '' : 's'}`;
+
+        if (deleteBtn) {
+            deleteBtn.disabled = selectedCount === 0;
+            deleteBtn.innerHTML = `<i class="bi bi-trash3-fill"></i> Delete Selected (<span id="selectedTopicsCountBadge">${selectedCount}</span>)`;
+        }
+
+        if (selectAllChk) {
+            selectAllChk.checked = totalCount > 0 && selectedCount === totalCount;
+            selectAllChk.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+        }
+    }
+
     function renderTopicsList(topics) {
         if (!topicsListContainer) return;
         topicsListContainer.innerHTML = ''; // Clear existing topics
+
+        const toolbar = document.getElementById('topicsSelectionToolbar');
+        const deleteBtn = document.getElementById('btnDeleteSelectedTopics');
+        const countBadge = document.getElementById('selectedTopicsCountBadge');
+        const selectDuplicatesBtn = document.getElementById('btnSelectDuplicateTopics');
+        const totalLabel = document.getElementById('topicsTotalCountLabel');
+
         if (!topics || topics.length === 0) {
             topicsListContainer.innerHTML = '<p class="text-center text-muted p-3">No topics have been added to this subject yet.</p>';
+            if (toolbar) toolbar.classList.add('d-none');
+            if (selectDuplicatesBtn) selectDuplicatesBtn.disabled = true;
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.innerHTML = '<i class="bi bi-trash3-fill"></i> Delete Selected (0)';
+            }
+            if (countBadge) countBadge.textContent = '0';
+            if (totalLabel) totalLabel.textContent = '0 topics';
             return;
         }
+
+        if (toolbar) toolbar.classList.remove('d-none');
+        if (selectDuplicatesBtn) selectDuplicatesBtn.disabled = false;
 
         sortTopicsAscending(topics);
 
@@ -570,9 +614,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             topicItem.innerHTML = `
-                <div class="me-3 flex-grow-1" style="min-width: 0;">
-                    <h6 class="mb-1 text-break">${topic.title}</h6>
-                    <small class="text-muted text-break">${topic.description}</small>
+                <div class="d-flex align-items-start gap-2.5 me-3 flex-grow-1" style="min-width: 0;">
+                    <input type="checkbox" class="form-check-input topic-select-chk mt-1 flex-shrink-0" data-index="${index}" data-id="${topic.id || ''}" style="width: 1.15rem; height: 1.15rem; cursor: pointer;" title="Select topic for batch actions">
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        <h6 class="mb-1 text-break fw-semibold">${topic.title}</h6>
+                        <small class="text-muted text-break">${topic.description || ''}</small>
+                    </div>
                 </div>
                 <div class="d-inline-flex gap-2 mt-2 mt-sm-0 flex-shrink-0">
                     ${resourceButtons.join('')}
@@ -583,6 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
             topicList.appendChild(topicItem);
         });
         topicsListContainer.appendChild(topicList);
+        updateTopicSelectionState();
     }
 
     function renderStagedTopics() {
@@ -1192,6 +1240,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             if (subjectModalEl) subjectModalEl.addEventListener('hidden.bs.modal', onModalHidden);
             if (subjectModal) subjectModal.hide();
+        }
+
+        if (target.classList.contains('topic-select-chk')) {
+            updateTopicSelectionState();
+            return;
         }
 
         if (target.classList.contains('delete-topic-btn')) {
@@ -5663,6 +5716,124 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (topicsListContainer) topicsListContainer.addEventListener('click', handleTopicsContainerClick);
         if (topicEditorForm) topicEditorForm.addEventListener('submit', handleTopicFormSubmit);
+
+        // Select All Topics Checkbox Listener
+        const selectAllTopicsChk = document.getElementById('selectAllTopicsChk');
+        if (selectAllTopicsChk) {
+            selectAllTopicsChk.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                if (topicsListContainer) {
+                    const checkboxes = topicsListContainer.querySelectorAll('.topic-select-chk');
+                    checkboxes.forEach(cb => { cb.checked = isChecked; });
+                }
+                updateTopicSelectionState();
+            });
+        }
+
+        // Select Duplicate Topics Button Listener
+        const btnSelectDuplicateTopics = document.getElementById('btnSelectDuplicateTopics');
+        if (btnSelectDuplicateTopics) {
+            btnSelectDuplicateTopics.addEventListener('click', () => {
+                const subject = editingSubjectCopy;
+                if (!subject || !subject.topics || subject.topics.length === 0) return;
+
+                const seenTitles = new Set();
+                const checkboxes = topicsListContainer ? topicsListContainer.querySelectorAll('.topic-select-chk') : [];
+                let dupCount = 0;
+
+                checkboxes.forEach(cb => {
+                    const idx = parseInt(cb.dataset.index, 10);
+                    const topic = subject.topics[idx];
+                    if (!topic) return;
+                    const cleanTitle = (topic.title || '').trim().toLowerCase();
+                    if (seenTitles.has(cleanTitle)) {
+                        cb.checked = true;
+                        dupCount++;
+                    } else {
+                        seenTitles.add(cleanTitle);
+                        cb.checked = false;
+                    }
+                });
+
+                updateTopicSelectionState();
+                if (dupCount === 0) {
+                    alert('No duplicate topic titles found in this subject.');
+                } else {
+                    alert(`Identified and selected ${dupCount} duplicate topic(s). Click "Delete Selected" to remove them.`);
+                }
+            });
+        }
+
+        // Delete Selected Topics Button Listener
+        const btnDeleteSelectedTopics = document.getElementById('btnDeleteSelectedTopics');
+        if (btnDeleteSelectedTopics) {
+            btnDeleteSelectedTopics.addEventListener('click', async () => {
+                if (!topicsListContainer) return;
+                const checkedBoxes = Array.from(topicsListContainer.querySelectorAll('.topic-select-chk:checked'));
+                if (checkedBoxes.length === 0) return;
+
+                const count = checkedBoxes.length;
+                if (!confirm(`Are you sure you want to delete ${count} selected topic(s)? This action cannot be undone.`)) {
+                    return;
+                }
+
+                const subject = editingSubjectCopy;
+                if (!subject || !subject.topics) return;
+
+                const token = localStorage.getItem('mentorae_token');
+                const topicIdsToDelete = [];
+                const indicesToDelete = new Set();
+
+                checkedBoxes.forEach(cb => {
+                    const idx = parseInt(cb.dataset.index, 10);
+                    indicesToDelete.add(idx);
+                    const topic = subject.topics[idx];
+                    if (topic && topic.id) {
+                        topicIdsToDelete.push(topic.id);
+                    }
+                });
+
+                btnDeleteSelectedTopics.disabled = true;
+                btnDeleteSelectedTopics.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Deleting (${count})...`;
+
+                try {
+                    if (topicIdsToDelete.length > 0 && token) {
+                        try {
+                            await authedFetch('/api/content/topics/bulk-delete', token, {
+                                method: 'POST',
+                                body: JSON.stringify({ topicIds: topicIdsToDelete })
+                            });
+                        } catch (bulkErr) {
+                            console.warn('Bulk delete failed, falling back to sequential delete:', bulkErr);
+                            for (const tid of topicIdsToDelete) {
+                                try {
+                                    await authedFetch(`/api/content/topics/${tid}`, token, { method: 'DELETE' });
+                                } catch (seqErr) {}
+                            }
+                        }
+                    }
+
+                    // Remove from active subject topics
+                    subject.topics = subject.topics.filter((_, idx) => !indicesToDelete.has(idx));
+
+                    // Update master copy and localStorage
+                    const subjectToEdit = subjects.find(s => s.id == currentEditingSubjectId);
+                    if (subjectToEdit) {
+                        subjectToEdit.topics = JSON.parse(JSON.stringify(subject.topics));
+                    }
+                    saveSubjects(subjects);
+
+                    // Re-render topics list
+                    renderTopicsList(subject.topics);
+                } catch (err) {
+                    console.error('Error during bulk topic deletion:', err);
+                    alert('An error occurred while deleting topics. Please refresh the page and try again.');
+                } finally {
+                    btnDeleteSelectedTopics.disabled = true;
+                    btnDeleteSelectedTopics.innerHTML = `<i class="bi bi-trash3-fill"></i> Delete Selected (<span id="selectedTopicsCountBadge">0</span>)`;
+                }
+            });
+        }
 
         // Listener for the new inline topic adder
         const addStagedTopicBtn = document.getElementById('addStagedTopicBtn');

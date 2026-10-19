@@ -238,8 +238,32 @@
                         <!-- Topic Management Section (only for 'Edit Subject' mode) -->
                         <div id="manageTopicsSection" class="mt-4 d-none">
                             <hr>
-                            <h6 class="fw-bold">Manage Topics</h6>
-                            <p class="text-muted small">Add, edit, or remove topics for this subject.</p>
+                            <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-0">Manage Topics</h6>
+                                    <p class="text-muted small mb-0">Add, edit, or remove topics for this subject.</p>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1" id="btnSelectDuplicateTopics" title="Automatically select duplicate topics to clean up">
+                                        <i class="bi bi-intersect"></i> Select Duplicates
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnDeleteSelectedTopics" disabled>
+                                        <i class="bi bi-trash3-fill"></i> Delete Selected (<span id="selectedTopicsCountBadge">0</span>)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Batch Selection Toolbar -->
+                            <div class="d-flex justify-content-between align-items-center bg-light border rounded-3 px-3 py-2 mb-2.5 mt-2" id="topicsSelectionToolbar">
+                                <div class="form-check mb-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input mt-0" type="checkbox" id="selectAllTopicsChk" style="cursor: pointer; width: 1.15rem; height: 1.15rem;">
+                                    <label class="form-check-label small fw-semibold text-dark user-select-none" for="selectAllTopicsChk" style="cursor: pointer;">
+                                        Select All Topics
+                                    </label>
+                                </div>
+                                <span class="micro-text text-muted fw-semibold" id="topicsTotalCountLabel">0 topics</span>
+                            </div>
+
                             <div id="topicsListContainer" class="mb-3">
                                 <!-- Topics will be rendered here by JS -->
                             </div>
@@ -287,10 +311,10 @@
                                 <!-- File upload section -->
                                 <div id="inlineFileUploadContainer" class="mb-3 d-none">
                                     <label for="inlineFileInput" class="form-label text-sm fw-medium">Upload File</label>
-                                    <input class="form-control form-control-sm" type="file" id="inlineFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.png,.jpg,.jpeg,.webp,.heic,.heif,.key,.pages,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*">
+                                    <input class="form-control form-control-sm" type="file" id="inlineFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.webm,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,image/*">
                                     <div class="form-text mt-1 text-muted small">
-                                        <i class="bi bi-info-circle text-primary me-1"></i><strong>Max size: 35MB.</strong>
-                                        <span class="d-block mt-0.5 text-secondary">Tip: For faster uploads, export presentations as <em>"PDF Standard / Minimum Size"</em> or compress your PDF before uploading.</span>
+                                        <i class="bi bi-info-circle text-primary me-1"></i><strong>Allowed: PDF, DOCX, Images, MP4 (Max 35MB).</strong>
+                                        <span class="d-block mt-0.5 text-secondary">Presentations must be saved as PDF prior to uploading.</span>
                                     </div>
                                 </div>
                                 <!-- Quiz management section -->

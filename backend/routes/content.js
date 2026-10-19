@@ -6,6 +6,7 @@ const {
   createTopic,
   updateTopic,
   deleteTopic,
+  bulkDeleteTopics,
   createTopicRequest,
   listTopicRequests,
   reviewTopicRequest,
@@ -52,6 +53,7 @@ router.get('/topics', requireAuth, listTopics);
 router.post('/topics', requireAuth, requireRole('teacher', 'admin'), createTopic);
 router.put('/topics/:id', requireAuth, requireRole('teacher', 'admin'), updateTopic);
 router.delete('/topics/:id', requireAuth, requireRole('teacher', 'admin'), deleteTopic);
+router.post('/topics/bulk-delete', requireAuth, requireRole('teacher', 'admin'), bulkDeleteTopics);
 router.post('/topics/:id/append-content', requireAuth, requireRole('teacher', 'admin'), appendTopicContent);
 router.post('/topics/:id/cache-file-pdf', requireAuth, cacheTopicFilePdf);
 
