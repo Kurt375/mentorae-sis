@@ -347,7 +347,7 @@ async function verifyResetCode(req, res) {
       return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
     }
 
-    await pool.query('UPDATE password_resets SET verified = 1, used = 1 WHERE id = ?', [resetRow.id]);
+    await pool.query('UPDATE password_resets SET verified = 1 WHERE id = ?', [resetRow.id]);
 
     const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id, resetId: resetRow.id }, process.env.JWT_SECRET, {
       expiresIn: '10m',
@@ -386,7 +386,12 @@ async function verifyResetPhone(req, res) {
       return res.status(400).json({ success: false, message: 'Phone number does not match our records.' });
     }
 
-    const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id }, process.env.JWT_SECRET, {
+    const [insertResult] = await pool.query(
+      'INSERT INTO password_resets (user_id, otp_hash, expires_at, verified, used) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), 1, 0)',
+      [user.id, 'PHONE_VERIFIED']
+    );
+
+    const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id, resetId: insertResult.insertId }, process.env.JWT_SECRET, {
       expiresIn: '10m',
     });
 
