@@ -25,7 +25,7 @@ function requireSession(loginPath, allowedRoles) {
     if (p.includes('/teacher/')) {
       permitted = ['teacher', 'admin'];
     } else if (p.includes('/student/')) {
-      permitted = ['student', 'admin', 'parent'];
+      permitted = ['student', 'admin'];
     } else if (p.includes('/parent/')) {
       permitted = ['parent', 'admin'];
     } else if (p.includes('_admin.') || p.includes('admin_') || p.includes('/admin/')) {
