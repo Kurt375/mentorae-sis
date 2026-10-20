@@ -1,0 +1,22 @@
+# Vercel Deployment Ignore Rules
+# Keep deployments lightweight to stay well within the 10 GB limit
+
+# Backend is hosted separately on Render
+backend/
+
+# Documentation, scratch, and Office presentation/word files
+scratch/
+*.pptx
+*.docx
+
+# Duplicate / large Excel test files (>9 MB each) not used by live site
+*.xlsx
+*DO15_s2026.xlsm
+*DO15_s2026.xlsx
+frontend/ASSH 11 - 2-e-CLASS-RECORD.xlsm
+frontend/ASSH 11 - 2-e-CLASS-RECORD (1).xlsm
+
+# Local dev and scripts
+node_modules/
+.vscode/
+*.bat
