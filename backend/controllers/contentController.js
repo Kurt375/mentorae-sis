@@ -2037,6 +2037,196 @@ async function getClassTopicQuizResults(req, res) {
   }
 }
 
+/** POST /api/content/assign-lesson { studentId, subjectId, topicId, note } */
+async function assignLesson(req, res) {
+  const { studentId, subjectId, topicId, note } = req.body;
+  if (!studentId || !topicId) {
+    return res.status(400).json({ success: false, message: 'Student and lesson topic are required.' });
+  }
+
+  try {
+    // 1. Verify student
+    const [studentRows] = await pool.query("SELECT id, first_name, last_name FROM users WHERE id = ? AND role = 'student' LIMIT 1", [studentId]);
+    if (!studentRows.length) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+    const student = studentRows[0];
+
+    // 2. Verify topic
+    const [topicRows] = await pool.query(
+      `SELECT t.id, t.title, t.subject_id, s.name AS subject_name, s.code AS subject_code
+       FROM topics t
+       LEFT JOIN subjects s ON s.id = t.subject_id
+       WHERE t.id = ? LIMIT 1`,
+      [topicId]
+    );
+    if (!topicRows.length) {
+      return res.status(404).json({ success: false, message: 'Topic not found.' });
+    }
+    const topic = topicRows[0];
+    const resolvedSubjectId = subjectId || topic.subject_id;
+    const subjectName = topic.subject_name || 'Subject';
+
+    // 3. Insert assignment
+    await pool.query(
+      `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, note)
+       VALUES (?, ?, ?, ?, ?)`,
+      [student.id, req.user.id, resolvedSubjectId, topic.id, note || null]
+    );
+
+    // 4. Send In-App Notification to Student
+    const teacherName = fullName(req.user);
+    await notify(student.id, {
+      type: 'academic',
+      title: `New ${subjectName} Lesson Assigned`,
+      message: `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`,
+      related_student_id: student.id,
+    });
+
+    return res.json({
+      success: true,
+      message: `Lesson "${topic.title}" has been successfully assigned to ${student.first_name} ${student.last_name}.`,
+      studentName: `${student.first_name} ${student.last_name}`,
+      topicTitle: topic.title,
+    });
+  } catch (err) {
+    console.error('assignLesson error:', err);
+    return res.status(500).json({ success: false, message: 'Could not assign lesson.' });
+  }
+}
+
+/** GET /api/content/my-recommendations — For student dashboard / recommendations panel */
+async function getMyRecommendations(req, res) {
+  try {
+    const studentId = req.user.role === 'student' ? req.user.id : (req.query.studentId || req.user.id);
+
+    // 1. Fetch targeted assignments
+    const [assignedRows] = await pool.query(
+      `SELECT sla.id AS assignment_id, sla.note, sla.created_at AS assigned_at,
+              t.id AS topic_id, t.title, t.description, t.comment, t.color, t.content_payload, t.is_recommendation,
+              s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+              u.first_name AS teacher_first_name, u.last_name AS teacher_last_name
+       FROM student_lesson_assignments sla
+       JOIN topics t ON t.id = sla.topic_id
+       LEFT JOIN subjects s ON s.id = sla.subject_id
+       LEFT JOIN users u ON u.id = sla.teacher_id
+       WHERE sla.student_id = ?
+       ORDER BY sla.created_at DESC`,
+      [studentId]
+    );
+
+    // 2. Fetch general approved recommendations for student
+    const [generalRecRows] = await pool.query(
+      `SELECT t.id AS topic_id, t.title, t.description, t.comment, t.color, t.content_payload, t.is_recommendation, t.created_at AS assigned_at,
+              s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+              u.first_name AS teacher_first_name, u.last_name AS teacher_last_name
+       FROM topics t
+       JOIN subjects s ON s.id = t.subject_id
+       LEFT JOIN users u ON u.id = t.created_by
+       WHERE t.is_recommendation = 1 AND t.status = 'approved'
+       ORDER BY t.created_at DESC
+       LIMIT 10`
+    );
+
+    const formatRec = (row, isDirectAssignment = false) => {
+      let payload = {};
+      try {
+        payload = typeof row.content_payload === 'string' ? JSON.parse(row.content_payload) : (row.content_payload || {});
+      } catch (e) {}
+
+      const files = Array.isArray(payload.files) ? payload.files : [];
+      const quiz = Array.isArray(payload.quiz) ? payload.quiz : [];
+      const flashcards = Array.isArray(payload.flashcards) ? payload.flashcards : [];
+
+      return {
+        id: row.topic_id,
+        title: row.title,
+        description: row.description,
+        comment: row.comment || row.note,
+        color: row.color || 'bg-card-purple',
+        subjectName: row.subject_name,
+        subjectCode: row.subject_code,
+        teacherName: `${row.teacher_first_name || ''} ${row.teacher_last_name || ''}`.trim() || 'Teacher',
+        hasFiles: files.length > 0,
+        filesCount: files.length,
+        hasQuiz: quiz.length > 0,
+        quizCount: quiz.length,
+        hasFlashcards: flashcards.length > 0,
+        flashcardsCount: flashcards.length,
+        isDirectAssignment,
+        assignedAt: row.assigned_at,
+      };
+    };
+
+    const seenTopicIds = new Set();
+    const recommendations = [];
+
+    for (const r of assignedRows) {
+      if (!seenTopicIds.has(r.topic_id)) {
+        seenTopicIds.add(r.topic_id);
+        recommendations.push(formatRec(r, true));
+      }
+    }
+
+    for (const r of generalRecRows) {
+      if (!seenTopicIds.has(r.topic_id)) {
+        seenTopicIds.add(r.topic_id);
+        recommendations.push(formatRec(r, false));
+      }
+    }
+
+    return res.json({ success: true, recommendations });
+  } catch (err) {
+    console.error('getMyRecommendations error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load recommendations.' });
+  }
+}
+
+/** GET /api/content/assignable-topics?subjectId=&subjectName= */
+async function listAssignableTopics(req, res) {
+  try {
+    const { subjectId, subjectName } = req.query;
+    let query = `
+      SELECT t.id, t.title, t.description, t.is_recommendation, t.content_payload, s.id AS subject_id, s.name AS subject_name, s.code AS subject_code
+      FROM topics t
+      JOIN subjects s ON s.id = t.subject_id
+      WHERE t.status = 'approved'
+    `;
+    const params = [];
+    if (subjectId) {
+      query += ' AND t.subject_id = ?';
+      params.push(subjectId);
+    } else if (subjectName) {
+      query += ' AND (LOWER(s.name) = LOWER(?) OR LOWER(s.code) = LOWER(?) OR LOWER(s.name) LIKE LOWER(?))';
+      params.push(subjectName, subjectName, `%${subjectName}%`);
+    }
+    query += ' ORDER BY t.is_recommendation DESC, t.title ASC';
+
+    const [rows] = await pool.query(query, params);
+    const topics = rows.map((r) => {
+      let p = {};
+      try { p = typeof r.content_payload === 'string' ? JSON.parse(r.content_payload) : (r.content_payload || {}); } catch(e){}
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        isRecommendation: !!r.is_recommendation,
+        subjectId: r.subject_id,
+        subjectName: r.subject_name,
+        subjectCode: r.subject_code,
+        hasFiles: (p.files || []).length > 0,
+        hasQuiz: (p.quiz || []).length > 0,
+        hasFlashcards: (p.flashcards || []).length > 0,
+      };
+    });
+
+    return res.json({ success: true, topics });
+  } catch (err) {
+    console.error('listAssignableTopics error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load assignable topics.' });
+  }
+}
+
 module.exports = {
   listTopics,
   createTopic,
@@ -2068,4 +2258,7 @@ module.exports = {
   getClassTopicQuizResults,
   downloadTopicFile,
   downloadTopicFileByName,
+  assignLesson,
+  getMyRecommendations,
+  listAssignableTopics,
 };

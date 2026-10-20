@@ -285,15 +285,19 @@ async function getRiskAssessment(req, res) {
           if (lowest) {
             detailText = `Failing Subject: <strong>${lowest.subjectName}</strong> (${lowest.average}%)`;
             action = {
-              label: 'Create Intervention Topic',
+              label: 'Assign Lesson',
               disabled: false,
+              subjectId: lowest.subjectId,
+              subjectName: lowest.subjectName,
               url: `subject_detail_teacher.html?subject=${encodeURIComponent(lowest.subjectName)}&from=analytics`,
             };
           } else {
             detailText = `Academic Risk: Attendance (${r.attendanceRate ?? 'Below Threshold'}%)`;
             action = {
-              label: 'Create Intervention Topic',
+              label: 'Assign Lesson',
               disabled: false,
+              subjectId: null,
+              subjectName: null,
               url: `subject_detail_teacher.html?from=analytics`,
             };
           }
@@ -304,15 +308,19 @@ async function getRiskAssessment(req, res) {
           if (lowest) {
             detailText = `At-Risk Subject: <strong>${lowest.subjectName}</strong> (${lowest.average}%)`;
             action = {
-              label: 'Create Intervention Topic',
+              label: 'Assign Lesson',
               disabled: false,
+              subjectId: lowest.subjectId,
+              subjectName: lowest.subjectName,
               url: `subject_detail_teacher.html?subject=${encodeURIComponent(lowest.subjectName)}&from=analytics`,
             };
           } else {
             detailText = `Grade: ${r.overallGrade ? r.overallGrade + '%' : 'No grades yet'} | Attendance: ${r.attendanceRate ? r.attendanceRate + '%' : '0%'}`;
             action = {
-              label: 'Create Intervention Topic',
+              label: 'Assign Lesson',
               disabled: false,
+              subjectId: null,
+              subjectName: null,
               url: `subject_detail_teacher.html?from=analytics`,
             };
           }
@@ -334,6 +342,8 @@ async function getRiskAssessment(req, res) {
           riskClass,
           detailText,
           detailColor,
+          subjectId: lowest ? lowest.subjectId : null,
+          subjectName: lowest ? lowest.subjectName : null,
           action,
         };
       })

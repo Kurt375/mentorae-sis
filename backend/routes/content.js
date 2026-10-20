@@ -32,7 +32,15 @@ const {
   getClassTopicQuizResults,
   downloadTopicFile,
   downloadTopicFileByName,
+  assignLesson,
+  getMyRecommendations,
+  listAssignableTopics,
 } = require('../controllers/contentController');
+
+// Recommendations and Targeted Lesson Assignments
+router.post('/assign-lesson', requireAuth, requireRole('teacher', 'admin'), assignLesson);
+router.get('/my-recommendations', requireAuth, getMyRecommendations);
+router.get('/assignable-topics', requireAuth, requireRole('teacher', 'admin'), listAssignableTopics);
 
 // Document conversion and previews (Google Classroom / Office Online / Raw)
 router.post('/convert-document', requireAuth, convertDocument);

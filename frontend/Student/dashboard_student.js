@@ -186,4 +186,94 @@ document.addEventListener('DOMContentLoaded', () => {
     qrModal.addEventListener('click', (e) => {
         if (e.target === qrModal) qrModal.classList.add('d-none');
     });
+
+    // 5. Load Recommended Lessons Panel
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    async function loadRecommendations() {
+        const container = document.getElementById('studentRecommendationsList');
+        if (!container) return;
+
+        try {
+            const data = await authedFetch('/api/content/my-recommendations', token);
+            if (!data.success || !Array.isArray(data.recommendations) || data.recommendations.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="card border-0 p-4 shadow-sm bg-white rounded-3 text-center text-muted">
+                            <i class="bi bi-check-circle fs-3 text-success d-block mb-2"></i>
+                            <p class="m-0 fw-semibold text-dark">You're all caught up!</p>
+                            <span class="micro-text text-muted">No targeted teacher recommendations assigned at this time.</span>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.recommendations.slice(0, 4).map(rec => {
+                const subjectParam = encodeURIComponent(rec.subjectName || '');
+                const topicParam = encodeURIComponent(rec.title || '');
+                
+                const fileBtn = rec.hasFiles
+                    ? `<a href="subject_detail_student.html?subject=${subjectParam}&topic=${topicParam}&action=file" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-file-earmark-text"></i> File
+                       </a>`
+                    : '';
+                const quizBtn = rec.hasQuiz
+                    ? `<a href="quiz_taker_student.html?subject=${subjectParam}&topic=${topicParam}&source=recommendation" class="btn btn-sm btn-success rounded-pill px-3 py-1 text-white text-nowrap d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-question-circle"></i> Quiz
+                       </a>`
+                    : '';
+                const flashcardBtn = rec.hasFlashcards
+                    ? `<a href="flashcard_viewer_student.html?subject=${subjectParam}&topic=${topicParam}&source=recommendation" class="btn btn-sm btn-chip-flashcard rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-stack"></i> Flashcards
+                       </a>`
+                    : '';
+
+                return `
+                    <div class="col-12 col-md-6">
+                        <div class="card border-0 shadow-sm p-3 bg-white rounded-3 h-100 d-flex flex-column justify-content-between position-relative" style="border-left: 4px solid #0a5c2c !important;">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill text-xs px-2.5 py-1">
+                                        <i class="bi bi-book-half me-1"></i>${escapeHtml(rec.subjectName || 'Lesson')}
+                                    </span>
+                                    ${rec.isDirectAssignment ? '<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill text-xs px-2 py-0.5"><i class="bi bi-pin-angle-fill me-1"></i>Assigned</span>' : ''}
+                                </div>
+                                <h5 class="fw-bold fs-6 text-dark mb-1">
+                                    <a href="subject_detail_student.html?subject=${subjectParam}&topic=${topicParam}" class="text-decoration-none text-dark hover-green">
+                                        ${escapeHtml(rec.title)}
+                                    </a>
+                                </h5>
+                                <p class="micro-text text-muted mb-2 line-clamp-2">
+                                    ${escapeHtml(rec.description || 'Lesson materials assigned to reinforce learning concepts.')}
+                                </p>
+                                ${rec.comment ? `<div class="p-2 rounded bg-light border micro-text text-secondary mb-3"><i class="bi bi-chat-quote-fill me-1 text-success"></i><strong>Teacher Note:</strong> ${escapeHtml(rec.comment)}</div>` : ''}
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+                                ${fileBtn}
+                                ${quizBtn}
+                                ${flashcardBtn}
+                                <a href="subject_detail_student.html?subject=${subjectParam}&topic=${topicParam}" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 ms-auto" title="View Full Topic">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('loadRecommendations error:', err);
+            container.innerHTML = '<div class="col-12 text-center text-muted small py-3">Could not load recommendations.</div>';
+        }
+    }
+
+    loadRecommendations();
 });

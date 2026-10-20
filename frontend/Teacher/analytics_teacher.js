@@ -347,10 +347,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            riskAssessmentDirectory.innerHTML = data.students.map(s => {
+            riskAssessmentDirectory.innerHTML = data.students.map((s, idx) => {
                 const actionButton = s.action.disabled
                     ? `<button type="button" class="btn btn-action-recommend btn-secondary w-100" disabled>Not Applicable</button>`
-                    : `<a href="${s.action.url}" class="btn btn-action-recommend w-100 text-white text-decoration-none shadow-xs text-truncate" title="Create Intervention Topic">Create Intervention Topic</a>`;
+                    : `<button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 text-white shadow-xs text-truncate" data-index="${idx}">
+                        <i class="bi bi-journal-plus me-1"></i> Assign Lesson
+                       </button>`;
 
                 return `
                     <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-4">
@@ -370,11 +372,134 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
             }).join('');
+
+            // Wire up Assign Lesson buttons
+            riskAssessmentDirectory.querySelectorAll('.btn-assign-lesson').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.getAttribute('data-index'), 10);
+                    const student = currentRiskStudents[idx];
+                    if (student) {
+                        openAssignLessonModal(student);
+                    }
+                });
+            });
         } catch (err) {
             console.error('loadRiskAssessment error:', err);
             currentRiskStudents = [];
             riskAssessmentDirectory.innerHTML = '<p class="text-danger small py-3 text-center mb-0">Error loading student risk assessment.</p>';
         }
+    }
+
+    let assignModalInstance = null;
+
+    async function openAssignLessonModal(student) {
+        const modalEl = document.getElementById('assignLessonModal');
+        if (!modalEl) return;
+        if (!assignModalInstance) {
+            assignModalInstance = new bootstrap.Modal(modalEl);
+        }
+
+        document.getElementById('assignStudentId').value = student.studentId;
+        document.getElementById('assignSubjectId').value = student.subjectId || '';
+        document.getElementById('assignStudentName').textContent = student.name;
+        document.getElementById('assignStudentSection').textContent = student.section || 'General Section';
+        
+        const badgeEl = document.getElementById('assignStudentBadge');
+        if (badgeEl) {
+            badgeEl.className = `badge ${student.riskClass || 'bg-danger'}`;
+            badgeEl.textContent = student.riskTier || 'High Risk';
+        }
+
+        const subjName = student.subjectName || 'General Mathematics';
+        document.getElementById('assignSubjectName').value = subjName;
+
+        const openSubjectLink = document.getElementById('assignOpenSubjectLink');
+        if (openSubjectLink) {
+            openSubjectLink.href = student.action && student.action.url ? student.action.url : `subject_detail_teacher.html?subject=${encodeURIComponent(subjName)}&from=analytics`;
+        }
+
+        const topicSelect = document.getElementById('assignTopicSelect');
+        const topicMeta = document.getElementById('assignTopicMeta');
+        const alertContainer = document.getElementById('assignAlertContainer');
+        if (alertContainer) alertContainer.innerHTML = '';
+        if (topicMeta) topicMeta.textContent = 'Loading available lessons...';
+
+        topicSelect.innerHTML = '<option value="">Loading lessons...</option>';
+
+        try {
+            const query = student.subjectId ? `subjectId=${student.subjectId}` : `subjectName=${encodeURIComponent(subjName)}`;
+            const res = await authedFetch(`/api/content/assignable-topics?${query}`, token);
+            if (!res.success || !Array.isArray(res.topics) || res.topics.length === 0) {
+                topicSelect.innerHTML = '<option value="">No approved lessons found for this subject</option>';
+                if (topicMeta) topicMeta.textContent = 'Use "Open Subject Topics" below to add a new lesson first.';
+            } else {
+                topicSelect.innerHTML = res.topics.map(t => {
+                    const badges = [
+                        t.hasFiles ? '📄 File' : '',
+                        t.hasQuiz ? '📝 Quiz' : '',
+                        t.hasFlashcards ? '🗂️ Flashcards' : ''
+                    ].filter(Boolean).join(' • ');
+                    const recPrefix = t.isRecommendation ? '★ ' : '';
+                    return `<option value="${t.id}">${recPrefix}${t.title} ${badges ? `(${badges})` : ''}</option>`;
+                }).join('');
+                if (topicMeta) topicMeta.textContent = `Found ${res.topics.length} available lesson(s) for ${subjName}.`;
+            }
+        } catch (err) {
+            console.error('Error fetching assignable topics:', err);
+            topicSelect.innerHTML = '<option value="">Error loading topics</option>';
+        }
+
+        assignModalInstance.show();
+    }
+
+    const btnConfirmAssignLesson = document.getElementById('btnConfirmAssignLesson');
+    if (btnConfirmAssignLesson) {
+        btnConfirmAssignLesson.addEventListener('click', async () => {
+            const studentId = document.getElementById('assignStudentId').value;
+            const subjectId = document.getElementById('assignSubjectId').value;
+            const topicId = document.getElementById('assignTopicSelect').value;
+            const note = document.getElementById('assignTeacherNote').value.trim();
+            const alertContainer = document.getElementById('assignAlertContainer');
+
+            if (!topicId) {
+                if (alertContainer) {
+                    alertContainer.innerHTML = '<div class="alert alert-warning py-2 px-3 small rounded-3 mt-2">Please select a lesson to assign.</div>';
+                }
+                return;
+            }
+
+            btnConfirmAssignLesson.disabled = true;
+            btnConfirmAssignLesson.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+            try {
+                const res = await authedFetch('/api/content/assign-lesson', token, {
+                    method: 'POST',
+                    body: JSON.stringify({ studentId, subjectId, topicId, note })
+                });
+
+                if (res.success) {
+                    if (alertContainer) {
+                        alertContainer.innerHTML = `<div class="alert alert-success py-2 px-3 small rounded-3 mt-2"><i class="bi bi-check-circle-fill me-1"></i>${res.message || 'Lesson assigned and saved! Student has been notified.'}</div>`;
+                    }
+                    setTimeout(() => {
+                        if (assignModalInstance) assignModalInstance.hide();
+                        alert(`Confirmation:\n${res.message || 'The lesson has been successfully assigned and the student has been notified.'}`);
+                    }, 800);
+                } else {
+                    if (alertContainer) {
+                        alertContainer.innerHTML = `<div class="alert alert-danger py-2 px-3 small rounded-3 mt-2">${res.message || 'Failed to assign lesson.'}</div>`;
+                    }
+                }
+            } catch (err) {
+                console.error('Error assigning lesson:', err);
+                if (alertContainer) {
+                    alertContainer.innerHTML = '<div class="alert alert-danger py-2 px-3 small rounded-3 mt-2">An error occurred while assigning the lesson.</div>';
+                }
+            } finally {
+                btnConfirmAssignLesson.disabled = false;
+                btnConfirmAssignLesson.innerHTML = '<i class="bi bi-send-check me-1"></i> Save & Notify Student';
+            }
+        });
     }
 
     // =========================================================================

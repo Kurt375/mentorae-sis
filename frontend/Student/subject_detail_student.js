@@ -2254,6 +2254,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTopics(currentSubject.topics);
                 renderRecommendations(currentSubject.recommendations);
 
+                // Check if directed to open a specific topic file
+                try {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const targetTopic = urlParams.get('topic');
+                    const targetAction = urlParams.get('action');
+                    if (targetTopic && targetAction === 'file') {
+                        const recMatch = (currentSubject.recommendations || []).find(r => r.title && r.title.trim().toLowerCase() === targetTopic.trim().toLowerCase())
+                            || (currentSubject.topics || []).find(t => t.title && t.title.trim().toLowerCase() === targetTopic.trim().toLowerCase());
+                        if (recMatch && recMatch.files && recMatch.files.length > 0) {
+                            openFilesModal(recMatch.title, recMatch.files, recMatch);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Auto-open file error:', e);
+                }
+
                 // Safely synchronize into localStorage for other viewer pages
                 try {
                     const stored = localStorage.getItem(SUBJECTS_STORAGE_KEY);
