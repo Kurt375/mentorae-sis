@@ -112,10 +112,12 @@
                     <!-- Step 1: Enter Email or ID Number -->
                     <div id="resetStep1">
                         <p class="small text-muted">Enter the email address or School ID / LRN associated with your account to start password recovery.</p>
+                        <div id="resetStep1Alert" class="alert alert-danger py-2 px-3 small d-none mb-3" role="alert"></div>
                         <form id="sendCodeForm">
                             <div class="mb-3">
                                 <label for="resetIdentity" class="form-label fw-semibold text-muted small">Email Address or School ID / LRN</label>
                                 <input type="text" class="form-control custom-input" id="resetIdentity"
+                                    data-restrict="none" autocomplete="username"
                                     placeholder="Enter your Gmail or School ID / LRN" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Continue</button>

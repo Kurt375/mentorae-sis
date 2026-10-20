@@ -233,7 +233,9 @@ async function sendResetCode(req, res) {
   }
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const genericResponse = { success: true, method: 'email', message: 'If that account is registered with an email, a verification code has been sent.' };
+  if (input.includes('@') && !emailPattern.test(input)) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+  }
 
   try {
     const [rows] = await pool.query(
@@ -244,7 +246,12 @@ async function sendResetCode(req, res) {
       [input, input, input]
     );
     const user = rows[0];
-    if (!user) return res.json(genericResponse);
+    if (!user) {
+      const msg = input.includes('@')
+        ? 'This email address is not registered in the system.'
+        : 'This School ID / LRN is not registered in the system.';
+      return res.status(404).json({ success: false, message: msg });
+    }
 
     // Determine deliverable email address (personal email or non-internal vanity email)
     let deliverableEmail = null;

@@ -368,11 +368,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const newPasswordInput = document.getElementById('newPassword');
     const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
 
+    const resetStep1Alert = document.getElementById('resetStep1Alert');
+
     let currentIdentity = null;
     let resetToken = null; 
     let isResetSaving = false; 
 
+    function showResetAlert(message) {
+        if (resetStep1Alert) {
+            resetStep1Alert.textContent = message;
+            resetStep1Alert.classList.remove('d-none');
+        }
+        alert(message);
+    }
+
+    function hideResetAlert() {
+        if (resetStep1Alert) {
+            resetStep1Alert.classList.add('d-none');
+            resetStep1Alert.textContent = '';
+        }
+    }
+
     function backToStep1() {
+        hideResetAlert();
         if (resetStep1) resetStep1.classList.remove('d-none');
         if (resetStep2) resetStep2.classList.add('d-none');
         if (resetStepPhone) resetStepPhone.classList.add('d-none');
@@ -398,10 +416,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sendCodeForm) {
         sendCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            hideResetAlert();
             currentIdentity = resetIdentityInput ? resetIdentityInput.value.trim() : '';
             if (!currentIdentity) {
-                alert('Please enter your Gmail or School ID / LRN.');
+                showResetAlert('Please enter your email address or School ID / LRN.');
+                if (resetIdentityInput) resetIdentityInput.focus();
                 return;
+            }
+
+            // If input is an email, ensure it has a valid format
+            if (currentIdentity.includes('@')) {
+                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailPattern.test(currentIdentity)) {
+                    showResetAlert('Please enter a valid email address.');
+                    if (resetIdentityInput) resetIdentityInput.focus();
+                    return;
+                }
             }
 
             const submitBtn = sendCodeForm.querySelector('button[type="submit"]');
@@ -416,7 +446,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
 
                 if (!data.success) {
-                    alert(data.message || 'Could not verify account.');
+                    showResetAlert(data.message || 'This email address or ID is not registered in the system.');
+                    if (resetIdentityInput) resetIdentityInput.focus();
                     return;
                 }
 
@@ -436,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error(err);
-                alert('Could not reach the server. Please try again.');
+                showResetAlert('Could not reach the server. Please try again.');
             } finally {
                 submitBtn.disabled = false;
             }

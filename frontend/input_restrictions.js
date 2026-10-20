@@ -26,9 +26,11 @@
     // ---- ELEMENT MATCHER HELPERS ----
     function isPhoneField(el) {
         if (!el || el.tagName !== 'INPUT') return false;
+        if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'phone') return true;
-        if (el.type === 'tel') return true;
         const id = (el.id || '').toLowerCase();
+        if (id.includes('reset') || id.includes('login') || id.includes('search')) return false;
+        if (el.type === 'tel') return true;
         const name = (el.name || '').toLowerCase();
         return (
             id.includes('contact') || id.includes('phone') ||
@@ -38,8 +40,13 @@
 
     function isLrnField(el) {
         if (!el || el.tagName !== 'INPUT') return false;
+        if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'lrn') return true;
         const id = (el.id || '').toLowerCase();
+        // Never restrict password reset, login, search, or identity fields as LRN
+        if (id.includes('reset') || id.includes('login') || id.includes('identity') || id.includes('email') || id.includes('search')) {
+            return false;
+        }
         // Check if student role is active for generatedId or editIdNumber
         if (id === 'generatedid') {
             const roleSelect = document.getElementById('userRoleSelect');
@@ -49,11 +56,13 @@
             const roleLabel = document.getElementById('editUserRoleLabel');
             return roleLabel && roleLabel.textContent.trim().toLowerCase() === 'student';
         }
-        return id.includes('lrn') || (el.placeholder && el.placeholder.toLowerCase().includes('lrn'));
+        return (id.includes('lrn') || (el.placeholder && el.placeholder.toLowerCase().includes('lrn'))) &&
+               !id.includes('identity') && !id.includes('email') && !id.includes('reset');
     }
 
     function isNameField(el) {
         if (!el || el.tagName !== 'INPUT') return false;
+        if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'name') return true;
         const id = (el.id || '').toLowerCase();
         const name = (el.name || '').toLowerCase();
@@ -68,6 +77,7 @@
 
     function isMiddleInitialField(el) {
         if (!el || el.tagName !== 'INPUT') return false;
+        if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'mi') return true;
         const id = (el.id || '').toLowerCase();
         return id.includes('middleinitial') || id === 'mi';
@@ -75,6 +85,7 @@
 
     function isOtpField(el) {
         if (!el || el.tagName !== 'INPUT') return false;
+        if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'otp') return true;
         const id = (el.id || '').toLowerCase();
         return id.includes('otp') || id === 'verificationcode' || (el.placeholder && el.placeholder.toLowerCase().includes('6-digit'));
@@ -82,6 +93,7 @@
 
     function isGradeField(el) {
         if (!el || el.tagName !== 'INPUT') return false;
+        if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'grade' || el.dataset.restrict === 'score') return true;
         return (
             el.classList.contains('grade-input-cell') ||
