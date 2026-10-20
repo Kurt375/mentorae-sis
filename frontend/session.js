@@ -12,6 +12,8 @@ function requireSession(loginPath, allowedRoles) {
     throw new Error('redirecting to login');
   }
 
+  const p = window.location.pathname.toLowerCase();
+
   // Determine authorized roles
   let permitted = null;
   if (Array.isArray(allowedRoles)) {
@@ -20,7 +22,6 @@ function requireSession(loginPath, allowedRoles) {
     permitted = [allowedRoles.toLowerCase()];
   } else {
     // Infer role guard from current page pathname
-    const p = window.location.pathname.toLowerCase();
     if (p.includes('/teacher/')) {
       permitted = ['teacher', 'admin'];
     } else if (p.includes('/student/')) {
@@ -39,9 +40,9 @@ function requireSession(loginPath, allowedRoles) {
     const userRole = String(user.role || '').toLowerCase();
     if (!permitted.includes(userRole)) {
       console.warn(`Access denied for role: "${userRole}". Required: [${permitted.join(', ')}]`);
-      const isSubdir = window.location.pathname.includes('/Teacher/') ||
-                        window.location.pathname.includes('/Student/') ||
-                        window.location.pathname.includes('/Parent/');
+      const isSubdir = p.includes('/teacher/') ||
+                        p.includes('/student/') ||
+                        p.includes('/parent/');
       const unauthPath = isSubdir ? '../unauthorized.html' : 'unauthorized.html';
       window.location.replace(unauthPath);
       throw new Error(`Unauthorized role: ${userRole}`);
