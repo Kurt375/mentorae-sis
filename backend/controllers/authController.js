@@ -272,7 +272,16 @@ async function sendResetCode(req, res) {
         expiresAt,
       ]);
 
-      await sendOtpEmail(deliverableEmail, fullName(user), otp);
+      try {
+        await sendOtpEmail(deliverableEmail, fullName(user), otp);
+      } catch (mailErr) {
+        console.error('sendOtpEmail failed:', mailErr);
+        const isAuthError = mailErr.code === 'EAUTH' || (mailErr.response && String(mailErr.response).includes('535'));
+        const msg = isAuthError
+          ? 'Could not send verification email: SMTP / Gmail authentication failed. Please configure a valid Gmail App Password in the backend environment variables.'
+          : 'Could not send verification email. Please check mail server settings or contact the administrator.';
+        return res.status(502).json({ success: false, message: msg });
+      }
 
       const [localPart, domain] = deliverableEmail.split('@');
       const maskedLocal = localPart.length > 2 ? `${localPart[0]}***${localPart.slice(-1)}` : `${localPart[0]}***`;
