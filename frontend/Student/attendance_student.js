@@ -81,6 +81,121 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function renderMonthlyTrends(monthlyTrends) {
+        const container = document.getElementById('monthlyTrendContainer');
+        if (!container) return;
+
+        if (!monthlyTrends || !monthlyTrends.length) {
+            container.innerHTML = `
+                <div class="text-muted text-center py-4 text-xs">
+                    <i class="bi bi-calendar2-range fs-4 d-block mb-1 text-secondary opacity-50"></i>
+                    No monthly attendance data recorded yet.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = monthlyTrends.map(item => {
+            const barColor = item.rate >= 90 ? 'bg-success' : (item.rate >= 75 ? 'bg-info' : 'bg-warning');
+            const textColor = item.rate >= 90 ? 'text-success' : (item.rate >= 75 ? 'text-info' : 'text-warning');
+            return `
+                <div>
+                    <div class="d-flex justify-content-between text-xs font-semibold mb-1">
+                        <span class="text-dark">${escapeHtml(item.monthLabel)}</span>
+                        <span class="${textColor} fw-bold">${item.rate}%</span>
+                    </div>
+                    <div class="progress progress-bar-scale bg-light">
+                        <div class="progress-bar ${barColor}" style="width: ${Math.max(item.rate, 4)}%;"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderAttendanceAlerts(rate, streak, totalDays) {
+        const container = document.getElementById('attendanceAlertsContainer');
+        if (!container) return;
+
+        let standingAlert = '';
+        if (!totalDays) {
+            standingAlert = `
+                <div class="alert alert-secondary border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
+                    <i class="bi bi-info-circle-fill fs-5 mt-0.5 text-secondary"></i>
+                    <div>
+                        <div class="fw-bold text-xs">No Records Yet</div>
+                        <div class="micro-text opacity-90 mt-0.5">Attendance logs will appear once class sessions are marked.</div>
+                    </div>
+                </div>
+            `;
+        } else if (rate >= 95) {
+            standingAlert = `
+                <div class="alert alert-success border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
+                    <i class="bi bi-shield-check-fill fs-5 mt-0.5 text-success"></i>
+                    <div>
+                        <div class="fw-bold text-xs">Perfect Attendance</div>
+                        <div class="micro-text opacity-90 mt-0.5">You're doing great! Keep it up!</div>
+                    </div>
+                </div>
+            `;
+        } else if (rate >= 80) {
+            standingAlert = `
+                <div class="alert alert-success border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
+                    <i class="bi bi-check-circle-fill fs-5 mt-0.5 text-success"></i>
+                    <div>
+                        <div class="fw-bold text-xs">Good Standing</div>
+                        <div class="micro-text opacity-90 mt-0.5">Your attendance is meeting school requirements.</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            standingAlert = `
+                <div class="alert alert-warning border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 mt-0.5 text-warning"></i>
+                    <div>
+                        <div class="fw-bold text-xs">Attendance Warning (${rate}%)</div>
+                        <div class="micro-text opacity-90 mt-0.5">Your attendance is below 80%. Please attend your classes regularly.</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let streakAlert = '';
+        const streakDays = Number(streak) || 0;
+        if (streakDays >= 1) {
+            streakAlert = `
+                <div class="alert alert-info border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
+                    <i class="bi bi-lightning-charge-fill fs-5 mt-0.5 text-info"></i>
+                    <div>
+                        <div class="fw-bold text-xs">Streak: ${streakDays} ${streakDays === 1 ? 'Day' : 'Days'}</div>
+                        <div class="micro-text opacity-90 mt-0.5">Consecutive days present in session track.</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            streakAlert = `
+                <div class="alert alert-secondary border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
+                    <i class="bi bi-lightning-charge fs-5 mt-0.5 text-secondary"></i>
+                    <div>
+                        <div class="fw-bold text-xs">No Active Streak</div>
+                        <div class="micro-text opacity-90 mt-0.5">Attend your next scheduled session on time to start a streak!</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = standingAlert + streakAlert;
+    }
+
     // Load metrics + history from the real API
     async function loadSummary() {
         try {
@@ -89,8 +204,13 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('metricTotalDays').textContent = data.totalDays;
             document.getElementById('metricPresentDays').textContent = data.presentDays;
             document.getElementById('metricAttendanceRate').textContent = `${data.rate}%`;
+
+            renderMonthlyTrends(data.monthlyTrends);
+            renderAttendanceAlerts(data.rate, data.streak, data.totalDays);
         } catch (err) {
             console.error(err);
+            renderMonthlyTrends([]);
+            renderAttendanceAlerts(0, 0, 0);
         }
     }
 

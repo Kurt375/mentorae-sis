@@ -707,11 +707,65 @@ async function getSummary(req, res) {
        FROM attendance_logs WHERE student_id = ?`,
       [studentId.id]
     );
-    const totalDays = totals.totalDays || 0;
-    const presentDays = totals.presentDays || 0;
+    const totalDays = Number(totals.totalDays) || 0;
+    const presentDays = Number(totals.presentDays) || 0;
     const rate = totalDays ? Math.round((presentDays / totalDays) * 100) : 0;
 
-    return res.json({ success: true, totalDays, presentDays, rate });
+    // Monthly Trends: aggregate attendance by month (up to last 3 months)
+    const [monthlyRows] = await pool.query(
+      `SELECT 
+         DATE_FORMAT(scan_date, '%Y-%m') AS monthKey,
+         DATE_FORMAT(scan_date, '%M %Y') AS monthLabel,
+         COUNT(*) AS totalDays,
+         SUM(status IN ('present','late')) AS presentDays
+       FROM attendance_logs
+       WHERE student_id = ?
+       GROUP BY monthKey, monthLabel
+       ORDER BY monthKey DESC
+       LIMIT 3`,
+      [studentId.id]
+    );
+
+    const monthlyTrends = monthlyRows.map((r) => {
+      const mTotal = Number(r.totalDays) || 0;
+      const mPresent = Number(r.presentDays) || 0;
+      const mRate = mTotal ? Math.round((mPresent / mTotal) * 100) : 0;
+      return {
+        monthKey: r.monthKey,
+        monthLabel: r.monthLabel,
+        totalDays: mTotal,
+        presentDays: mPresent,
+        rate: mRate,
+      };
+    });
+
+    // Consecutive Present Days Streak (ordered by most recent scan_date DESC)
+    const [recentLogs] = await pool.query(
+      `SELECT scan_date, status
+       FROM attendance_logs
+       WHERE student_id = ?
+       ORDER BY scan_date DESC, scan_time DESC
+       LIMIT 60`,
+      [studentId.id]
+    );
+
+    let streak = 0;
+    for (const log of recentLogs) {
+      if (log.status === 'present' || log.status === 'late') {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return res.json({
+      success: true,
+      totalDays,
+      presentDays,
+      rate,
+      monthlyTrends,
+      streak,
+    });
   } catch (err) {
     console.error('getSummary error:', err);
     return res.status(500).json({ success: false, message: 'Could not load attendance summary.' });
