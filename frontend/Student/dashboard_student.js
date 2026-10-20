@@ -209,8 +209,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="col-12">
                         <div class="card border-0 p-4 shadow-sm bg-white rounded-3 text-center text-muted">
                             <i class="bi bi-check-circle fs-3 text-success d-block mb-2"></i>
-                            <p class="m-0 fw-semibold text-dark">You're all caught up!</p>
-                            <span class="micro-text text-muted">No targeted teacher recommendations assigned at this time.</span>
+                            <h5 class="fw-bold text-dark m-0 fs-6">No recommendations at this time</h5>
+                            <span class="micro-text text-muted mt-1 d-block">You have no assigned lessons or recommendations. Keep up the good work!</span>
                         </div>
                     </div>
                 `;

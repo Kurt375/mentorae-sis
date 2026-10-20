@@ -2168,13 +2168,6 @@ async function getMyRecommendations(req, res) {
       }
     }
 
-    for (const r of generalRecRows) {
-      if (!seenTopicIds.has(r.topic_id)) {
-        seenTopicIds.add(r.topic_id);
-        recommendations.push(formatRec(r, false));
-      }
-    }
-
     return res.json({ success: true, recommendations });
   } catch (err) {
     console.error('getMyRecommendations error:', err);

@@ -2068,7 +2068,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (!recommendations || recommendations.length === 0) {
-            recommendationsList.innerHTML = '<div class="col-12"><p class="text-muted text-center small py-3">No recommendations for this subject yet.</p></div>';
+            recommendationsList.innerHTML = '<div class="col-12"><div class="card border-0 p-4 shadow-sm bg-white rounded-3 text-center text-muted"><p class="fw-semibold text-dark m-0 fs-6">No recommendations at this time</p><span class="micro-text text-muted mt-1 d-block">There are no recommendations for this subject right now.</span></div></div>';
             return;
         }
 
