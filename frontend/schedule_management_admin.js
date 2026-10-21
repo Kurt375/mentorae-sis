@@ -498,12 +498,40 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', filterAndRender);
     }
 
-    // --- Bulk Import Schedules ---
+    // --- Bulk Import Schedules & Template Downloads ---
+    function triggerDownloadTemplate(format) {
+        window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import/template?format=${format}&token=${encodeURIComponent(token)}`, '_blank');
+    }
+
+    const btnDownloadTshsTemplate = document.getElementById('btnDownloadTshsTemplate');
+    if (btnDownloadTshsTemplate) {
+        btnDownloadTshsTemplate.addEventListener('click', (e) => {
+            e.preventDefault();
+            triggerDownloadTemplate('tshs');
+        });
+    }
+
+    const btnDownloadTableTemplate = document.getElementById('btnDownloadTableTemplate');
+    if (btnDownloadTableTemplate) {
+        btnDownloadTableTemplate.addEventListener('click', (e) => {
+            e.preventDefault();
+            triggerDownloadTemplate('table');
+        });
+    }
+
+    const btnDownloadMasterSchedule = document.getElementById('btnDownloadMasterSchedule');
+    if (btnDownloadMasterSchedule) {
+        btnDownloadMasterSchedule.addEventListener('click', (e) => {
+            e.preventDefault();
+            triggerDownloadTemplate('master');
+        });
+    }
+
     const btnDownloadScheduleTemplate = document.getElementById('btnDownloadScheduleTemplate');
     if (btnDownloadScheduleTemplate) {
         btnDownloadScheduleTemplate.addEventListener('click', (e) => {
             e.preventDefault();
-            window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import/template?token=${encodeURIComponent(token)}`, '_blank');
+            triggerDownloadTemplate('tshs');
         });
     }
 
@@ -622,7 +650,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 setSchedProgressBar(100, 'Import Complete!', data.message || 'Schedules created successfully.');
 
                 if (Array.isArray(data.results) && data.results.length) {
-                    resultsEl.innerHTML = data.results.map(r => {
+                    let summaryHeader = '';
+                    if (data.totalSheets) {
+                        summaryHeader = `
+                            <div class="alert alert-success-subtle border border-success-subtle py-2 px-3 mb-2 rounded-3 text-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div>
+                                    <strong class="text-success"><i class="bi bi-check-circle-fill me-1"></i> ${data.totalEntriesCreated} class schedule(s) scheduled</strong> across ${data.totalSheets} teacher sheets.
+                                </div>
+                                <div class="d-flex gap-1">
+                                    ${data.newTeachersRegistered ? `<span class="badge bg-success shadow-xs">+${data.newTeachersRegistered} Teachers Registered</span>` : ''}
+                                    ${data.newSectionsCreated ? `<span class="badge bg-primary shadow-xs">+${data.newSectionsCreated} Sections Synced</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    resultsEl.innerHTML = summaryHeader + data.results.map(r => {
                         let badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
                         let icon = '<i class="bi bi-x-circle-fill me-1"></i>';
                         if (r.status === 'created') {
@@ -633,10 +676,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             icon = '<i class="bi bi-exclamation-circle-fill me-1"></i>';
                         }
 
+                        const labelPrefix = data.totalSheets ? 'Teacher Sheet' : 'Row';
+
                         return `
                             <div class="p-2.5 mb-2 rounded border bg-light text-sm">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <strong class="text-dark">Row ${r.row}: ${r.name}</strong>
+                                    <strong class="text-dark">${labelPrefix} ${r.row}: ${r.name}</strong>
                                     <span class="badge ${badgeClass} px-2 py-1">${icon}${r.status.toUpperCase()}</span>
                                 </div>
                                 <div class="text-muted small">${r.message}</div>

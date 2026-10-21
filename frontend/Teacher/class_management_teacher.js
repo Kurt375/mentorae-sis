@@ -1381,7 +1381,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         st.wwTotal = hasWwScore ? Math.round(wwSum * 100) / 100 : '';
         st.wwPs = hasWwScore && wwHpsTotal > 0 ? Math.round(((wwSum / wwHpsTotal) * 100) * 100) / 100 : '';
-        st.wwWs = hasWwScore && wwHpsTotal > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : (st.wwWsManual !== undefined && st.wwWsManual !== '' ? parseFloat(st.wwWsManual) : '');
+        if (st.wwWsManual !== undefined && st.wwWsManual !== '') {
+            st.wwWs = parseFloat(st.wwWsManual);
+            st.wwPs = weights.ww > 0 ? Math.round(((st.wwWs / weights.ww) * 100) * 100) / 100 : '';
+        } else {
+            st.wwWs = hasWwScore && wwHpsTotal > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : '';
+        }
 
         // 2. Performance Tasks (calculated against active columns only)
         const ptHpsTotal = getComponentEffectiveHpsTotal('pt');
@@ -1395,7 +1400,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         st.ptTotal = hasPtScore ? Math.round(ptSum * 100) / 100 : '';
         st.ptPs = hasPtScore && ptHpsTotal > 0 ? Math.round(((ptSum / ptHpsTotal) * 100) * 100) / 100 : '';
-        st.ptWs = hasPtScore && ptHpsTotal > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : (st.ptWsManual !== undefined && st.ptWsManual !== '' ? parseFloat(st.ptWsManual) : '');
+        if (st.ptWsManual !== undefined && st.ptWsManual !== '') {
+            st.ptWs = parseFloat(st.ptWsManual);
+            st.ptPs = weights.pt > 0 ? Math.round(((st.ptWs / weights.pt) * 100) * 100) / 100 : '';
+        } else {
+            st.ptWs = hasPtScore && ptHpsTotal > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : '';
+        }
 
         // 3. Summative Tests & Term Exam (calculated against active columns only)
         const qaHpsTotal = getComponentEffectiveHpsTotal('qa');
@@ -1409,7 +1419,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         st.qaTotal = hasQaScore ? Math.round(qaSum * 100) / 100 : '';
         st.qaPs = hasQaScore && qaHpsTotal > 0 ? Math.round(((qaSum / qaHpsTotal) * 100) * 100) / 100 : '';
-        st.qaWs = hasQaScore && qaHpsTotal > 0 ? Math.round(((st.qaPs / 100) * weights.qa) * 100) / 100 : (st.qaWsManual !== undefined && st.qaWsManual !== '' ? parseFloat(st.qaWsManual) : '');
+        if (st.qaWsManual !== undefined && st.qaWsManual !== '') {
+            st.qaWs = parseFloat(st.qaWsManual);
+            st.qaPs = weights.qa > 0 ? Math.round(((st.qaWs / weights.qa) * 100) * 100) / 100 : '';
+        } else {
+            st.qaWs = hasQaScore && qaHpsTotal > 0 ? Math.round(((st.qaPs / 100) * weights.qa) * 100) / 100 : '';
+        }
 
         // 4. Initial & Transmuted Final Grade
         const wWw = st.wwWs !== '' && st.wwWs !== undefined ? parseFloat(st.wwWs) : 0;
@@ -1485,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!st) return;
 
         const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
-        const subjectId = encodeSubjectFilter ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 1);
+        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
         const term = encodeTermFilter ? encodeTermFilter.value : '1st';
 
         const quizVal = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : '';
@@ -1500,6 +1515,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ww: st.wwScores || [],
                 pt: st.ptScores || [],
                 qa: st.qaScores || []
+            },
+            manual: {
+                ww: st.wwWsManual !== undefined ? st.wwWsManual : '',
+                pt: st.ptWsManual !== undefined ? st.ptWsManual : '',
+                qa: st.qaWsManual !== undefined ? st.qaWsManual : ''
             }
         };
 
@@ -2018,7 +2038,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         encodeSubjectFilter.value = currentSubjects[0].id;
                     }
                 } else {
-                    encodeSubjectFilter.innerHTML = '<option value="">General Mathematics</option>';
+                    encodeSubjectFilter.innerHTML = '<option value="11">General Mathematics (GENMATH)</option>';
+                    encodeSubjectFilter.value = '11';
+                    currentSubjectId = '11';
                 }
             }
 
@@ -2032,7 +2054,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadGradeSheet() {
         if (!gradeTableBody) return;
         const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
-        const subjectId = encodeSubjectFilter ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 1);
+        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
         const term = encodeTermFilter ? encodeTermFilter.value : '1st';
 
         if (!sectionId || !subjectId) return;
@@ -2118,6 +2140,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const aVal = s.activity_score !== undefined && s.activity_score !== null ? s.activity_score : (s.activity !== undefined && s.activity !== null ? s.activity : null);
                 const eVal = s.exam_score !== undefined && s.exam_score !== null ? s.exam_score : (s.exam !== undefined && s.exam !== null ? s.exam : null);
 
+                const manual = raw && raw.manual ? raw.manual : {};
+                const wwWsManual = (manual.ww !== undefined && manual.ww !== '') ? manual.ww : ((qVal !== null && qVal !== '') ? qVal : undefined);
+                const ptWsManual = (manual.pt !== undefined && manual.pt !== '') ? manual.pt : ((aVal !== null && aVal !== '') ? aVal : undefined);
+                const qaWsManual = (manual.qa !== undefined && manual.qa !== '') ? manual.qa : ((eVal !== null && eVal !== '') ? eVal : undefined);
+
                 const stObj = {
                     studentId: s.studentId || s.id,
                     idNumber: s.idNumber || s.id_number || s.id || s.studentId,
@@ -2125,9 +2152,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     wwScores,
                     ptScores,
                     qaScores,
-                    wwWsManual: (qVal !== null && qVal !== '' && !wwScores.length) ? qVal : undefined,
-                    ptWsManual: (aVal !== null && aVal !== '' && !ptScores.length) ? aVal : undefined,
-                    qaWsManual: (eVal !== null && eVal !== '' && !qaScores.length) ? eVal : undefined,
+                    wwWsManual,
+                    ptWsManual,
+                    qaWsManual,
                     gwa: s.gwa !== undefined && s.gwa !== null ? Number(s.gwa) : null,
                     termGwa: s.termGwa !== undefined && s.termGwa !== null ? Number(s.termGwa) : null,
                     overallGwa: s.overallGwa !== undefined && s.overallGwa !== null ? Number(s.overallGwa) : null,
@@ -2394,7 +2421,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnSaveAllGradesNow) {
         btnSaveAllGradesNow.addEventListener('click', async () => {
             const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
-            const subjectId = encodeSubjectFilter ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 1);
+            const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
             const term = encodeTermFilter ? encodeTermFilter.value : '1st';
             const students = Object.values(activeGradeBreakdown.students);
 
@@ -2434,6 +2461,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                             ww: st.wwScores || [],
                             pt: st.ptScores || [],
                             qa: st.qaScores || []
+                        },
+                        manual: {
+                            ww: st.wwWsManual !== undefined ? st.wwWsManual : '',
+                            pt: st.ptWsManual !== undefined ? st.ptWsManual : '',
+                            qa: st.qaWsManual !== undefined ? st.qaWsManual : ''
                         }
                     }
                 });

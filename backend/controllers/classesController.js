@@ -184,6 +184,22 @@ async function getMySubjects(req, res) {
         WHERE sch.section_id = ?
         ORDER BY sub.name
       `, [req.query.sectionId]);
+
+      if (!rows.length) {
+        const [secRows] = await pool.query('SELECT grade_level, strand_id FROM sections WHERE id = ?', [req.query.sectionId]);
+        if (secRows.length) {
+          const [subRows] = await pool.query(`
+            SELECT DISTINCT sub.id, sub.code, sub.name, sub.classification, sub.grade_level, sub.quarter,
+                   COALESCE(sub.ww_weight, 20.00) AS ww_weight,
+                   COALESCE(sub.pt_weight, 50.00) AS pt_weight,
+                   COALESCE(sub.qa_weight, 30.00) AS qa_weight
+            FROM subjects sub
+            WHERE sub.grade_level = ? OR sub.grade_level = 0 OR sub.name = 'General Mathematics'
+            ORDER BY sub.name
+          `, [secRows[0].grade_level]);
+          rows = subRows;
+        }
+      }
     }
     return res.json({ success: true, subjects: rows });
   } catch (err) {

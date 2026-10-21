@@ -1,6 +1,9 @@
 const pool = require('../config/db');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
+const path = require('path');
+const fs = require('fs');
+const bcrypt = require('bcrypt');
 
 const SCHOOL_OPEN = '07:00:00';
 const SCHOOL_CLOSE = '15:30:00';
@@ -414,110 +417,125 @@ async function getMySchedule(req, res) {
 
 /**
  * GET /api/schedules/bulk-import/template
- * Downloads an .xlsx starter template with columns and example rows.
+ * Downloads either:
+ * - format=tshs (default): Official DepEd / TSHS Teacher's Program Timetable Workbook
+ * - format=master: Full 43-Teacher TSHS Real Timetable Workbook
+ * - format=table: Standard row-by-row table template (.xlsx)
  */
 async function downloadScheduleTemplate(req, res) {
   try {
-    const wb = new ExcelJS.Workbook();
-    wb.creator = 'Mentorae SIS';
-    wb.lastModifiedBy = 'Mentorae SIS Admin';
-    wb.created = new Date();
-    wb.modified = new Date();
+    const format = String(req.query.format || 'tshs').toLowerCase().trim();
 
-    // 1. Primary Sheet: Schedules
-    const ws = wb.addWorksheet('Schedules', {
-      views: [{ state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }]
-    });
-
-    ws.columns = [
-      { header: 'Teacher ID or Name', key: 'teacher', width: 26 },
-      { header: 'Subject', key: 'subject', width: 32 },
-      { header: 'Strand Code', key: 'strand', width: 16 },
-      { header: 'Grade Level', key: 'grade', width: 14 },
-      { header: 'Section Name', key: 'section', width: 28 },
-      { header: 'Academic Term', key: 'quarter', width: 18 },
-      { header: 'Day of Week', key: 'day', width: 22 },
-      { header: 'Start Time', key: 'startTime', width: 16 },
-      { header: 'End Time', key: 'endTime', width: 16 },
-    ];
-
-    const headerRow = ws.getRow(1);
-    headerRow.height = 30;
-    headerRow.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0A5C2C' } };
-      cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      cell.border = {
-        top: { style: 'medium', color: { argb: 'FF07421F' } },
-        bottom: { style: 'medium', color: { argb: 'FF07421F' } },
-        left: { style: 'thin', color: { argb: 'FF15803D' } },
-        right: { style: 'thin', color: { argb: 'FF15803D' } },
-      };
-    });
-
-    const samples = [
-      ['Princess Mel Suelto', 'Business 1 - Basic Accounting', 'BAE', '11', 'Accountancy', '3rd Term', 'Monday', '07:30 AM', '09:00 AM'],
-      ['Princess Mel Suelto', 'Chemistry 1', 'STEM', '11', 'Medical Sciences', '1st Term', 'Tuesday, Thursday', '09:30 AM', '11:00 AM'],
-    ];
-
-    samples.forEach((r, idx) => {
-      const row = ws.addRow(r);
-      row.height = 22;
-      const isEven = idx % 2 === 0;
-      row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF1F2937' } };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF0FDF4' },
-        };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-          right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-        };
-        if ([3, 4, 6, 8, 9].includes(colNum)) {
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        } else {
-          cell.alignment = { vertical: 'middle', horizontal: 'left' };
-        }
-      });
-    });
-
-    ws.autoFilter = 'A1:I1';
-
-    for (let r = 2; r <= 500; r++) {
-      ws.getCell(`C${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"STEM,ABM,HUMSS,ASSH,BAE,HE,H&T"'],
-      };
-      ws.getCell(`D${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"11,12"'],
-      };
-      ws.getCell(`F${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"1st Term,2nd Term,3rd Term,All Terms"'],
-      };
-      ws.getCell(`G${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"Monday,Tuesday,Wednesday,Thursday,Friday,MWF,TTH,All Weekdays"'],
-      };
+    // 1. Full Master 43-Teacher Schedule Workbook
+    if (format === 'master') {
+      const masterPath = fs.existsSync(path.resolve(__dirname, '../templates/tshs_master_real_schedule.xlsx'))
+        ? path.resolve(__dirname, '../templates/tshs_master_real_schedule.xlsx')
+        : path.resolve(__dirname, '../../frontend/Teacher\'s Real Sched.xlsx');
+      if (fs.existsSync(masterPath)) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="TSHS_Master_Teachers_Schedule.xlsx"');
+        return fs.createReadStream(masterPath).pipe(res);
+      }
     }
 
-    // Force Start Time and End Time columns to text format to prevent Excel from converting to decimals
-    ws.getColumn(8).numFmt = '@';
-    ws.getColumn(9).numFmt = '@';
+    // 2. Tabular Row-by-Row Schedule Template (.xlsx)
+    if (format === 'table') {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Mentorae SIS';
+      wb.lastModifiedBy = 'Mentorae SIS Admin';
+      wb.created = new Date();
+      wb.modified = new Date();
 
-    const buffer = await wb.xlsx.writeBuffer();
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="mentorae-schedule-import-template.xlsx"');
-    return res.send(buffer);
+      const ws = wb.addWorksheet('Schedules', {
+        views: [{ state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }]
+      });
+
+      ws.columns = [
+        { header: 'Teacher ID or Name', key: 'teacher', width: 26 },
+        { header: 'Subject', key: 'subject', width: 32 },
+        { header: 'Strand Code', key: 'strand', width: 16 },
+        { header: 'Grade Level', key: 'grade', width: 14 },
+        { header: 'Section Name', key: 'section', width: 28 },
+        { header: 'Academic Term', key: 'quarter', width: 18 },
+        { header: 'Day of Week', key: 'day', width: 22 },
+        { header: 'Start Time', key: 'startTime', width: 16 },
+        { header: 'End Time', key: 'endTime', width: 16 },
+      ];
+
+      const headerRow = ws.getRow(1);
+      headerRow.height = 30;
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0A5C2C' } };
+        cell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'medium', color: { argb: 'FF07421F' } },
+          bottom: { style: 'medium', color: { argb: 'FF07421F' } },
+          left: { style: 'thin', color: { argb: 'FF15803D' } },
+          right: { style: 'thin', color: { argb: 'FF15803D' } },
+        };
+      });
+
+      const samples = [
+        ['Princess Mel Suelto', 'General Mathematics', 'STEM', '11', 'Medical Sciences', '1st Term', 'Monday, Wednesday', '07:00 AM', '08:00 AM'],
+        ['Angelica Mae Custodio', 'General Mathematics', 'STEM', '11', 'Engineering', '1st Term', 'Tuesday, Thursday', '09:20 AM', '10:20 AM'],
+        ['Joshua R. Almazon', 'Effective Communication', 'ASSH', '11', 'Humanities 2', '1st Term', 'Wednesday, Thursday, Friday', '07:00 AM', '08:00 AM'],
+      ];
+
+      samples.forEach((r, idx) => {
+        const row = ws.addRow(r);
+        row.height = 22;
+        const isEven = idx % 2 === 0;
+        row.eachCell((cell, colNum) => {
+          cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF1F2937' } };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF0FDF4' },
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          };
+          if ([3, 4, 6, 8, 9].includes(colNum)) {
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          } else {
+            cell.alignment = { vertical: 'middle', horizontal: 'left' };
+          }
+        });
+      });
+
+      ws.autoFilter = 'A1:I1';
+      ws.getColumn(8).numFmt = '@';
+      ws.getColumn(9).numFmt = '@';
+
+      const buffer = await wb.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="mentorae-schedule-table-template.xlsx"');
+      return res.send(buffer);
+    }
+
+    // 3. Official TSHS Teacher Program Timetable Template (Default)
+    const tshsTemplatePath = path.resolve(__dirname, '../templates/tshs_schedule_template.xlsx');
+    if (fs.existsSync(tshsTemplatePath)) {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="TSHS_Teacher_Program_Schedule_Template.xlsx"');
+      return fs.createReadStream(tshsTemplatePath).pipe(res);
+    }
+
+    // Fallback: If template file not yet written to disk, send full workbook
+    const masterPath = fs.existsSync(path.resolve(__dirname, '../templates/tshs_master_real_schedule.xlsx'))
+      ? path.resolve(__dirname, '../templates/tshs_master_real_schedule.xlsx')
+      : path.resolve(__dirname, '../../frontend/Teacher\'s Real Sched.xlsx');
+    if (fs.existsSync(masterPath)) {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="TSHS_Teacher_Program_Schedule_Template.xlsx"');
+      return fs.createReadStream(masterPath).pipe(res);
+    }
+
+    return res.status(404).json({ success: false, message: 'Template file not found.' });
   } catch (err) {
     console.error('downloadScheduleTemplate error:', err);
     return res.status(500).json({ success: false, message: 'Could not generate template file.' });
@@ -525,17 +543,510 @@ async function downloadScheduleTemplate(req, res) {
 }
 
 /**
- * POST /api/schedules/bulk-import (multipart, field "importFile")
- * Bulk creates schedules from an uploaded Excel or CSV file.
+ * Checks if an Excel workbook follows the official DepEd / TSHS Teacher Program Timetable layout.
  */
-async function bulkImportSchedules(req, res) {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: 'No file was uploaded.' });
+function isTshsTeacherProgramWorkbook(workbook) {
+  if (!workbook || !Array.isArray(workbook.SheetNames)) return false;
+  for (const name of workbook.SheetNames) {
+    const sheet = workbook.Sheets[name];
+    if (!sheet) continue;
+    const a12 = String((sheet['A12'] || {}).v || '').toUpperCase();
+    const a13 = String((sheet['A13'] || {}).v || '').toUpperCase();
+    const a14 = String((sheet['A14'] || {}).v || '').toUpperCase();
+    const a16 = String((sheet['A16'] || {}).v || '').toUpperCase();
+    const b16 = String((sheet['B16'] || {}).v || '').toUpperCase();
+    const c16 = String((sheet['C16'] || {}).v || '').toUpperCase();
+
+    if (
+      a12.includes("TEACHER'S PROGRAM") ||
+      a13.includes("TERM") ||
+      (a16.includes("TIME") && (b16.includes("MONDAY") || c16.includes("TUESDAY")))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Helper to parse a time range like "7:00 am - 8:00 am" or "12:00 nn - 2:00 pm".
+ */
+function parseTimeRangeBlock(raw) {
+  if (!raw) return null;
+  let str = String(raw).trim().toLowerCase().replace(/\s+/g, ' ');
+  str = str.replace(/(\d{1,2}:\d{2}):(\d{1,2}:\d{2})/, '$1-$2');
+
+  const m = str.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm|nn)?)\s*[-–to]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|nn)?)/i);
+  if (!m) return null;
+
+  function toTimeString(t, fallbackAmPm = null) {
+    t = t.replace(/\s+/g, '').toLowerCase();
+    let ampm = null;
+    if (t.includes('nn') || t.includes('noon')) {
+      ampm = 'PM';
+      t = t.replace(/(nn|noon)/g, '');
+    } else if (t.includes('am')) {
+      ampm = 'AM';
+      t = t.replace('am', '');
+    } else if (t.includes('pm')) {
+      ampm = 'PM';
+      t = t.replace('pm', '');
+    } else {
+      ampm = fallbackAmPm;
+    }
+
+    let [h, min] = t.split(':').map(Number);
+    if (isNaN(min)) min = 0;
+    if (isNaN(h)) return null;
+
+    if (!ampm) {
+      if (h >= 1 && h <= 5) ampm = 'PM';
+      else if (h >= 6 && h <= 11) ampm = 'AM';
+      else if (h === 12) ampm = 'PM';
+    }
+
+    if (ampm === 'PM' && h < 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+
+    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
   }
 
+  const s = toTimeString(m[1].trim());
+  const e = toTimeString(m[2].trim());
+  if (!s || !e) return null;
+  return { startTime: s, endTime: e };
+}
+
+/**
+ * Bulk imports schedules from the official TSHS Teacher Program Timetable layout.
+ */
+async function importTshsTeacherProgramGrid(workbook, req, res) {
+  try {
+    // 1. Fetch DB reference datasets
+    const [teachers] = await pool.query("SELECT id, id_number, first_name, last_name, email FROM users WHERE role = 'teacher'");
+    const [strands] = await pool.query("SELECT id, code, title FROM strands");
+    const [sections] = await pool.query(`
+      SELECT sec.id, sec.name, sec.grade_level, sec.strand_id, st.code AS strand_code
+      FROM sections sec
+      JOIN strands st ON st.id = sec.strand_id
+    `);
+    const [subjects] = await pool.query("SELECT id, name, code, strand, grade_level, quarter FROM subjects");
+
+    // Pre-load existing schedules to avoid duplicates
+    const [existingSchedules] = await pool.query(
+      "SELECT teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time FROM schedules"
+    );
+    const existingSchedSet = new Set(
+      existingSchedules.map(
+        (s) => `${s.teacher_id}_${s.subject_id}_${s.section_id}_${s.quarter}_${s.day_of_week}_${s.start_time}_${s.end_time}`
+      )
+    );
+
+    const defaultPasswordHash = await bcrypt.hash('Teacher@2026', 10);
+
+    // Track max teacher id_number for auto-registration
+    let maxTeacherNum = 220;
+    teachers.forEach((t) => {
+      const m = String(t.id_number || '').match(/26-(\d+)/);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num > maxTeacherNum) maxTeacherNum = num;
+      }
+    });
+
+    const teacherMap = new Map();
+    teachers.forEach((t) => {
+      const full1 = `${t.first_name} ${t.last_name}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      const full2 = `${t.last_name}, ${t.first_name}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      const full3 = `${t.last_name} ${t.first_name}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      teacherMap.set(full1, t);
+      teacherMap.set(full2, t);
+      teacherMap.set(full3, t);
+      if (t.id_number) teacherMap.set(t.id_number.toLowerCase(), t);
+    });
+
+    const sectionMap = new Map();
+    sections.forEach((s) => {
+      const key1 = `${s.strand_code} ${s.grade_level} - ${s.name}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      const key2 = `${s.name}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      sectionMap.set(key1, s);
+      sectionMap.set(key2, s);
+    });
+
+    async function getOrCreateTeacher(teacherRawName, sheetName) {
+      let raw = (teacherRawName || sheetName || '').replace(/\s+/g, ' ').trim();
+      raw = raw.replace(/\b(LSB Teacher|Teacher\s+[I|V|X]+|Special Science Teacher\s+[I|V|X]+)\b/gi, '').trim();
+
+      const rawLower = raw.toLowerCase();
+      if (teacherMap.has(rawLower)) return teacherMap.get(rawLower);
+
+      for (const t of teachers) {
+        const tLast = t.last_name.toLowerCase();
+        const tFirst = t.first_name.toLowerCase();
+        if (rawLower.includes(tLast) && (rawLower.includes(tFirst) || rawLower.includes(tFirst.split(' ')[0]))) {
+          teacherMap.set(rawLower, t);
+          return t;
+        }
+      }
+
+      // Parse name components
+      let firstName = '';
+      let lastName = '';
+      let middleInitial = '';
+
+      if (raw.includes(',')) {
+        const parts = raw.split(',').map((s) => s.trim());
+        lastName = parts[0];
+        const rest = parts[1] || '';
+        const restParts = rest.split(' ');
+        if (restParts.length > 1 && restParts[restParts.length - 1].length <= 2) {
+          middleInitial = restParts.pop().replace('.', '');
+        }
+        firstName = restParts.join(' ');
+      } else {
+        const parts = raw.split(' ');
+        if (parts.length > 2 && parts[parts.length - 1].length <= 2) {
+          middleInitial = parts.pop().replace('.', '');
+        }
+        lastName = parts.pop() || '';
+        firstName = parts.join(' ');
+      }
+
+      function titleCase(s) {
+        return s.toLowerCase().split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+      firstName = titleCase(firstName) || 'Teacher';
+      lastName = titleCase(lastName) || 'TSHS';
+
+      maxTeacherNum++;
+      const idNumber = `26-${String(maxTeacherNum).padStart(5, '0')}`;
+      const email = `${firstName.toLowerCase().replace(/[^a-z]/g, '')}.${lastName.toLowerCase().replace(/[^a-z]/g, '')}${maxTeacherNum}@tshs.deped.gov.ph`;
+
+      const [res] = await pool.query(
+        `INSERT INTO users (role, id_number, first_name, middle_initial, last_name, email, password_hash, must_change_password, is_active)
+         VALUES ('teacher', ?, ?, ?, ?, ?, ?, 1, 1)`,
+        [idNumber, firstName, middleInitial ? middleInitial + '.' : null, lastName, email, defaultPasswordHash]
+      );
+
+      const newTeacher = {
+        id: res.insertId,
+        id_number: idNumber,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        isNew: true,
+      };
+
+      teachers.push(newTeacher);
+      teacherMap.set(rawLower, newTeacher);
+      teacherMap.set(`${firstName} ${lastName}`.toLowerCase(), newTeacher);
+      return newTeacher;
+    }
+
+    async function getOrCreateSection(sectionRaw) {
+      let str = String(sectionRaw || '').replace(/\s+/g, ' ').trim();
+      if (!str) return null;
+      if (str.includes('&')) str = str.split('&')[0].trim();
+
+      const key = str.toLowerCase();
+      if (sectionMap.has(key)) return sectionMap.get(key);
+
+      const m = str.match(/^([A-Z&]+)?\s*(\d{2})?\s*[-–]?\s*(.+)$/i);
+      let strandCode = m && m[1] ? m[1].toUpperCase() : '';
+      let grade = m && m[2] ? parseInt(m[2], 10) : 11;
+      let secName = m && m[3] ? m[3].trim() : str;
+
+      if (secName.toLowerCase().includes('buisness')) secName = secName.replace(/buisness/i, 'Business');
+      if (secName.toLowerCase().includes('criminilogy')) secName = secName.replace(/criminilogy/i, 'Criminology');
+      if (secName.toLowerCase() === 'a&ss 1') secName = 'Arts & Social Sciences 1';
+      if (secName.toLowerCase() === 'a&ss 2') secName = 'Arts & Social Sciences 2';
+
+      for (const [k, s] of sectionMap.entries()) {
+        if (s.name.toLowerCase() === secName.toLowerCase() && (!grade || s.grade_level === grade)) {
+          sectionMap.set(key, s);
+          return s;
+        }
+      }
+
+      let targetStrand = strands.find((st) => st.code.toUpperCase() === strandCode);
+      if (!targetStrand) {
+        if (str.toUpperCase().includes('ALS')) targetStrand = strands.find((st) => st.code === 'TVL') || strands[0];
+        else if (str.toUpperCase().includes('HUMANITIES')) targetStrand = strands.find((st) => st.code === 'ASSH') || strands[0];
+        else targetStrand = strands[0];
+      }
+
+      const [res] = await pool.query(
+        'INSERT INTO sections (strand_id, grade_level, name) VALUES (?, ?, ?)',
+        [targetStrand.id, grade, secName]
+      );
+
+      const newSec = {
+        id: res.insertId,
+        name: secName,
+        grade_level: grade,
+        strand_id: targetStrand.id,
+        strand_code: targetStrand.code,
+        isNew: true,
+      };
+
+      sections.push(newSec);
+      sectionMap.set(key, newSec);
+      sectionMap.set(secName.toLowerCase(), newSec);
+      sectionMap.set(`${targetStrand.code} ${grade} - ${secName}`.toLowerCase(), newSec);
+      return newSec;
+    }
+
+    function resolveSubject(raw) {
+      if (!raw) return null;
+      function clean(s) {
+        return String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+      }
+      const rawClean = clean(raw);
+      let found = subjects.find((s) => clean(s.name) === rawClean || clean(s.code) === rawClean);
+      if (found) return found;
+
+      const aliases = {
+        creativecomposition: 'Creative Composition',
+        phlippinegovernance: 'Philippine Governance',
+        philippinegovernance: 'Philippine Governance',
+        introductiontothephiliosophyofthehumanperson: 'Introduction to the Philosophy of the Human Person',
+        lifeandcareerskills: 'Life and Career Skills',
+        peandhealth: 'P.E. and Health',
+        communityengagementsolidarityandcititzenship: 'Community Engagement, Solidarity, and Citizenship',
+        fundamentalsofaccountancybusinessandmanagement2: 'Fundamentals of Accountancy, Business and Management 2',
+        bakeryoperationsncii: 'Bakery Operations NC II',
+        cookeryncii: 'Cookery NC II',
+      };
+
+      if (aliases[rawClean]) {
+        const target = clean(aliases[rawClean]);
+        found = subjects.find((s) => clean(s.name) === target);
+        if (found) return found;
+      }
+
+      found = subjects.find((s) => {
+        const sc = clean(s.name);
+        return (sc.length >= 6 && rawClean.includes(sc)) || (rawClean.length >= 6 && sc.includes(rawClean));
+      });
+      if (found) return found;
+
+      let best = null;
+      let maxScore = 0;
+      subjects.forEach((s) => {
+        const sc = clean(s.name);
+        let common = 0;
+        for (let i = 0; i < Math.min(sc.length, rawClean.length); i++) {
+          if (sc[i] === rawClean[i]) common++;
+        }
+        if (common > maxScore && common >= 6) {
+          maxScore = common;
+          best = s;
+        }
+      });
+
+      return best;
+    }
+
+    const schedulesToInsert = [];
+    const sheetResults = [];
+    let newTeachersCount = 0;
+    let newSectionsCount = 0;
+
+    for (let sIdx = 0; sIdx < workbook.SheetNames.length; sIdx++) {
+      const sheetName = workbook.SheetNames[sIdx];
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) continue;
+
+      const teacherHeader = String((sheet['A14'] || {}).v || sheetName).trim();
+      const lowerSheet = sheetName.toLowerCase().trim();
+      const lowerHeader = teacherHeader.toLowerCase().trim();
+
+      // Skip non-teacher helper sheets (e.g. Instructions, Blank Template, Reference Guides)
+      if (
+        lowerSheet.includes('instruction') ||
+        lowerSheet.includes('guide') ||
+        lowerSheet.includes('blank') ||
+        lowerSheet.includes('reference') ||
+        lowerSheet.includes('section') ||
+        lowerSheet.includes('subject') ||
+        lowerHeader.includes('[teacher') ||
+        lowerHeader.includes('teacher full name') ||
+        lowerHeader.includes('instructions')
+      ) {
+        continue;
+      }
+
+      const termRaw = String((sheet['A13'] || {}).v || '1st Term').trim();
+      const term = parseTerm(termRaw);
+
+      const teacher = await getOrCreateTeacher(teacherHeader, sheetName);
+      if (teacher.isNew) newTeachersCount++;
+
+      let footerRow = 40;
+      for (let r = 17; r <= 50; r++) {
+        const val = String((sheet['A' + r] || {}).v || '').toLowerCase();
+        if (val.includes('prepared by') || val.includes('reference:')) {
+          footerRow = r;
+          break;
+        }
+      }
+
+      const timeSlots = [];
+      for (let r = 17; r < footerRow; r++) {
+        const aVal = (sheet['A' + r] || {}).v;
+        if (!aVal) continue;
+        const t = parseTimeRangeBlock(aVal);
+        if (t) {
+          timeSlots.push({ row: r, startTime: t.startTime, endTime: t.endTime });
+        }
+      }
+
+      function getTimeAtRow(rowNum) {
+        for (let i = timeSlots.length - 1; i >= 0; i--) {
+          if (timeSlots[i].row <= rowNum) return timeSlots[i];
+        }
+        return timeSlots[0] || null;
+      }
+
+      const dayCols = [
+        { col: 'B', day: 'Monday' },
+        { col: 'C', day: 'Tuesday' },
+        { col: 'D', day: 'Wednesday' },
+        { col: 'E', day: 'Thursday' },
+        { col: 'F', day: 'Friday' },
+      ];
+
+      let sheetCreated = 0;
+      let sheetSkippedExisting = 0;
+
+      for (const { col, day } of dayCols) {
+        let r = 17;
+        while (r < footerRow) {
+          const cellVal = String((sheet[col + r] || {}).v || '').trim();
+          if (!cellVal) {
+            r++;
+            continue;
+          }
+
+          const lower = cellVal.toLowerCase();
+          if (lower.includes('flag ceremony') || lower.includes('break') || lower.includes('ground improvement')) {
+            r++;
+            continue;
+          }
+
+          let subjectName = cellVal;
+          let sectionName = '';
+          let slotTime = null;
+
+          if (cellVal.includes('(') || /\d:\d/.test(cellVal)) {
+            const inlineTime = parseTimeRangeBlock(cellVal);
+            slotTime = inlineTime || getTimeAtRow(r);
+
+            const cleanText = cellVal
+              .replace(/\(?\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–:]\s*\d{1,2}:\d{2}\s*(?:am|pm)?\)?/gi, '')
+              .replace(/\(?\d+\s*(?:minutes|mins|min)\.?\)?/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const m = cleanText.match(/^(.+?)\s+([A-Z&]{2,}\s*\d{2}\s*[-–].+|ALS\s*\d{2}.*)$/i);
+            if (m) {
+              subjectName = m[1].trim();
+              sectionName = m[2].trim();
+            } else {
+              subjectName = cleanText;
+              sectionName = String((sheet[col + (r + 1)] || {}).v || '').trim();
+            }
+            r++;
+          } else {
+            let endRow = r + 1;
+            for (let nextR = r + 1; nextR < Math.min(footerRow, r + 5); nextR++) {
+              const nextVal = String((sheet[col + nextR] || {}).v || '').trim();
+              if (nextVal) {
+                const nl = nextVal.toLowerCase();
+                if (!nl.includes('break') && !nl.includes('ground improvement')) {
+                  sectionName = nextVal;
+                  endRow = nextR;
+                }
+                break;
+              }
+            }
+
+            const startTimeSlot = getTimeAtRow(r);
+            const endTimeSlot = getTimeAtRow(endRow) || startTimeSlot;
+            if (startTimeSlot && endTimeSlot) {
+              slotTime = { startTime: startTimeSlot.startTime, endTime: endTimeSlot.endTime };
+            }
+            r = Math.max(r + 1, endRow + 1);
+          }
+
+          if (!slotTime || !slotTime.startTime || !slotTime.endTime) continue;
+
+          const subject = resolveSubject(subjectName);
+          if (!subject) continue;
+
+          const section = await getOrCreateSection(sectionName);
+          if (!section) continue;
+          if (section.isNew) newSectionsCount++;
+
+          const schedKey = `${teacher.id}_${subject.id}_${section.id}_${term}_${day}_${slotTime.startTime}_${slotTime.endTime}`;
+          if (existingSchedSet.has(schedKey)) {
+            sheetSkippedExisting++;
+            continue;
+          }
+
+          existingSchedSet.add(schedKey);
+          schedulesToInsert.push([
+            teacher.id,
+            subject.id,
+            section.id,
+            term,
+            day,
+            slotTime.startTime,
+            slotTime.endTime,
+          ]);
+          sheetCreated++;
+        }
+      }
+
+      sheetResults.push({
+        row: sIdx + 1,
+        name: `${teacher.first_name} ${teacher.last_name}`,
+        status: sheetCreated > 0 ? 'created' : (sheetSkippedExisting > 0 ? 'partial' : 'error'),
+        message: `${sheetCreated} class schedule(s) created${sheetSkippedExisting > 0 ? `, ${sheetSkippedExisting} already up to date` : ''}.`,
+      });
+    }
+
+    // Batch insert schedules in chunks of 50
+    const chunkSize = 50;
+    for (let i = 0; i < schedulesToInsert.length; i += chunkSize) {
+      const chunk = schedulesToInsert.slice(i, i + chunkSize);
+      await pool.query(
+        'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES ?',
+        [chunk]
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: `TSHS Timetable Import Complete: ${schedulesToInsert.length} class schedule(s) scheduled across ${workbook.SheetNames.length} teacher program sheet(s).`,
+      totalEntriesCreated: schedulesToInsert.length,
+      totalSheets: workbook.SheetNames.length,
+      newTeachersRegistered: newTeachersCount,
+      newSectionsCreated: newSectionsCount,
+      results: sheetResults,
+    });
+  } catch (err) {
+    console.error('importTshsTeacherProgramGrid error:', err);
+    return res.status(500).json({ success: false, message: 'Could not process TSHS schedule workbook: ' + err.message });
+  }
+}
+
+/**
+ * Bulk imports schedules from standard tabular format (Columns: Teacher, Subject, Strand, Section, Day, Start, End).
+ */
+async function importTabularSchedules(workbook, req, res) {
   let rows;
   try {
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
   } catch (err) {
@@ -572,7 +1083,7 @@ async function bulkImportSchedules(req, res) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const rowNum = i + 2; // header + 1-indexed
+    const rowNum = i + 2;
 
     const teacherInput = getStr(row, 'Teacher ID or Name', 'Teacher', 'Teacher ID', 'Instructor', 'Faculty');
     const subjectInput = getStr(row, 'Subject', 'Subject Name', 'Course', 'Subject Code');
@@ -584,7 +1095,6 @@ async function bulkImportSchedules(req, res) {
     let startTimeRaw = getRaw(row, 'Start Time', 'Start', 'From', 'Time Start');
     let endTimeRaw = getRaw(row, 'End Time', 'End', 'To', 'Time End');
 
-    // Auto-split combined range if start time contains " - " or " to " and end time is blank
     if (typeof startTimeRaw === 'string' && (!endTimeRaw || String(endTimeRaw).trim() === '')) {
       const trimmed = startTimeRaw.trim();
       if (trimmed.includes('-') || trimmed.includes('–') || /\bto\b/i.test(trimmed)) {
@@ -608,7 +1118,6 @@ async function bulkImportSchedules(req, res) {
       continue;
     }
 
-    // 1. Resolve Teacher (case-insensitive, trims multiple spaces)
     const cleanTeacher = teacherInput.replace(/\s+/g, ' ').trim();
     let [teachers] = await pool.query(
       "SELECT id, id_number, first_name, last_name FROM users WHERE role = 'teacher' AND (LOWER(TRIM(id_number)) = LOWER(?) OR LOWER(TRIM(CONCAT(first_name, ' ', last_name))) = LOWER(?))",
@@ -637,10 +1146,9 @@ async function bulkImportSchedules(req, res) {
     }
     const teacher = teachers[0];
 
-    // 2. Resolve Subject (case-insensitive for both Subject Name and Code)
     const cleanSubject = subjectInput.replace(/\s+/g, ' ').trim();
     const [subjects] = await pool.query(
-      "SELECT id, name FROM subjects WHERE LOWER(TRIM(name)) = LOWER(?) OR LOWER(TRIM(code)) = LOWER(?)",
+      'SELECT id, name FROM subjects WHERE LOWER(TRIM(name)) = LOWER(?) OR LOWER(TRIM(code)) = LOWER(?)',
       [cleanSubject, cleanSubject]
     );
     if (!subjects.length) {
@@ -654,7 +1162,6 @@ async function bulkImportSchedules(req, res) {
     }
     const subject = subjects[0];
 
-    // 3. Resolve Section (case-insensitive, handles strand code/title and clean grade number)
     let section = null;
     const cleanStrand = strandCode.replace(/\s+/g, ' ').trim();
     const cleanSection = sectionName.replace(/\s+/g, ' ').trim();
@@ -675,7 +1182,6 @@ async function bulkImportSchedules(req, res) {
       section = sec;
     }
 
-    // Fallback: If not found by strandCode, attempt resolving by section name and grade level
     if (!section && cleanSection) {
       const [secs] = await pool.query(
         `SELECT sec.id, sec.name, st.code AS strand_code, sec.grade_level
@@ -707,15 +1213,12 @@ async function bulkImportSchedules(req, res) {
         row: rowNum,
         name: rowLabel,
         status: 'error',
-        message: `Section "${strandCode ? strandCode + ' - ' : ''}${sectionName}" was not found. Please verify the section name and strand code (e.g. STEM, HUMSS).`,
+        message: `Section "${strandCode ? strandCode + ' - ' : ''}${sectionName}" was not found. Please verify the section name and strand code.`,
       });
       continue;
     }
 
-    // 4. Resolve Term / Quarter (case-insensitive & combo-aware)
     const term = parseTerm(termRaw);
-
-    // 5. Parse Times (handles Excel decimal numbers, am/pm, 24h, dots, combos, etc.)
     const startTime = parseTime(startTimeRaw);
     const endTime = parseTime(endTimeRaw);
     if (!startTime || !endTime) {
@@ -740,17 +1243,7 @@ async function bulkImportSchedules(req, res) {
       results.push({ row: rowNum, name: rowLabel, status: 'error', message: 'End time must be after start time.' });
       continue;
     }
-    const duration = toMinutes(endTime) - toMinutes(startTime);
-    if (duration < 30) {
-      results.push({ row: rowNum, name: rowLabel, status: 'error', message: 'Class duration must be at least 30 minutes.' });
-      continue;
-    }
-    if (duration > 120) {
-      results.push({ row: rowNum, name: rowLabel, status: 'error', message: 'Class duration cannot exceed 2 hours.' });
-      continue;
-    }
 
-    // 6. Parse Days (handles MWF, TTH, M-W-F, T-TH, lowercase, uppercase, combos)
     const days = parseDays(daysRaw);
     if (!days.length) {
       results.push({
@@ -762,12 +1255,10 @@ async function bulkImportSchedules(req, res) {
       continue;
     }
 
-    // 7. Check Conflicts & Insert for each day
     let rowCreatedCount = 0;
     const rowErrors = [];
 
     for (const day of days) {
-      // Teacher overlap conflict check
       const [teacherConflicts] = await pool.query(
         `SELECT id FROM schedules
          WHERE teacher_id = ? AND day_of_week = ?
@@ -780,7 +1271,6 @@ async function bulkImportSchedules(req, res) {
         continue;
       }
 
-      // Section overlap conflict check
       const [sectionConflicts] = await pool.query(
         `SELECT sch.id, sub.name AS subject_name
          FROM schedules sch
@@ -795,7 +1285,6 @@ async function bulkImportSchedules(req, res) {
         continue;
       }
 
-      // Insert schedule
       await pool.query(
         'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [teacher.id, subject.id, section.id, term, day, startTime, endTime]
@@ -835,6 +1324,35 @@ async function bulkImportSchedules(req, res) {
     totalEntriesCreated,
     results,
   });
+}
+
+/**
+ * POST /api/schedules/bulk-import (multipart, field "importFile")
+ * Auto-detects whether the uploaded file is an official TSHS Teacher Program workbook
+ * or a standard tabular schedule spreadsheet.
+ */
+async function bulkImportSchedules(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file was uploaded.' });
+  }
+
+  let workbook;
+  try {
+    workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: 'Could not read file. Ensure it is a valid .xlsx, .xls, or .csv file.' });
+  }
+
+  if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) {
+    return res.status(400).json({ success: false, message: 'The uploaded file contains no sheets.' });
+  }
+
+  // Smart Detection: TSHS Teacher Program layout vs Tabular layout
+  if (isTshsTeacherProgramWorkbook(workbook)) {
+    return await importTshsTeacherProgramGrid(workbook, req, res);
+  } else {
+    return await importTabularSchedules(workbook, req, res);
+  }
 }
 
 module.exports = {

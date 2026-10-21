@@ -195,7 +195,10 @@ async function saveGrade(req, res) {
     if (req.user.role === 'teacher') {
       const teaches = await teacherTeachesStudent(req.user.id, studentId);
       if (!teaches) {
-        return res.status(403).json({ success: false, message: 'You do not teach this student.' });
+        const teachesSec = await teacherTeachesSection(req.user.id, sectionId);
+        if (!teachesSec) {
+          return res.status(403).json({ success: false, message: 'You do not teach this student or section.' });
+        }
       }
     }
 
@@ -204,8 +207,13 @@ async function saveGrade(req, res) {
     await pool.query(
       `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, raw_scores, recorded_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE quiz_score = VALUES(quiz_score), activity_score = VALUES(activity_score),
-         exam_score = VALUES(exam_score), raw_scores = VALUES(raw_scores), recorded_by = VALUES(recorded_by)`,
+       ON DUPLICATE KEY UPDATE 
+         section_id = VALUES(section_id),
+         quiz_score = VALUES(quiz_score),
+         activity_score = VALUES(activity_score),
+         exam_score = VALUES(exam_score),
+         raw_scores = VALUES(raw_scores),
+         recorded_by = VALUES(recorded_by)`,
       [studentId, subjectId, sectionId, canonicalTerm, q, a, e, rawScoresJson, req.user.id]
     );
 
