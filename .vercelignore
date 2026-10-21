@@ -1,8 +1,6 @@
 # Vercel Deployment Ignore Rules
 # Keep deployments lightweight to stay well within the 10 GB limit
 
-# Backend is hosted separately on Render
-backend/
 
 # Documentation, scratch, and Office presentation/word files
 scratch/
