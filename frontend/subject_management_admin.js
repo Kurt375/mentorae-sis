@@ -615,8 +615,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             topicItem.innerHTML = `
-                <div class="d-flex align-items-start gap-2.5 me-3 flex-grow-1" style="min-width: 0;">
-                    <input type="checkbox" class="form-check-input topic-select-chk mt-1 flex-shrink-0" id="topicChk_${index}" data-index="${index}" data-id="${topic.id || ''}" style="width: 1.25rem; height: 1.25rem; cursor: pointer;" title="Select topic">
+                <div class="d-flex align-items-start gap-3 me-3 flex-grow-1" style="min-width: 0; gap: 0.85rem;">
+                    <input type="checkbox" class="form-check-input topic-select-chk mt-1 flex-shrink-0" id="topicChk_${index}" data-index="${index}" data-id="${topic.id || ''}" style="width: 1.25rem; height: 1.25rem; cursor: pointer; margin-right: 0.25rem;" title="Select topic">
                     <label for="topicChk_${index}" class="flex-grow-1 mb-0 user-select-none" style="min-width: 0; cursor: pointer;">
                         <h6 class="mb-1 text-break fw-semibold">${escapeHtml(topic.title)}</h6>
                         ${topic.description ? `<small class="text-muted text-break d-block mb-1">${escapeHtml(topic.description)}</small>` : ''}
