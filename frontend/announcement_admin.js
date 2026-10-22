@@ -92,15 +92,36 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         if (isPostingAnnouncement) return;
 
-        const title = document.getElementById('inputEvent').value.trim();
-        const eventDate = document.getElementById('inputDate').value;
-        const description = document.getElementById('inputDesc').value.trim();
+        const titleEl = document.getElementById('inputEvent');
+        const dateEl = document.getElementById('inputDate');
+        const descEl = document.getElementById('inputDesc');
+        const title = titleEl ? titleEl.value.trim() : '';
+        const eventDate = dateEl ? dateEl.value : '';
+        const description = descEl ? descEl.value.trim() : '';
         const audience = document.getElementById('inputAudience') ? document.getElementById('inputAudience').value : 'all';
 
-        if (!title || !eventDate || !description) {
-            alert('Please fill in all fields.');
-            return;
+        if (titleEl) clearInlineWarning(titleEl);
+        if (dateEl) clearInlineWarning(dateEl);
+        if (descEl) clearInlineWarning(descEl);
+
+        let hasError = false;
+        if (!title) {
+            showInlineWarning(titleEl, 'Announcement title is required.');
+            if (!hasError && titleEl) titleEl.focus();
+            hasError = true;
         }
+        if (!eventDate) {
+            showInlineWarning(dateEl, 'Please select an event date.');
+            if (!hasError && dateEl) dateEl.focus();
+            hasError = true;
+        }
+        if (!description) {
+            showInlineWarning(descEl, 'Description cannot be empty.');
+            if (!hasError && descEl) descEl.focus();
+            hasError = true;
+        }
+
+        if (hasError) return;
 
         const submitBtn = announcementForm.querySelector('button[type="submit"]');
         if (submitBtn && submitBtn.disabled) return;

@@ -494,15 +494,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const rawContact = contactNumber.value.trim();
         const rawParentContact = studentParentContactNumber ? studentParentContactNumber.value.trim() : '';
 
+        // Clear previous warnings
+        clearInlineWarning(firstName);
+        clearInlineWarning(lastName);
+        clearInlineWarning(generatedId);
+        clearInlineWarning(contactNumber);
+        if (studentParentContactNumber) clearInlineWarning(studentParentContactNumber);
+        clearInlineWarning(generatedEmail);
+        clearInlineWarning(createUserPassword);
+
         // Validate Names
         const nameRegex = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s.\-']{2,50}$/;
         if (!nameRegex.test(fName)) {
-            alert('First Name must contain letters only (minimum 2 characters).');
+            showInlineWarning(firstName, 'First Name must contain letters only (minimum 2 characters).');
             firstName.focus();
             return;
         }
         if (!nameRegex.test(lName)) {
-            alert('Last Name must contain letters only (minimum 2 characters).');
+            showInlineWarning(lastName, 'Last Name must contain letters only (minimum 2 characters).');
             lastName.focus();
             return;
         }
@@ -510,39 +519,41 @@ document.addEventListener('DOMContentLoaded', () => {
         // Validate Student LRN vs Other IDs
         if (!rawId) {
             if (userRoleSelect.value === 'Student') {
-                alert('Please enter the student\'s 12-digit DepEd LRN (Learner Reference Number).');
+                showInlineWarning(generatedId, 'Please enter the student\'s 12-digit DepEd LRN.');
             } else {
-                alert('Please generate an ID before creating the user.');
+                showInlineWarning(generatedId, 'Please generate or enter an ID before creating the user.');
             }
             generatedId.focus();
             return;
         }
         if (userRoleSelect.value === 'Student' && !/^\d{12}$/.test(rawId)) {
-            alert('Student LRN must be exactly 12 digits (numbers only, e.g., 102345678901).');
+            showInlineWarning(generatedId, 'Student LRN must be exactly 12 digits (numbers only).');
             generatedId.focus();
             return;
         }
 
         // Validate Contact Numbers (Philippine 11-digit starting with 09)
         if (rawContact && !/^09\d{9}$/.test(rawContact)) {
-            alert('Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g., 09123456789).');
+            showInlineWarning(contactNumber, 'Must be an 11-digit number starting with 09 (e.g., 09123456789).');
             contactNumber.focus();
             return;
         }
         if (rawParentContact && !/^09\d{9}$/.test(rawParentContact)) {
-            alert('Parent contact number must be an 11-digit Philippine mobile number starting with 09 (e.g., 09123456789).');
+            showInlineWarning(studentParentContactNumber, 'Must be an 11-digit number starting with 09 (e.g., 09123456789).');
             studentParentContactNumber.focus();
             return;
         }
 
         if (!generatedEmail.value) {
-            alert('Please generate an Email before creating the user.');
+            showInlineWarning(generatedEmail, 'Please generate an Email before creating the user.');
+            generatedEmail.focus();
             return;
         }
 
         const manualPassword = createUserPassword.value;
         if (manualPassword && manualPassword.length < 8) {
-            alert('Password must be at least 8 characters, or left blank to auto-generate one.');
+            showInlineWarning(createUserPassword, 'Password must be at least 8 characters (or leave blank to auto-generate).');
+            createUserPassword.focus();
             return;
         }
 
@@ -1261,24 +1272,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (roleLabel === 'student' && !/^\d{12}$/.test(idNumberVal)) {
-                if (alertEl) {
-                    alertEl.textContent = 'Student LRN must be exactly 12 digits (numbers only, e.g., 102345678901).';
-                    alertEl.classList.remove('d-none');
-                }
-                alert('Student LRN must be exactly 12 digits (numbers only).');
+                showInlineWarning(editIdInput, 'Student LRN must be exactly 12 digits (numbers only).');
                 if (editIdInput) editIdInput.focus();
                 return;
+            } else if (editIdInput) {
+                clearInlineWarning(editIdInput);
             }
 
             if (contactVal) {
+                const editContactEl = document.getElementById('editContactNumber');
                 if (!/^09\d{9}$/.test(contactVal)) {
-                    if (alertEl) {
-                        alertEl.textContent = 'Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g., 09123456789).';
-                        alertEl.classList.remove('d-none');
-                    }
-                    alert('Contact number must be an 11-digit Philippine mobile number starting with 09 (e.g., 09123456789).');
-                    document.getElementById('editContactNumber').focus();
+                    showInlineWarning(editContactEl, 'Must be an 11-digit number starting with 09 (e.g., 09123456789).');
+                    if (editContactEl) editContactEl.focus();
                     return;
+                } else if (editContactEl) {
+                    clearInlineWarning(editContactEl);
                 }
             }
 

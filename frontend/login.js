@@ -286,12 +286,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const newPassword = document.getElementById('fpcNewPassword').value;
             const confirmPassword = document.getElementById('fpcConfirmPassword').value;
 
+            const currentPasswordEl = document.getElementById('fpcCurrentPassword');
+            const newPasswordEl = document.getElementById('fpcNewPassword');
+            const confirmPasswordEl = document.getElementById('fpcConfirmPassword');
+            clearInlineWarning(newPasswordEl);
+            clearInlineWarning(confirmPasswordEl);
+            if (fpcPersonalEmail) clearInlineWarning(fpcPersonalEmail);
+
             if (newPassword.length < 8) {
-                alert('New password must be at least 8 characters.');
+                showInlineWarning(newPasswordEl, 'New password must be at least 8 characters.');
+                newPasswordEl.focus();
                 return;
             }
             if (newPassword !== confirmPassword) {
-                alert('New password and confirmation do not match.');
+                showInlineWarning(confirmPasswordEl, 'New password and confirmation do not match.');
+                confirmPasswordEl.focus();
                 return;
             }
 
@@ -301,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (emailVal) {
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!emailRegex.test(emailVal)) {
-                        alert('Please enter a valid email address (e.g., yourname@gmail.com) or check "Skip for now".');
+                        showInlineWarning(fpcPersonalEmail, 'Please enter a valid email address (e.g., yourname@gmail.com).');
                         fpcPersonalEmail.focus();
                         return;
                     }
@@ -523,14 +532,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (verifyPhoneForm) {
         verifyPhoneForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const phoneNumber = verifyPhoneInput.value.trim();
+            clearInlineWarning(verifyPhoneInput);
             if (!phoneNumber) {
-                alert('Please enter your registered phone number.');
+                showInlineWarning(verifyPhoneInput, 'Please enter your registered phone number.');
                 verifyPhoneInput.focus();
                 return;
             }
             if (!/^09\d{9}$/.test(phoneNumber)) {
-                alert('Please enter your full 11-digit registered phone number starting with 09 (e.g., 09123456789).');
+                showInlineWarning(verifyPhoneInput, 'Must be an 11-digit number starting with 09 (e.g., 09123456789).');
                 verifyPhoneInput.focus();
                 return;
             }
@@ -571,12 +580,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const newPassword = newPasswordInput.value;
             const confirmNewPassword = confirmNewPasswordInput.value;
 
+            clearInlineWarning(newPasswordInput);
+            clearInlineWarning(confirmNewPasswordInput);
+
             if (!newPassword || newPassword.length < 8) {
-                alert('Password must be at least 8 characters long.');
+                showInlineWarning(newPasswordInput, 'Password must be at least 8 characters long.');
+                newPasswordInput.focus();
                 return;
             }
             if (newPassword !== confirmNewPassword) {
-                alert('Passwords do not match.');
+                showInlineWarning(confirmNewPasswordInput, 'Passwords do not match.');
+                confirmNewPasswordInput.focus();
                 return;
             }
 

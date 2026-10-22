@@ -324,14 +324,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSaveAll.addEventListener('click', async () => {
         captureActiveTab();
 
+        const timeoutEl = document.getElementById('cfgSessionTimeout');
+        if (timeoutEl) clearInlineWarning(timeoutEl);
+        const yearEl = document.getElementById('cfgSchoolYear');
+        if (yearEl) clearInlineWarning(yearEl);
+
         // Validation: Session timeout must be a positive whole number
         if (settings.session_timeout_minutes !== undefined && settings.session_timeout_minutes !== null && settings.session_timeout_minutes !== '') {
             const raw = String(settings.session_timeout_minutes).trim();
             const num = Number(raw);
             if (!/^\d+$/.test(raw) || isNaN(num) || num <= 0) {
-                alert('Session timeout must be a positive whole number.');
-                const timeoutEl = document.getElementById('cfgSessionTimeout');
-                if (timeoutEl) timeoutEl.focus();
+                if (activeTab !== 'security') switchTab('security');
+                const tEl = document.getElementById('cfgSessionTimeout');
+                showInlineWarning(tEl, 'Session timeout must be a positive number of minutes (e.g., 30).');
+                if (tEl) tEl.focus();
+                return;
+            }
+        }
+
+        // Validation: School Year format
+        if (settings.school_year !== undefined && settings.school_year !== null && settings.school_year !== '') {
+            const syRaw = String(settings.school_year).trim();
+            if (!/^\d{4}\s*-\s*\d{4}$/.test(syRaw)) {
+                if (activeTab !== 'general') switchTab('general');
+                const syEl = document.getElementById('cfgSchoolYear');
+                showInlineWarning(syEl, 'Please follow the format YYYY - YYYY (e.g., 2026 - 2027).');
+                if (syEl) syEl.focus();
                 return;
             }
         }

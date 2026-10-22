@@ -225,6 +225,79 @@
         }
     }, true);
 
+    // ---- INLINE WARNING COMPONENT ----
+    function showInlineWarning(inputEl, message) {
+        if (!inputEl) return;
+        inputEl.classList.add('is-invalid');
+        inputEl.classList.remove('is-valid');
+
+        const inputId = inputEl.id || inputEl.name || '';
+        let parent = inputEl.parentNode;
+        let feedbackEl = null;
+
+        if (parent && parent.classList.contains('input-group')) {
+            parent = parent.parentNode;
+            feedbackEl = parent ? parent.querySelector(`.mentorae-inline-warning[data-for="${inputId}"]`) : null;
+        } else if (parent) {
+            feedbackEl = parent.querySelector(`.mentorae-inline-warning[data-for="${inputId}"]`);
+        }
+
+        if (!feedbackEl) {
+            feedbackEl = document.createElement('div');
+            feedbackEl.className = 'invalid-feedback mentorae-inline-warning tiny-text';
+            if (inputId) {
+                feedbackEl.setAttribute('data-for', inputId);
+            }
+            const refNode = (inputEl.parentNode && inputEl.parentNode.classList.contains('input-group'))
+                ? inputEl.parentNode
+                : inputEl;
+            if (refNode.nextSibling) {
+                refNode.parentNode.insertBefore(feedbackEl, refNode.nextSibling);
+            } else {
+                refNode.parentNode.appendChild(feedbackEl);
+            }
+        }
+
+        feedbackEl.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1"></i>${message}`;
+        feedbackEl.style.display = 'block';
+    }
+
+    function clearInlineWarning(inputEl) {
+        if (!inputEl) return;
+        inputEl.classList.remove('is-invalid');
+        const inputId = inputEl.id || inputEl.name || '';
+        let parent = inputEl.parentNode;
+        let feedbackEl = null;
+
+        if (parent && parent.classList.contains('input-group')) {
+            feedbackEl = parent.parentNode ? parent.parentNode.querySelector(`.mentorae-inline-warning[data-for="${inputId}"]`) : null;
+        } else if (parent) {
+            feedbackEl = parent.querySelector(`.mentorae-inline-warning[data-for="${inputId}"]`);
+        }
+
+        if (feedbackEl) {
+            feedbackEl.textContent = '';
+            feedbackEl.style.display = 'none';
+        }
+    }
+
+    // Live clear on input as user fixes their mistake
+    document.addEventListener('input', (e) => {
+        const target = e.target;
+        if (!target || target.tagName !== 'INPUT') return;
+        if (!target.classList.contains('is-invalid')) return;
+
+        if (isPhoneField(target) && PATTERNS.validPhone.test(target.value.trim())) {
+            clearInlineWarning(target);
+        } else if (isLrnField(target) && PATTERNS.validLrn.test(target.value.trim())) {
+            clearInlineWarning(target);
+        } else if (isOtpField(target) && PATTERNS.validOtp.test(target.value.trim())) {
+            clearInlineWarning(target);
+        } else if (isNameField(target) && target.value.trim().length >= 2) {
+            clearInlineWarning(target);
+        }
+    }, true);
+
     // Format & validate on blur (leaving the input field)
     document.addEventListener('blur', (e) => {
         const target = e.target;
@@ -233,39 +306,39 @@
         if (isPhoneField(target) && target.value.trim()) {
             sanitizePhone(target);
             if (!PATTERNS.validPhone.test(target.value.trim())) {
-                target.classList.add('is-invalid');
-                target.setAttribute('title', 'Must be an 11-digit number starting with 09 (e.g., 09123456789)');
+                showInlineWarning(target, 'Must be an 11-digit number starting with 09 (e.g., 09123456789).');
             } else {
-                target.classList.remove('is-invalid');
-                target.removeAttribute('title');
+                clearInlineWarning(target);
             }
         } else if (isLrnField(target) && target.value.trim()) {
             sanitizeLrn(target);
             if (!PATTERNS.validLrn.test(target.value.trim())) {
-                target.classList.add('is-invalid');
-                target.setAttribute('title', 'Student LRN must be exactly 12 digits (numeric only)');
+                showInlineWarning(target, 'Student LRN must be exactly 12 digits (numbers only).');
             } else {
-                target.classList.remove('is-invalid');
-                target.removeAttribute('title');
+                clearInlineWarning(target);
             }
         } else if (isNameField(target) && target.value.trim()) {
             sanitizeName(target);
-            target.classList.remove('is-invalid');
+            if (!isMiddleInitialField(target) && target.value.trim().length < 2) {
+                showInlineWarning(target, 'Must contain letters only (minimum 2 characters).');
+            } else {
+                clearInlineWarning(target);
+            }
         } else if (isOtpField(target) && target.value.trim()) {
             sanitizeOtp(target);
             if (!PATTERNS.validOtp.test(target.value.trim())) {
-                target.classList.add('is-invalid');
+                showInlineWarning(target, 'Verification code must be exactly 6 digits.');
             } else {
-                target.classList.remove('is-invalid');
+                clearInlineWarning(target);
             }
         } else if (isGradeField(target) && target.value.trim()) {
             sanitizeGrade(target);
             const val = parseFloat(target.value);
             const max = parseFloat(target.getAttribute('max') || '100');
             if (isNaN(val) || val < 0 || val > max) {
-                target.classList.add('is-invalid');
+                showInlineWarning(target, `Grade must be between 0 and ${max}.`);
             } else {
-                target.classList.remove('is-invalid');
+                clearInlineWarning(target);
             }
         }
     }, true);
@@ -301,8 +374,40 @@
         setupExistingInputs();
     }
 
-    // Export reusable validator object for form submit guards
+    // Universal inline warning style injection
+    if (typeof document !== 'undefined') {
+        const styleId = 'mentorae-validator-styles';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                .mentorae-inline-warning {
+                    font-size: 0.78rem !important;
+                    font-weight: 500 !important;
+                    color: #dc3545 !important;
+                    margin-top: 0.35rem !important;
+                    line-height: 1.3 !important;
+                    display: block !important;
+                }
+                .form-control.is-invalid, .form-input.is-invalid, .form-select.is-invalid, .custom-form-input.is-invalid {
+                    border-color: #dc3545 !important;
+                    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
+                }
+                .form-control.is-valid, .form-input.is-valid, .form-select.is-valid, .custom-form-input.is-valid {
+                    border-color: #198754 !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    // Export reusable validator object & functions for global use
+    window.showInlineWarning = showInlineWarning;
+    window.clearInlineWarning = clearInlineWarning;
+
     window.MentoraeValidators = {
+        showWarning: showInlineWarning,
+        clearWarning: clearInlineWarning,
         isValidPhone: (val) => PATTERNS.validPhone.test((val || '').trim()),
         isValidLrn: (val) => PATTERNS.validLrn.test((val || '').trim()),
         isValidOtp: (val) => PATTERNS.validOtp.test((val || '').trim()),
