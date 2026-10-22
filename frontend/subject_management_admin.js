@@ -600,7 +600,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         topics.forEach((topic, index) => {
             const topicItem = document.createElement('div');
-            topicItem.className = 'list-group-item d-flex justify-content-between align-items-center flex-wrap';
+            topicItem.className = 'list-group-item d-flex justify-content-between align-items-center flex-wrap py-2.5';
+            topicItem.style.rowGap = '0.75rem';
 
             const resourceButtons = [];
             if ((topic.resources || []).includes('Practice Quiz')) {
@@ -617,11 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="d-flex align-items-start gap-2.5 me-3 flex-grow-1" style="min-width: 0;">
                     <input type="checkbox" class="form-check-input topic-select-chk mt-1 flex-shrink-0" id="topicChk_${index}" data-index="${index}" data-id="${topic.id || ''}" style="width: 1.25rem; height: 1.25rem; cursor: pointer;" title="Select topic">
                     <label for="topicChk_${index}" class="flex-grow-1 mb-0 user-select-none" style="min-width: 0; cursor: pointer;">
-                        <h6 class="mb-1 text-break fw-semibold">${topic.title}</h6>
-                        <small class="text-muted text-break">${topic.description || ''}</small>
+                        <h6 class="mb-1 text-break fw-semibold">${escapeHtml(topic.title)}</h6>
+                        ${topic.description ? `<small class="text-muted text-break d-block mb-1">${escapeHtml(topic.description)}</small>` : ''}
                     </label>
                 </div>
-                <div class="d-inline-flex gap-2 mt-2 mt-sm-0 flex-shrink-0">
+                <div class="d-inline-flex align-items-center gap-2 flex-wrap flex-shrink-0">
                     ${resourceButtons.join('')}
                     <button type="button" class="btn btn-sm btn-outline-primary edit-topic-btn" data-index="${index}" title="Edit Topic"><i class="bi bi-pencil"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger delete-topic-btn" data-index="${index}" title="Delete Topic"><i class="bi bi-trash"></i></button>
