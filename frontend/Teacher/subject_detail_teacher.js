@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentViewerActiveBlobUrl = null;
 
-    async function openClassroomViewer(fileName, dataUrl, topicTitle = '', targetFile = null) {
+    async function openClassroomViewer(fileName, dataUrl, topicTitle = '', targetFile = null, returnModal = null) {
         const viewerEl = document.getElementById('classroomFileViewer');
         const nameEl = document.getElementById('classroomViewerFileName');
         const subEl = document.getElementById('classroomViewerSubtitle');
@@ -306,6 +306,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!viewerEl || !stageEl) return;
 
+        // Normalization if targetFile was passed as first argument
+        if (typeof fileName === 'object' && fileName !== null) {
+            targetFile = fileName;
+            fileName = targetFile.name || 'Document';
+            dataUrl = targetFile.dataUrl || targetFile.url || '';
+        }
+
         // Revoke prior active blob URL
         if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
             try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
@@ -316,8 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
 
-        const filesModal = getViewFilesModal();
-        if (filesModal) filesModal.hide();
+        // Track caller modal to restore on close
+        let callerModalToRestore = returnModal;
+        const topicFilesModal = getViewFilesModal();
+        if (!callerModalToRestore && viewFilesModalEl && viewFilesModalEl.classList.contains('show')) {
+            callerModalToRestore = topicFilesModal;
+            if (topicFilesModal) topicFilesModal.hide();
+        }
 
         const closeViewer = () => {
             viewerEl.classList.add('d-none');
@@ -329,7 +341,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
                 currentViewerActiveBlobUrl = null;
             }
-            if (filesModal) filesModal.show();
+            if (callerModalToRestore) {
+                callerModalToRestore.show();
+            }
+            setTimeout(() => {
+                isPreviewingRequestFile = false;
+            }, 400);
         };
 
         const closeBtn = document.getElementById('classroomViewerCloseBtn');
@@ -638,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 `;
                 document.getElementById('modeBackSlidesTopBtn')?.addEventListener('click', () => {
-                    openClassroomViewer(fileName, dataUrl, topicTitle, targetFile);
+                    openClassroomViewer(fileName, dataUrl, topicTitle, targetFile, callerModalToRestore);
                 });
             }
 
@@ -653,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             document.getElementById('cancelOnlineEmbedBtn')?.addEventListener('click', () => {
-                openClassroomViewer(fileName, dataUrl, topicTitle, targetFile);
+                openClassroomViewer(fileName, dataUrl, topicTitle, targetFile, callerModalToRestore);
             });
 
             try {
@@ -712,7 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                     document.getElementById('btnBackToBuiltinSlides')?.addEventListener('click', () => {
-                        openClassroomViewer(fileName, dataUrl, topicTitle, targetFile);
+                        openClassroomViewer(fileName, dataUrl, topicTitle, targetFile, callerModalToRestore);
                     });
                     return;
                 }
@@ -735,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
                 document.getElementById('btnFallbackBuiltin')?.addEventListener('click', () => {
-                    openClassroomViewer(targetFile, topicTitle);
+                    openClassroomViewer(fileName, dataUrl, topicTitle, targetFile, callerModalToRestore);
                 });
             }
         }
@@ -2763,20 +2780,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const previewTrigger = e.target.closest('.preview-request-file-btn, .preview-request-file-trigger');
         if (previewTrigger) {
             const index = parseInt(previewTrigger.dataset.index, 10);
-            const file = newTopicRequestContent.files[index];
+            const file = newTopicRequestContent?.files?.[index];
             if (file) {
+                isPreviewingRequestFile = true;
                 const reqModal = requestContentFileModal;
                 if (reqModal) reqModal.hide();
-                openClassroomViewer(file.name, file.dataUrl, 'Pre-check File (Unsaved)', file);
-                const closeBtn = document.getElementById('classroomViewerCloseBtn');
-                const backBtn = document.getElementById('classroomViewerBackBtn');
-                const restoreReqModal = () => {
-                    if (reqModal) reqModal.show();
-                    if (closeBtn) closeBtn.removeEventListener('click', restoreReqModal);
-                    if (backBtn) backBtn.removeEventListener('click', restoreReqModal);
-                };
-                if (closeBtn) closeBtn.addEventListener('click', restoreReqModal);
-                if (backBtn) backBtn.addEventListener('click', restoreReqModal);
+                openClassroomViewer(file.name, file.dataUrl, 'Pre-check File (Unsaved)', file, reqModal);
             }
         }
     });
@@ -3520,6 +3529,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let filesSessionSnapshot = null;
     let isFilesDoneConfirmed = false;
+    let isPreviewingRequestFile = false;
 
     /** Updates button count indicators on the Add Topic / Recommendation modal */
     function updateRequestContentButtons() {
@@ -3674,11 +3684,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal life-cycle event listeners for Files
     if (requestContentFileModalEl) {
         requestContentFileModalEl.addEventListener('show.bs.modal', () => {
+            if (isPreviewingRequestFile) return;
             isFilesDoneConfirmed = false;
             filesSessionSnapshot = JSON.parse(JSON.stringify(newTopicRequestContent?.files || []));
         });
 
+        requestContentFileModalEl.addEventListener('shown.bs.modal', () => {
+            isPreviewingRequestFile = false;
+        });
+
         requestContentFileModalEl.addEventListener('hide.bs.modal', (event) => {
+            if (isPreviewingRequestFile) return;
             if (isFilesDoneConfirmed) return;
             if (hasFilesModalChanges()) {
                 const confirmDiscard = confirm(
@@ -3699,6 +3715,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         requestContentFileModalEl.addEventListener('hidden.bs.modal', () => {
+            if (isPreviewingRequestFile) return;
             isFilesDoneConfirmed = false;
             filesSessionSnapshot = null;
         });
@@ -3815,6 +3832,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const filesDoneBtn = document.getElementById('filesDoneBtn');
     if (filesDoneBtn) {
         filesDoneBtn.addEventListener('click', () => {
+            const fileInput = document.getElementById('requestFileInput');
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                const wantToAdd = confirm(`You selected a file (${fileInput.files[0].name}) but haven't clicked "Add File" yet. Would you like to add it before finishing?`);
+                if (wantToAdd) {
+                    const form = document.getElementById('requestFileUploadForm');
+                    if (form) {
+                        form.requestSubmit();
+                        return;
+                    }
+                }
+            }
             isFilesDoneConfirmed = true;
             updateRequestContentButtons();
             if (requestContentFileModal) requestContentFileModal.hide();
