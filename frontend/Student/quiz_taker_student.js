@@ -229,93 +229,147 @@ document.addEventListener('DOMContentLoaded', () => {
         labelA.textContent = q.options.A;
         labelB.textContent = q.options.B;
 
-        const optionCContainer = document.getElementById('optionCContainer');
-        const optionDContainer = document.getElementById('optionDContainer');
-
         if (q.options.C && q.options.C.trim() !== '') {
-            labelC.textContent = q.options.C;
-            if(optionCContainer) optionCContainer.style.display = 'block';
+            if (labelC) labelC.textContent = q.options.C;
+            if (optionCContainer) optionCContainer.style.display = 'block';
         } else {
-            if(optionCContainer) optionCContainer.style.display = 'none';
+            if (optionCContainer) optionCContainer.style.display = 'none';
         }
         if (q.options.D && q.options.D.trim() !== '') {
-            labelD.textContent = q.options.D;
-            if(optionDContainer) optionDContainer.style.display = 'block';
+            if (labelD) labelD.textContent = q.options.D;
+            if (optionDContainer) optionDContainer.style.display = 'block';
         } else {
-            if(optionDContainer) optionDContainer.style.display = 'none';
+            if (optionDContainer) optionDContainer.style.display = 'none';
         }
 
-        // Reset state
-        feedback.textContent = '';
-        feedback.className = 'mt-3 fw-bold';
-        document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
-            radio.checked = false;
-            radio.disabled = false;
-        });
-
-        // Reset label styles
+        // Reset label styles and remove any previous status badges
         document.querySelectorAll('.quiz-option-label').forEach(label => {
             label.classList.remove('selected', 'correct-answer', 'wrong-answer');
+            const oldBadge = label.querySelector('.quiz-status-badge');
+            if (oldBadge) oldBadge.remove();
         });
-        
-        if (userAnswers[index]) {
-            const answeredRadio = document.querySelector(`input[name="quizOption"][value="${userAnswers[index]}"]`);
-            if (answeredRadio) {
-                answeredRadio.checked = true;
-                if (answeredRadio.nextElementSibling) {
-                    answeredRadio.nextElementSibling.classList.add('selected');
+
+        const isAnswered = userAnswers[index] !== null && userAnswers[index] !== undefined;
+
+        if (isAnswered) {
+            // Restore evaluated state with clear red/green indicators
+            const selectedKey = userAnswers[index];
+            const correctKey = q.answer;
+            const isCorrect = selectedKey === correctKey;
+
+            document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
+                radio.disabled = true;
+                const label = radio.nextElementSibling;
+                if (radio.value === selectedKey) {
+                    radio.checked = true;
+                } else {
+                    radio.checked = false;
                 }
+
+                if (label) {
+                    if (radio.value === correctKey) {
+                        label.classList.add('correct-answer');
+                        label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-success ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-check-circle-fill"></i> Correct Answer</span>');
+                    } else if (radio.value === selectedKey) {
+                        label.classList.add('wrong-answer');
+                        label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-danger ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-x-circle-fill"></i> Your Answer (Wrong)</span>');
+                    }
+                }
+            });
+
+            if (feedback) {
+                const correctText = q.options[correctKey] || q.rawAnswer || correctKey;
+                feedback.innerHTML = isCorrect
+                    ? `<div class="alert alert-success d-flex align-items-center gap-2 py-2.5 px-3 rounded-3 mb-0 border-0 shadow-sm" style="background-color: #dcfce7; color: #166534;"><i class="bi bi-check-circle-fill fs-5 text-success"></i><div><strong class="d-block">Correct!</strong><span class="small">Great job, your answer is correct.</span></div></div>`
+                    : `<div class="alert alert-danger d-flex align-items-center gap-2 py-2.5 px-3 rounded-3 mb-0 border-0 shadow-sm" style="background-color: #fee2e2; color: #991b1b;"><i class="bi bi-x-circle-fill fs-5 text-danger"></i><div><strong class="d-block">Incorrect!</strong><span class="small">The correct answer is Option ${correctKey}: <strong>${escapeHtml(correctText)}</strong>.</span></div></div>`;
             }
+
+            submitAnswerBtn.classList.add('d-none');
+            nextQuestionBtn.classList.remove('d-none');
+            if (index === questions.length - 1) {
+                nextQuestionBtn.textContent = 'Finish Quiz';
+            } else {
+                nextQuestionBtn.innerHTML = 'Next <i class="bi bi-arrow-right ms-1"></i>';
+            }
+        } else {
+            feedback.innerHTML = '';
+            document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
+                radio.checked = false;
+                radio.disabled = false;
+            });
+
+            submitAnswerBtn.classList.remove('d-none');
+            nextQuestionBtn.classList.add('d-none');
         }
 
-        submitAnswerBtn.classList.remove('d-none');
-        nextQuestionBtn.classList.add('d-none');
         currentQuestionIndexDisplay.textContent = index + 1;
         totalQuestionsDisplay.textContent = questions.length;
         prevQuestionBtn.disabled = index === 0;
-        nextQuestionBtn.disabled = index === questions.length - 1 && !nextQuestionBtn.classList.contains('d-none');
+        nextQuestionBtn.disabled = index === questions.length - 1 && !nextQuestionBtn.classList.contains('d-none') && !isAnswered;
 
-        const answeredCount = userAnswers.filter(a => a !== null).length;
-        const progressPercentage = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
-        quizProgress.style.width = `${progressPercentage}%`;
-        quizProgress.setAttribute('aria-valuenow', progressPercentage);
+        // Update progress bar
+        if (quizProgress) {
+            const answeredCount = userAnswers.filter(a => a !== null).length;
+            const progressPercentage = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+            quizProgress.style.width = `${progressPercentage}%`;
+            quizProgress.setAttribute('aria-valuenow', progressPercentage);
+        }
     }
 
     function handleSubmit() {
         const selectedOption = document.querySelector('input[name="quizOption"]:checked');
         if (!selectedOption) {
-            feedback.textContent = 'Please select an answer.';
-            feedback.className = 'mt-3 fw-bold incorrect';
+            feedback.innerHTML = '<div class="alert alert-warning py-2 px-3 rounded-3 mb-0 small fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Please select an answer before submitting.</div>';
             return;
         }
 
-        userAnswers[currentIndex] = selectedOption.value;
+        const selectedKey = selectedOption.value;
+        userAnswers[currentIndex] = selectedKey;
+        const q = questions[currentIndex];
+        const correctKey = q.answer;
+        const isCorrect = selectedKey === correctKey;
 
-        const answeredCount = userAnswers.filter(a => a !== null).length;
-        const progressPercentage = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
-        quizProgress.style.width = `${progressPercentage}%`;
-        quizProgress.setAttribute('aria-valuenow', progressPercentage);
-
+        // Visual feedback on options
         document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
             const label = radio.nextElementSibling;
             if (label) {
                 label.classList.remove('selected');
-                if (radio.value === questions[currentIndex].answer) {
+                const oldBadge = label.querySelector('.quiz-status-badge');
+                if (oldBadge) oldBadge.remove();
+
+                if (radio.value === correctKey) {
                     label.classList.add('correct-answer');
-                } else if (radio.checked) {
+                    label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-success ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-check-circle-fill"></i> Correct Answer</span>');
+                } else if (radio.value === selectedKey) {
                     label.classList.add('wrong-answer');
+                    label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-danger ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-x-circle-fill"></i> Your Answer (Wrong)</span>');
                 }
             }
             radio.disabled = true;
         });
 
-        feedback.textContent = '';
+        if (feedback) {
+            const correctText = q.options[correctKey] || q.rawAnswer || correctKey;
+            feedback.innerHTML = isCorrect
+                ? `<div class="alert alert-success d-flex align-items-center gap-2 py-2.5 px-3 rounded-3 mb-0 border-0 shadow-sm" style="background-color: #dcfce7; color: #166534;"><i class="bi bi-check-circle-fill fs-5 text-success"></i><div><strong class="d-block">Correct!</strong><span class="small">Great job, your answer is correct.</span></div></div>`
+                : `<div class="alert alert-danger d-flex align-items-center gap-2 py-2.5 px-3 rounded-3 mb-0 border-0 shadow-sm" style="background-color: #fee2e2; color: #991b1b;"><i class="bi bi-x-circle-fill fs-5 text-danger"></i><div><strong class="d-block">Incorrect!</strong><span class="small">The correct answer is Option ${correctKey}: <strong>${escapeHtml(correctText)}</strong>.</span></div></div>`;
+        }
+
+        // Update progress bar after answering
+        if (quizProgress) {
+            const answeredCount = userAnswers.filter(a => a !== null).length;
+            const progressPercentage = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+            quizProgress.style.width = `${progressPercentage}%`;
+            quizProgress.setAttribute('aria-valuenow', progressPercentage);
+        }
 
         submitAnswerBtn.classList.add('d-none');
         nextQuestionBtn.classList.remove('d-none');
 
         if (currentIndex === questions.length - 1) {
             nextQuestionBtn.textContent = 'Finish Quiz';
+        } else {
+            nextQuestionBtn.innerHTML = 'Next <i class="bi bi-arrow-right ms-1"></i>';
         }
     }
 
@@ -429,11 +483,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             const correctAnswerText = (q.answer && q.options[q.answer]) ? q.options[q.answer] : (q.rawAnswer || q.answer || 'N/A');
             
                             const reviewItem = document.createElement('div');
-                            reviewItem.className = `review-item p-3 mb-2 rounded ${isCorrect ? 'bg-success-subtle' : 'bg-danger-subtle'}`;
+                            reviewItem.className = `review-item ${isCorrect ? 'correct' : 'incorrect'} shadow-sm`;
                             reviewItem.innerHTML = `
-                                <p class="fw-bold mb-2">${index + 1}. ${escapeHtml(q.text)} ${icon}</p>
-                                <p class="small m-0">Your answer: <span class="fw-bold ${isCorrect ? 'text-success' : 'text-danger'}">${escapeHtml(userAnswerText)}</span></p>
-                                ${!isCorrect ? `<p class="small m-0">Correct answer: <span class="fw-bold text-success">${escapeHtml(correctAnswerText)}</span></p>` : ''}
+                                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                    <h6 class="fw-bold mb-0 text-dark">${index + 1}. ${escapeHtml(q.text)}</h6>
+                                    <span class="flex-shrink-0">${icon}</span>
+                                </div>
+                                <div class="vstack gap-1 mt-2">
+                                    <p class="small m-0">Your answer: <span class="fw-bold ${isCorrect ? 'text-success' : 'text-danger'}"><i class="bi ${isCorrect ? 'bi-check-lg' : 'bi-x-lg'} me-1"></i>${escapeHtml(userAnswerText)}</span></p>
+                                    ${!isCorrect ? `<p class="small m-0">Correct answer: <span class="fw-bold text-success"><i class="bi bi-check-lg me-1"></i>${escapeHtml(correctAnswerText)}</span></p>` : ''}
+                                </div>
                             `;
                             reviewContainer.appendChild(reviewItem);
                         });

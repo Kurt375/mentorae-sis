@@ -130,22 +130,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 let labelClass = '';
                 let indicator = '';
                 if (key === q.answer) {
-                    labelClass = 'text-success fw-bold'; // Correct answer
-                    indicator = ' (Correct Answer)';
+                    labelClass = 'text-success fw-bold';
+                    indicator = ' <span class="badge bg-success ms-1">Correct Answer</span>';
                 }
                 if (key === userAnswer && !isCorrect) {
-                    labelClass = 'text-danger'; // User's wrong answer
-                    indicator = ' (Your Answer)';
+                    labelClass = 'text-danger fw-bold';
+                    indicator = ' <span class="badge bg-danger ms-1">Your Answer (Wrong)</span>';
                 }
 
-                return `<li class="${labelClass}">${q.options[key]}${indicator}</li>`;
+                return `<li class="${labelClass} py-1">${q.options[key]}${indicator}</li>`;
             }).join('');
 
             const reviewBlock = document.createElement('div');
-            reviewBlock.className = `p-3 mb-3 border rounded ${resultClass}`;
+            reviewBlock.className = `p-3 mb-3 border rounded shadow-sm ${isCorrect ? 'border-success' : 'border-danger'}`;
+            reviewBlock.style.backgroundColor = isCorrect ? '#f0fdf4' : '#fef2f2';
             reviewBlock.innerHTML = `
-                <h6 class="fw-bold">${index + 1}. ${q.text} ${icon}</h6>
-                <ul>${optionsReviewHtml}</ul>
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <h6 class="fw-bold mb-0 text-dark">${index + 1}. ${q.text}</h6>
+                    <span class="flex-shrink-0">${icon}</span>
+                </div>
+                <ul class="mb-0 ps-3">${optionsReviewHtml}</ul>
             `;
             reviewContainer.appendChild(reviewBlock);
         });
