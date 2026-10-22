@@ -228,43 +228,115 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Time validation (real, not the crashing original) ---
-    function validateTimeInputs() {
-        startTimeError.textContent = '';
-        endTimeError.textContent = '';
-        let valid = true;
+    // --- Time validation helper functions ---
+    function clearTimeError(inputEl, errorEl) {
+        inputEl.classList.remove('is-invalid');
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+    }
 
+    function setTimeError(inputEl, errorEl, message) {
+        inputEl.classList.add('is-invalid');
+        inputEl.classList.remove('is-valid');
+        errorEl.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1"></i>${message}`;
+        errorEl.style.display = 'block';
+    }
+
+    function setTimeValid(inputEl, errorEl) {
+        inputEl.classList.remove('is-invalid');
+        inputEl.classList.add('is-valid');
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+    }
+
+    // --- Real-time Time validation ---
+    function validateTimeInputs(isSubmitting = false) {
         const SCHOOL_OPEN = '07:00';
         const SCHOOL_CLOSE = '15:30';
+        const toMinutes = (t) => {
+            if (!t) return 0;
+            const [h, m] = t.split(':').map(Number);
+            return (h || 0) * 60 + (m || 0);
+        };
 
-        if (!startTime.value || !endTime.value) return false;
+        const startVal = (startTime.value || '').trim();
+        const endVal = (endTime.value || '').trim();
 
-        if (startTime.value < SCHOOL_OPEN) {
-            startTimeError.textContent = 'Cannot start before 7:00 AM.';
-            valid = false;
+        let startValid = true;
+        let endValid = true;
+
+        clearTimeError(startTime, startTimeError);
+        clearTimeError(endTime, endTimeError);
+
+        if (isSubmitting) {
+            if (!startVal) {
+                setTimeError(startTime, startTimeError, 'Please select a start time.');
+                startValid = false;
+            }
+            if (!endVal) {
+                setTimeError(endTime, endTimeError, 'Please select an end time.');
+                endValid = false;
+            }
+            if (!startValid || !endValid) return false;
         }
-        if (endTime.value > SCHOOL_CLOSE) {
-            endTimeError.textContent = 'Cannot end after 3:30 PM.';
-            valid = false;
-        }
-        if (startTime.value >= endTime.value) {
-            endTimeError.textContent = 'End time must be after start time.';
-            valid = false;
-        } else {
-            const toMinutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-            const duration = toMinutes(endTime.value) - toMinutes(startTime.value);
-            if (duration < 30) {
-                endTimeError.textContent = 'Duration must be at least 30 minutes.';
-                valid = false;
-            } else if (duration > 120) {
-                endTimeError.textContent = 'Duration cannot exceed 2 hours.';
-                valid = false;
+
+        if (startVal) {
+            if (startVal < SCHOOL_OPEN) {
+                setTimeError(startTime, startTimeError, 'Cannot start before 7:00 AM.');
+                startValid = false;
+            } else if (startVal > SCHOOL_CLOSE) {
+                setTimeError(startTime, startTimeError, 'Cannot start after 3:30 PM.');
+                startValid = false;
+            } else {
+                startTime.classList.remove('is-invalid');
             }
         }
-        return valid;
+
+        if (endVal) {
+            if (endVal > SCHOOL_CLOSE) {
+                setTimeError(endTime, endTimeError, 'Cannot end after 3:30 PM.');
+                endValid = false;
+            } else if (endVal < SCHOOL_OPEN) {
+                setTimeError(endTime, endTimeError, 'Cannot end before 7:00 AM.');
+                endValid = false;
+            } else {
+                endTime.classList.remove('is-invalid');
+            }
+        }
+
+        if (startVal && endVal && startValid && endValid) {
+            const startMins = toMinutes(startVal);
+            const endMins = toMinutes(endVal);
+            const duration = endMins - startMins;
+
+            if (startMins >= endMins) {
+                setTimeError(endTime, endTimeError, 'End time must be after start time.');
+                endValid = false;
+            } else if (duration < 30) {
+                setTimeError(endTime, endTimeError, 'Duration must be at least 30 minutes.');
+                endValid = false;
+            } else if (duration > 120) {
+                setTimeError(endTime, endTimeError, 'Duration cannot exceed 2 hours.');
+                endValid = false;
+            } else {
+                setTimeValid(startTime, startTimeError);
+                setTimeValid(endTime, endTimeError);
+            }
+        } else if (startVal && !endVal && startValid) {
+            startTime.classList.remove('is-invalid');
+            startTime.classList.add('is-valid');
+        } else if (!startVal && endVal && endValid) {
+            endTime.classList.remove('is-invalid');
+            endTime.classList.add('is-valid');
+        }
+
+        return startValid && endValid && Boolean(startVal && endVal);
     }
-    startTime.addEventListener('change', validateTimeInputs);
-    endTime.addEventListener('change', validateTimeInputs);
+
+    ['input', 'change'].forEach(evt => {
+        startTime.addEventListener(evt, () => validateTimeInputs(false));
+        endTime.addEventListener(evt, () => validateTimeInputs(false));
+    });
 
     // --- Create schedule ---
     let isCreatingSchedule = false;
@@ -288,8 +360,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!validateTimeInputs()) {
-            return; // errors already shown inline — this is the fixed version of the original crash
+        if (!validateTimeInputs(true)) {
+            if (startTime.classList.contains('is-invalid')) {
+                startTime.focus();
+            } else if (endTime.classList.contains('is-invalid')) {
+                endTime.focus();
+            }
+            return;
         }
 
         const submitBtn = form.querySelector('button[type="submit"]');
@@ -331,6 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSections();
             subjectSelect.value = '';
             renderSubjects();
+            clearTimeError(startTime, startTimeError);
+            clearTimeError(endTime, endTimeError);
+            startTime.classList.remove('is-valid');
+            endTime.classList.remove('is-valid');
             loadSchedules();
         } catch (err) {
             console.error('Error creating schedule:', err);
