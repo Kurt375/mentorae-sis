@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const { token } = requireSession('login.html');
 
     let topicRequests = [];
+    let currentViewerActiveBlobUrl = null;
 
     // --- Data Loading and Saving ---
     async function loadData() {
@@ -30,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#039;');
     }
 
-    function dataURItoBlob(dataURI) {
+    function dataURItoBlob(dataURI, fileName = 'document') {
         if (!dataURI) return new Blob();
         if (!dataURI.includes(',')) return new Blob([dataURI]);
         const byteString = atob(dataURI.split(',')[1]);
@@ -41,6 +42,556 @@ document.addEventListener('DOMContentLoaded', () => {
             ia[i] = byteString.charCodeAt(i);
         }
         return new Blob([ab], { type: mimeString });
+    }
+
+    function getMimeTypeFromFilename(filename, fallback = 'application/octet-stream') {
+        if (!filename || typeof filename !== 'string') return fallback;
+        const ext = filename.split('.').pop().toLowerCase();
+        const mimeMap = {
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'ppt': 'application/vnd.ms-powerpoint',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'txt': 'text/plain',
+            'csv': 'text/csv',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+            'mp4': 'video/mp4',
+            'webm': 'video/webm',
+            'ogg': 'video/ogg',
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'm4a': 'audio/mp4'
+        };
+        return mimeMap[ext] || fallback;
+    }
+
+    async function loadFileData(resolvedUrl, fileName = '') {
+        if (!resolvedUrl) throw new Error('No valid file URL provided.');
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        const isMedia = ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext);
+
+        // 1. Data URL (Base64)
+        if (resolvedUrl.startsWith('data:')) {
+            try {
+                const res = await fetch(resolvedUrl);
+                const blob = await res.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const blobUrl = URL.createObjectURL(blob);
+                return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+            } catch (fetchErr) {
+                const b = dataURItoBlob(resolvedUrl, fileName);
+                if (!b) throw new Error('Could not parse data URI.');
+                const arrayBuffer = await b.arrayBuffer();
+                const blobUrl = URL.createObjectURL(b);
+                return { blob: b, arrayBuffer, blobUrl, mimeType: b.type || getMimeTypeFromFilename(fileName) };
+            }
+        }
+
+        // 2. Blob URL
+        if (resolvedUrl.startsWith('blob:')) {
+            try {
+                const res = await fetch(resolvedUrl);
+                const blob = await res.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                return { blob, arrayBuffer, blobUrl: resolvedUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+            } catch (e) {
+                return { blob: null, arrayBuffer: null, blobUrl: resolvedUrl, mimeType: getMimeTypeFromFilename(fileName) };
+            }
+        }
+
+        // 3. Media streaming over HTTP
+        if (isMedia && /^https?:\/\//i.test(resolvedUrl)) {
+            return {
+                blob: null,
+                arrayBuffer: null,
+                blobUrl: resolvedUrl,
+                mimeType: getMimeTypeFromFilename(fileName)
+            };
+        }
+
+        // 4. HTTP / HTTPS URL
+        const tokenVal = localStorage.getItem('mentorae_token');
+        const headers = {};
+        if (tokenVal && resolvedUrl.includes('/api/')) {
+            headers['Authorization'] = `Bearer ${tokenVal}`;
+        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        try {
+            const res = await fetch(resolvedUrl, { headers, signal: controller.signal });
+            if (!res.ok) {
+                let errMsg = `Failed to load file (${res.status} ${res.statusText})`;
+                try {
+                    const errJson = await res.json();
+                    if (errJson && errJson.message) errMsg = errJson.message;
+                } catch (e) { }
+                throw new Error(errMsg);
+            }
+            const blob = await res.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const blobUrl = URL.createObjectURL(blob);
+            return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+        } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+                throw new Error('Server connection timed out.');
+            }
+            throw fetchErr;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    async function openClassroomViewer(file, topicTitle = '') {
+        const viewerEl = document.getElementById('classroomFileViewer');
+        const nameEl = document.getElementById('classroomViewerFileName');
+        const subEl = document.getElementById('classroomViewerSubtitle');
+        const iconEl = document.getElementById('classroomViewerIcon');
+        const stageEl = document.getElementById('classroomViewerStage');
+        const downloadBtn = document.getElementById('classroomViewerDownloadBtn');
+        const popoutBtn = document.getElementById('classroomViewerPopoutBtn');
+        const printBtn = document.getElementById('classroomViewerPrintBtn');
+        const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
+
+        if (!viewerEl || !stageEl) return;
+
+        let fileName = (file && typeof file === 'object') ? (file.name || 'Document') : String(file || 'Document');
+        let initialDataUrl = (file && typeof file === 'object') ? (file.dataUrl || file.url || '') : '';
+
+        // Revoke prior active blob URL
+        if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
+            currentViewerActiveBlobUrl = null;
+        }
+
+        // Hide files modal safely
+        const reqFilesModalEl = document.getElementById('viewRequestFilesModal');
+        let reqFilesModalInstance = null;
+        if (reqFilesModalEl && typeof bootstrap !== 'undefined') {
+            reqFilesModalInstance = bootstrap.Modal.getInstance(reqFilesModalEl) || new bootstrap.Modal(reqFilesModalEl);
+            if (reqFilesModalInstance) reqFilesModalInstance.hide();
+        }
+
+        viewerEl.classList.remove('d-none');
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+
+        const closeViewer = () => {
+            viewerEl.classList.add('d-none');
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            stageEl.innerHTML = '';
+            if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
+            if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
+                try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
+                currentViewerActiveBlobUrl = null;
+            }
+            if (reqFilesModalInstance) {
+                reqFilesModalInstance.show();
+            }
+        };
+
+        const closeBtn = document.getElementById('classroomViewerCloseBtn');
+        const backBtn = document.getElementById('classroomViewerBackBtn');
+        if (closeBtn) closeBtn.onclick = closeViewer;
+        if (backBtn) backBtn.onclick = closeViewer;
+
+        // Escape key listener to close viewer
+        const handleViewerKeydown = (e) => {
+            if (e.key === 'Escape' && !viewerEl.classList.contains('d-none')) {
+                e.preventDefault();
+                window.removeEventListener('keydown', handleViewerKeydown);
+                closeViewer();
+            }
+        };
+        window.addEventListener('keydown', handleViewerKeydown);
+
+        if (nameEl) nameEl.textContent = fileName || 'Document';
+        if (subEl) subEl.textContent = `Topic Request • ${topicTitle || 'Attached Material'}`;
+
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        let mime = (file && file.type) ? file.type : getMimeTypeFromFilename(fileName, '');
+
+        if (iconEl) {
+            if (ext === 'pdf') {
+                iconEl.className = 'bi bi-file-earmark-pdf fs-4 text-danger';
+            } else if (ext === 'pptx' || ext === 'ppt') {
+                iconEl.className = 'bi bi-file-earmark-slides fs-4 text-warning';
+            } else if (ext === 'docx' || ext === 'doc') {
+                iconEl.className = 'bi bi-file-earmark-word fs-4 text-primary';
+            } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+                iconEl.className = 'bi bi-file-earmark-excel fs-4 text-success';
+            } else if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-image fs-4 text-info';
+            } else if (['mp4', 'webm', 'ogg'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-play fs-4 text-danger';
+            } else if (['mp3', 'wav', 'm4a'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-music fs-4 text-primary';
+            } else {
+                iconEl.className = 'bi bi-file-earmark-text fs-4 text-light';
+            }
+        }
+
+        stageEl.innerHTML = `
+            <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white">
+                <div class="spinner-border text-primary mb-3" style="width: 3.2rem; height: 3.2rem;" role="status"></div>
+                <p class="fs-5 fw-semibold mb-1">Loading Document Preview...</p>
+                <p class="text-white-50 small">${escapeHtml(fileName || 'Please wait')}</p>
+            </div>
+        `;
+        if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
+
+        let fileData = null;
+        try {
+            fileData = await loadFileData(initialDataUrl, fileName);
+            if (fileData.blobUrl && fileData.blobUrl.startsWith('blob:')) {
+                currentViewerActiveBlobUrl = fileData.blobUrl;
+            }
+        } catch (err) {
+            console.error('Error loading file data:', err);
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                    <i class="bi bi-file-earmark-x text-warning display-4 mb-3 d-block"></i>
+                    <h4 class="fw-bold text-white mb-2">Preview Unavailable</h4>
+                    <p class="text-white-50 mb-3">${escapeHtml(fileName || 'File')}</p>
+                    <p class="text-secondary small mb-4">${escapeHtml(err.message || 'File content is not available.')}</p>
+                    <button type="button" class="btn btn-outline-light rounded-pill px-4 fw-semibold" id="closeMissingFileBtn">
+                        <i class="bi bi-arrow-left me-2"></i> Close Viewer
+                    </button>
+                </div>
+            `;
+            document.getElementById('closeMissingFileBtn')?.addEventListener('click', closeViewer);
+            return;
+        }
+
+        const activeUrl = fileData?.blobUrl || initialDataUrl;
+
+        // Configure Top Action Buttons
+        if (downloadBtn) {
+            downloadBtn.href = activeUrl;
+            downloadBtn.setAttribute('download', fileName || 'attached_file');
+        }
+        if (popoutBtn) {
+            popoutBtn.href = activeUrl;
+            popoutBtn.target = '_blank';
+        }
+        if (printBtn) {
+            printBtn.onclick = () => {
+                const ifr = stageEl.querySelector('iframe');
+                if (ifr && ifr.contentWindow) {
+                    try {
+                        ifr.contentWindow.print();
+                        return;
+                    } catch (e) { }
+                }
+                const printWindow = window.open(activeUrl);
+                if (printWindow) {
+                    printWindow.addEventListener('load', () => printWindow.print(), { once: true });
+                } else {
+                    window.print();
+                }
+            };
+        }
+
+        // 1. PDF
+        if (ext === 'pdf' || mime.includes('pdf')) {
+            stageEl.innerHTML = `
+                <object data="${activeUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                    <iframe src="${activeUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;">
+                        <div class="p-5 text-center text-white">
+                            <p class="mb-3">Unable to display PDF inline.</p>
+                            <a href="${activeUrl}" target="_blank" class="btn btn-danger rounded-pill px-4">Open PDF</a>
+                        </div>
+                    </iframe>
+                </object>
+            `;
+            return;
+        }
+
+        // 2. WORD DOCUMENTS (.docx, .doc)
+        if (ext === 'docx' || ext === 'doc') {
+            stageEl.innerHTML = `
+                <div class="docx-viewer-wrapper">
+                    <div id="docxPreviewHost" class="docx-preview-host"></div>
+                </div>
+            `;
+            const host = document.getElementById('docxPreviewHost');
+
+            function paginateDocxContainer(hostEl) {
+                if (!hostEl) return;
+                const sections = Array.from(hostEl.querySelectorAll('section.docx, .docx-wrapper > section, .docx-paper-sheet'));
+                if (!sections.length) return;
+
+                const TARGET_PAGE_HEIGHT = 1056;
+                const PAGE_PADDING_V = 136;
+                const USABLE_HEIGHT = TARGET_PAGE_HEIGHT - PAGE_PADDING_V;
+
+                sections.forEach(sec => {
+                    if (sec.classList.contains('docx-paginated-done')) return;
+                    if (sec.offsetHeight <= TARGET_PAGE_HEIGHT + 60) {
+                        if (!sec.querySelector('.docx-page-footer-badge')) {
+                            const footer = document.createElement('div');
+                            footer.className = 'docx-page-footer-badge';
+                            footer.innerHTML = '<span class="docx-page-num-badge">Page 1 of 1</span>';
+                            sec.appendChild(footer);
+                        }
+                        sec.classList.add('docx-paginated-done');
+                        return;
+                    }
+
+                    const rawChildren = Array.from(sec.children).filter(c =>
+                        c.tagName !== 'HEADER' && c.tagName !== 'FOOTER' && !c.classList.contains('docx-page-footer-badge')
+                    );
+                    if (rawChildren.length <= 1) return;
+
+                    const pages = [];
+                    let curPageChildren = [];
+                    let accumulatedH = 0;
+
+                    rawChildren.forEach(child => {
+                        const h = child.offsetHeight || 30;
+                        if (accumulatedH + h > USABLE_HEIGHT && curPageChildren.length > 0) {
+                            pages.push(curPageChildren);
+                            curPageChildren = [child];
+                            accumulatedH = h;
+                        } else {
+                            curPageChildren.push(child);
+                            accumulatedH += h;
+                        }
+                    });
+                    if (curPageChildren.length > 0) pages.push(curPageChildren);
+                    if (pages.length <= 1) return;
+
+                    const parent = sec.parentNode;
+                    const totalPages = pages.length;
+
+                    pages.forEach((pageChildren, pageIdx) => {
+                        const pageSec = document.createElement('section');
+                        pageSec.className = `${sec.className} docx-paginated-done`;
+                        if (sec.style.cssText) pageSec.style.cssText = sec.style.cssText;
+                        pageSec.style.minHeight = `${TARGET_PAGE_HEIGHT}px`;
+                        pageSec.style.marginBottom = '32px';
+                        pageSec.style.position = 'relative';
+
+                        pageChildren.forEach(c => pageSec.appendChild(c));
+
+                        const pageFooter = document.createElement('div');
+                        pageFooter.className = 'docx-page-footer-badge';
+                        pageFooter.innerHTML = `<span class="docx-page-num-badge">Page ${pageIdx + 1} of ${totalPages}</span>`;
+                        pageSec.appendChild(pageFooter);
+
+                        parent.insertBefore(pageSec, sec);
+                    });
+
+                    parent.removeChild(sec);
+                });
+            }
+
+            if (modeSwitcherEl) {
+                modeSwitcherEl.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomOutBtn" title="Zoom out">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <span class="micro-text text-white-50 px-1 fw-semibold" id="docxZoomVal">100%</span>
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-2.5 py-0.5 border-0" id="docxZoomInBtn" title="Zoom in">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 ms-1 border-opacity-50" id="docxFitBtn" title="Reset zoom">
+                        Fit
+                    </button>
+                `;
+                let currentZoom = 1.0;
+                const updateZoom = (z) => {
+                    currentZoom = Math.min(Math.max(0.5, Math.round(z * 100) / 100), 2.0);
+                    const zoomValEl = document.getElementById('docxZoomVal');
+                    if (zoomValEl) zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+                    if (host) {
+                        host.style.transform = `scale(${currentZoom})`;
+                        host.style.transformOrigin = 'top center';
+                    }
+                };
+                document.getElementById('docxZoomOutBtn')?.addEventListener('click', () => updateZoom(currentZoom - 0.15));
+                document.getElementById('docxZoomInBtn')?.addEventListener('click', () => updateZoom(currentZoom + 0.15));
+                document.getElementById('docxFitBtn')?.addEventListener('click', () => updateZoom(1.0));
+            }
+
+            if (ext === 'docx' && window.docx && typeof window.docx.renderAsync === 'function' && fileData.arrayBuffer) {
+                try {
+                    await window.docx.renderAsync(fileData.arrayBuffer, host, null, {
+                        className: 'docx',
+                        inWrapper: true,
+                        ignoreWidth: false,
+                        ignoreHeight: false,
+                        ignoreFonts: false,
+                        breakPages: true,
+                        ignoreLastRenderedPageBreak: false,
+                        useBase64URL: true,
+                        renderHeaders: true,
+                        renderFooters: true,
+                        renderFootnotes: true,
+                        renderEndnotes: true
+                    });
+                    paginateDocxContainer(host);
+                    setTimeout(() => paginateDocxContainer(host), 60);
+                    return;
+                } catch (docxErr) {
+                    console.warn('docx-preview notice, trying mammoth fallback:', docxErr);
+                }
+            }
+
+            if (window.mammoth && fileData.arrayBuffer) {
+                try {
+                    const result = await window.mammoth.convertToHtml({ arrayBuffer: fileData.arrayBuffer });
+                    host.innerHTML = `
+                        <div class="docx-paper-sheet">
+                            ${result.value || '<p class="text-muted fst-italic">Empty Document.</p>'}
+                        </div>
+                    `;
+                    paginateDocxContainer(host);
+                    setTimeout(() => paginateDocxContainer(host), 60);
+                    return;
+                } catch (mErr) {
+                    console.warn('mammoth error:', mErr);
+                }
+            }
+
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                    <i class="bi bi-file-earmark-word text-primary" style="font-size: 5rem;"></i>
+                    <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                    <p class="text-white-50 mb-4">Click download below to view this document in Microsoft Word.</p>
+                    <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download Document
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        // 3. SPREADSHEETS (.xlsx, .xls, .csv)
+        if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+            if (window.XLSX && fileData.arrayBuffer) {
+                try {
+                    const wb = window.XLSX.read(fileData.arrayBuffer, { type: 'array' });
+                    const sheetNames = wb.SheetNames || [];
+                    if (sheetNames.length > 0) {
+                        function renderSheetView(sIdx) {
+                            const sName = sheetNames[sIdx];
+                            const ws = wb.Sheets[sName];
+                            const htmlTable = window.XLSX.utils.sheet_to_html(ws, { editable: false });
+
+                            stageEl.innerHTML = `
+                                <div class="spreadsheet-viewer-wrapper">
+                                    <div class="spreadsheet-tabs-bar">
+                                        <span class="fw-bold text-dark small me-2"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Sheets:</span>
+                                        ${sheetNames.map((name, i) => `
+                                            <button type="button" class="btn btn-sm ${i === sIdx ? 'btn-success text-white fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 py-1 small sheet-tab-btn" data-sidx="${i}">
+                                                <i class="bi bi-table me-1"></i>${escapeHtml(name)}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                    <div class="spreadsheet-content-stage">
+                                        ${htmlTable}
+                                    </div>
+                                </div>
+                            `;
+
+                            stageEl.querySelectorAll('.sheet-tab-btn').forEach(btn => {
+                                btn.addEventListener('click', () => {
+                                    const idx = parseInt(btn.dataset.sidx, 10);
+                                    renderSheetView(idx);
+                                });
+                            });
+                        }
+
+                        renderSheetView(0);
+                        return;
+                    }
+                } catch (xlsxErr) {
+                    console.error('SheetJS parse error:', xlsxErr);
+                }
+            }
+
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                    <i class="bi bi-file-earmark-excel text-success" style="font-size: 5rem;"></i>
+                    <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                    <p class="text-white-50 mb-4">Click download below to access and open this spreadsheet.</p>
+                    <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download File
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        // 4. IMAGES
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext) || mime.startsWith('image/')) {
+            stageEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100 p-4" style="background-color: #0b0c0e;">
+                    <img src="${activeUrl}" alt="${escapeHtml(fileName)}" class="img-fluid rounded shadow-lg" style="max-height: 90vh; max-width: 95vw; object-fit: contain;">
+                </div>
+            `;
+            return;
+        }
+
+        // 5. VIDEOS
+        if (['mp4', 'webm', 'ogg'].includes(ext) || mime.startsWith('video/')) {
+            stageEl.innerHTML = `
+                <div class="media-viewer-stage d-flex align-items-center justify-content-center w-100 h-100 p-4">
+                    <video controls autoplay playsinline class="rounded shadow-lg" style="max-height: 85vh; max-width: 90vw;" src="${activeUrl}">
+                        <source src="${activeUrl}" type="${mime || 'video/mp4'}">
+                        Your browser does not support video playback.
+                    </video>
+                </div>
+            `;
+            return;
+        }
+
+        // 6. AUDIO
+        if (['mp3', 'wav', 'm4a'].includes(ext) || mime.startsWith('audio/')) {
+            stageEl.innerHTML = `
+                <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                    <i class="bi bi-file-earmark-music text-primary mb-3" style="font-size: 5rem;"></i>
+                    <h5 class="fw-bold mb-3">${escapeHtml(fileName)}</h5>
+                    <audio controls autoplay class="w-50" src="${activeUrl}">
+                        Your browser does not support audio playback.
+                    </audio>
+                </div>
+            `;
+            return;
+        }
+
+        // 7. TEXT / GENERIC FALLBACK
+        if (ext === 'txt') {
+            try {
+                const textContent = await (fileData.blob ? fileData.blob.text() : '');
+                stageEl.innerHTML = `
+                    <div class="p-4 w-100 h-100 overflow-auto bg-dark text-light font-monospace" style="white-space: pre-wrap; font-size: 0.9rem;">
+                        ${escapeHtml(textContent)}
+                    </div>
+                `;
+                return;
+            } catch (txtErr) {}
+        }
+
+        stageEl.innerHTML = `
+            <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                <i class="bi bi-file-earmark-text text-secondary" style="font-size: 5rem;"></i>
+                <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                <p class="text-white-50 mb-4">Click download below to open this file on your device.</p>
+                <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                    <i class="bi bi-download me-2"></i> Download File
+                </a>
+            </div>
+        `;
     }
 
     // --- UI Rendering ---
@@ -119,37 +670,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderRequestFiles(files, containerId) {
+    function renderRequestFiles(files, containerId, topicTitle = '') {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
         if (!files || files.length === 0) {
-            container.innerHTML = '<p class="text-muted">No files attached to this request.</p>';
+            container.innerHTML = '<p class="text-muted text-center py-3">No files attached to this request.</p>';
             return;
         }
         const list = document.createElement('div');
         list.className = 'list-group';
-        files.forEach(file => {
-            let fileUrl = '#';
-            if (file.dataUrl) {
-                try {
-                    const blob = dataURItoBlob(file.dataUrl);
-                    fileUrl = URL.createObjectURL(blob);
-                } catch (e) {
-                    fileUrl = file.dataUrl;
-                }
-            }
-            const item = document.createElement('a');
-            item.href = fileUrl;
-            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-            item.target = '_blank';
-            item.download = file.name || 'document';
+        files.forEach((file) => {
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            let iconClass = 'bi-file-earmark-text text-secondary';
+            if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
+            else if (ext === 'docx' || ext === 'doc') iconClass = 'bi-file-earmark-word text-primary';
+            else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') iconClass = 'bi-file-earmark-excel text-success';
+            else if (ext === 'pptx' || ext === 'ppt') iconClass = 'bi-file-earmark-slides text-warning';
+            else if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) iconClass = 'bi-file-earmark-image text-info';
+            else if (['mp4', 'webm', 'ogg'].includes(ext)) iconClass = 'bi-file-earmark-play text-danger';
+
+            const item = document.createElement('div');
+            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3';
+            item.style.cursor = 'pointer';
+            item.title = 'Click to view file';
             item.innerHTML = `
-                <div>
-                    <i class="bi bi-file-earmark-text me-2"></i>
-                    <span>${file.name}</span>
+                <div class="d-flex align-items-center text-truncate me-2">
+                    <i class="bi ${iconClass} me-2 fs-5 flex-shrink-0"></i>
+                    <span class="text-truncate fw-medium text-dark">${escapeHtml(file.name)}</span>
                 </div>
-                ${file.size ? `<span class="badge bg-secondary rounded-pill">${(file.size / 1024).toFixed(1)} KB</span>` : ''}
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    ${file.size ? `<span class="badge bg-secondary rounded-pill">${(file.size / 1024).toFixed(1)} KB</span>` : ''}
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-0.5 fw-semibold view-file-action-btn" title="View file">
+                        <i class="bi bi-eye me-1"></i>View
+                    </button>
+                </div>
             `;
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                openClassroomViewer(file, topicTitle);
+            });
             list.appendChild(item);
         });
         container.appendChild(list);
@@ -396,10 +955,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 try { files = JSON.parse(files); } catch (e) { files = []; }
             }
             const modalTitle = document.getElementById('viewRequestFilesModalLabel');
+            const topicTitle = request?.topicData?.title || request?.title || 'Topic Request';
             if (modalTitle && request) {
-                modalTitle.textContent = `Attached Files: ${request.topicData?.title || request.title}`;
+                modalTitle.textContent = `Attached Files: ${topicTitle}`;
             }
-            renderRequestFiles(files, 'requestFilesContainer');
+            renderRequestFiles(files, 'requestFilesContainer', topicTitle);
         });
 
         document.getElementById('viewRequestQuizModal')?.addEventListener('show.bs.modal', event => {
