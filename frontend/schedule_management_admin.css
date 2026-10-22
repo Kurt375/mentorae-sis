@@ -192,3 +192,22 @@
     color: #ffffff !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
+
+/* Multi-day dropdown styling */
+#daysDropdownBtn {
+    cursor: pointer;
+    background-color: #fff;
+    min-height: 38px;
+}
+#daysDropdownBtn:focus {
+    border-color: var(--mentorae-green);
+    box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.15);
+}
+#daysDropdown .dropdown-menu {
+    border: 1px solid #c2cbd6;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+.day-checkbox:checked {
+    background-color: var(--mentorae-green);
+    border-color: var(--mentorae-green);
+}

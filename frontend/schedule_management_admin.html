@@ -94,16 +94,44 @@
                             </select>
                         </div>
                         <div class="col-12 col-md-6 col-lg-3">
-                            <label for="daySelect" class="form-label text-dark fw-bold micro-text mb-1">Day of
-                                Week</label>
-                            <select class="form-select form-input" id="daySelect" required>
-                                <option value="Monday">Monday</option>
-                                <option value="Tuesday">Tuesday</option>
-                                <option value="Wednesday">Wednesday</option>
-                                <option value="Thursday">Thursday</option>
-                                <option value="Friday">Friday</option>
-                                <option value="All Weekdays">All Weekdays</option>
-                            </select>
+                            <label class="form-label text-dark fw-bold micro-text mb-1">Days of Week</label>
+                            <div class="dropdown" id="daysDropdown">
+                                <button class="form-select form-input text-start d-flex justify-content-between align-items-center w-100 bg-white" 
+                                        type="button" id="daysDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <span id="daysDropdownLabel" class="text-truncate">Select Days</span>
+                                </button>
+                                <div class="dropdown-menu p-3 shadow border rounded-3 w-100" aria-labelledby="daysDropdownBtn" style="min-width: 230px; z-index: 1050;">
+                                    <div class="d-flex gap-1 mb-2 pb-2 border-bottom flex-wrap align-items-center">
+                                        <button type="button" class="btn btn-outline-secondary py-0 px-2 micro-text rounded" id="presetAllWeekdaysBtn">All</button>
+                                        <button type="button" class="btn btn-outline-secondary py-0 px-2 micro-text rounded" id="presetMwfBtn">MWF</button>
+                                        <button type="button" class="btn btn-outline-secondary py-0 px-2 micro-text rounded" id="presetTthBtn">TTH</button>
+                                        <button type="button" class="btn btn-link text-danger text-decoration-none py-0 px-1 micro-text ms-auto" id="clearDaysBtn">Clear</button>
+                                    </div>
+                                    <div class="d-flex flex-column gap-2" id="dayCheckboxesList">
+                                        <div class="form-check m-0">
+                                            <input class="form-check-input day-checkbox" type="checkbox" value="Monday" id="dayMon">
+                                            <label class="form-check-label text-sm fw-medium ms-1" for="dayMon">Monday</label>
+                                        </div>
+                                        <div class="form-check m-0">
+                                            <input class="form-check-input day-checkbox" type="checkbox" value="Tuesday" id="dayTue">
+                                            <label class="form-check-label text-sm fw-medium ms-1" for="dayTue">Tuesday</label>
+                                        </div>
+                                        <div class="form-check m-0">
+                                            <input class="form-check-input day-checkbox" type="checkbox" value="Wednesday" id="dayWed">
+                                            <label class="form-check-label text-sm fw-medium ms-1" for="dayWed">Wednesday</label>
+                                        </div>
+                                        <div class="form-check m-0">
+                                            <input class="form-check-input day-checkbox" type="checkbox" value="Thursday" id="dayThu">
+                                            <label class="form-check-label text-sm fw-medium ms-1" for="dayThu">Thursday</label>
+                                        </div>
+                                        <div class="form-check m-0">
+                                            <input class="form-check-input day-checkbox" type="checkbox" value="Friday" id="dayFri">
+                                            <label class="form-check-label text-sm fw-medium ms-1" for="dayFri">Friday</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="daySelectError" class="invalid-feedback tiny-text">Please select at least one day.</div>
                         </div>
                         <div class="col-12 col-md-6 col-lg-3">
                             <label for="startTime" class="form-label text-dark fw-bold micro-text mb-1">Start

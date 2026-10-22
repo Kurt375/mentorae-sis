@@ -16,7 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const subjectSelect = document.getElementById('subjectSelect');
     const strandSelect = document.getElementById('strandSelect');
     const sectionSelect = document.getElementById('sectionSelect');
-    const daySelect = document.getElementById('daySelect');
+    const daysDropdownBtn = document.getElementById('daysDropdownBtn');
+    const daysDropdownLabel = document.getElementById('daysDropdownLabel');
+    const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+    const daySelectError = document.getElementById('daySelectError');
+    const presetAllWeekdaysBtn = document.getElementById('presetAllWeekdaysBtn');
+    const presetMwfBtn = document.getElementById('presetMwfBtn');
+    const presetTthBtn = document.getElementById('presetTthBtn');
+    const clearDaysBtn = document.getElementById('clearDaysBtn');
     const quarterSelect = document.getElementById('quarterSelect');
     const startTime = document.getElementById('startTime');
     const endTime = document.getElementById('endTime');
@@ -338,6 +345,82 @@ document.addEventListener('DOMContentLoaded', () => {
         endTime.addEventListener(evt, () => validateTimeInputs(false));
     });
 
+    // --- Multi-day selection logic & presets ---
+    const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const shortDayMap = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri' };
+
+    function getSelectedDays() {
+        return Array.from(document.querySelectorAll('.day-checkbox:checked'))
+            .map(cb => cb.value)
+            .sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+    }
+
+    function updateDaysDropdownLabel() {
+        const selected = getSelectedDays();
+        if (selected.length === 0) {
+            daysDropdownLabel.innerHTML = '<span class="text-muted">Select Days</span>';
+        } else if (selected.length === 5) {
+            daysDropdownLabel.textContent = 'All Weekdays (Mon-Fri)';
+        } else if (selected.length === 3 && selected.includes('Monday') && selected.includes('Wednesday') && selected.includes('Friday')) {
+            daysDropdownLabel.textContent = 'MWF (Mon, Wed, Fri)';
+        } else if (selected.length === 2 && selected.includes('Tuesday') && selected.includes('Thursday')) {
+            daysDropdownLabel.textContent = 'TTH (Tue, Thu)';
+        } else if (selected.length <= 2) {
+            daysDropdownLabel.textContent = selected.join(', ');
+        } else {
+            daysDropdownLabel.textContent = selected.map(d => shortDayMap[d] || d).join(', ');
+        }
+
+        if (selected.length > 0) {
+            daysDropdownBtn.classList.remove('is-invalid');
+            daySelectError.style.display = 'none';
+        }
+    }
+
+    dayCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateDaysDropdownLabel);
+    });
+
+    if (presetAllWeekdaysBtn) {
+        presetAllWeekdaysBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dayCheckboxes.forEach(cb => { cb.checked = true; });
+            updateDaysDropdownLabel();
+        });
+    }
+
+    if (presetMwfBtn) {
+        presetMwfBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dayCheckboxes.forEach(cb => {
+                cb.checked = (cb.value === 'Monday' || cb.value === 'Wednesday' || cb.value === 'Friday');
+            });
+            updateDaysDropdownLabel();
+        });
+    }
+
+    if (presetTthBtn) {
+        presetTthBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dayCheckboxes.forEach(cb => {
+                cb.checked = (cb.value === 'Tuesday' || cb.value === 'Thursday');
+            });
+            updateDaysDropdownLabel();
+        });
+    }
+
+    if (clearDaysBtn) {
+        clearDaysBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dayCheckboxes.forEach(cb => { cb.checked = false; });
+            updateDaysDropdownLabel();
+        });
+    }
+
     // --- Create schedule ---
     let isCreatingSchedule = false;
     form.addEventListener('submit', async (e) => {
@@ -360,6 +443,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const days = getSelectedDays();
+        if (!days.length) {
+            daysDropdownBtn.classList.add('is-invalid');
+            daySelectError.style.display = 'block';
+            daysDropdownBtn.focus();
+            return;
+        } else {
+            daysDropdownBtn.classList.remove('is-invalid');
+            daySelectError.style.display = 'none';
+        }
+
         if (!validateTimeInputs(true)) {
             if (startTime.classList.contains('is-invalid')) {
                 startTime.focus();
@@ -378,10 +472,6 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Creating...';
         }
-
-        const days = daySelect.value === 'All Weekdays'
-            ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-            : [daySelect.value];
 
         try {
             const data = await authedFetch('/api/schedules', token, {
@@ -408,6 +498,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSections();
             subjectSelect.value = '';
             renderSubjects();
+            dayCheckboxes.forEach(cb => { cb.checked = false; });
+            updateDaysDropdownLabel();
+            daysDropdownBtn.classList.remove('is-invalid');
+            daySelectError.style.display = 'none';
             clearTimeError(startTime, startTimeError);
             clearTimeError(endTime, endTimeError);
             startTime.classList.remove('is-valid');
