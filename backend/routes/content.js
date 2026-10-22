@@ -32,6 +32,7 @@ const {
   getClassTopicQuizResults,
   downloadTopicFile,
   downloadTopicFileByName,
+  downloadTopicRequestFile,
   assignLesson,
   getMyRecommendations,
   listAssignableTopics,
@@ -74,6 +75,7 @@ router.get('/topic-quiz/class-results', requireAuth, requireRole('teacher', 'adm
 // Topic requests (teacher/admin submits, admin reviews)
 router.post('/topic-requests', requireAuth, requireRole('teacher', 'admin'), createTopicRequest);
 router.get('/topic-requests', requireAuth, requireRole('admin'), listTopicRequests);
+router.get('/topic-requests/:requestId/files/:fileIndex/download', requireAuth, requireRole('teacher', 'admin'), downloadTopicRequestFile);
 router.post('/topic-requests/:id/review', requireAuth, requireRole('admin'), reviewTopicRequest);
 
 // Quizzes

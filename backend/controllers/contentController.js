@@ -636,6 +636,29 @@ async function downloadTopicFile(req, res) {
     }
 
     if (!file) {
+      // Check if topicId matches a topic_requests row
+      const [reqRows] = await pool.query(
+        'SELECT id, title, content_payload FROM topic_requests WHERE id = ?',
+        [topicId]
+      );
+      if (reqRows.length && reqRows[0].content_payload) {
+        try {
+          const reqPayload = typeof reqRows[0].content_payload === 'string' ? JSON.parse(reqRows[0].content_payload) : reqRows[0].content_payload;
+          const reqFiles = reqPayload.files || [];
+          let f = null;
+          if (!isNaN(numericIdx) && reqFiles[numericIdx]) f = reqFiles[numericIdx];
+          else if (fileIndex) f = reqFiles.find(x => x.name === fileIndex || x.name === decodeURIComponent(fileIndex));
+          if (!f && (name || req.query.fileName)) f = reqFiles.find(x => x.name === (name || req.query.fileName) || x.name === decodeURIComponent(name || req.query.fileName));
+          if (f) {
+            topic = reqRows[0];
+            payload = reqPayload;
+            file = f;
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (!file) {
       return res.status(404).json({ success: false, message: 'File not found in topic.' });
     }
 
@@ -806,6 +829,133 @@ async function downloadTopicFileByName(req, res) {
   }
 }
 
+/** GET /api/content/topic-requests/:requestId/files/:fileIndex/download */
+async function downloadTopicRequestFile(req, res) {
+  const { requestId, fileIndex } = req.params;
+  const { asPdf, name } = req.query;
+
+  try {
+    await ensureContentTables();
+    const [rows] = await pool.query(
+      'SELECT id, title, content_payload FROM topic_requests WHERE id = ?',
+      [requestId]
+    );
+
+    const topicRequest = rows[0];
+    if (!topicRequest) {
+      return res.status(404).json({ success: false, message: 'Topic request not found.' });
+    }
+
+    let payload = {};
+    if (topicRequest.content_payload) {
+      try {
+        payload = typeof topicRequest.content_payload === 'string'
+          ? JSON.parse(topicRequest.content_payload)
+          : topicRequest.content_payload;
+      } catch (e) {
+        return res.status(500).json({ success: false, message: 'Invalid topic request content structure.' });
+      }
+    }
+
+    const files = payload.files || [];
+    let file = null;
+
+    const numericIdx = parseInt(fileIndex, 10);
+    if (!isNaN(numericIdx) && files[numericIdx]) {
+      file = files[numericIdx];
+    } else if (fileIndex) {
+      file = files.find(f => f.name === fileIndex || f.name === decodeURIComponent(fileIndex));
+    }
+    if (!file && (name || req.query.fileName)) {
+      const targetName = name || req.query.fileName;
+      file = files.find(f => f.name === targetName || f.name === decodeURIComponent(targetName));
+    }
+
+    if (!file) {
+      return res.status(404).json({ success: false, message: 'File not found in topic request.' });
+    }
+
+    // On-the-fly Office to PDF conversion if requested as PDF
+    if (asPdf === 'true' && !file.pdfDataUrl && file.dataUrl) {
+      const ext = (file.name || '').split('.').pop().toLowerCase();
+      if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+        try {
+          const conv = await convertOfficeToPdf(file.dataUrl, file.name || 'document.docx');
+          if (conv && conv.success && conv.pdfDataUrl) {
+            file.pdfDataUrl = conv.pdfDataUrl;
+            file.hasPdf = true;
+            const fIdx = !isNaN(numericIdx) ? numericIdx : files.indexOf(file);
+            if (fIdx !== -1) {
+              payload.files[fIdx] = file;
+              pool.query('UPDATE topic_requests SET content_payload = ? WHERE id = ?', [JSON.stringify(payload), topicRequest.id]).catch(() => {});
+            }
+          }
+        } catch (convErr) {
+          console.warn('downloadTopicRequestFile on-the-fly conversion warning:', convErr.message);
+        }
+      }
+    }
+
+    if (asPdf === 'true' && !file.pdfDataUrl) {
+      return res.status(404).json({
+        success: false,
+        asPdfAvailable: false,
+        message: 'PDF version is not yet pre-generated on server.'
+      });
+    }
+
+    let rawUrl = (asPdf === 'true' && file.pdfDataUrl) ? file.pdfDataUrl : (file.dataUrl || file.pdfDataUrl || file.url || file.filePath || file.file_path || '');
+    let fileName = file.name || 'document';
+    if (asPdf === 'true' && !fileName.toLowerCase().endsWith('.pdf')) {
+      fileName = fileName.replace(/\.[^.]+$/, '') + '.pdf';
+    }
+
+    if (!rawUrl) {
+      return res.status(404).json({
+        success: false,
+        message: 'File binary data is missing from database.'
+      });
+    }
+
+    // Base64 Data URL
+    if (rawUrl.startsWith('data:')) {
+      const commaIdx = rawUrl.indexOf(',');
+      if (commaIdx === -1) {
+        return res.status(500).json({ success: false, message: 'Malformed data URL.' });
+      }
+      const header = rawUrl.substring(0, commaIdx);
+      const base64Data = rawUrl.substring(commaIdx + 1);
+      const mimeMatch = header.match(/^data:([^;]+)/);
+      const mimeType = (asPdf === 'true' || rawUrl.startsWith('data:application/pdf'))
+        ? 'application/pdf'
+        : ((mimeMatch && mimeMatch[1]) ? mimeMatch[1] : getMimeType(fileName, file.type));
+      const buffer = Buffer.from(base64Data, 'base64');
+      return sendFileBuffer(req, res, buffer, fileName, mimeType);
+    }
+
+    // Relative file path on server
+    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+      const absPath = path.isAbsolute(rawUrl) ? rawUrl : path.join(__dirname, '..', rawUrl);
+      if (fs.existsSync(absPath)) {
+        return res.download(absPath, fileName);
+      }
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on server storage.'
+      });
+    }
+
+    if (/^https?:\/\//i.test(rawUrl)) {
+      return res.redirect(rawUrl);
+    }
+
+    return res.status(404).json({ success: false, message: 'File not found.' });
+  } catch (err) {
+    console.error('downloadTopicRequestFile error:', err);
+    return res.status(500).json({ success: false, message: 'Could not download file from topic request.' });
+  }
+}
+
 /* ========================= TOPIC REQUESTS ========================= */
 
 /** POST /api/content/topic-requests  { subjectId, subjectName, title, description, contentPayload } */
@@ -939,9 +1089,10 @@ async function listTopicRequests(req, res) {
             type: f.type || getMimeType(f.name),
             size: f.size,
             topicId: r.id,
+            requestId: r.id,
             fileIndex: fIdx,
-            url: `/api/content/topics/${r.id}/files/${fIdx}/download`,
-            pdfUrl: f.pdfDataUrl ? `/api/content/topics/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
+            url: `/api/content/topic-requests/${r.id}/files/${fIdx}/download`,
+            pdfUrl: f.pdfDataUrl ? `/api/content/topic-requests/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
             hasPdf: !!f.pdfDataUrl,
             dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
             pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
@@ -2251,6 +2402,7 @@ module.exports = {
   getClassTopicQuizResults,
   downloadTopicFile,
   downloadTopicFileByName,
+  downloadTopicRequestFile,
   assignLesson,
   getMyRecommendations,
   listAssignableTopics,
