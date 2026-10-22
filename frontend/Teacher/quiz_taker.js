@@ -242,6 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset label styles and remove any previous status badges
         document.querySelectorAll('.quiz-option-label').forEach(label => {
             label.classList.remove('selected', 'correct-answer', 'wrong-answer');
+            label.style.removeProperty('border-color');
+            label.style.removeProperty('background-color');
+            label.style.removeProperty('color');
+            label.style.removeProperty('box-shadow');
+            label.style.removeProperty('opacity');
             const oldBadge = label.querySelector('.quiz-status-badge');
             if (oldBadge) oldBadge.remove();
         });
@@ -266,10 +271,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (label) {
                     if (radio.value === correctKey) {
                         label.classList.add('correct-answer');
+                        label.style.setProperty('border-color', '#198754', 'important');
+                        label.style.setProperty('background-color', '#dcfce7', 'important');
+                        label.style.setProperty('color', '#166534', 'important');
+                        label.style.setProperty('box-shadow', '0 0 0 3px rgba(25, 135, 84, 0.25)', 'important');
                         label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-success ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-check-circle-fill"></i> Correct Answer</span>');
                     } else if (radio.value === selectedKey) {
                         label.classList.add('wrong-answer');
+                        label.style.setProperty('border-color', '#dc3545', 'important');
+                        label.style.setProperty('background-color', '#fee2e2', 'important');
+                        label.style.setProperty('color', '#991b1b', 'important');
+                        label.style.setProperty('box-shadow', '0 0 0 3px rgba(220, 53, 69, 0.25)', 'important');
                         label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-danger ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-x-circle-fill"></i> Your Answer (Wrong)</span>');
+                    } else {
+                        label.style.setProperty('opacity', '0.55', 'important');
                     }
                 }
             });
@@ -336,10 +351,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (radio.value === correctKey) {
                     label.classList.add('correct-answer');
+                    label.style.setProperty('border-color', '#198754', 'important');
+                    label.style.setProperty('background-color', '#dcfce7', 'important');
+                    label.style.setProperty('color', '#166534', 'important');
+                    label.style.setProperty('box-shadow', '0 0 0 3px rgba(25, 135, 84, 0.25)', 'important');
                     label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-success ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-check-circle-fill"></i> Correct Answer</span>');
                 } else if (radio.value === selectedKey) {
                     label.classList.add('wrong-answer');
+                    label.style.setProperty('border-color', '#dc3545', 'important');
+                    label.style.setProperty('background-color', '#fee2e2', 'important');
+                    label.style.setProperty('color', '#991b1b', 'important');
+                    label.style.setProperty('box-shadow', '0 0 0 3px rgba(220, 53, 69, 0.25)', 'important');
                     label.insertAdjacentHTML('beforeend', '<span class="quiz-status-badge badge bg-danger ms-auto rounded-pill px-2.5 py-1 text-white fw-semibold small d-inline-flex align-items-center gap-1 flex-shrink-0"><i class="bi bi-x-circle-fill"></i> Your Answer (Wrong)</span>');
+                } else {
+                    label.style.setProperty('opacity', '0.55', 'important');
                 }
             }
             radio.disabled = true;
@@ -512,7 +537,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Instant visual feedback when clicking an option
         document.querySelectorAll('input[name="quizOption"]').forEach(radio => {
             radio.addEventListener('change', () => {
-                document.querySelectorAll('.quiz-option-label').forEach(lbl => lbl.classList.remove('selected'));
+                document.querySelectorAll('.quiz-option-label').forEach(lbl => {
+                    lbl.classList.remove('selected');
+                    lbl.style.removeProperty('border-color');
+                    lbl.style.removeProperty('background-color');
+                    lbl.style.removeProperty('color');
+                    lbl.style.removeProperty('box-shadow');
+                    lbl.style.removeProperty('opacity');
+                });
                 if (radio.checked) {
                     const lbl = radio.nextElementSibling;
                     if (lbl) lbl.classList.add('selected');
