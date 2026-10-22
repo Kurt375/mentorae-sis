@@ -53,6 +53,58 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTopicName = '';
     let currentSectionName = '';
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function resolveAnswerKey(rawAnswer, normalizedOptions) {
+        if (rawAnswer === undefined || rawAnswer === null) return 'A';
+        const rawStr = String(rawAnswer).trim();
+        if (!rawStr) return 'A';
+
+        // 1. Direct match with option text (case-insensitive)
+        for (const [key, text] of Object.entries(normalizedOptions)) {
+            if (text && text.toLowerCase() === rawStr.toLowerCase()) {
+                return key;
+            }
+        }
+
+        // 2. Direct match with option letter: A, B, C, D
+        const upper = rawStr.toUpperCase();
+        if (['A', 'B', 'C', 'D'].includes(upper)) {
+            return upper;
+        }
+
+        // 3. Formatted like Option A, Choice B, (C), A., A: ...
+        const prefixMatch = upper.match(/^(?:OPTION|CHOICE)?\s*[\(\[]?([A-D])[\)\]\.:]?/i);
+        if (prefixMatch && prefixMatch[1]) {
+            return prefixMatch[1].toUpperCase();
+        }
+
+        // 4. Zero-based or 1-based index
+        if (/^[0-3]$/.test(rawStr)) {
+            return ['A', 'B', 'C', 'D'][parseInt(rawStr, 10)] || 'A';
+        }
+        if (/^[1-4]$/.test(rawStr)) {
+            return ['A', 'B', 'C', 'D'][parseInt(rawStr, 10) - 1] || 'A';
+        }
+
+        // 5. Partial text match
+        for (const [key, text] of Object.entries(normalizedOptions)) {
+            if (text && (text.toLowerCase().includes(rawStr.toLowerCase()) || rawStr.toLowerCase().includes(text.toLowerCase()))) {
+                return key;
+            }
+        }
+
+        return 'A';
+    }
+
     async function loadData() {
         const storedSubjects = localStorage.getItem(SUBJECTS_STORAGE_KEY);
         allSubjects = storedSubjects ? JSON.parse(storedSubjects) : [];
@@ -104,28 +156,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (currentTopic) {
             questions = (currentTopic.quiz || []).map(q => {
-                let opts = q.options;
-                if (Array.isArray(opts)) {
-                    opts = {
-                        A: opts[0] || '',
-                        B: opts[1] || '',
-                        C: opts[2] || '',
-                        D: opts[3] || ''
-                    };
-                } else if (!opts || typeof opts !== 'object') {
-                    opts = { A: '', B: '', C: '', D: '' };
-                }
-                return {
-                    text: (q.text || q.question || '').trim(),
-                    options: {
-                        A: opts.A || '',
-                        B: opts.B || '',
-                        C: opts.C || '',
-                        D: opts.D || ''
-                    },
-                    answer: q.answer || 'A'
-                };
-            }).filter(q => q.text !== '');
+                            let opts = q.options;
+                            if (Array.isArray(opts)) {
+                                opts = {
+                                    A: (opts[0] != null ? String(opts[0]) : '').trim(),
+                                    B: (opts[1] != null ? String(opts[1]) : '').trim(),
+                                    C: (opts[2] != null ? String(opts[2]) : '').trim(),
+                                    D: (opts[3] != null ? String(opts[3]) : '').trim()
+                                };
+                            } else if (opts && typeof opts === 'object') {
+                                opts = {
+                                    A: (opts.A != null ? String(opts.A) : (opts.a != null ? String(opts.a) : '')).trim(),
+                                    B: (opts.B != null ? String(opts.B) : (opts.b != null ? String(opts.b) : '')).trim(),
+                                    C: (opts.C != null ? String(opts.C) : (opts.c != null ? String(opts.c) : '')).trim(),
+                                    D: (opts.D != null ? String(opts.D) : (opts.d != null ? String(opts.d) : '')).trim()
+                                };
+                            } else {
+                                opts = { A: '', B: '', C: '', D: '' };
+                            }
+                            const resolvedAnswer = resolveAnswerKey(q.answer, opts);
+                            return {
+                                text: (q.text || q.question || '').trim(),
+                                options: opts,
+                                answer: resolvedAnswer,
+                                rawAnswer: q.answer
+                            };
+                        }).filter(q => q.text !== '');
 
             userAnswers = new Array(questions.length).fill(null);
         } else {
@@ -342,32 +398,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reviewContainer) {
             reviewContainer.innerHTML = '';
             questions.forEach((q, index) => {
-                const userAnswer = userAnswers[index];
-                const isCorrect = userAnswer === q.answer;
-                const icon = isCorrect ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle-fill text-danger"></i>';
-
-                const reviewItem = document.createElement('div');
-                reviewItem.className = `review-item ${isCorrect ? 'correct' : 'incorrect'}`;
-                reviewItem.innerHTML = `
-                    <p class="fw-bold mb-2">${index + 1}. ${q.text} ${icon}</p>
-                    <p class="small m-0">Your answer: <span class="fw-bold ${isCorrect ? 'text-success' : 'text-danger'}">${userAnswer ? q.options[userAnswer] : 'Not answered'}</span></p>
-                    ${!isCorrect ? `<p class="small m-0">Correct answer: <span class="fw-bold text-success">${q.options[q.answer]}</span></p>` : ''}
-                `;
-                reviewContainer.appendChild(reviewItem);
-            });
+                            const userAnswer = userAnswers[index];
+                            const isCorrect = userAnswer === q.answer;
+                            const icon = isCorrect ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle-fill text-danger"></i>';
+                            const userAnswerText = (userAnswer && q.options[userAnswer]) ? q.options[userAnswer] : (userAnswer || 'Not answered');
+                            const correctAnswerText = (q.answer && q.options[q.answer]) ? q.options[q.answer] : (q.rawAnswer || q.answer || 'N/A');
+            
+                            const reviewItem = document.createElement('div');
+                            reviewItem.className = `review-item ${isCorrect ? 'correct' : 'incorrect'}`;
+                            reviewItem.innerHTML = `
+                                <p class="fw-bold mb-2">${index + 1}. ${escapeHtml(q.text)} ${icon}</p>
+                                <p class="small m-0">Your answer: <span class="fw-bold ${isCorrect ? 'text-success' : 'text-danger'}">${escapeHtml(userAnswerText)}</span></p>
+                                ${!isCorrect ? `<p class="small m-0">Correct answer: <span class="fw-bold text-success">${escapeHtml(correctAnswerText)}</span></p>` : ''}
+                            `;
+                            reviewContainer.appendChild(reviewItem);
+                        });
         }
 
         // Persist teacher preview attempt to database
         const token = localStorage.getItem('mentorae_token');
         if (token) {
-            const answersPayload = questions.map((q, index) => ({
-                question: q.text,
-                userAnswer: userAnswers[index] ? q.options[userAnswers[index]] : 'Not answered',
-                userAnswerKey: userAnswers[index] || null,
-                correctAnswer: q.options[q.answer] || q.answer,
-                correctAnswerKey: q.answer,
-                isCorrect: userAnswers[index] === q.answer
-            }));
+            const answersPayload = questions.map((q, index) => {
+                            const uKey = userAnswers[index];
+                            const uText = (uKey && q.options[uKey]) ? q.options[uKey] : (uKey || 'Not answered');
+                            const cKey = q.answer;
+                            const cText = (cKey && q.options[cKey]) ? q.options[cKey] : (q.rawAnswer || q.answer || 'N/A');
+                            return {
+                                question: q.text,
+                                userAnswer: uText,
+                                userAnswerKey: uKey || null,
+                                correctAnswer: cText,
+                                correctAnswerKey: cKey,
+                                isCorrect: uKey === cKey
+                            };
+                        });
 
             try {
                 await authedFetch('/api/content/topic-quiz/attempt', token, {

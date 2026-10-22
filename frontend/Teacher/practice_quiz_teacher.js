@@ -22,6 +22,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return storedSubjects ? JSON.parse(storedSubjects) : [];
     }
 
+    function resolveAnswerKey(rawAnswer, normalizedOptions) {
+        if (rawAnswer === undefined || rawAnswer === null) return 'A';
+        const rawStr = String(rawAnswer).trim();
+        if (!rawStr) return 'A';
+
+        for (const [key, text] of Object.entries(normalizedOptions)) {
+            if (text && text.toLowerCase() === rawStr.toLowerCase()) {
+                return key;
+            }
+        }
+
+        const upper = rawStr.toUpperCase();
+        if (['A', 'B', 'C', 'D'].includes(upper)) {
+            return upper;
+        }
+
+        const prefixMatch = upper.match(/^(?:OPTION|CHOICE)?\s*[\(\[]?([A-D])[\)\]\.:]?/i);
+        if (prefixMatch && prefixMatch[1]) {
+            return prefixMatch[1].toUpperCase();
+        }
+
+        if (/^[0-3]$/.test(rawStr)) {
+            return ['A', 'B', 'C', 'D'][parseInt(rawStr, 10)] || 'A';
+        }
+        if (/^[1-4]$/.test(rawStr)) {
+            return ['A', 'B', 'C', 'D'][parseInt(rawStr, 10) - 1] || 'A';
+        }
+
+        for (const [key, text] of Object.entries(normalizedOptions)) {
+            if (text && (text.toLowerCase().includes(rawStr.toLowerCase()) || rawStr.toLowerCase().includes(text.toLowerCase()))) {
+                return key;
+            }
+        }
+
+        return 'A';
+    }
+
     function renderQuiz(questions) {
         quizContainer.innerHTML = '';
         if (!questions || questions.length === 0) {
@@ -136,7 +173,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (topic && topic.quiz) {
-            currentQuizQuestions = topic.quiz;
+            currentQuizQuestions = (topic.quiz || []).map(q => {
+                            let opts = q.options;
+                            if (Array.isArray(opts)) {
+                                opts = {
+                                    A: (opts[0] != null ? String(opts[0]) : '').trim(),
+                                    B: (opts[1] != null ? String(opts[1]) : '').trim(),
+                                    C: (opts[2] != null ? String(opts[2]) : '').trim(),
+                                    D: (opts[3] != null ? String(opts[3]) : '').trim()
+                                };
+                            } else if (opts && typeof opts === 'object') {
+                                opts = {
+                                    A: (opts.A != null ? String(opts.A) : (opts.a != null ? String(opts.a) : '')).trim(),
+                                    B: (opts.B != null ? String(opts.B) : (opts.b != null ? String(opts.b) : '')).trim(),
+                                    C: (opts.C != null ? String(opts.C) : (opts.c != null ? String(opts.c) : '')).trim(),
+                                    D: (opts.D != null ? String(opts.D) : (opts.d != null ? String(opts.d) : '')).trim()
+                                };
+                            } else {
+                                opts = { A: '', B: '', C: '', D: '' };
+                            }
+                            const resolvedAnswer = resolveAnswerKey(q.answer, opts);
+                            return {
+                                text: (q.text || q.question || '').trim(),
+                                options: opts,
+                                answer: resolvedAnswer,
+                                rawAnswer: q.answer
+                            };
+                        }).filter(q => q.text !== '');
             renderQuiz(currentQuizQuestions);
         } else {
             quizContainer.innerHTML = '<div class="alert alert-warning text-center">Could not find the quiz data for this topic.</div>';
