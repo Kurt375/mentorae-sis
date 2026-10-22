@@ -3,6 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let topicRequests = [];
     let currentViewerActiveBlobUrl = null;
+    let activeFilesRequestId = null;
+    let activeQuizRequestId = null;
+    let activeFlashcardsRequestId = null;
 
     // --- Data Loading and Saving ---
     async function loadData() {
@@ -211,8 +214,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Normalization if targetFile was passed as first argument
         if (typeof fileName === 'object' && fileName !== null) {
             targetFile = fileName;
+            if (typeof dataUrl === 'string' && dataUrl && !dataUrl.startsWith('data:') && !dataUrl.startsWith('blob:') && !dataUrl.startsWith('/') && !/^https?:\/\//i.test(dataUrl)) {
+                topicTitle = dataUrl;
+            }
             fileName = targetFile.name || 'Document';
             dataUrl = targetFile.dataUrl || targetFile.url || '';
+        }
+
+        if (targetFile && (targetFile.requestId !== undefined || targetFile.topicId !== undefined)) {
+            activeFilesRequestId = String(targetFile.requestId || targetFile.topicId);
         }
 
         // Revoke prior active blob URL
@@ -226,14 +236,19 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'hidden';
 
         // Track caller modal to restore on close
-        const reqFilesModalEl = document.getElementById('viewRequestFilesModal');
+        const reqFilesModalEl = returnModal || document.getElementById('viewRequestFilesModal');
         let reqFilesModalInstance = null;
         if (reqFilesModalEl && typeof bootstrap !== 'undefined') {
             reqFilesModalInstance = bootstrap.Modal.getInstance(reqFilesModalEl) || new bootstrap.Modal(reqFilesModalEl);
             if (reqFilesModalInstance) reqFilesModalInstance.hide();
         }
 
+        let handleViewerKeydown = null;
         const closeViewer = () => {
+            if (handleViewerKeydown) {
+                window.removeEventListener('keydown', handleViewerKeydown);
+                handleViewerKeydown = null;
+            }
             viewerEl.classList.add('d-none');
             document.documentElement.style.overflow = '';
             document.body.style.overflow = '';
@@ -254,10 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (backBtn) backBtn.onclick = closeViewer;
 
         // Escape key listener to close viewer
-        const handleViewerKeydown = (e) => {
+        handleViewerKeydown = (e) => {
             if (e.key === 'Escape' && !viewerEl.classList.contains('d-none')) {
                 e.preventDefault();
-                window.removeEventListener('keydown', handleViewerKeydown);
                 closeViewer();
             }
         };
@@ -1321,8 +1335,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderRequestFiles(files, containerId, topicTitle = '') {
+    function renderRequestFiles(files, containerId, topicTitle = '', requestObj = null) {
         const container = document.getElementById(containerId);
+        if (!container) return;
         container.innerHTML = '';
         if (!files || files.length === 0) {
             container.innerHTML = '<p class="text-muted text-center py-3">No files attached to this request.</p>';
@@ -1330,7 +1345,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const list = document.createElement('div');
         list.className = 'list-group';
-        files.forEach((file) => {
+        files.forEach((file, index) => {
+            if (requestObj && requestObj.id) {
+                file.requestId = requestObj.id;
+                file.fileIndex = index;
+            } else if (activeFilesRequestId) {
+                file.requestId = activeFilesRequestId;
+                file.fileIndex = index;
+            }
             const ext = (file.name || '').split('.').pop().toLowerCase();
             let iconClass = 'bi-file-earmark-text text-secondary';
             if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
@@ -1358,7 +1380,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             item.addEventListener('click', (e) => {
                 e.preventDefault();
-                openClassroomViewer(file, topicTitle);
+                openClassroomViewer(file.name, file.dataUrl || file.url, topicTitle, file);
             });
             list.appendChild(item);
         });
@@ -1599,30 +1621,80 @@ document.addEventListener('DOMContentLoaded', () => {
         // Modal event listeners to populate content
         document.getElementById('viewRequestFilesModal')?.addEventListener('show.bs.modal', event => {
             const button = event.relatedTarget;
-            const requestId = button ? button.dataset.requestId : null;
-            const request = topicRequests.find(r => String(r.id) === String(requestId));
+            const container = document.getElementById('requestFilesContainer');
+
+            if (button && button.dataset && button.dataset.requestId) {
+                activeFilesRequestId = button.dataset.requestId;
+            }
+
+            const requestId = activeFilesRequestId;
+            const request = requestId ? topicRequests.find(r => String(r.id) === String(requestId)) : null;
+
+            // If returning from the full-screen viewer programmatically and container already has content, preserve it
+            if (!button && container && container.children.length > 0) {
+                if (request) {
+                    const modalTitle = document.getElementById('viewRequestFilesModalLabel');
+                    const topicTitle = request?.topicData?.title || request?.title || 'Topic Request';
+                    if (modalTitle) {
+                        modalTitle.textContent = `Attached Files: ${topicTitle}`;
+                    }
+                }
+                return;
+            }
+
+            if (!request) {
+                if (container && container.children.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center py-3">No files attached to this request.</p>';
+                }
+                return;
+            }
+
             let files = (request && request.topicData) ? request.topicData.files : [];
             if (typeof files === 'string') {
                 try { files = JSON.parse(files); } catch (e) { files = []; }
             }
             const modalTitle = document.getElementById('viewRequestFilesModalLabel');
             const topicTitle = request?.topicData?.title || request?.title || 'Topic Request';
-            if (modalTitle && request) {
+            if (modalTitle) {
                 modalTitle.textContent = `Attached Files: ${topicTitle}`;
             }
-            renderRequestFiles(files, 'requestFilesContainer', topicTitle);
+            renderRequestFiles(files, 'requestFilesContainer', topicTitle, request);
         });
 
         document.getElementById('viewRequestQuizModal')?.addEventListener('show.bs.modal', event => {
             const button = event.relatedTarget;
-            const requestId = button ? button.dataset.requestId : null;
-            const request = topicRequests.find(r => String(r.id) === String(requestId));
+            const container = document.getElementById('requestQuizContainer');
+
+            if (button && button.dataset && button.dataset.requestId) {
+                activeQuizRequestId = button.dataset.requestId;
+            }
+
+            const requestId = activeQuizRequestId;
+            const request = requestId ? topicRequests.find(r => String(r.id) === String(requestId)) : null;
+
+            if (!button && container && container.children.length > 0) {
+                if (request) {
+                    const modalTitle = document.getElementById('viewRequestQuizModalLabel');
+                    if (modalTitle) {
+                        modalTitle.textContent = `Quiz Questions: ${request.topicData?.title || request.title}`;
+                    }
+                }
+                return;
+            }
+
+            if (!request) {
+                if (container && container.children.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center py-3">No quiz questions attached to this topic request.</p>';
+                }
+                return;
+            }
+
             let quiz = (request && request.topicData) ? request.topicData.quiz : [];
             if (typeof quiz === 'string') {
                 try { quiz = JSON.parse(quiz); } catch (e) { quiz = []; }
             }
             const modalTitle = document.getElementById('viewRequestQuizModalLabel');
-            if (modalTitle && request) {
+            if (modalTitle) {
                 modalTitle.textContent = `Quiz Questions: ${request.topicData?.title || request.title} (${quiz.length} Questions)`;
             }
             renderRequestQuiz(quiz, 'requestQuizContainer');
@@ -1630,14 +1702,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('viewRequestFlashcardsModal')?.addEventListener('show.bs.modal', event => {
             const button = event.relatedTarget;
-            const requestId = button ? button.dataset.requestId : null;
-            const request = topicRequests.find(r => String(r.id) === String(requestId));
+            const container = document.getElementById('requestFlashcardsContainer');
+
+            if (button && button.dataset && button.dataset.requestId) {
+                activeFlashcardsRequestId = button.dataset.requestId;
+            }
+
+            const requestId = activeFlashcardsRequestId;
+            const request = requestId ? topicRequests.find(r => String(r.id) === String(requestId)) : null;
+
+            if (!button && container && container.children.length > 0) {
+                if (request) {
+                    const modalTitle = document.getElementById('viewRequestFlashcardsModalLabel');
+                    if (modalTitle) {
+                        modalTitle.textContent = `Flashcards: ${request.topicData?.title || request.title}`;
+                    }
+                }
+                return;
+            }
+
+            if (!request) {
+                if (container && container.children.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center py-3">No flashcards attached to this topic request.</p>';
+                }
+                return;
+            }
+
             let flashcards = (request && request.topicData) ? request.topicData.flashcards : [];
             if (typeof flashcards === 'string') {
                 try { flashcards = JSON.parse(flashcards); } catch (e) { flashcards = []; }
             }
             const modalTitle = document.getElementById('viewRequestFlashcardsModalLabel');
-            if (modalTitle && request) {
+            if (modalTitle) {
                 modalTitle.textContent = `Flashcards: ${request.topicData?.title || request.title} (${flashcards.length} Cards)`;
             }
             renderRequestFlashcards(flashcards, 'requestFlashcardsContainer');
