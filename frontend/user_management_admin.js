@@ -1796,6 +1796,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         if (badgesEl) badgesEl.innerHTML = '';
+        resultsEl.className = 'mt-3';
         resultsEl.innerHTML = '';
         credsEl.innerHTML = '';
 
@@ -1910,6 +1911,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Results Log
+            if (data.results && data.results.length > 0) {
+                resultsEl.className = 'mt-3 border rounded-3 overflow-hidden';
+            }
             resultsEl.innerHTML = data.results.map(r => {
                 const isCreated = r.status === 'created';
                 const isSkipped = r.status === 'skipped';
@@ -1917,14 +1921,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rowBg = isCreated ? 'bg-light-subtle' : (isSkipped ? 'bg-warning-subtle' : 'bg-danger-subtle');
                 const statusColor = isCreated ? 'text-success' : (isSkipped ? 'text-warning-emphasis fw-medium' : 'text-danger fw-semibold');
                 return `
-                    <div class="d-flex justify-content-between align-items-center border-bottom py-1.5 px-2 text-sm ${rowBg}">
-                        <span class="fw-semibold text-dark">
-                            <i class="bi ${roleIcon} me-1 text-muted"></i>
-                            Row ${r.row}: ${escapeHtml(r.name)}
-                        </span>
-                        <span class="${statusColor} small">
+                    <div class="border-bottom py-2 px-3 text-sm ${rowBg}">
+                        <div class="fw-semibold text-dark d-flex align-items-center text-nowrap">
+                            <i class="bi ${roleIcon} me-2 text-secondary flex-shrink-0"></i>
+                            <span>Row ${r.row}: ${escapeHtml(r.name)}</span>
+                        </div>
+                        <div class="${statusColor} small ps-4 mt-0.5">
                             ${escapeHtml(r.message)}
-                        </span>
+                        </div>
                     </div>
                 `;
             }).join('');
