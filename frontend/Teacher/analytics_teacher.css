@@ -55,6 +55,10 @@ body.dashboard-bg {
     border-radius: 16px;
 }
 
+.text-purple {
+    color: #9b51e0 !important;
+}
+
 .card-desc {
     line-height: 1.35;
     font-size: 0.8rem;
