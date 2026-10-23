@@ -260,8 +260,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const forcePasswordChangeModal = new bootstrap.Modal(forcePasswordChangeModalEl);
     const forcePasswordChangeForm = document.getElementById('forcePasswordChangeForm');
 
+    function validatePasswordPolicy(password) {
+        if (!password || typeof password !== 'string') {
+            return 'Password is required.';
+        }
+        if (password.length < 8) {
+            return 'Password must be at least 8 characters long.';
+        }
+        const missing = [];
+        if (!/[A-Z]/.test(password)) missing.push('an uppercase letter (A-Z)');
+        if (!/[a-z]/.test(password)) missing.push('a lowercase letter (a-z)');
+        if (!/[0-9]/.test(password)) missing.push('a number (0-9)');
+        if (!/[^A-Za-z0-9]/.test(password)) missing.push('a special character (e.g. !@#$%^&*)');
+
+        if (missing.length > 0) {
+            return `Password must include ${missing.join(', ')}.`;
+        }
+        return null;
+    }
+
+    function updatePasswordRequirementsUi(password, prefix) {
+        const val = password || '';
+        const checks = {
+            Length: val.length >= 8,
+            Upper: /[A-Z]/.test(val),
+            Lower: /[a-z]/.test(val),
+            Number: /[0-9]/.test(val),
+            Special: /[^A-Za-z0-9]/.test(val),
+        };
+
+        for (const [key, passed] of Object.entries(checks)) {
+            const el = document.getElementById(`${prefix}Req${key}`);
+            if (el) {
+                if (passed) {
+                    el.className = 'text-success fw-semibold';
+                    const icon = el.querySelector('i');
+                    if (icon) icon.className = 'bi bi-check-circle-fill me-1.5 text-success';
+                } else {
+                    el.className = 'text-muted';
+                    const icon = el.querySelector('i');
+                    if (icon) icon.className = 'bi bi-circle me-1.5 text-muted';
+                }
+            }
+        }
+    }
+
+    const fpcNewPasswordInput = document.getElementById('fpcNewPassword');
+    if (fpcNewPasswordInput) {
+        fpcNewPasswordInput.addEventListener('input', () => {
+            clearInlineWarning(fpcNewPasswordInput);
+            updatePasswordRequirementsUi(fpcNewPasswordInput.value, 'fpc');
+        });
+    }
+    const fpcConfirmPasswordInput = document.getElementById('fpcConfirmPassword');
+    if (fpcConfirmPasswordInput) {
+        fpcConfirmPasswordInput.addEventListener('input', () => {
+            clearInlineWarning(fpcConfirmPasswordInput);
+        });
+    }
+
     function showForcePasswordChange(authToken, onDone) {
         forcePasswordChangeForm.reset();
+        updatePasswordRequirementsUi('', 'fpc');
         const fpcPersonalEmail = document.getElementById('fpcPersonalEmail');
         const fpcSkipEmail = document.getElementById('fpcSkipEmail');
 
@@ -293,8 +353,14 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInlineWarning(confirmPasswordEl);
             if (fpcPersonalEmail) clearInlineWarning(fpcPersonalEmail);
 
-            if (newPassword.length < 8) {
-                showInlineWarning(newPasswordEl, 'New password must be at least 8 characters.');
+            const passwordError = validatePasswordPolicy(newPassword);
+            if (passwordError) {
+                showInlineWarning(newPasswordEl, passwordError);
+                newPasswordEl.focus();
+                return;
+            }
+            if (newPassword === currentPassword) {
+                showInlineWarning(newPasswordEl, 'New password must be different from your current temporary password.');
                 newPasswordEl.focus();
                 return;
             }
@@ -519,6 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Identity verified! Please set your new password.');
                 resetStep2.classList.add('d-none');
                 resetStep3.classList.remove('d-none');
+                updatePasswordRequirementsUi(newPasswordInput ? newPasswordInput.value : '', 'reset');
             } catch (err) {
                 console.error(err);
                 alert('Could not reach the server. Please try again.');
@@ -564,12 +631,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Phone number verified! Please set your new password.');
                 resetStepPhone.classList.add('d-none');
                 resetStep3.classList.remove('d-none');
+                updatePasswordRequirementsUi(newPasswordInput ? newPasswordInput.value : '', 'reset');
             } catch (err) {
                 console.error(err);
                 alert('Could not reach the server. Please try again.');
             } finally {
                 submitBtn.disabled = false;
             }
+        });
+    }
+
+    // Live input listeners for Step 3 reset password inputs
+    if (newPasswordInput) {
+        newPasswordInput.addEventListener('input', () => {
+            clearInlineWarning(newPasswordInput);
+            updatePasswordRequirementsUi(newPasswordInput.value, 'reset');
+        });
+    }
+    if (confirmNewPasswordInput) {
+        confirmNewPasswordInput.addEventListener('input', () => {
+            clearInlineWarning(confirmNewPasswordInput);
         });
     }
 
@@ -583,8 +664,9 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInlineWarning(newPasswordInput);
             clearInlineWarning(confirmNewPasswordInput);
 
-            if (!newPassword || newPassword.length < 8) {
-                showInlineWarning(newPasswordInput, 'Password must be at least 8 characters long.');
+            const passwordError = validatePasswordPolicy(newPassword);
+            if (passwordError) {
+                showInlineWarning(newPasswordInput, passwordError);
                 newPasswordInput.focus();
                 return;
             }

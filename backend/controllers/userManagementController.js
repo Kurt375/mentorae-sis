@@ -146,6 +146,20 @@ async function createUser(req, res) {
     });
   }
 
+  if (password) {
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Manual password must be at least 8 characters long.' });
+    }
+    const missing = [];
+    if (!/[A-Z]/.test(password)) missing.push('an uppercase letter (A-Z)');
+    if (!/[a-z]/.test(password)) missing.push('a lowercase letter (a-z)');
+    if (!/[0-9]/.test(password)) missing.push('a number (0-9)');
+    if (!/[^A-Za-z0-9]/.test(password)) missing.push('a special character (e.g. !@#$%^&*)');
+    if (missing.length > 0) {
+      return res.status(400).json({ success: false, message: `Manual password must include ${missing.join(', ')}.` });
+    }
+  }
+
   try {
     const usingManualPassword = !!password;
     // Auto-generated accounts use the person's own ID number as their starting

@@ -444,9 +444,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Generate a random password into the field ---
     document.getElementById('btnGeneratePassword').addEventListener('click', () => {
-        const bytes = new Uint8Array(9);
+        const uppers = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const lowers = 'abcdefghijkmnopqrstuvwxyz';
+        const numbers = '23456789';
+        const specials = '!@#$%^&*_-+=';
+        const all = uppers + lowers + numbers + specials;
+        const res = [
+            uppers[Math.floor(Math.random() * uppers.length)],
+            lowers[Math.floor(Math.random() * lowers.length)],
+            numbers[Math.floor(Math.random() * numbers.length)],
+            specials[Math.floor(Math.random() * specials.length)]
+        ];
+        const bytes = new Uint8Array(8);
         crypto.getRandomValues(bytes);
-        const generated = btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, '').slice(0, 12);
+        for (let i = 0; i < bytes.length; i++) {
+            res.push(all[bytes[i] % all.length]);
+        }
+        const generated = res.sort(() => Math.random() - 0.5).join('');
         createUserPassword.value = generated;
         createUserPassword.type = 'text';
         document.getElementById('btnTogglePassword').querySelector('i').className = 'bi bi-eye-slash';
@@ -551,10 +565,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const manualPassword = createUserPassword.value;
-        if (manualPassword && manualPassword.length < 8) {
-            showInlineWarning(createUserPassword, 'Password must be at least 8 characters (or leave blank to auto-generate).');
-            createUserPassword.focus();
-            return;
+        if (manualPassword) {
+            if (manualPassword.length < 8) {
+                showInlineWarning(createUserPassword, 'Password must be at least 8 characters (or leave blank to auto-generate).');
+                createUserPassword.focus();
+                return;
+            }
+            const missing = [];
+            if (!/[A-Z]/.test(manualPassword)) missing.push('an uppercase letter (A-Z)');
+            if (!/[a-z]/.test(manualPassword)) missing.push('a lowercase letter (a-z)');
+            if (!/[0-9]/.test(manualPassword)) missing.push('a number (0-9)');
+            if (!/[^A-Za-z0-9]/.test(manualPassword)) missing.push('a special character (e.g. !@#$%^&*)');
+            if (missing.length > 0) {
+                showInlineWarning(createUserPassword, `Password must include ${missing.join(', ')}.`);
+                createUserPassword.focus();
+                return;
+            }
         }
 
         const submitBtn = createUserForm.querySelector('button[type="submit"]');

@@ -411,14 +411,42 @@ async function verifyResetPhone(req, res) {
   }
 }
 
+/**
+ * Validates that a password satisfies security policy:
+ * - Minimum 8 characters
+ * - At least one uppercase letter (A-Z)
+ * - At least one lowercase letter (a-z)
+ * - At least one number (0-9)
+ * - At least one special character
+ */
+function validatePasswordPolicy(password) {
+  if (!password || typeof password !== 'string') {
+    return 'Password is required.';
+  }
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  const missing = [];
+  if (!/[A-Z]/.test(password)) missing.push('an uppercase letter (A-Z)');
+  if (!/[a-z]/.test(password)) missing.push('a lowercase letter (a-z)');
+  if (!/[0-9]/.test(password)) missing.push('a number (0-9)');
+  if (!/[^A-Za-z0-9]/.test(password)) missing.push('a special character (e.g. !@#$%^&*)');
+
+  if (missing.length > 0) {
+    return `Password must include ${missing.join(', ')}.`;
+  }
+  return null;
+}
+
 /** POST /api/auth/forgot-password/reset  { resetToken, newPassword } — Step 3 */
 async function resetPassword(req, res) {
   const { resetToken, newPassword } = req.body;
   if (!resetToken || !newPassword) {
     return res.status(400).json({ success: false, message: 'Missing required fields.' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
+  const passwordError = validatePasswordPolicy(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ success: false, message: passwordError });
   }
 
   try {
@@ -466,8 +494,9 @@ async function changePassword(req, res) {
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ success: false, message: 'Current and new password are required.' });
   }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ success: false, message: 'New password must be at least 8 characters.' });
+  const passwordError = validatePasswordPolicy(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ success: false, message: passwordError });
   }
   if (newPassword === currentPassword) {
     return res.status(400).json({ success: false, message: 'New password must be different from your current password.' });
