@@ -55,11 +55,27 @@
     margin-bottom: 1.25rem;
 }
 
-.toolbar-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    flex-wrap: nowrap;
+.attendance-toolbar .search-box {
+    width: 280px;
+    height: 42px;
+}
+
+.attendance-toolbar #filterStatus {
+    width: 150px;
+    height: 42px;
+    min-width: 140px;
+}
+
+.attendance-toolbar #filterSection {
+    min-width: 220px;
+    max-width: 320px;
+    height: 42px;
+}
+
+#btnOpenExcuseNotesModal {
+    height: 42px;
+    font-size: 0.88rem;
+    padding: 0 16px;
 }
 
 .search-box {
