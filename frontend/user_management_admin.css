@@ -312,3 +312,29 @@
     border-radius: 2px;
     padding: 0 2px;
 }
+
+/* Bulk Import Results Scrollable List */
+#bulkImportResults {
+    max-height: 280px;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+#bulkImportResults::-webkit-scrollbar {
+    width: 6px;
+}
+
+#bulkImportResults::-webkit-scrollbar-track {
+    background: #f8fafc;
+}
+
+#bulkImportResults::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#bulkImportResults::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

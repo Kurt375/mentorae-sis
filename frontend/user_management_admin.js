@@ -1912,7 +1912,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Results Log
             if (data.results && data.results.length > 0) {
-                resultsEl.className = 'mt-3 border rounded-3 overflow-hidden';
+                resultsEl.className = 'mt-3 border rounded-3';
             }
             resultsEl.innerHTML = data.results.map(r => {
                 const isCreated = r.status === 'created';
