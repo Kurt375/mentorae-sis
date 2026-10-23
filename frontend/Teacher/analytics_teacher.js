@@ -38,6 +38,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     let availableSections = [];
     let availableStrands = [];
     let currentRiskStudents = [];
+    let filteredRiskStudents = [];
+
+    // At-Risk Filter & Search DOM Elements
+    const riskSearchInput = document.getElementById('riskSearchInput');
+    const btnRiskSearchClear = document.getElementById('btnRiskSearchClear');
+    const riskFilterTier = document.getElementById('riskFilterTier');
+    const riskFilterCause = document.getElementById('riskFilterCause');
+    const riskFilterSubject = document.getElementById('riskFilterSubject');
+    const btnRiskResetFilters = document.getElementById('btnRiskResetFilters');
+    const riskResultsCounter = document.getElementById('riskResultsCounter');
+    const riskActiveFiltersBadges = document.getElementById('riskActiveFiltersBadges');
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -314,8 +325,273 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // =========================================================================
-    // 7. Load Student Risk Assessment Directory Cards
+    // 7. Load Student Risk Assessment Directory Cards & Filter Pipeline
     // =========================================================================
+
+    function populateRiskSubjectDropdown(students) {
+        if (!riskFilterSubject) return;
+        const currentVal = riskFilterSubject.value;
+        const subjectsSet = new Set();
+        (students || []).forEach(s => {
+            if (s.subjectName && s.subjectName.trim()) {
+                subjectsSet.add(s.subjectName.trim());
+            }
+        });
+
+        const subjects = Array.from(subjectsSet).sort();
+        let opts = '<option value="all">All Subjects</option>';
+        subjects.forEach(subj => {
+            opts += `<option value="${escapeHtml(subj)}">${escapeHtml(subj)}</option>`;
+        });
+        riskFilterSubject.innerHTML = opts;
+        if (subjectsSet.has(currentVal)) {
+            riskFilterSubject.value = currentVal;
+        } else {
+            riskFilterSubject.value = 'all';
+        }
+    }
+
+    function resetRiskFilters() {
+        if (riskSearchInput) riskSearchInput.value = '';
+        if (riskFilterTier) riskFilterTier.value = 'all';
+        if (riskFilterCause) riskFilterCause.value = 'all';
+        if (riskFilterSubject) riskFilterSubject.value = 'all';
+        applyRiskFiltersAndRender();
+    }
+
+    function applyRiskFiltersAndRender() {
+        if (!riskAssessmentDirectory) return;
+
+        if (!currentRiskStudents || currentRiskStudents.length === 0) {
+            filteredRiskStudents = [];
+            if (riskResultsCounter) riskResultsCounter.textContent = 'Showing 0 students';
+            if (riskActiveFiltersBadges) riskActiveFiltersBadges.innerHTML = '';
+            riskAssessmentDirectory.innerHTML = `
+                <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
+                    <i class="bi bi-person-check fs-2 d-block mb-2 text-success opacity-75"></i>
+                    <p class="m-0 fw-semibold">No students found matching the selected class criteria.</p>
+                    <span class="micro-text text-muted">Try selecting "All Strands" or "All Sections" above.</span>
+                </div>
+            `;
+            return;
+        }
+
+        const search = (riskSearchInput ? riskSearchInput.value : '').trim().toLowerCase();
+        const tier = riskFilterTier ? riskFilterTier.value : 'all';
+        const cause = riskFilterCause ? riskFilterCause.value : 'all';
+        const subj = riskFilterSubject ? riskFilterSubject.value : 'all';
+
+        // Toggle search clear button
+        if (btnRiskSearchClear) {
+            if (search.length > 0) {
+                btnRiskSearchClear.classList.remove('d-none');
+            } else {
+                btnRiskSearchClear.classList.add('d-none');
+            }
+        }
+
+        // Apply filters
+        filteredRiskStudents = currentRiskStudents.filter(s => {
+            // Risk Tier Filter
+            if (tier !== 'all') {
+                const sTier = (s.riskTier || s.risk || '').toLowerCase();
+                if (!sTier.startsWith(tier.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Root Cause Filter
+            if (cause === 'academic') {
+                const grade = Number(s.overallGrade);
+                const isFailingGrade = !isNaN(grade) && grade < 75;
+                const hasFailingDetail = s.detailText && /failing|at-risk subject/i.test(s.detailText);
+                if (!isFailingGrade && !hasFailingDetail) {
+                    return false;
+                }
+            } else if (cause === 'attendance') {
+                const att = Number(s.attendanceRate);
+                const isLowAttendance = !isNaN(att) && att < 75;
+                const hasAttDetail = s.detailText && /attendance/i.test(s.detailText);
+                if (!isLowAttendance && !hasAttDetail) {
+                    return false;
+                }
+            }
+
+            // Specific Subject Filter
+            if (subj !== 'all') {
+                const sSubj = (s.subjectName || '').toLowerCase();
+                const sDetail = (s.detailText || '').toLowerCase();
+                const targetSubj = subj.toLowerCase();
+                if (sSubj !== targetSubj && !sDetail.includes(targetSubj)) {
+                    return false;
+                }
+            }
+
+            // Real-Time Search Match (Name, LRN/ID, Subject, Section, Remarks)
+            if (search) {
+                const name = (s.name || '').toLowerCase();
+                const idNumber = (s.idNumber || '').toLowerCase();
+                const subject = (s.subjectName || '').toLowerCase();
+                const section = (s.section || '').toLowerCase();
+                const detail = (s.detailText || '').replace(/<[^>]+>/g, '').toLowerCase();
+
+                if (!name.includes(search) &&
+                    !idNumber.includes(search) &&
+                    !subject.includes(search) &&
+                    !section.includes(search) &&
+                    !detail.includes(search)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Update Results Counter & Filter Indicator Badges
+        const totalCount = currentRiskStudents.length;
+        const filteredCount = filteredRiskStudents.length;
+        const hasActiveFilters = Boolean(search || tier !== 'all' || cause !== 'all' || subj !== 'all');
+
+        if (riskResultsCounter) {
+            if (hasActiveFilters) {
+                riskResultsCounter.innerHTML = `Showing <strong>${filteredCount}</strong> of <strong>${totalCount}</strong> at-risk learners <span class="badge bg-success-subtle text-success ms-1">Filtered</span>`;
+            } else {
+                riskResultsCounter.innerHTML = `Showing all <strong>${totalCount}</strong> evaluated learners`;
+            }
+        }
+
+        if (riskActiveFiltersBadges) {
+            const badges = [];
+            if (search) {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Search: "${escapeHtml(search)}"
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="search"></i>
+                    </span>
+                `);
+            }
+            if (tier !== 'all') {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Tier: ${escapeHtml(tier)}
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="tier"></i>
+                    </span>
+                `);
+            }
+            if (cause !== 'all') {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Cause: ${cause === 'academic' ? 'Academic Failure' : 'Attendance'}
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="cause"></i>
+                    </span>
+                `);
+            }
+            if (subj !== 'all') {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Subject: ${escapeHtml(subj)}
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="subj"></i>
+                    </span>
+                `);
+            }
+            riskActiveFiltersBadges.innerHTML = badges.join('');
+
+            riskActiveFiltersBadges.querySelectorAll('.btn-remove-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const f = btn.getAttribute('data-filter');
+                    if (f === 'search' && riskSearchInput) riskSearchInput.value = '';
+                    if (f === 'tier' && riskFilterTier) riskFilterTier.value = 'all';
+                    if (f === 'cause' && riskFilterCause) riskFilterCause.value = 'all';
+                    if (f === 'subj' && riskFilterSubject) riskFilterSubject.value = 'all';
+                    applyRiskFiltersAndRender();
+                });
+            });
+        }
+
+        // Render Empty State if no students match
+        if (filteredRiskStudents.length === 0) {
+            riskAssessmentDirectory.innerHTML = `
+                <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
+                    <i class="bi bi-search fs-2 d-block mb-2 text-warning opacity-75"></i>
+                    <p class="m-0 fw-semibold">No students match your active search or filter criteria.</p>
+                    <span class="micro-text text-muted">Try clearing your search term or adjusting the risk tier dropdown.</span>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" id="btnEmptyResetFilters">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const btnEmptyReset = document.getElementById('btnEmptyResetFilters');
+            if (btnEmptyReset) {
+                btnEmptyReset.addEventListener('click', resetRiskFilters);
+            }
+            return;
+        }
+
+        // Render Filtered Cards
+        riskAssessmentDirectory.innerHTML = filteredRiskStudents.map((s, idx) => {
+            const actionButton = s.action.disabled
+                ? `<button type="button" class="btn btn-action-recommend btn-secondary w-100" disabled>Not Applicable</button>`
+                : `<button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 text-white shadow-xs text-truncate" data-index="${idx}">
+                    <i class="bi bi-journal-plus me-1"></i> Assign Lesson
+                   </button>`;
+
+            return `
+                <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-4">
+                    <div class="row align-items-center g-3 text-center text-sm-start">
+                        <div class="col-12 col-sm-6">
+                            <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(s.name)}</h4>
+                            <p class="m-0 micro-text text-muted">${escapeHtml(s.section)}${s.idNumber ? ` &bull; <code class="text-secondary">${escapeHtml(s.idNumber)}</code>` : ''}</p>
+                            <p class="m-0 micro-text ${s.detailColor} mt-1">${s.detailText}</p>
+                        </div>
+                        <div class="col-12 col-sm-3 text-center border-start-sm">
+                            <span class="badge risk-tag-badge ${s.riskClass}">${escapeHtml(s.riskTier || s.risk)}</span>
+                        </div>
+                        <div class="col-12 col-sm-3 text-center text-sm-end px-md-3">
+                            ${actionButton}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Wire up Assign Lesson buttons to filtered list
+        riskAssessmentDirectory.querySelectorAll('.btn-assign-lesson').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-index'), 10);
+                const student = filteredRiskStudents[idx];
+                if (student) {
+                    openAssignLessonModal(student);
+                }
+            });
+        });
+    }
+
+    // Attach At-Risk Filter Event Listeners
+    if (riskSearchInput) {
+        riskSearchInput.addEventListener('input', applyRiskFiltersAndRender);
+    }
+    if (btnRiskSearchClear) {
+        btnRiskSearchClear.addEventListener('click', () => {
+            if (riskSearchInput) riskSearchInput.value = '';
+            applyRiskFiltersAndRender();
+        });
+    }
+    if (riskFilterTier) {
+        riskFilterTier.addEventListener('change', applyRiskFiltersAndRender);
+    }
+    if (riskFilterCause) {
+        riskFilterCause.addEventListener('change', applyRiskFiltersAndRender);
+    }
+    if (riskFilterSubject) {
+        riskFilterSubject.addEventListener('change', applyRiskFiltersAndRender);
+    }
+    if (btnRiskResetFilters) {
+        btnRiskResetFilters.addEventListener('click', resetRiskFilters);
+    }
+
     async function loadRiskAssessment() {
         if (!riskAssessmentDirectory) return;
         riskAssessmentDirectory.innerHTML = `
@@ -330,62 +606,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await authedFetch(`/api/analytics/risk-assessment${query}`, token);
             if (!data.success || !Array.isArray(data.students)) {
                 currentRiskStudents = [];
+                filteredRiskStudents = [];
                 riskAssessmentDirectory.innerHTML = '<p class="text-danger small py-3 text-center mb-0">Failed to load risk assessment data.</p>';
                 return;
             }
 
             currentRiskStudents = data.students;
-
-            if (data.students.length === 0) {
-                riskAssessmentDirectory.innerHTML = `
-                    <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
-                        <i class="bi bi-person-check fs-2 d-block mb-2 text-success opacity-75"></i>
-                        <p class="m-0 fw-semibold">No students found matching the selected filter criteria.</p>
-                        <span class="micro-text text-muted">Try selecting "All Strands" or "All Sections".</span>
-                    </div>
-                `;
-                return;
-            }
-
-            riskAssessmentDirectory.innerHTML = data.students.map((s, idx) => {
-                const actionButton = s.action.disabled
-                    ? `<button type="button" class="btn btn-action-recommend btn-secondary w-100" disabled>Not Applicable</button>`
-                    : `<button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 text-white shadow-xs text-truncate" data-index="${idx}">
-                        <i class="bi bi-journal-plus me-1"></i> Assign Lesson
-                       </button>`;
-
-                return `
-                    <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-4">
-                        <div class="row align-items-center g-3 text-center text-sm-start">
-                            <div class="col-12 col-sm-6">
-                                <h4 class="fw-bold m-0 fs-6 text-dark">${s.name}</h4>
-                                <p class="m-0 micro-text text-muted">${s.section}</p>
-                                <p class="m-0 micro-text ${s.detailColor} mt-1">${s.detailText}</p>
-                            </div>
-                            <div class="col-12 col-sm-3 text-center border-start-sm">
-                                <span class="badge risk-tag-badge ${s.riskClass}">${s.riskTier}</span>
-                            </div>
-                            <div class="col-12 col-sm-3 text-center text-sm-end px-md-3">
-                                ${actionButton}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // Wire up Assign Lesson buttons
-            riskAssessmentDirectory.querySelectorAll('.btn-assign-lesson').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const idx = parseInt(btn.getAttribute('data-index'), 10);
-                    const student = currentRiskStudents[idx];
-                    if (student) {
-                        openAssignLessonModal(student);
-                    }
-                });
-            });
+            populateRiskSubjectDropdown(currentRiskStudents);
+            applyRiskFiltersAndRender();
         } catch (err) {
             console.error('loadRiskAssessment error:', err);
             currentRiskStudents = [];
+            filteredRiskStudents = [];
             riskAssessmentDirectory.innerHTML = '<p class="text-danger small py-3 text-center mb-0">Error loading student risk assessment.</p>';
         }
     }
@@ -832,6 +1064,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return ws;
             }
 
+            // Check if active filters are applied to export filtered records
+            const hasActiveFilters = Boolean(filteredRiskStudents && filteredRiskStudents.length > 0 && filteredRiskStudents.length < currentRiskStudents.length);
+            if (hasActiveFilters) {
+                const wsFiltered = buildStyledWorksheet(filteredRiskStudents, "ACTIVE FILTERED AT-RISK STUDENT ROSTER");
+                XLSX.utils.book_append_sheet(wb, wsFiltered, "Filtered Selection");
+            }
+
             // 1. Sheet: Priority At-Risk (High & Medium)
             const wsPriority = buildStyledWorksheet(priorityStudents.length > 0 ? priorityStudents : currentRiskStudents, "AT-RISK PRIORITY INTERVENTION ROSTER");
 
@@ -860,13 +1099,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            const studentsToPrint = (filteredRiskStudents && filteredRiskStudents.length > 0)
+                ? filteredRiskStudents
+                : currentRiskStudents;
+
             const gradeText = filterGradeLevel && filterGradeLevel.value !== 'all' ? `Grade ${filterGradeLevel.value}` : 'All Grades';
             const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Strands';
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
-            const highCount = currentRiskStudents.filter(s => s.risk === 'High').length;
-            const mediumCount = currentRiskStudents.filter(s => s.risk === 'Medium').length;
-            const lowCount = currentRiskStudents.filter(s => s.risk === 'Low').length;
+            const highCount = studentsToPrint.filter(s => s.risk === 'High').length;
+            const mediumCount = studentsToPrint.filter(s => s.risk === 'Medium').length;
+            const lowCount = studentsToPrint.filter(s => s.risk === 'Low').length;
 
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
@@ -875,7 +1118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             let rowsHtml = '';
-            currentRiskStudents.forEach((s, idx) => {
+            studentsToPrint.forEach((s, idx) => {
                 const cleanDetail = (s.detailText || '').replace(/<[^>]+>/g, '').trim();
                 let badgeColor = '#198754';
                 let badgeBg = '#d1e7dd';

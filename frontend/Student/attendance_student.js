@@ -234,28 +234,76 @@ document.addEventListener('DOMContentLoaded', () => {
         absent: 'bg-danger-subtle text-danger',
     };
 
+    let allAttendanceHistory = [];
+    const attendanceSearchInput = document.getElementById('attendanceSearchInput');
+    const attendanceStatusFilter = document.getElementById('attendanceStatusFilter');
+
+    function renderAttendanceLogRows() {
+        const tbody = document.getElementById('attendanceLogBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!allAttendanceHistory || !allAttendanceHistory.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No attendance records yet.</td></tr>';
+            return;
+        }
+
+        const search = (attendanceSearchInput ? attendanceSearchInput.value : '').trim().toLowerCase();
+        const status = attendanceStatusFilter ? attendanceStatusFilter.value : 'all';
+
+        const filtered = allAttendanceHistory.filter(row => {
+            if (status !== 'all' && (row.status || '').toLowerCase() !== status.toLowerCase()) {
+                return false;
+            }
+            if (search) {
+                const formatted = formatDate(row.scan_date).toLowerCase();
+                const rawDate = (row.scan_date || '').toLowerCase();
+                const statusText = (row.status || '').toLowerCase();
+                if (!formatted.includes(search) && !rawDate.includes(search) && !statusText.includes(search)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No attendance records matching your filter.</td></tr>';
+            return;
+        }
+
+        for (const row of filtered) {
+            const tr = document.createElement('tr');
+            const label = row.status.charAt(0).toUpperCase() + row.status.slice(1);
+            tr.innerHTML = `
+                <td class="px-3 py-2.5 fw-medium text-dark">${formatDate(row.scan_date)}</td>
+                <td class="px-3 py-2.5"><span class="badge attendance-pill ${statusPillClass[row.status] || ''}">${label}</span></td>
+                <td class="px-3 py-2.5 text-secondary">${formatTime(row.scan_time)}</td>
+                <td class="px-3 py-2.5 text-muted micro-text">${row.status === 'present' ? 'On Time' : (row.remarks || '')}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    if (attendanceSearchInput) {
+        attendanceSearchInput.addEventListener('input', renderAttendanceLogRows);
+    }
+    if (attendanceStatusFilter) {
+        attendanceStatusFilter.addEventListener('change', renderAttendanceLogRows);
+    }
+
     async function loadHistory() {
         try {
             const data = await authedFetch('/api/attendance/history', token);
-            const tbody = document.getElementById('attendanceLogBody');
-            tbody.innerHTML = '';
-            if (!data.success || !data.history.length) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No attendance records yet.</td></tr>';
-                return;
+            if (!data.success || !Array.isArray(data.history)) {
+                allAttendanceHistory = [];
+            } else {
+                allAttendanceHistory = data.history;
             }
-            for (const row of data.history) {
-                const tr = document.createElement('tr');
-                const label = row.status.charAt(0).toUpperCase() + row.status.slice(1);
-                tr.innerHTML = `
-                    <td class="px-3 py-2.5 fw-medium text-dark">${formatDate(row.scan_date)}</td>
-                    <td class="px-3 py-2.5"><span class="badge attendance-pill ${statusPillClass[row.status] || ''}">${label}</span></td>
-                    <td class="px-3 py-2.5 text-secondary">${formatTime(row.scan_time)}</td>
-                    <td class="px-3 py-2.5 text-muted micro-text">${row.status === 'present' ? 'On Time' : ''}</td>
-                `;
-                tbody.appendChild(tr);
-            }
+            renderAttendanceLogRows();
         } catch (err) {
             console.error(err);
+            allAttendanceHistory = [];
+            renderAttendanceLogRows();
         }
     }
 
