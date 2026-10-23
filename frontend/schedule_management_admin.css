@@ -211,3 +211,21 @@
     background-color: var(--mentorae-green);
     border-color: var(--mentorae-green);
 }
+
+/* Master Schedule Filter Toolbar Spacing */
+.schedule-filter-toolbar {
+    padding: 14px 16px !important;
+    background-color: #f8fafc !important;
+}
+
+.schedule-filter-toolbar .form-select-sm,
+.schedule-filter-toolbar .btn-sm {
+    border-color: #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.schedule-filter-toolbar .form-select-sm:focus {
+    border-color: var(--mentorae-green);
+    box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.15);
+}
