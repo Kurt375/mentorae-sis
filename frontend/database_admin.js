@@ -398,8 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isStrands = currentCategory === 'strands';
         const isSections = currentCategory === 'sections';
         const hasActions = isStrands || isSections;
-        const headersHtml = currentCategoryHeaders.map(h => `<th class="px-3 py-2.5">${escapeHtml(h)}</th>`).join('');
-        tableHead.innerHTML = `<tr class="table-header-row text-white">${headersHtml}${hasActions ? '<th class="px-3 py-2.5 text-end">Actions</th>' : ''}</tr>`;
+        const headersHtml = currentCategoryHeaders.map(h => `<th class="px-3 py-2.5 text-nowrap">${escapeHtml(h)}</th>`).join('');
+        tableHead.innerHTML = `<tr class="table-header-row text-white text-nowrap">${headersHtml}${hasActions ? '<th class="px-3 py-2.5 text-end text-nowrap">Actions</th>' : ''}</tr>`;
 
         if (!currentCategoryRecords.length) {
             const colSpan = currentCategoryHeaders.length + (hasActions ? 1 : 0);
@@ -502,20 +502,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isStrands) {
             tableBody.innerHTML = filtered.map(r => `
-                <tr>
-                    <td class="px-3 py-2 fw-semibold text-dark">${escapeHtml(r.f1 || r.code)}</td>
-                    <td class="px-3 py-2">${escapeHtml(r.f2 || r.title)}</td>
-                    <td class="px-3 py-2"><span class="badge bg-light text-dark border">${escapeHtml(r.f3 || r.department)}</span></td>
-                    <td class="px-3 py-2">${escapeHtml(r.f4)}</td>
+                <tr class="align-middle text-nowrap">
+                    <td class="px-3 py-2 fw-semibold text-dark text-nowrap">${escapeHtml(r.f1 || r.code)}</td>
+                    <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f2 || r.title)}</td>
+                    <td class="px-3 py-2 text-nowrap"><span class="badge bg-light text-dark border text-nowrap">${escapeHtml(r.f3 || r.department)}</span></td>
+                    <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f4)}</td>
                     <td class="px-3 py-2 text-end text-nowrap">
-                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2.5 btn-edit-strand me-1"
+                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2.5 btn-edit-strand me-1 text-nowrap"
                             data-id="${r.id}"
                             data-code="${escapeHtml(r.code || r.f1)}"
                             data-title="${escapeHtml(r.title || r.f2)}"
                             data-department="${escapeHtml(r.department || r.f3)}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-delete-strand"
+                        <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-delete-strand text-nowrap"
                             data-id="${r.id}"
                             data-code="${escapeHtml(r.code || r.f1)}"
                             data-title="${escapeHtml(r.title || r.f2)}"
@@ -529,23 +529,23 @@ document.addEventListener('DOMContentLoaded', () => {
             attachStrandRowEvents();
         } else if (isSections) {
             tableBody.innerHTML = filtered.map(r => `
-                <tr>
-                    <td class="px-3 py-2 fw-semibold text-dark">${escapeHtml(r.f1 || r.name)}</td>
-                    <td class="px-3 py-2"><span class="badge bg-light text-dark border">${escapeHtml(r.f2 || r.strandCode)}</span></td>
-                    <td class="px-3 py-2"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">${escapeHtml(r.f3 || ('Grade ' + r.gradeLevel))}</span></td>
-                    <td class="px-3 py-2">
-                        <div>
+                <tr class="align-middle text-nowrap">
+                    <td class="px-3 py-2 fw-semibold text-dark text-nowrap">${escapeHtml(r.f1 || r.name)}</td>
+                    <td class="px-3 py-2 text-nowrap"><span class="badge bg-light text-dark border text-nowrap">${escapeHtml(r.f2 || r.strandCode)}</span></td>
+                    <td class="px-3 py-2 text-nowrap"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 text-nowrap">${escapeHtml(r.f3 || ('Grade ' + r.gradeLevel))}</span></td>
+                    <td class="px-3 py-2 text-nowrap">
+                        <div class="text-nowrap">
                             ${r.adviserName && r.adviserName !== 'Unassigned'
-                        ? `<div class="d-flex align-items-center gap-1.5"><i class="bi bi-person-badge text-success"></i><span class="fw-semibold">${escapeHtml(r.adviserName)}</span> <span class="badge bg-success-subtle text-success border border-success-subtle micro-text">Lead</span></div>`
-                        : '<span class="text-muted fst-italic">Unassigned</span>'}
+                        ? `<div class="d-flex align-items-center gap-1.5 flex-nowrap text-nowrap"><i class="bi bi-person-badge text-success flex-shrink-0"></i><span class="fw-semibold text-nowrap">${escapeHtml(r.adviserName)}</span> <span class="badge bg-success-subtle text-success border border-success-subtle micro-text text-nowrap flex-shrink-0">Lead</span></div>`
+                        : '<span class="text-muted fst-italic text-nowrap">Unassigned</span>'}
                         </div>
                         ${r.coAdviserName && r.coAdviserName !== 'Unassigned'
-                        ? `<div class="d-flex align-items-center gap-1.5 mt-1 text-secondary micro-text"><i class="bi bi-person-check text-primary"></i><span>Co-Adv: ${escapeHtml(r.coAdviserName)}</span></div>`
+                        ? `<div class="d-flex align-items-center gap-1.5 mt-1 text-secondary micro-text flex-nowrap text-nowrap"><i class="bi bi-person-check text-primary flex-shrink-0"></i><span class="text-nowrap">Co-Adv: ${escapeHtml(r.coAdviserName)}</span></div>`
                         : ''}
                     </td>
-                    <td class="px-3 py-2 fw-semibold">${escapeHtml(r.f5 || (r.enrollees + ' Students'))}</td>
+                    <td class="px-3 py-2 fw-semibold text-nowrap">${escapeHtml(r.f5 || (r.enrollees + ' Students'))}</td>
                     <td class="px-3 py-2 text-end text-nowrap">
-                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2.5 btn-edit-section me-1"
+                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2.5 btn-edit-section me-1 text-nowrap"
                             data-id="${r.id}"
                             data-name="${escapeHtml(r.name || r.f1)}"
                             data-strand-id="${r.strandId || ''}"
@@ -554,7 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             data-co-adviser-id="${r.coAdviserId || ''}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-delete-section"
+                        <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2.5 btn-delete-section text-nowrap"
                             data-id="${r.id}"
                             data-name="${escapeHtml(r.name || r.f1)}"
                             data-enrollees="${r.enrollees || 0}">
@@ -569,8 +569,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tableBody.innerHTML = filtered.map(r => {
                 const isSuccess = r.success === true || r.status === 'Success';
                 const statusBadge = isSuccess
-                    ? '<span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Success</span>'
-                    : '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Failed Attempt</span>';
+                    ? '<span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2 py-1 text-nowrap"><i class="bi bi-check-circle-fill me-1"></i>Success</span>'
+                    : '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold px-2 py-1 text-nowrap"><i class="bi bi-x-circle-fill me-1"></i>Failed Attempt</span>';
 
                 let roleBadgeClass = 'bg-secondary-subtle text-secondary';
                 if (r.role === 'ADMIN') roleBadgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
@@ -579,16 +579,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (r.role === 'PARENT') roleBadgeClass = 'bg-warning-subtle text-dark border border-warning-subtle';
 
                 return `
-                    <tr>
-                        <td class="px-3 py-2 fw-semibold text-dark">
-                            <div>${escapeHtml(r.f1 || r.user)}</div>
+                    <tr class="align-middle text-nowrap">
+                        <td class="px-3 py-2 fw-semibold text-dark text-nowrap">
+                            <div class="text-nowrap">${escapeHtml(r.f1 || r.user)}</div>
                         </td>
-                        <td class="px-3 py-2">
-                            <span class="badge ${roleBadgeClass} px-2 py-1" style="font-size: 0.75rem;">${escapeHtml(r.f2 || r.role)}</span>
+                        <td class="px-3 py-2 text-nowrap">
+                            <span class="badge ${roleBadgeClass} px-2 py-1 text-nowrap" style="font-size: 0.75rem;">${escapeHtml(r.f2 || r.role)}</span>
                         </td>
-                        <td class="px-3 py-2">${statusBadge}</td>
-                        <td class="px-3 py-2"><code class="small text-muted">${escapeHtml(r.f4 || r.ip)}</code></td>
-                        <td class="px-3 py-2 text-muted small">${escapeHtml(r.f5 || r.timestamp)}</td>
+                        <td class="px-3 py-2 text-nowrap">${statusBadge}</td>
+                        <td class="px-3 py-2 text-nowrap"><code class="small text-muted text-nowrap">${escapeHtml(r.f4 || r.ip)}</code></td>
+                        <td class="px-3 py-2 text-muted small text-nowrap">${escapeHtml(r.f5 || r.timestamp)}</td>
                     </tr>
                 `;
             }).join('');
@@ -600,21 +600,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (r.f4 === '3rd Term') badgeClass = 'bg-warning-subtle text-dark border border-warning-subtle';
 
                 return `
-                    <tr>
-                        <td class="px-3 py-2 fw-semibold text-dark">${escapeHtml(r.f1)}</td>
-                        <td class="px-3 py-2">${escapeHtml(r.f2)}</td>
-                        <td class="px-3 py-2"><span class="badge bg-light text-dark border">${escapeHtml(r.f3)}</span></td>
-                        <td class="px-3 py-2"><span class="badge ${badgeClass} px-2 py-1 rounded-pill">${escapeHtml(r.f4)}</span></td>
+                    <tr class="align-middle text-nowrap">
+                        <td class="px-3 py-2 fw-semibold text-dark text-nowrap">${escapeHtml(r.f1)}</td>
+                        <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f2)}</td>
+                        <td class="px-3 py-2 text-nowrap"><span class="badge bg-light text-dark border text-nowrap">${escapeHtml(r.f3)}</span></td>
+                        <td class="px-3 py-2 text-nowrap"><span class="badge ${badgeClass} px-2 py-1 rounded-pill text-nowrap">${escapeHtml(r.f4)}</span></td>
                     </tr>
                 `;
             }).join('');
         } else {
             tableBody.innerHTML = filtered.map(r => `
-                <tr>
-                    <td class="px-3 py-2">${escapeHtml(r.f1)}</td>
-                    <td class="px-3 py-2">${escapeHtml(r.f2)}</td>
-                    <td class="px-3 py-2">${escapeHtml(r.f3)}</td>
-                    <td class="px-3 py-2">${escapeHtml(r.f4)}</td>
+                <tr class="align-middle text-nowrap">
+                    <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f1)}</td>
+                    <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f2)}</td>
+                    <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f3)}</td>
+                    <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f4)}</td>
                 </tr>
             `).join('');
         }

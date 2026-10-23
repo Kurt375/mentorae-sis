@@ -164,11 +164,27 @@
 /* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
 .table-header-row {
     background-color: var(--mentorae-green) !important;
+    white-space: nowrap !important;
 }
 
 .table-header-row th {
     font-weight: 500;
     letter-spacing: 0.2px;
+    white-space: nowrap !important;
+    vertical-align: middle;
+}
+
+.db-record-table th,
+.db-record-table td {
+    vertical-align: middle;
+}
+
+.db-record-table th {
+    white-space: nowrap !important;
+}
+
+.db-record-table td {
+    white-space: nowrap;
 }
 
 .db-record-table tbody tr {
@@ -197,6 +213,7 @@
 /* Database Records Table Scrollable Container */
 .table-scroll-container {
     max-height: 520px;
+    overflow-x: auto;
     overflow-y: auto;
     position: relative;
     scrollbar-width: thin;
@@ -230,4 +247,5 @@
     background-color: var(--mentorae-green) !important;
     color: #ffffff !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    white-space: nowrap !important;
 }
