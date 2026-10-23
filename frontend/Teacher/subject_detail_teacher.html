@@ -782,10 +782,22 @@
                     </div>
 
                     <!-- Search & Filter Bar -->
-                    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2 mb-3">
-                        <div class="input-group input-group-sm" style="max-width: 320px;">
-                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                            <input type="text" class="form-control border-start-0 ps-0" id="quizStudentSearchInput" placeholder="Search student name or LRN...">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3 flex-wrap">
+                        <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap">
+                            <div class="input-group input-group-sm" style="max-width: 250px;">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0 ps-0" id="quizStudentSearchInput" placeholder="Search student name or LRN...">
+                            </div>
+                            <select class="form-select form-select-sm" id="quizFilterSubmission" style="width: 175px;">
+                                <option value="all" selected>All Submissions</option>
+                                <option value="attempted">Attempted / Taken</option>
+                                <option value="not-attempted">Not Taken / Pending</option>
+                            </select>
+                            <select class="form-select form-select-sm" id="quizFilterPerformance" style="width: 165px;">
+                                <option value="all" selected>All Performance</option>
+                                <option value="passed">Passed (&ge;60%)</option>
+                                <option value="failed">Failed (&lt;60%)</option>
+                            </select>
                         </div>
                         <span class="micro-text text-muted" id="quizStudentCountDisplay">Showing 0 students</span>
                     </div>

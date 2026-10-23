@@ -106,6 +106,13 @@
                             <span class="input-group-text bg-white border-end-0 text-muted ps-3 pe-2"><i class="bi bi-search"></i></span>
                             <input type="text" class="form-control border-start-0 ps-1" id="searchBar" placeholder="Search student or ID...">
                         </div>
+                        <select class="form-select custom-filter-dropdown shadow-sm" id="filterStatus" aria-label="Filter Status" style="max-width: 160px;">
+                            <option value="all" selected>All Statuses</option>
+                            <option value="present">Present</option>
+                            <option value="late">Late</option>
+                            <option value="excused">Excused</option>
+                            <option value="absent">Absent</option>
+                        </select>
                         <select class="form-select custom-filter-dropdown shadow-sm" id="filterSection" aria-label="Filter Section">
                             <!-- Sections are populated dynamically by JavaScript -->
                         </select>

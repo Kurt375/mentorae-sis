@@ -56,6 +56,39 @@
     </header>
 
     <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
+      <!-- Search & Filters Toolbar -->
+      <div class="card border-0 shadow-sm p-3 rounded-3 bg-white mb-3">
+        <div class="row g-2 align-items-center">
+          <div class="col-12 col-md-5">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" id="topicSearchInput" placeholder="Search topic title or teacher name...">
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="topicStatusFilter">
+              <option value="pending" selected>Pending Review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="all">All Statuses</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select form-select-sm" id="topicSubjectFilter">
+              <option value="all" selected>All Subjects</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-1 text-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 fw-semibold" id="btnResetTopicFilters" title="Reset Filters">
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+          </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2.5 pt-2 border-top micro-text text-muted">
+          <span id="topicRequestsCount" class="fw-semibold text-dark">Loading requests...</span>
+        </div>
+      </div>
+
       <div id="topicRequestsContainer" class="d-flex flex-column gap-3">
         <!-- Requests will be rendered here by JS -->
       </div>

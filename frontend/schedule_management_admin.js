@@ -644,29 +644,94 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function populateScheduleFilterDropdowns() {
+        const teacherFilter = document.getElementById('filterScheduleTeacher');
+        const sectionFilter = document.getElementById('filterScheduleSection');
+
+        if (teacherFilter) {
+            const currentTeacher = teacherFilter.value;
+            const teachers = Array.from(new Set(allSchedules.map(s => s.teacher).filter(Boolean))).sort();
+            teacherFilter.innerHTML = '<option value="all" selected>All Teachers</option>' +
+                teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+            if (teachers.includes(currentTeacher)) teacherFilter.value = currentTeacher;
+        }
+
+        if (sectionFilter) {
+            const currentSec = sectionFilter.value;
+            const sections = Array.from(new Set(allSchedules.map(s => s.section).filter(Boolean))).sort();
+            sectionFilter.innerHTML = '<option value="all" selected>All Sections</option>' +
+                sections.map(s => `<option value="${s}">${s}</option>`).join('');
+            if (sections.includes(currentSec)) sectionFilter.value = currentSec;
+        }
+    }
+
     function filterAndRender() {
         const term = (searchInput ? searchInput.value : '').toLowerCase().trim();
+        const dayFilter = document.getElementById('filterScheduleDay');
+        const teacherFilter = document.getElementById('filterScheduleTeacher');
+        const sectionFilter = document.getElementById('filterScheduleSection');
+        const termFilter = document.getElementById('filterScheduleTerm');
+
+        const selectedDay = dayFilter ? dayFilter.value : 'all';
+        const selectedTeacher = teacherFilter ? teacherFilter.value : 'all';
+        const selectedSection = sectionFilter ? sectionFilter.value : 'all';
+        const selectedTerm = termFilter ? termFilter.value : 'all';
+
         const grouped = groupSchedules(allSchedules);
-        if (!term) {
-            renderGroupedSchedules(grouped);
-            return;
-        }
-        const filtered = grouped.filter(g =>
-            g.teacher.toLowerCase().includes(term) ||
-            g.subject.toLowerCase().includes(term) ||
-            g.section.toLowerCase().includes(term) ||
-            g.strand.toLowerCase().includes(term) ||
-            (g.quarter && g.quarter.toLowerCase().includes(term)) ||
-            g.displayDay.toLowerCase().includes(term) ||
-            g.days.some(d => d.toLowerCase().includes(term))
-        );
+        const filtered = grouped.filter(g => {
+            if (selectedDay !== 'all' && (!g.days || !g.days.includes(selectedDay))) {
+                return false;
+            }
+            if (selectedTeacher !== 'all' && (g.teacher || '').toLowerCase() !== selectedTeacher.toLowerCase()) {
+                return false;
+            }
+            if (selectedSection !== 'all' && (g.section || '').toLowerCase() !== selectedSection.toLowerCase()) {
+                return false;
+            }
+            if (selectedTerm !== 'all' && (g.quarter || '').toLowerCase() !== selectedTerm.toLowerCase()) {
+                return false;
+            }
+            if (term) {
+                const matchTerm = g.teacher.toLowerCase().includes(term) ||
+                    g.subject.toLowerCase().includes(term) ||
+                    g.section.toLowerCase().includes(term) ||
+                    g.strand.toLowerCase().includes(term) ||
+                    (g.quarter && g.quarter.toLowerCase().includes(term)) ||
+                    g.displayDay.toLowerCase().includes(term) ||
+                    g.days.some(d => d.toLowerCase().includes(term));
+                if (!matchTerm) return false;
+            }
+            return true;
+        });
         renderGroupedSchedules(filtered);
     }
 
     async function loadSchedules() {
         const data = await authedFetch('/api/schedules', token);
         allSchedules = data && data.success ? data.schedules : [];
+        populateScheduleFilterDropdowns();
         filterAndRender();
+    }
+
+    const filterScheduleDay = document.getElementById('filterScheduleDay');
+    const filterScheduleTeacher = document.getElementById('filterScheduleTeacher');
+    const filterScheduleSection = document.getElementById('filterScheduleSection');
+    const filterScheduleTerm = document.getElementById('filterScheduleTerm');
+    const btnResetScheduleFilters = document.getElementById('btnResetScheduleFilters');
+
+    if (filterScheduleDay) filterScheduleDay.addEventListener('change', filterAndRender);
+    if (filterScheduleTeacher) filterScheduleTeacher.addEventListener('change', filterAndRender);
+    if (filterScheduleSection) filterScheduleSection.addEventListener('change', filterAndRender);
+    if (filterScheduleTerm) filterScheduleTerm.addEventListener('change', filterAndRender);
+    if (btnResetScheduleFilters) {
+        btnResetScheduleFilters.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (filterScheduleDay) filterScheduleDay.value = 'all';
+            if (filterScheduleTeacher) filterScheduleTeacher.value = 'all';
+            if (filterScheduleSection) filterScheduleSection.value = 'all';
+            if (filterScheduleTerm) filterScheduleTerm.value = 'all';
+            filterAndRender();
+        });
     }
 
     if (searchInput) {

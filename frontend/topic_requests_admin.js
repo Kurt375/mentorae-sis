@@ -8,9 +8,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeFlashcardsRequestId = null;
 
     // --- Data Loading and Saving ---
+    function populateTopicSubjectFilter() {
+        const subjectSelect = document.getElementById('topicSubjectFilter');
+        if (!subjectSelect) return;
+        const currentVal = subjectSelect.value;
+        const set = new Set();
+        topicRequests.forEach(r => {
+            if (r.subjectName && r.subjectName.trim()) set.add(r.subjectName.trim());
+        });
+        const list = Array.from(set).sort();
+        let html = '<option value="all" selected>All Subjects</option>';
+        list.forEach(subj => {
+            html += `<option value="${escapeHtml(subj)}">${escapeHtml(subj)}</option>`;
+        });
+        subjectSelect.innerHTML = html;
+        if (set.has(currentVal)) subjectSelect.value = currentVal;
+    }
+
     async function loadData() {
         try {
-            const data = await authedFetch('/api/content/topic-requests?status=pending', token);
+            const data = await authedFetch('/api/content/topic-requests', token);
             if (data && data.success) {
                 topicRequests = data.requests || [];
             } else {
@@ -20,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Failed to load topic requests from API:', e);
             topicRequests = [];
         }
+        populateTopicSubjectFilter();
         renderTopicRequests();
         highlightRequestFromUrl();
     }
@@ -1262,22 +1280,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UI Rendering ---
     function renderTopicRequests() {
         const container = document.getElementById('topicRequestsContainer');
+        const countEl = document.getElementById('topicRequestsCount');
         if (!container) return;
 
-        container.innerHTML = '';
-        const pendingRequests = topicRequests.filter(r => r.status === 'pending');
+        const searchInput = document.getElementById('topicSearchInput');
+        const statusFilter = document.getElementById('topicStatusFilter');
+        const subjectFilter = document.getElementById('topicSubjectFilter');
 
-        if (pendingRequests.length === 0) {
+        const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
+        const status = statusFilter ? statusFilter.value : 'pending';
+        const subj = subjectFilter ? subjectFilter.value : 'all';
+
+        const filtered = topicRequests.filter(r => {
+            if (status !== 'all' && (r.status || 'pending').toLowerCase() !== status.toLowerCase()) {
+                return false;
+            }
+            if (subj !== 'all' && (r.subjectName || '').toLowerCase() !== subj.toLowerCase()) {
+                return false;
+            }
+            if (search) {
+                const title = (r.title || '').toLowerCase();
+                const desc = (r.description || '').toLowerCase();
+                const teacher = (r.requester || '').toLowerCase();
+                const subject = (r.subjectName || '').toLowerCase();
+                if (!title.includes(search) && !desc.includes(search) && !teacher.includes(search) && !subject.includes(search)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        if (countEl) {
+            countEl.innerHTML = `Showing <strong>${filtered.length}</strong> of <strong>${topicRequests.length}</strong> total requests`;
+        }
+
+        container.innerHTML = '';
+        if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="card p-4 text-center border-dashed">
-                    <i class="bi bi-check2-circle fs-1 text-success"></i>
-                    <h5 class="mt-3">All Caught Up!</h5>
-                    <p class="text-muted">There are no pending topic requests to review.</p>
+                    <i class="bi bi-inbox fs-1 text-muted opacity-50"></i>
+                    <h5 class="mt-3">No Topic Requests Found</h5>
+                    <p class="text-muted">No requests match the selected search or filter criteria.</p>
                 </div>`;
             return;
         }
 
-        pendingRequests.forEach((request) => {
+        filtered.forEach((request) => {
             const requestId = request.id;
             const topicData = request.topicData || {};
             const resourcesList = (topicData.resources || []).map(r => `<span class="badge bg-secondary">${r}</span>`).join(' ');
@@ -1311,11 +1359,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const displayDate = request.requestedAt ? new Date(request.requestedAt).toLocaleDateString() : 'Recently';
 
+            let statusBadge = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2.5 py-1 fw-semibold">Pending Review</span>';
+            if (request.status === 'approved') {
+                statusBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fw-semibold"><i class="bi bi-check-circle me-1"></i>Approved</span>';
+            } else if (request.status === 'rejected') {
+                statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2.5 py-1 fw-semibold"><i class="bi bi-x-circle me-1"></i>Rejected</span>';
+            }
+
+            let actionButtons = '';
+            if (request.status === 'pending') {
+                actionButtons = `
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-success approve-request-btn" data-id="${requestId}"><i class="bi bi-check-lg me-1"></i>Approve</button>
+                        <button class="btn btn-sm btn-danger deny-request-btn" data-id="${requestId}"><i class="bi bi-x-lg me-1"></i>Deny</button>
+                    </div>
+                `;
+            } else {
+                actionButtons = `<div class="mt-1">${statusBadge}</div>`;
+            }
+
             requestCard.innerHTML = `
                 <div class="row g-3 align-items-center">
                     <div class="col-12 col-md-8">
-                        <h6 class="fw-bold mb-1">${topicData.title || request.title} <span class="fw-normal text-muted small">for</span> ${request.subjectName}</h6>
-                        <p class="text-muted small mb-2">${topicData.description || request.description || 'No description provided.'}</p>
+                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            <h6 class="fw-bold m-0">${escapeHtml(topicData.title || request.title)}</h6>
+                            <span class="badge bg-light text-dark border">${escapeHtml(request.subjectName)}</span>
+                            ${request.status === 'pending' ? statusBadge : ''}
+                        </div>
+                        <p class="text-muted small mb-2">${escapeHtml(topicData.description || request.description || 'No description provided.')}</p>
                         <div class="d-flex flex-wrap gap-3 small">
                             <div><strong>Resources:</strong> ${resourcesList || '<span class="text-muted">None</span>'}</div>
                             <div><strong>Visible to:</strong> ${visibility}</div>
@@ -1323,15 +1394,30 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${viewContentDropdown}
                     </div>
                     <div class="col-12 col-md-4 d-flex flex-column justify-content-center align-items-md-end">
-                         <small class="text-muted fst-italic mb-2">Requested by ${request.requester} on ${displayDate}</small>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-success approve-request-btn" data-id="${requestId}"><i class="bi bi-check-lg me-1"></i>Approve</button>
-                            <button class="btn btn-sm btn-danger deny-request-btn" data-id="${requestId}"><i class="bi bi-x-lg me-1"></i>Deny</button>
-                        </div>
+                         <small class="text-muted fst-italic mb-2">Requested by ${escapeHtml(request.requester)} on ${displayDate}</small>
+                        ${actionButtons}
                     </div>
                 </div>
             `;
             container.appendChild(requestCard);
+        });
+    }
+
+    // Attach topic filter listeners
+    const topicSearchInput = document.getElementById('topicSearchInput');
+    const topicStatusFilter = document.getElementById('topicStatusFilter');
+    const topicSubjectFilter = document.getElementById('topicSubjectFilter');
+    const btnResetTopicFilters = document.getElementById('btnResetTopicFilters');
+
+    if (topicSearchInput) topicSearchInput.addEventListener('input', renderTopicRequests);
+    if (topicStatusFilter) topicStatusFilter.addEventListener('change', renderTopicRequests);
+    if (topicSubjectFilter) topicSubjectFilter.addEventListener('change', renderTopicRequests);
+    if (btnResetTopicFilters) {
+        btnResetTopicFilters.addEventListener('click', () => {
+            if (topicSearchInput) topicSearchInput.value = '';
+            if (topicStatusFilter) topicStatusFilter.value = 'pending';
+            if (topicSubjectFilter) topicSubjectFilter.value = 'all';
+            renderTopicRequests();
         });
     }
 

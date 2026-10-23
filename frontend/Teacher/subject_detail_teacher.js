@@ -4177,11 +4177,19 @@ document.addEventListener('DOMContentLoaded', () => {
         quizResultsModalInstance = new bootstrap.Modal(modalEl);
 
         const searchInput = document.getElementById('quizStudentSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                filterAndRenderQuizStudents(searchInput.value.trim().toLowerCase());
-            });
-        }
+        const submissionFilter = document.getElementById('quizFilterSubmission');
+        const performanceFilter = document.getElementById('quizFilterPerformance');
+
+        const triggerFilter = () => {
+            const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+            const sub = submissionFilter ? submissionFilter.value : 'all';
+            const perf = performanceFilter ? performanceFilter.value : 'all';
+            filterAndRenderQuizStudents(query, sub, perf);
+        };
+
+        if (searchInput) searchInput.addEventListener('input', triggerFilter);
+        if (submissionFilter) submissionFilter.addEventListener('change', triggerFilter);
+        if (performanceFilter) performanceFilter.addEventListener('change', triggerFilter);
     }
 
     async function openClassQuizResults(topicTitle, topicId) {
@@ -4201,12 +4209,18 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>Loading student quiz results...</td></tr>';
         }
 
-        // Reset stats
+        // Reset stats & filters
         document.getElementById('quizStatStudentsCount').textContent = '0';
         document.getElementById('quizStatAvgPercentage').textContent = '0%';
         document.getElementById('quizStatPassRate').textContent = '0%';
         document.getElementById('quizStatHighestScore').textContent = '0';
         document.getElementById('quizStudentCountDisplay').textContent = 'Showing 0 students';
+        const searchInputEl = document.getElementById('quizStudentSearchInput');
+        const subFilterEl = document.getElementById('quizFilterSubmission');
+        const perfFilterEl = document.getElementById('quizFilterPerformance');
+        if (searchInputEl) searchInputEl.value = '';
+        if (subFilterEl) subFilterEl.value = 'all';
+        if (perfFilterEl) perfFilterEl.value = 'all';
 
         quizResultsModalInstance.show();
 
@@ -4240,18 +4254,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function filterAndRenderQuizStudents(query) {
+    function filterAndRenderQuizStudents(query = '', sub = null, perf = null) {
         const tbody = document.getElementById('classQuizStudentsTableBody');
         const countDisplay = document.getElementById('quizStudentCountDisplay');
         if (!tbody || !currentQuizResultsData) return;
 
+        const searchInput = document.getElementById('quizStudentSearchInput');
+        const submissionFilter = document.getElementById('quizFilterSubmission');
+        const performanceFilter = document.getElementById('quizFilterPerformance');
+
+        const activeQuery = query !== null && query !== undefined ? query : (searchInput ? searchInput.value.trim().toLowerCase() : '');
+        const activeSub = sub !== null ? sub : (submissionFilter ? submissionFilter.value : 'all');
+        const activePerf = perf !== null ? perf : (performanceFilter ? performanceFilter.value : 'all');
+
         let list = currentQuizResultsData.students || [];
-        if (query) {
+        if (activeQuery) {
             list = list.filter(s =>
-                (s.name && s.name.toLowerCase().includes(query)) ||
-                (s.lrn && s.lrn.toLowerCase().includes(query)) ||
-                (s.sectionName && s.sectionName.toLowerCase().includes(query))
+                (s.name && s.name.toLowerCase().includes(activeQuery)) ||
+                (s.lrn && s.lrn.toLowerCase().includes(activeQuery)) ||
+                (s.sectionName && s.sectionName.toLowerCase().includes(activeQuery))
             );
+        }
+
+        if (activeSub === 'attempted') {
+            list = list.filter(s => Number(s.attemptsCount || 0) > 0);
+        } else if (activeSub === 'not-attempted') {
+            list = list.filter(s => Number(s.attemptsCount || 0) === 0);
+        }
+
+        if (activePerf === 'passed') {
+            list = list.filter(s => Number(s.bestPercentage || 0) >= 60);
+        } else if (activePerf === 'failed') {
+            list = list.filter(s => Number(s.attemptsCount || 0) > 0 && Number(s.bestPercentage || 0) < 60);
         }
 
         if (countDisplay) {
@@ -4263,7 +4297,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <td colspan="7" class="text-center text-muted py-4">
                         <i class="bi bi-person-x fs-2 d-block mb-1 opacity-50"></i>
-                        ${query ? 'No matching students found.' : 'No students in this section have taken this practice quiz yet.'}
+                        ${activeQuery || activeSub !== 'all' || activePerf !== 'all' ? 'No matching students found.' : 'No students in this section have taken this practice quiz yet.'}
                     </td>
                 </tr>
             `;

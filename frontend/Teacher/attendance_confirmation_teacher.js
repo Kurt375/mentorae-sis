@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectionFilter = document.getElementById('filterSection');
     const historySectionFilter = document.getElementById('historySectionFilter');
     const searchBar = document.getElementById('searchBar');
+    const filterStatus = document.getElementById('filterStatus');
     const tbody = document.getElementById('attendanceConfirmationBody');
     const thead = document.getElementById('attendanceConfirmationHead');
     const sectionTypeBadgeWrap = document.getElementById('sectionTypeBadgeWrap');
@@ -196,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCurrentAdvisory = data.isAdvisory !== undefined ? Boolean(data.isAdvisory) : (selectedOpt?.dataset.advisory === '1');
 
         updateSectionHeaderAndView(isCurrentAdvisory);
-        renderRoster(currentRoster);
+        applyRosterFilters();
 
         if (data.allTimeOutsConfirmed) {
             setFinishedButtonState();
@@ -356,20 +357,43 @@ document.addEventListener('DOMContentLoaded', () => {
             student.status = status;
         }
 
+        if (filterStatus && filterStatus.value !== 'all') {
+            applyRosterFilters();
+        }
+
         // Sync bottom daily history table
         loadDailyHistory();
         markAttendanceSeen();
     }
 
-    searchBar.addEventListener('input', () => {
-        const term = searchBar.value.toLowerCase();
-        renderRoster(currentRoster.filter(s =>
-            s.name.toLowerCase().includes(term) ||
-            s.idNumber.toLowerCase().includes(term) ||
-            s.strand.toLowerCase().includes(term) ||
-            s.status.toLowerCase().includes(term)
-        ));
-    });
+    function applyRosterFilters() {
+        const term = (searchBar ? searchBar.value : '').trim().toLowerCase();
+        const status = (filterStatus ? filterStatus.value : 'all').toLowerCase();
+
+        let filtered = currentRoster || [];
+        if (term) {
+            filtered = filtered.filter(s =>
+                (s.name && s.name.toLowerCase().includes(term)) ||
+                (s.idNumber && s.idNumber.toLowerCase().includes(term)) ||
+                (s.strand && s.strand.toLowerCase().includes(term)) ||
+                (s.section && s.section.toLowerCase().includes(term)) ||
+                (s.status && s.status.toLowerCase().includes(term))
+            );
+        }
+
+        if (status !== 'all') {
+            filtered = filtered.filter(s => s.status && s.status.toLowerCase() === status);
+        }
+
+        renderRoster(filtered);
+    }
+
+    if (searchBar) {
+        searchBar.addEventListener('input', applyRosterFilters);
+    }
+    if (filterStatus) {
+        filterStatus.addEventListener('change', applyRosterFilters);
+    }
 
     async function refresh() {
         const sectionId = sectionFilter.value;
@@ -418,17 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 // Re-render so all buttons change to Confirmed badges immediately
-                const term = searchBar.value.toLowerCase();
-                if (term) {
-                    renderRoster(currentRoster.filter(s =>
-                        s.name.toLowerCase().includes(term) ||
-                        s.idNumber.toLowerCase().includes(term) ||
-                        s.strand.toLowerCase().includes(term) ||
-                        s.status.toLowerCase().includes(term)
-                    ));
-                } else {
-                    renderRoster(currentRoster);
-                }
+                applyRosterFilters();
 
                 setFinishedButtonState();
 
