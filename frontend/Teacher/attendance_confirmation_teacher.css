@@ -190,6 +190,8 @@
 .table-header-row th {
     font-weight: 500;
     letter-spacing: 0.2px;
+    white-space: nowrap !important;
+    vertical-align: middle;
 }
 
 .db-record-table tbody tr {

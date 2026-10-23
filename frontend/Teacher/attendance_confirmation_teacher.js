@@ -149,26 +149,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (thead) {
             if (isAdvisory) {
                 thead.innerHTML = `
-                    <tr class="table-header-row text-white">
-                        <th class="px-4 py-3 fw-semibold">Student ID</th>
-                        <th class="px-4 py-3 fw-semibold">Name</th>
-                        <th class="px-4 py-3 fw-semibold">Strand</th>
-                        <th class="px-4 py-3 fw-semibold">Section</th>
-                        <th class="px-4 py-3 fw-semibold text-center">Time In</th>
-                        <th class="px-4 py-3 fw-semibold text-center">Time Out</th>
-                        <th class="px-4 py-3 fw-semibold text-center">Status</th>
-                        <th class="px-4 py-3 fw-semibold text-center">Action</th>
+                    <tr class="table-header-row text-white text-nowrap">
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Section</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time In</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time Out</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Status</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Action</th>
                     </tr>
                 `;
             } else {
                 thead.innerHTML = `
-                    <tr class="table-header-row text-white">
-                        <th class="px-4 py-3 fw-semibold">Student ID</th>
-                        <th class="px-4 py-3 fw-semibold">Name</th>
-                        <th class="px-4 py-3 fw-semibold">Strand</th>
-                        <th class="px-4 py-3 fw-semibold">Section</th>
-                        <th class="px-4 py-3 fw-semibold text-center">Status</th>
-                        <th class="px-4 py-3 fw-semibold text-center">Action</th>
+                    <tr class="table-header-row text-white text-nowrap">
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Section</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Status</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Action</th>
                     </tr>
                 `;
             }
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isCurrentAdvisory) {
                 const inFormatted = s.timeIn ? s.timeIn.slice(0, 5) : '—';
                 timeInCell = `
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-3 py-3 text-center text-nowrap">
                         <span class="badge ${s.timeIn ? 'bg-light text-dark border' : 'bg-secondary-subtle text-secondary'} font-monospace">
                             ${inFormatted}
                         </span>
@@ -240,29 +240,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     const confirmBtn = `<button class="btn btn-sm btn-outline-primary py-0 px-2 confirm-out-btn" data-id="${s.id}" ${sessionAllowed ? '' : 'disabled'}>Confirm</button>`;
 
                     outContent = `
-                        <div class="d-inline-flex align-items-center justify-content-center gap-1 flex-wrap">
+                        <div class="d-inline-flex align-items-center justify-content-center gap-1 flex-nowrap">
                             <span class="badge ${badgeClass}" id="out-${s.id}">${outLabel}</span>
                             ${s.timeOutConfirmed ? confirmedBadge : confirmBtn}
                         </div>
                     `;
                 }
                 timeOutCell = `
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-3 py-3 text-center text-nowrap">
                         ${outContent}
                     </td>
                 `;
             }
 
             tr.innerHTML = `
-                <td class="px-4 py-3">${s.idNumber}</td>
-                <td class="px-4 py-3 fw-medium">${s.name}</td>
-                <td class="px-4 py-3">${s.strand}</td>
-                <td class="px-4 py-3">${s.section}</td>
+                <td class="px-3 py-3 text-nowrap">${s.idNumber}</td>
+                <td class="px-3 py-3 fw-medium text-nowrap">${s.name}</td>
+                <td class="px-3 py-3 text-nowrap">${s.strand}</td>
+                <td class="px-3 py-3 text-nowrap">${s.section}</td>
                 ${timeInCell}
                 ${timeOutCell}
-                <td class="px-4 py-3 text-center"><span class="badge ${statusBadgeClass[s.status] || ''}" id="status-${s.id}">${label}</span></td>
-                <td class="px-4 py-3 text-center">
-                    <div class="d-inline-flex flex-wrap justify-content-center gap-1">
+                <td class="px-3 py-3 text-center text-nowrap"><span class="badge ${statusBadgeClass[s.status] || ''}" id="status-${s.id}">${label}</span></td>
+                <td class="px-3 py-3 text-center text-nowrap">
+                    <div class="d-inline-flex flex-nowrap justify-content-center gap-1">
                         <button class="btn btn-sm btn-outline-success confirm-btn" data-id="${s.id}" data-status="present" ${sessionAllowed ? '' : 'disabled'}>Present</button>
                         <button class="btn btn-sm btn-outline-warning confirm-btn" data-id="${s.id}" data-status="late" ${sessionAllowed ? '' : 'disabled'}>Late</button>
                         <button class="btn btn-sm btn-outline-info confirm-btn" data-id="${s.id}" data-status="excused" ${sessionAllowed ? '' : 'disabled'}>Excused</button>
@@ -575,14 +575,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return `
                 <tr>
-                    <td class="px-4 py-3">${r.idNumber}</td>
-                    <td class="px-4 py-3 fw-medium">${r.name}</td>
-                    <td class="px-4 py-3">${r.strand} - ${r.section}</td>
-                    <td class="px-4 py-3 text-center font-monospace small">${formattedDate}</td>
-                    <td class="px-4 py-3 text-center"><span class="badge ${r.timeIn ? 'bg-light text-dark border' : 'bg-secondary-subtle text-secondary'} font-monospace">${timeInFormatted}</span></td>
-                    <td class="px-4 py-3 text-center">${timeOutHtml}</td>
-                    <td class="px-4 py-3 text-center">${statusBadge}</td>
-                    <td class="px-4 py-3 text-center">${verifierHtml}</td>
+                    <td class="px-3 py-3 text-nowrap">${r.idNumber}</td>
+                    <td class="px-3 py-3 fw-medium text-nowrap">${r.name}</td>
+                    <td class="px-3 py-3 text-nowrap">${r.strand} - ${r.section}</td>
+                    <td class="px-3 py-3 text-center font-monospace small text-nowrap">${formattedDate}</td>
+                    <td class="px-3 py-3 text-center text-nowrap"><span class="badge ${r.timeIn ? 'bg-light text-dark border' : 'bg-secondary-subtle text-secondary'} font-monospace">${timeInFormatted}</span></td>
+                    <td class="px-3 py-3 text-center text-nowrap">${timeOutHtml}</td>
+                    <td class="px-3 py-3 text-center text-nowrap">${statusBadge}</td>
+                    <td class="px-3 py-3 text-center text-nowrap">${verifierHtml}</td>
                 </tr>
             `;
         }).join('');
