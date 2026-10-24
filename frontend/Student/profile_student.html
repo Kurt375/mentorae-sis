@@ -166,18 +166,26 @@
                         </div>
                         <form id="editProfileForm" novalidate>
                             <div class="mb-3">
-                                <label for="phoneInput" class="form-label small fw-semibold text-muted">Phone Number</label>
+                                <label for="prefLangSelect" class="form-label small fw-semibold text-muted" data-i18n="profile_pref_lang">Preferred Language</label>
+                                <select class="form-select rounded-3" id="prefLangSelect">
+                                    <option value="en">English (US)</option>
+                                    <option value="tl">Filipino (Tagalog)</option>
+                                </select>
+                                <div class="form-text micro-text text-muted" data-i18n="profile_pref_lang_desc">Select your preferred language for your portal interface and dashboard.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="phoneInput" class="form-label small fw-semibold text-muted" data-i18n="profile_contact_no">Phone Number</label>
                                 <input type="text" class="form-control rounded-3" id="phoneInput" data-restrict="none" placeholder="e.g. 09123456789">
                                 <div class="invalid-feedback" id="phoneFeedback">
                                     Please enter a valid phone number (numeric only, e.g., 09123456789).
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label for="addressInput" class="form-label small fw-semibold text-muted">Home Address</label>
+                                <label for="addressInput" class="form-label small fw-semibold text-muted" data-i18n="profile_address">Home Address</label>
                                 <input type="text" class="form-control rounded-3" id="addressInput" placeholder="e.g. Brgy. Zone 1, Talisay City">
                             </div>
                             <div class="mb-3">
-                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted">Personal / Parent Alternative Email</label>
+                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted" data-i18n="profile_personal_email">Personal / Parent Alternative Email</label>
                                 <input type="email" class="form-control rounded-3" id="personalEmailInput" placeholder="your.name@gmail.com">
                                 <div class="invalid-feedback" id="emailFeedback">
                                     Please enter a valid email address (e.g., your.name@gmail.com).
@@ -217,6 +225,7 @@
     <!-- Scripts -->
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../i18n.js"></script>
     <script src="../avatar_cropper.js"></script>
     <script>
         const { token, user } = requireSession('../login.html');
@@ -274,6 +283,11 @@
                 document.getElementById('phoneInput').value = data.profile.contactNumber || '';
                 document.getElementById('addressInput').value = data.profile.address || '';
                 document.getElementById('personalEmailInput').value = data.profile.personalEmail || '';
+                if (data.profile.preferredLanguage) {
+                    document.getElementById('prefLangSelect').value = data.profile.preferredLanguage;
+                } else if (window.i18n) {
+                    document.getElementById('prefLangSelect').value = window.i18n.getLanguage();
+                }
 
                 const sectionText = data.profile.section || 'Unassigned Section';
                 document.getElementById('sectionVal').textContent = sectionText;
@@ -384,17 +398,22 @@
             if (saveBtn) saveBtn.disabled = true;
 
             try {
+                const preferredLanguage = document.getElementById('prefLangSelect').value;
                 const data = await authedFetch('/api/auth/profile', token, {
                     method: 'PATCH',
                     body: JSON.stringify({
                         personalEmail,
                         contactNumber: phoneVal,
                         address: addressVal,
+                        preferredLanguage,
                     }),
                 });
                 if (!data.success) {
                     alert(data.message || 'Could not update profile.');
                     return;
+                }
+                if (window.i18n) {
+                    await window.i18n.setLanguage(preferredLanguage, false);
                 }
                 alert('Profile updated successfully.');
                 document.getElementById('phoneVal').textContent = phoneVal || '—';

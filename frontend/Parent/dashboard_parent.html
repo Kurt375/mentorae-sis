@@ -73,7 +73,7 @@
                         </button>
                         <button class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn"
                             id="logoutBtn">
-                            <i class="bi bi-box-arrow-right"></i> Logout
+                            <i class="bi bi-box-arrow-right"></i> <span data-i18n="nav_logout">Logout</span>
                         </button>
                     </div>
                 </div>
@@ -124,7 +124,7 @@
                             <div class="card stat-card border p-3 shadow-sm">
                                 <div class="d-flex align-items-center gap-2 mb-1">
                                     <i class="bi bi-bullseye fs-5 text-success"></i>
-                                    <span class="text-muted fw-semibold small">Overall Grade</span>
+                                    <span class="text-muted fw-semibold small" data-i18n="dash_gwa">Overall Grade</span>
                                 </div>
                                 <h4 class="fw-bold m-0 fs-3" id="overallGradeVal">—</h4>
                             </div>
@@ -133,7 +133,7 @@
                             <div class="card stat-card border p-3 shadow-sm">
                                 <div class="d-flex align-items-center gap-2 mb-1">
                                     <i class="bi bi-calendar-check fs-5 text-primary"></i>
-                                    <span class="text-muted fw-semibold small">Attendance Rate</span>
+                                    <span class="text-muted fw-semibold small" data-i18n="dash_attendance_rate">Attendance Rate</span>
                                 </div>
                                 <h4 class="fw-bold m-0 fs-3" id="attendanceRateVal">—</h4>
                             </div>
@@ -142,7 +142,7 @@
                             <div class="card stat-card border p-3 shadow-sm">
                                 <div class="d-flex align-items-center gap-2 mb-1">
                                     <i class="bi bi-graph-up-arrow fs-5 text-purple"></i>
-                                    <span class="text-muted fw-semibold small">Academic Progress</span>
+                                    <span class="text-muted fw-semibold small" data-i18n="dash_quarter_progress">Academic Progress</span>
                                 </div>
                                 <h4 class="fw-bold m-0 fs-3 text-purple" id="academicProgressVal">—</h4>
                             </div>
@@ -163,7 +163,7 @@
                                         <i class="bi bi-qr-code-scan fs-5 text-primary"></i>
                                     </div>
                                     <div>
-                                        <h5 class="fw-bold m-0 fs-6">Attendance</h5>
+                                        <h5 class="fw-bold m-0 fs-6" data-i18n="nav_attendance">Attendance</h5>
                                         <div class="text-muted micro-text mb-1">Real-time Monitoring</div>
                                         <p class="small text-secondary m-0 card-desc">Track your child's classroom
                                              attendance logs, check-ins, and absence records.</p>
@@ -180,7 +180,7 @@
                                         <i class="bi bi-graph-up-arrow fs-5 text-success"></i>
                                     </div>
                                     <div>
-                                        <h5 class="fw-bold m-0 fs-6">Grade & Performance</h5>
+                                        <h5 class="fw-bold m-0 fs-6" data-i18n="nav_grades">Grade & Performance</h5>
                                         <div class="text-muted micro-text mb-1">Academic Records</div>
                                         <p class="small text-secondary m-0 card-desc">Review quarterly grades, subject
                                              breakdowns, weighted averages, and performance analytics.</p>
@@ -197,7 +197,7 @@
                                         <i class="bi bi-bell-fill fs-5 text-info"></i>
                                     </div>
                                     <div>
-                                        <h5 class="fw-bold m-0 fs-6">Announcements</h5>
+                                        <h5 class="fw-bold m-0 fs-6" data-i18n="nav_announcements">Announcements</h5>
                                         <div class="text-muted micro-text mb-1">Stay Updated</div>
                                         <p class="small text-secondary m-0 card-desc">Review school bulletins, alerts,
                                              grading periods, and calendar notifications.</p>
@@ -237,6 +237,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../i18n.js"></script>
     <script src="../notifications-widget.js"></script>
     <script src="dashboard_parent.js"></script>
 </body>

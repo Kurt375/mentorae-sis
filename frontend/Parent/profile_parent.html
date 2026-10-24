@@ -113,21 +113,29 @@
                         </div>
                     </div>
 
-                    <!-- Section 2: Contact & Notification Settings -->
+                    <!-- Section 2: Contact, Notification & Language Settings -->
                     <div class="profile-section-card">
-                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-bell-fill text-primary me-2"></i>School Alerts & Notification Email</h6>
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-fill text-primary me-2"></i><span data-i18n="nav_settings">Account Preferences & Alerts</span></h6>
                         <form id="editProfileForm">
                             <div class="mb-3">
-                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted">Personal / Alternative Email</label>
+                                <label for="prefLangSelect" class="form-label small fw-semibold text-muted" data-i18n="profile_pref_lang">Preferred Language</label>
+                                <select class="form-select rounded-3" id="prefLangSelect">
+                                    <option value="en">English (US)</option>
+                                    <option value="tl">Filipino (Tagalog)</option>
+                                </select>
+                                <div class="form-text micro-text text-muted" data-i18n="profile_pref_lang_desc">Select your preferred language for your portal interface and dashboard.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted" data-i18n="profile_personal_email">Personal / Alternative Email</label>
                                 <input type="email" class="form-control rounded-3" id="personalEmailInput" placeholder="parent.personal@example.com">
                                 <div class="form-text micro-text text-muted">Used for urgent notifications, attendance alerts, and password recovery.</div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button type="submit" class="btn btn-success fw-semibold px-4 rounded-3" id="saveEmailBtn">
-                                    <i class="bi bi-check2 me-1"></i>Update Email
+                                    <i class="bi bi-check2 me-1"></i><span data-i18n="profile_save_btn">Save Changes</span>
                                 </button>
                                 <span class="small text-success fw-bold d-none" id="saveConfirm">
-                                    <i class="bi bi-check-circle-fill me-1"></i>Saved!
+                                    <i class="bi bi-check-circle-fill me-1"></i><span data-i18n="profile_saved_success">Saved!</span>
                                 </span>
                             </div>
                         </form>
@@ -154,6 +162,7 @@
     <!-- Scripts -->
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../i18n.js"></script>
     <script src="../avatar_cropper.js"></script>
     <script>
         const { token, user } = requireSession('../login.html');
@@ -216,6 +225,11 @@
                     document.getElementById('emailVal').textContent = p.email || '—';
                     document.getElementById('contactVal').textContent = p.contactNumber || '—';
                     document.getElementById('personalEmailInput').value = p.personalEmail || '';
+                    if (p.preferredLanguage) {
+                        document.getElementById('prefLangSelect').value = p.preferredLanguage;
+                    } else if (window.i18n) {
+                        document.getElementById('prefLangSelect').value = window.i18n.getLanguage();
+                    }
                     if (p.profilePictureUrl) {
                         const img = document.getElementById('avatarImg');
                         img.src = p.profilePictureUrl;
@@ -235,13 +249,17 @@
             btn.disabled = true;
             try {
                 const personalEmail = document.getElementById('personalEmailInput').value.trim();
+                const preferredLanguage = document.getElementById('prefLangSelect').value;
                 const data = await authedFetch('/api/auth/profile', token, {
                     method: 'PATCH',
-                    body: JSON.stringify({ personalEmail }),
+                    body: JSON.stringify({ personalEmail, preferredLanguage }),
                 });
                 if (!data.success) {
                     alert(data.message || 'Could not save profile changes.');
                     return;
+                }
+                if (window.i18n) {
+                    await window.i18n.setLanguage(preferredLanguage, false);
                 }
                 const confirm = document.getElementById('saveConfirm');
                 confirm.classList.remove('d-none');

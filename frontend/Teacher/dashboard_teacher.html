@@ -105,7 +105,7 @@
                         <button
                             class="btn btn-light px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2 logout-btn"
                             id="logoutBtn">
-                            <i class="bi bi-box-arrow-right"></i> Logout
+                            <i class="bi bi-box-arrow-right"></i> <span data-i18n="nav_logout">Logout</span>
                         </button>
                     </div>
                 </div>
@@ -303,6 +303,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../i18n.js"></script>
     <script src="../notifications-widget.js"></script>
     <script>initNotificationBell('notifBellBtn', requireSession('../login.html').token);</script>
     <script src="dashboard_teacher.js"></script>

@@ -144,21 +144,29 @@
                         </div>
                     </div>
 
-                    <!-- Section 2: Contact & Notification Settings -->
+                    <!-- Section 2: Contact, Notification & Language Settings -->
                     <div class="profile-section-card">
-                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-envelope-check-fill text-primary me-2"></i>Personal & Notification Email</h6>
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-gear-fill text-primary me-2"></i><span data-i18n="nav_settings">Personal &amp; Language Settings</span></h6>
                         <form id="editProfileForm">
                             <div class="mb-3">
-                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted">Alternative / Personal Email</label>
+                                <label for="prefLangSelect" class="form-label small fw-semibold text-muted" data-i18n="profile_pref_lang">Preferred Language</label>
+                                <select class="form-select rounded-3" id="prefLangSelect">
+                                    <option value="en">English (US)</option>
+                                    <option value="tl">Filipino (Tagalog)</option>
+                                </select>
+                                <div class="form-text micro-text text-muted" data-i18n="profile_pref_lang_desc">Select your preferred language for your portal interface and dashboard.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="personalEmailInput" class="form-label small fw-semibold text-muted" data-i18n="profile_personal_email">Alternative / Personal Email</label>
                                 <input type="email" class="form-control rounded-3" id="personalEmailInput" placeholder="teacher.personal@example.com">
                                 <div class="form-text micro-text text-muted">Used for advisory messages, urgent administrative updates, and password recovery.</div>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button type="submit" class="btn btn-success fw-semibold px-4 rounded-3" id="saveEmailBtn">
-                                    <i class="bi bi-check2 me-1"></i>Update Email
+                                    <i class="bi bi-check2 me-1"></i><span data-i18n="profile_save_btn">Save Changes</span>
                                 </button>
                                 <span class="small text-success fw-bold d-none" id="saveConfirm">
-                                    <i class="bi bi-check-circle-fill me-1"></i>Saved!
+                                    <i class="bi bi-check-circle-fill me-1"></i><span data-i18n="profile_saved_success">Saved!</span>
                                 </span>
                             </div>
                         </form>
@@ -185,6 +193,7 @@
     <!-- Scripts -->
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="../i18n.js"></script>
     <script src="../avatar_cropper.js"></script>
     <script>
         const { token, user } = requireSession('../login.html');
@@ -247,6 +256,11 @@
                 document.getElementById('emailVal').textContent = data.profile.email || '—';
                 document.getElementById('contactVal').textContent = data.profile.contactNumber || '—';
                 document.getElementById('personalEmailInput').value = data.profile.personalEmail || '';
+                if (data.profile.preferredLanguage) {
+                    document.getElementById('prefLangSelect').value = data.profile.preferredLanguage;
+                } else if (window.i18n) {
+                    document.getElementById('prefLangSelect').value = window.i18n.getLanguage();
+                }
                 const advisoryValEl = document.getElementById('advisorySectionVal');
                 if (advisoryValEl) {
                     advisoryValEl.textContent = data.profile.advisorySection || 'No Advisory Class Assigned';
@@ -272,24 +286,28 @@
         document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const personalEmail = document.getElementById('personalEmailInput').value.trim();
+            const preferredLanguage = document.getElementById('prefLangSelect').value;
             const saveBtn = document.getElementById('saveEmailBtn');
             saveBtn.disabled = true;
 
             try {
                 const data = await authedFetch('/api/auth/profile', token, {
                     method: 'PATCH',
-                    body: JSON.stringify({ personalEmail }),
+                    body: JSON.stringify({ personalEmail, preferredLanguage }),
                 });
                 if (!data.success) {
-                    alert(data.message || 'Could not update email.');
+                    alert(data.message || 'Could not update profile.');
                     return;
+                }
+                if (window.i18n) {
+                    await window.i18n.setLanguage(preferredLanguage, false);
                 }
                 const confirmEl = document.getElementById('saveConfirm');
                 confirmEl.classList.remove('d-none');
                 setTimeout(() => confirmEl.classList.add('d-none'), 2500);
             } catch (err) {
                 console.error('Teacher save error:', err);
-                alert('Could not update email. Please try again.');
+                alert('Could not update profile. Please try again.');
             } finally {
                 saveBtn.disabled = false;
             }
