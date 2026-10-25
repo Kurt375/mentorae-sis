@@ -1240,6 +1240,43 @@
         </div>
     </div>
 
+    <!-- Advisory Excuse Proof Viewer Modal -->
+    <div class="modal fade" id="advProofViewerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-dark text-white py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <div class="bg-white text-dark rounded-circle p-1.5 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                            <i class="bi bi-file-earmark-check-fill text-success fs-5"></i>
+                        </div>
+                        <div>
+                            <h6 class="modal-title fw-bold m-0" id="advProofViewerTitle">Supporting Document Proof</h6>
+                            <small class="text-white-50" id="advProofViewerSubtitle">Parent Excuse Letter Attachment</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="#" target="_blank" class="btn btn-sm btn-outline-light rounded-pill px-3" id="advProofViewerNewTabBtn">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Open in New Tab
+                        </a>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-3 text-center bg-light" id="advProofViewerBody" style="min-height: 420px; max-height: 75vh; overflow-y: auto;">
+                    <!-- Dynamically populated -->
+                </div>
+                <div class="modal-footer py-2.5 px-4 bg-white d-flex justify-content-between align-items-center">
+                    <div class="small text-muted" id="advProofViewerFileInfo"></div>
+                    <div class="d-flex gap-2">
+                        <a href="#" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="advProofViewerDownloadBtn">
+                            <i class="bi bi-download me-1"></i> Download File
+                        </a>
+                        <button type="button" class="btn btn-sm btn-secondary px-3 rounded-pill" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap Bundle JS & Main Logic -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../config.js"></script>

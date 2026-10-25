@@ -813,6 +813,53 @@ async function submitExcuseNote(req, res) {
     return res.status(400).json({ success: false, message: 'Student, date, and reason are required.' });
   }
 
+  // Extract uploaded proof document/image if present
+  let proofFileName = null;
+  let proofFileType = null;
+  let proofFileSize = null;
+  let proofFileData = null;
+
+  if (req.file) {
+    proofFileName = req.file.originalname;
+    proofFileType = req.file.mimetype;
+    proofFileSize = req.file.size;
+    proofFileData = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  } else if (req.body.proofFileData && req.body.proofFileName) {
+    proofFileName = req.body.proofFileName;
+    proofFileType = req.body.proofFileType || 'application/octet-stream';
+    proofFileSize = req.body.proofFileSize || 0;
+    proofFileData = req.body.proofFileData;
+  }
+
+  // File format and size validation (Allow PDF, DOC/DOCX, Images; Block PPT and heavy storage files)
+  if (proofFileName) {
+    const ext = (proofFileName || '').toLowerCase().slice((proofFileName || '').lastIndexOf('.'));
+    const disallowedExts = new Set(['.ppt', '.pptx', '.xls', '.xlsx', '.zip', '.rar', '.7z', '.tar', '.mp4', '.avi', '.mov', '.mp3', '.exe', '.bat']);
+    const allowedExts = new Set(['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp']);
+    const allowedMimes = new Set([
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ]);
+
+    if (disallowedExts.has(ext) || (!allowedExts.has(ext) && !allowedMimes.has(proofFileType))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unsupported file format. Only PDF, Word documents (.doc/.docx), and images (.jpg/.png/.webp) are accepted. Presentations (PPT) and heavy files are not permitted.'
+      });
+    }
+
+    if (proofFileSize && proofFileSize > 5 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        message: 'File size exceeds maximum limit of 5MB.'
+      });
+    }
+  }
+
   try {
     const gate = await canViewStudent(req.user, studentId);
     if (!gate.ok) return res.status(gate.status).json({ success: false, message: gate.message });
@@ -827,9 +874,16 @@ async function submitExcuseNote(req, res) {
     );
 
     if (existing.length > 0) {
+      const updateFields = ['reason = ?', 'remarks = ?', 'section_id = ?'];
+      const updateParams = [reason, remarks || null, sectionId];
+      if (proofFileData) {
+        updateFields.push('proof_file_name = ?', 'proof_file_type = ?', 'proof_file_size = ?', 'proof_file_data = ?');
+        updateParams.push(proofFileName, proofFileType, proofFileSize, proofFileData);
+      }
+      updateParams.push(existing[0].id);
       await pool.query(
-        'UPDATE excuse_notes SET reason = ?, remarks = ?, section_id = ? WHERE id = ?',
-        [reason, remarks || null, sectionId, existing[0].id]
+        `UPDATE excuse_notes SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateParams
       );
       return res.json({
         success: true,
@@ -839,9 +893,9 @@ async function submitExcuseNote(req, res) {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO excuse_notes (student_id, parent_id, section_id, absence_date, reason, remarks, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-      [studentId, req.user.id, sectionId, absenceDate, reason, remarks || null]
+      `INSERT INTO excuse_notes (student_id, parent_id, section_id, absence_date, reason, remarks, status, proof_file_name, proof_file_type, proof_file_size, proof_file_data)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+      [studentId, req.user.id, sectionId, absenceDate, reason, remarks || null, proofFileName, proofFileType, proofFileSize, proofFileData]
     );
 
     const adviserId = await getAdviserIdForStudent(studentId);
@@ -912,6 +966,8 @@ async function listExcuseNotes(req, res) {
               DATE_FORMAT(en.absence_date, '%Y-%m-%d') AS absence_date,
               en.reason, en.remarks, en.status, en.created_at, en.reviewed_at,
               COALESCE(en.review_remarks, '') AS review_remarks,
+              en.proof_file_name, en.proof_file_type, en.proof_file_size,
+              CASE WHEN en.proof_file_data IS NOT NULL AND en.proof_file_data != '' THEN 1 ELSE 0 END AS has_proof,
               CONCAT(st.first_name, ' ', st.last_name) AS student_name, 
               st.id_number AS student_lrn,
               sec.grade_level,
@@ -1008,6 +1064,72 @@ async function reviewExcuseNote(req, res) {
     return res.status(500).json({ success: false, message: 'Could not review excuse note.' });
   }
 }
+
+/** GET /api/attendance/excuse-notes/:id/proof — View/download proof file attached to excuse note */
+async function getExcuseNoteProof(req, res) {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `SELECT en.id, en.student_id, en.parent_id, en.proof_file_name, en.proof_file_type, en.proof_file_size, en.proof_file_data,
+              COALESCE(en.section_id, st.section_id) AS section_id
+       FROM excuse_notes en
+       JOIN users st ON st.id = en.student_id
+       WHERE en.id = ?`,
+      [id]
+    );
+    const note = rows[0];
+    if (!note) {
+      return res.status(404).json({ success: false, message: 'Excuse note not found.' });
+    }
+
+    // Access authorization check
+    if (req.user.role === 'student' && note.student_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'You do not have access to view this proof.' });
+    }
+    if (req.user.role === 'parent') {
+      if (note.parent_id !== req.user.id) {
+        const [links] = await pool.query('SELECT 1 FROM parent_student_links WHERE parent_id = ? AND student_id = ?', [req.user.id, note.student_id]);
+        if (!links.length) {
+          return res.status(403).json({ success: false, message: 'You do not have access to view this proof.' });
+        }
+      }
+    }
+    if (req.user.role === 'teacher') {
+      const [secRows] = await pool.query(
+        'SELECT id FROM sections WHERE adviser_id = ? OR co_adviser_id = ? UNION SELECT DISTINCT section_id FROM schedules WHERE teacher_id = ?',
+        [req.user.id, req.user.id, req.user.id]
+      );
+      const allowedSecIds = secRows.map(s => s.id);
+      if (!allowedSecIds.includes(note.section_id)) {
+        return res.status(403).json({ success: false, message: 'You do not have access to view this proof.' });
+      }
+    }
+
+    if (!note.proof_file_data) {
+      return res.status(404).json({ success: false, message: 'No proof document or image was attached to this excuse note.' });
+    }
+
+    const matches = note.proof_file_data.match(/^data:([A-Za-z0-9\-+\/.]+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(500).json({ success: false, message: 'Invalid proof file format in database.' });
+    }
+
+    const mimeType = matches[1] || note.proof_file_type || 'application/octet-stream';
+    const buffer = Buffer.from(matches[2], 'base64');
+    const isDownload = req.query.download === '1' || mimeType.includes('word') || mimeType.includes('document');
+    const disposition = isDownload ? 'attachment' : 'inline';
+    const filename = note.proof_file_name || 'proof-file';
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `${disposition}; filename="${encodeURIComponent(filename)}"`);
+    return res.send(buffer);
+  } catch (err) {
+    console.error('getExcuseNoteProof error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load proof file.' });
+  }
+}
+
 
 /**
  * GET /api/attendance/teacher-pending-summary
@@ -1128,4 +1250,5 @@ module.exports = {
   submitExcuseNote,
   listExcuseNotes,
   reviewExcuseNote,
+  getExcuseNoteProof,
 };

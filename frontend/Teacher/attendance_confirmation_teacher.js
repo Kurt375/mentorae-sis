@@ -626,6 +626,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const excuseNotesModal = excuseNotesModalEl ? new bootstrap.Modal(excuseNotesModalEl) : null;
     const declineExcuseModalEl = document.getElementById('declineExcuseModal');
     const declineExcuseModal = declineExcuseModalEl ? new bootstrap.Modal(declineExcuseModalEl) : null;
+    const proofViewerModalEl = document.getElementById('proofViewerModal');
+    const proofViewerModal = proofViewerModalEl ? new bootstrap.Modal(proofViewerModalEl) : null;
+    const proofViewerTitle = document.getElementById('proofViewerTitle');
+    const proofViewerSubtitle = document.getElementById('proofViewerSubtitle');
+    const proofViewerBody = document.getElementById('proofViewerBody');
+    const proofViewerFileInfo = document.getElementById('proofViewerFileInfo');
+    const proofViewerNewTabBtn = document.getElementById('proofViewerNewTabBtn');
+    const proofViewerDownloadBtn = document.getElementById('proofViewerDownloadBtn');
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
 
     const btnOpenExcuseNotes = document.getElementById('btnOpenExcuseNotesModal');
     const excuseNotesPendingBadge = document.getElementById('excuseNotesPendingBadge');
@@ -788,6 +806,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
+            // Supporting Document / Proof File Section
+            let proofSectionHtml = '';
+            if (n.has_proof || n.proof_file_name) {
+                const pType = (n.proof_file_type || '').toLowerCase();
+                const pName = n.proof_file_name || 'proof-document';
+                const isImg = pType.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(pName);
+                const isPdf = pType.includes('pdf') || /\.pdf$/i.test(pName);
+                const isDoc = pType.includes('word') || pType.includes('document') || /\.(doc|docx)$/i.test(pName);
+
+                let docIcon = 'bi-file-earmark-text';
+                let iconColor = 'text-primary';
+                let typeBadge = 'DOCUMENT';
+                if (isImg) { docIcon = 'bi-file-earmark-image-fill'; iconColor = 'text-info'; typeBadge = 'PHOTO / IMAGE'; }
+                else if (isPdf) { docIcon = 'bi-file-earmark-pdf-fill'; iconColor = 'text-danger'; typeBadge = 'PDF DOCUMENT'; }
+                else if (isDoc) { docIcon = 'bi-file-earmark-word-fill'; iconColor = 'text-primary'; typeBadge = 'WORD DOCUMENT'; }
+
+                const sizeStr = n.proof_file_size ? `${(n.proof_file_size / 1024).toFixed(1)} KB` : '';
+                const proofUrl = `${API_BASE}/api/attendance/excuse-notes/${n.id}/proof?token=${token}`;
+
+                proofSectionHtml = `
+                    <div class="mt-3 p-2.5 rounded-3 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2.5 min-w-0">
+                            <div class="p-2 rounded-2 bg-white border ${iconColor} flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                <i class="bi ${docIcon} fs-4"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                                    <span class="badge bg-secondary-subtle text-secondary border fw-bold" style="font-size: 0.68rem;">${typeBadge}</span>
+                                    <span class="fw-semibold text-dark text-sm text-truncate" style="max-width: 280px;" title="${escapeHtml(pName)}">${escapeHtml(pName)}</span>
+                                </div>
+                                <div class="micro-text text-muted mt-0.5">
+                                    ${sizeStr ? `${sizeStr} &bull; ` : ''}Attached as Medical/Absence Proof
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1.5 ms-auto">
+                            <button type="button" class="btn btn-sm btn-outline-success fw-bold rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1 btn-view-proof shadow-xs" data-id="${n.id}" data-name="${escapeHtml(pName)}" data-type="${pType}" data-student="${escapeHtml(n.student_name)}" data-url="${proofUrl}">
+                                <i class="bi bi-eye-fill"></i> View Proof
+                            </button>
+                            <a href="${proofUrl}&download=1" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1.5" title="Download Proof File" download="${escapeHtml(pName)}">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            } else {
+                proofSectionHtml = `
+                    <div class="mt-2 text-muted micro-text fst-italic">
+                        <i class="bi bi-paperclip me-1"></i>No supporting document attached to this excuse note.
+                    </div>
+                `;
+            }
+
             return `
                 <div class="excuse-note-card p-3.5 p-md-4 shadow-sm bg-white" id="excuseCard_${n.id}">
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-2 pb-2 border-bottom">
@@ -843,11 +914,72 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
+                    ${proofSectionHtml}
                     ${reviewInfoHtml}
                     ${actionsHtml}
                 </div>
             `;
         }).join('');
+
+        // Wire View Proof Buttons
+        excuseNotesContainer.querySelectorAll('.btn-view-proof').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const name = btn.getAttribute('data-name') || 'Supporting Document';
+                const type = (btn.getAttribute('data-type') || '').toLowerCase();
+                const student = btn.getAttribute('data-student') || '';
+                const url = btn.getAttribute('data-url');
+                if (!id || !url) return;
+
+                if (proofViewerTitle) proofViewerTitle.textContent = name;
+                if (proofViewerSubtitle) proofViewerSubtitle.textContent = student ? `Excuse Proof Document for ${student}` : 'Excuse Proof Document';
+                if (proofViewerNewTabBtn) proofViewerNewTabBtn.href = url;
+                if (proofViewerDownloadBtn) {
+                    proofViewerDownloadBtn.href = `${url}&download=1`;
+                    proofViewerDownloadBtn.setAttribute('download', name);
+                }
+                if (proofViewerFileInfo) proofViewerFileInfo.textContent = `Attachment: ${name}`;
+
+                const isImg = type.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(name);
+                const isPdf = type.includes('pdf') || /\.pdf$/i.test(name);
+
+                if (proofViewerBody) {
+                    if (isImg) {
+                        proofViewerBody.innerHTML = `
+                            <div class="d-flex align-items-center justify-content-center py-2" style="min-height: 380px;">
+                                <img src="${url}" class="img-fluid rounded-3 shadow-sm border" style="max-height: 65vh; max-width: 100%; object-fit: contain;" alt="Proof Image">
+                            </div>
+                        `;
+                    } else if (isPdf) {
+                        proofViewerBody.innerHTML = `
+                            <iframe src="${url}#toolbar=1" width="100%" height="520px" class="border rounded-3 shadow-xs" title="PDF Proof Viewer"></iframe>
+                        `;
+                    } else {
+                        proofViewerBody.innerHTML = `
+                            <div class="py-5 text-center">
+                                <div class="p-3.5 rounded-circle bg-white shadow-sm border text-primary d-inline-flex mb-3">
+                                    <i class="bi bi-file-earmark-word-fill display-3"></i>
+                                </div>
+                                <h5 class="fw-bold text-dark mb-1">${name}</h5>
+                                <p class="text-muted small mb-4 mx-auto" style="max-width: 440px;">
+                                    This document is in Microsoft Word format (.doc/.docx). You can download it directly or open it with Word / Google Docs.
+                                </p>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <a href="${url}&download=1" class="btn btn-primary fw-bold px-4 py-2 rounded-pill shadow-sm" download="${name}">
+                                        <i class="bi bi-download me-1.5"></i> Download Document
+                                    </a>
+                                    <a href="${url}" target="_blank" class="btn btn-outline-secondary rounded-pill px-3 py-2">
+                                        <i class="bi bi-box-arrow-up-right me-1.5"></i> Open in New Tab
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                if (proofViewerModal) proofViewerModal.show();
+            });
+        });
 
         // Wire Action Buttons
         excuseNotesContainer.querySelectorAll('.btn-certify-excuse').forEach(btn => {

@@ -295,6 +295,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <th>Absence Date</th>
                                     <th>Primary Reason</th>
                                     <th>Remarks</th>
+                                    <th>Proof File</th>
                                     <th>Status</th>
                                     <th>Filed On</th>
                                 </tr>
@@ -308,11 +309,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     let dateStr = n.absence_date ? String(n.absence_date).slice(0, 10) : '—';
                                     let filedStr = n.created_at ? new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
+                                    let proofHtml = '<span class="text-muted small">None</span>';
+                                    if (n.has_proof || n.proof_file_name) {
+                                        const isImg = (n.proof_file_type || '').startsWith('image/');
+                                        const isPdf = (n.proof_file_type || '').includes('pdf');
+                                        const icon = isImg ? 'bi-image' : (isPdf ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-word text-primary');
+                                        proofHtml = `
+                                            <a href="${API_BASE}/api/attendance/excuse-notes/${n.id}/proof?token=${token}" target="_blank" class="btn btn-xs btn-outline-success rounded-pill px-2.5 py-0.5 text-nowrap d-inline-flex align-items-center gap-1" style="font-size:0.75rem;" title="${n.proof_file_name || 'Proof Document'}">
+                                                <i class="bi ${icon}"></i> View Proof
+                                            </a>
+                                        `;
+                                    }
+
                                     return `
                                         <tr>
                                             <td class="fw-semibold text-dark">${dateStr}</td>
                                             <td>${n.reason}</td>
                                             <td class="small text-secondary">${n.remarks || '—'}</td>
+                                            <td>${proofHtml}</td>
                                             <td><span class="badge ${badgeColor} rounded-pill px-2.5 py-1 text-uppercase" style="font-size:0.7rem;">${n.status}</span></td>
                                             <td class="small text-muted">${filedStr}</td>
                                         </tr>
@@ -365,6 +379,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             const reason = document.getElementById('excuseReason').value;
             const date = document.getElementById('excuseDate').value;
             const remarks = document.getElementById('excuseRemarks').value;
+            const fileInput = document.getElementById('excuseFile');
+            const file = fileInput?.files?.[0];
+
+            if (file) {
+                const allowedExts = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp'];
+                const ext = (file.name || '').toLowerCase().slice((file.name || '').lastIndexOf('.'));
+                if (!allowedExts.includes(ext)) {
+                    alert('Invalid file format. Please upload a PDF, Word document (.doc/.docx), or photo/image (.jpg/.png/.webp).\n\nPowerPoint (PPT) and other large presentation/media files are not allowed.');
+                    if (fileInput) fileInput.value = '';
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File size exceeds the 5MB limit. Please attach a smaller document or photo to conserve storage.');
+                    if (fileInput) fileInput.value = '';
+                    return;
+                }
+            }
 
             if (!activeChild || !activeChild.id) {
                 alert('Please select a student first.');
@@ -382,14 +413,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             try {
+                const formData = new FormData();
+                formData.append('studentId', activeChild.id);
+                formData.append('absenceDate', date);
+                formData.append('reason', reason);
+                formData.append('remarks', remarks);
+                if (file) {
+                    formData.append('proofFile', file);
+                }
+
                 const res = await authedFetch('/api/attendance/excuse-note', token, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        studentId: activeChild.id,
-                        absenceDate: date,
-                        reason,
-                        remarks,
-                    }),
+                    body: formData,
                 });
 
                 const modalEl = document.getElementById('excuseModal');
