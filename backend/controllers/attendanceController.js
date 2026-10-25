@@ -873,7 +873,10 @@ async function listExcuseNotes(req, res) {
     let params = [];
 
     if (req.user.role === 'parent') {
-      where.push('en.parent_id = ?');
+      where.push('(en.parent_id = ? OR en.student_id IN (SELECT student_id FROM parent_student_links WHERE parent_id = ?))');
+      params.push(req.user.id, req.user.id);
+    } else if (req.user.role === 'student') {
+      where.push('en.student_id = ?');
       params.push(req.user.id);
     } else if (req.user.role === 'teacher') {
       // Find sections where teacher is adviser, co-adviser, or instructor
@@ -911,7 +914,7 @@ async function listExcuseNotes(req, res) {
               COALESCE(en.review_remarks, '') AS review_remarks,
               CONCAT(st.first_name, ' ', st.last_name) AS student_name, 
               st.id_number AS student_lrn,
-              st.grade_level,
+              sec.grade_level,
               CONCAT(p.first_name, ' ', p.last_name) AS parent_name,
               p.contact_number AS parent_contact,
               p.email AS parent_email,
@@ -921,7 +924,7 @@ async function listExcuseNotes(req, res) {
               sec.adviser_id
        FROM excuse_notes en
        JOIN users st ON st.id = en.student_id
-       JOIN users p ON p.id = en.parent_id
+       LEFT JOIN users p ON p.id = en.parent_id
        LEFT JOIN sections sec ON sec.id = COALESCE(en.section_id, st.section_id)
        LEFT JOIN users rev ON rev.id = en.reviewed_by
        ${whereClause}
