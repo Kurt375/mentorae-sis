@@ -109,63 +109,92 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <!-- Step 1: Enter Email or ID Number -->
+                    <!-- Step 1: Enter Email, ID Number, or Registered Mobile Number -->
                     <div id="resetStep1">
-                        <p class="small text-muted">Enter the email address or School ID / LRN associated with your account to start password recovery.</p>
+                        <p class="small text-muted">Enter the email address, School ID / LRN, or registered mobile phone number associated with your account to start password recovery.</p>
                         <div id="resetStep1Alert" class="alert alert-danger py-2 px-3 small d-none mb-3" role="alert"></div>
                         <form id="sendCodeForm">
                             <div class="mb-3">
-                                <label for="resetIdentity" class="form-label fw-semibold text-muted small">Email Address or School ID / LRN</label>
+                                <label for="resetIdentity" class="form-label fw-semibold text-muted small">Email Address, School ID / LRN, or Phone Number</label>
                                 <input type="text" class="form-control custom-input" id="resetIdentity"
                                     data-restrict="none" autocomplete="username"
-                                    placeholder="Enter your Gmail or School ID / LRN" required>
+                                    placeholder="e.g. Gmail, School ID / LRN, or 09123456789" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Continue</button>
                         </form>
                     </div>
 
-                    <!-- Step 2A: Enter OTP (For Accounts with Real Email) -->
+                    <!-- Step 1.5: Choose OTP Channel (When both Email and Phone are linked) -->
+                    <div id="resetStepChooseChannel" class="d-none">
+                        <p class="small text-muted mb-3">Both email and mobile phone verification are available for your account. Choose where you want to receive your 6-digit OTP code:</p>
+                        <div class="d-flex flex-column gap-2.5 mb-3">
+                            <button type="button" id="btnChooseSms" class="btn btn-outline-success text-start p-3 d-flex align-items-center gap-3 rounded-3 channel-option-card">
+                                <div class="rounded-circle bg-success-subtle text-success d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                                    <i class="bi bi-phone-vibrate fs-5"></i>
+                                </div>
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <div class="fw-bold text-dark small">Send OTP via SMS</div>
+                                    <div class="text-muted micro-text" id="maskedPhoneChannelText">09••••••1234</div>
+                                </div>
+                                <i class="bi bi-chevron-right text-muted flex-shrink-0"></i>
+                            </button>
+                            <button type="button" id="btnChooseEmail" class="btn btn-outline-success text-start p-3 d-flex align-items-center gap-3 rounded-3 channel-option-card">
+                                <div class="rounded-circle bg-success-subtle text-success d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+                                    <i class="bi bi-envelope-check fs-5"></i>
+                                </div>
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <div class="fw-bold text-dark small">Send OTP via Email</div>
+                                    <div class="text-muted micro-text" id="maskedEmailChannelText">u***r@example.com</div>
+                                </div>
+                                <i class="bi bi-chevron-right text-muted flex-shrink-0"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-link text-muted small w-100 text-decoration-none btnBackToStep1">Back to Start</button>
+                    </div>
+
+                    <!-- Step 2: Enter OTP (For both SMS and Email OTP) -->
                     <div id="resetStep2" class="d-none">
-                        <p class="small text-muted">A 6-digit verification code has been sent to <strong
-                                id="userEmailForOtp" class="text-dark"></strong>. Please enter it below.</p>
+                        <div id="otpDestinationBanner" class="alert alert-success py-2.5 px-3 small mb-3 d-flex align-items-center gap-2.5 rounded-3">
+                            <i id="otpChannelIcon" class="bi bi-phone-fill fs-5 text-success flex-shrink-0"></i>
+                            <div class="flex-grow-1">
+                                <span id="otpInstructionsText" class="text-dark">A 6-digit verification code has been sent.</span>
+                            </div>
+                        </div>
+                        <div id="devOtpAlert" class="alert alert-warning py-2 px-3 small mb-3 d-none">
+                            <i class="bi bi-info-circle-fill me-1"></i>
+                            <span>[Dev / Local Test] Verification Code: <strong id="devOtpDisplay" class="fs-6 letter-spacing-1"></strong></span>
+                        </div>
                         <form id="verifyCodeForm">
                             <div class="mb-3">
-                                <label for="otpCode" class="form-label fw-semibold text-muted small">Verification
-                                    Code</label>
-                                <input type="text" class="form-control custom-input" id="otpCode"
-                                    placeholder="Enter 6-digit code" required>
+                                <label for="otpCode" class="form-label fw-semibold text-muted small">Verification Code</label>
+                                <input type="text" class="form-control custom-input text-center fs-5 fw-bold" id="otpCode"
+                                    placeholder="••••••" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
                             </div>
                             <button type="submit" class="btn btn-portal w-100 py-2">Verify Code</button>
-                            <button type="button" class="btn btn-link text-muted small w-100 mt-2 text-decoration-none btnBackToStep1">Back to Start</button>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <button type="button" id="btnResendOtp" class="btn btn-link text-success p-0 small text-decoration-none">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Resend Code
+                                </button>
+                                <button type="button" id="btnChangeOtpMethod" class="btn btn-link text-secondary p-0 small text-decoration-none d-none">
+                                    Change Method
+                                </button>
+                                <button type="button" class="btn btn-link text-muted p-0 small text-decoration-none btnBackToStep1">Back to Start</button>
+                            </div>
                         </form>
                     </div>
 
-                    <!-- Step 2B: Phone Verification (For Accounts with Registered Phone but No Real Email) -->
-                    <div id="resetStepPhone" class="d-none">
-                        <div class="alert alert-info py-2 px-3 small mb-3">
-                            <i class="bi bi-telephone-fill me-1"></i> No active email is linked to this account, but a registered contact number (<strong id="maskedPhoneDisplay">••••••••</strong>) is on file.
-                        </div>
-                        <p class="small text-muted">Enter your full registered phone number (or parent's contact number) to verify your identity:</p>
-                        <form id="verifyPhoneForm">
-                            <div class="mb-3">
-                                <label for="verifyPhoneInput" class="form-label fw-semibold text-muted small">Registered Phone Number</label>
-                                <input type="text" class="form-control custom-input" id="verifyPhoneInput"
-                                    placeholder="e.g. 09123456789" required>
-                            </div>
-                            <button type="submit" class="btn btn-portal w-100 py-2">Verify Phone Number</button>
-                            <button type="button" class="btn btn-link text-muted small w-100 mt-2 text-decoration-none btnBackToStep1">Back to Start</button>
-                        </form>
-                    </div>
+                    <!-- Legacy container preserved for backward compatibility -->
+                    <div id="resetStepPhone" class="d-none"></div>
 
                     <!-- Step 2C: Adviser / Administrator Reset Assistance (For Accounts with Neither Email nor Phone) -->
                     <div id="resetStepAdviser" class="d-none text-center py-2">
                         <div class="p-3 bg-light rounded-3 border mb-3 text-start">
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <i class="bi bi-shield-lock-fill text-warning fs-4"></i>
-                                <h6 class="fw-bold m-0 text-dark">No Email Linked to Account</h6>
+                                <h6 class="fw-bold m-0 text-dark">No Contact Method Linked</h6>
                             </div>
                             <p class="small text-muted mb-2" id="adviserHelpText">
-                                This account does not have a real Gmail or personal contact number on file.
+                                This account does not have a real Gmail or personal mobile number on file.
                             </p>
                             <div class="small text-secondary bg-white p-2.5 rounded border">
                                 <p class="mb-1 fw-semibold text-dark"><i class="bi bi-lightbulb-fill text-success me-1"></i>How to recover your account:</p>

@@ -424,6 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const forgotPasswordModal = new bootstrap.Modal(forgotPasswordModalEl);
 
     const resetStep1 = document.getElementById('resetStep1');
+    const resetStepChooseChannel = document.getElementById('resetStepChooseChannel');
     const resetStep2 = document.getElementById('resetStep2');
     const resetStepPhone = document.getElementById('resetStepPhone');
     const resetStepAdviser = document.getElementById('resetStepAdviser');
@@ -431,23 +432,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sendCodeForm = document.getElementById('sendCodeForm');
     const verifyCodeForm = document.getElementById('verifyCodeForm');
-    const verifyPhoneForm = document.getElementById('verifyPhoneForm');
     const resetPasswordForm = document.getElementById('resetPasswordForm');
 
     const resetIdentityInput = document.getElementById('resetIdentity');
-    const userEmailForOtp = document.getElementById('userEmailForOtp');
     const otpCodeInput = document.getElementById('otpCode');
-    const verifyPhoneInput = document.getElementById('verifyPhoneInput');
-    const maskedPhoneDisplay = document.getElementById('maskedPhoneDisplay');
-    const adviserHelpText = document.getElementById('adviserHelpText');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
-
     const resetStep1Alert = document.getElementById('resetStep1Alert');
 
+    const btnChooseSms = document.getElementById('btnChooseSms');
+    const btnChooseEmail = document.getElementById('btnChooseEmail');
+    const maskedPhoneChannelText = document.getElementById('maskedPhoneChannelText');
+    const maskedEmailChannelText = document.getElementById('maskedEmailChannelText');
+
+    const otpChannelIcon = document.getElementById('otpChannelIcon');
+    const otpInstructionsText = document.getElementById('otpInstructionsText');
+    const devOtpAlert = document.getElementById('devOtpAlert');
+    const devOtpDisplay = document.getElementById('devOtpDisplay');
+    const btnResendOtp = document.getElementById('btnResendOtp');
+    const btnChangeOtpMethod = document.getElementById('btnChangeOtpMethod');
+    const adviserHelpText = document.getElementById('adviserHelpText');
+
     let currentIdentity = null;
-    let resetToken = null; 
-    let isResetSaving = false; 
+    let selectedChannel = null;
+    let multipleChannelsAvailable = false;
+    let resetToken = null;
+    let isResetSaving = false;
+    let resendCooldownTimer = null;
+    let resendCountdown = 0;
 
     function showResetAlert(message) {
         if (resetStep1Alert) {
@@ -464,20 +476,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function stopResendTimer() {
+        if (resendCooldownTimer) {
+            clearInterval(resendCooldownTimer);
+            resendCooldownTimer = null;
+        }
+        resendCountdown = 0;
+        if (btnResendOtp) {
+            btnResendOtp.disabled = false;
+            btnResendOtp.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Resend Code';
+        }
+    }
+
+    function startResendTimer(seconds = 60) {
+        stopResendTimer();
+        resendCountdown = seconds;
+        if (!btnResendOtp) return;
+        btnResendOtp.disabled = true;
+        btnResendOtp.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Resend in ${resendCountdown}s`;
+
+        resendCooldownTimer = setInterval(() => {
+            resendCountdown--;
+            if (resendCountdown <= 0) {
+                stopResendTimer();
+            } else if (btnResendOtp) {
+                btnResendOtp.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Resend in ${resendCountdown}s`;
+            }
+        }, 1000);
+    }
+
     function backToStep1() {
         hideResetAlert();
+        stopResendTimer();
+        selectedChannel = null;
+        multipleChannelsAvailable = false;
+        if (devOtpAlert) devOtpAlert.classList.add('d-none');
+        if (btnChangeOtpMethod) btnChangeOtpMethod.classList.add('d-none');
         if (resetStep1) resetStep1.classList.remove('d-none');
+        if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
         if (resetStep2) resetStep2.classList.add('d-none');
         if (resetStepPhone) resetStepPhone.classList.add('d-none');
         if (resetStepAdviser) resetStepAdviser.classList.add('d-none');
         if (resetStep3) resetStep3.classList.add('d-none');
         if (verifyCodeForm) verifyCodeForm.reset();
-        if (verifyPhoneForm) verifyPhoneForm.reset();
     }
 
     document.querySelectorAll('.btnBackToStep1').forEach(btn => {
         btn.addEventListener('click', backToStep1);
     });
+
+    if (btnChangeOtpMethod) {
+        btnChangeOtpMethod.addEventListener('click', () => {
+            stopResendTimer();
+            if (resetStep2) resetStep2.classList.add('d-none');
+            if (resetStepChooseChannel) resetStepChooseChannel.classList.remove('d-none');
+        });
+    }
 
     if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', (e) => {
@@ -487,19 +541,140 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Step 1: Send verification code or verify account presence
+    // Core function to send or resend OTP
+    async function requestOtp(identity, channel = null) {
+        hideResetAlert();
+        const submitBtn = sendCodeForm ? sendCodeForm.querySelector('button[type="submit"]') : null;
+        if (submitBtn) submitBtn.disabled = true;
+        if (btnChooseSms) btnChooseSms.disabled = true;
+        if (btnChooseEmail) btnChooseEmail.disabled = true;
+        if (btnResendOtp) btnResendOtp.disabled = true;
+
+        try {
+            const body = { identity };
+            if (channel) body.channel = channel;
+
+            const res = await fetch(`${API_BASE}/api/auth/forgot-password/send-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                showResetAlert(data.message || 'This account is not registered in the system.');
+                if (btnResendOtp && resendCountdown <= 0) btnResendOtp.disabled = false;
+                return;
+            }
+
+            // Case A: User can choose channel (Both Email & Phone available)
+            if (data.method === 'choose_channel') {
+                multipleChannelsAvailable = true;
+                if (maskedPhoneChannelText) maskedPhoneChannelText.textContent = data.maskedPhone || 'Registered Mobile Number';
+                if (maskedEmailChannelText) maskedEmailChannelText.textContent = data.maskedEmail || 'Personal Email';
+
+                if (resetStep1) resetStep1.classList.add('d-none');
+                if (resetStepChooseChannel) resetStepChooseChannel.classList.remove('d-none');
+                if (resetStep2) resetStep2.classList.add('d-none');
+                return;
+            }
+
+            // Case B: Sent via SMS OTP
+            if (data.method === 'phone_otp' || data.channel === 'sms') {
+                selectedChannel = 'sms';
+                if (otpChannelIcon) {
+                    otpChannelIcon.className = 'bi bi-phone-fill fs-5 text-success flex-shrink-0';
+                }
+                if (otpInstructionsText) {
+                    otpInstructionsText.innerHTML = `A 6-digit verification code has been sent via SMS to <strong>${data.maskedPhone || 'your mobile phone'}</strong>. Please enter it below.`;
+                }
+
+                if (data.devOtp) {
+                    if (devOtpDisplay) devOtpDisplay.textContent = data.devOtp;
+                    if (devOtpAlert) devOtpAlert.classList.remove('d-none');
+                } else if (devOtpAlert) {
+                    devOtpAlert.classList.add('d-none');
+                }
+
+                if (multipleChannelsAvailable && btnChangeOtpMethod) {
+                    btnChangeOtpMethod.classList.remove('d-none');
+                } else if (btnChangeOtpMethod) {
+                    btnChangeOtpMethod.classList.add('d-none');
+                }
+
+                if (resetStep1) resetStep1.classList.add('d-none');
+                if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
+                if (resetStep2) resetStep2.classList.remove('d-none');
+                startResendTimer(60);
+                if (otpCodeInput) {
+                    otpCodeInput.value = '';
+                    otpCodeInput.focus();
+                }
+                return;
+            }
+
+            // Case C: Sent via Email OTP
+            if (data.method === 'email' || data.channel === 'email') {
+                selectedChannel = 'email';
+                if (otpChannelIcon) {
+                    otpChannelIcon.className = 'bi bi-envelope-fill fs-5 text-success flex-shrink-0';
+                }
+                if (otpInstructionsText) {
+                    otpInstructionsText.innerHTML = `A 6-digit verification code has been sent to <strong>${data.maskedEmail || identity}</strong>. Please enter it below.`;
+                }
+
+                if (devOtpAlert) devOtpAlert.classList.add('d-none');
+
+                if (multipleChannelsAvailable && btnChangeOtpMethod) {
+                    btnChangeOtpMethod.classList.remove('d-none');
+                } else if (btnChangeOtpMethod) {
+                    btnChangeOtpMethod.classList.add('d-none');
+                }
+
+                if (resetStep1) resetStep1.classList.add('d-none');
+                if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
+                if (resetStep2) resetStep2.classList.remove('d-none');
+                startResendTimer(60);
+                if (otpCodeInput) {
+                    otpCodeInput.value = '';
+                    otpCodeInput.focus();
+                }
+                return;
+            }
+
+            // Case D: Adviser required (no email or phone on file)
+            if (data.method === 'adviser_required') {
+                if (adviserHelpText) adviserHelpText.textContent = data.message;
+                if (resetStep1) resetStep1.classList.add('d-none');
+                if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
+                if (resetStepAdviser) resetStepAdviser.classList.remove('d-none');
+                return;
+            }
+
+            alert(data.message || 'Verification initiated.');
+        } catch (err) {
+            console.error(err);
+            showResetAlert('Could not reach the server. Please check your internet connection.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            if (btnChooseSms) btnChooseSms.disabled = false;
+            if (btnChooseEmail) btnChooseEmail.disabled = false;
+        }
+    }
+
+    // Step 1: Send verification code or look up channels
     if (sendCodeForm) {
         sendCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideResetAlert();
             currentIdentity = resetIdentityInput ? resetIdentityInput.value.trim() : '';
             if (!currentIdentity) {
-                showResetAlert('Please enter your email address or School ID / LRN.');
+                showResetAlert('Please enter your email address, School ID / LRN, or registered phone number.');
                 if (resetIdentityInput) resetIdentityInput.focus();
                 return;
             }
 
-            // If input is an email, ensure it has a valid format
+            // If input contains @, validate email format
             if (currentIdentity.includes('@')) {
                 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailPattern.test(currentIdentity)) {
@@ -509,47 +684,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const submitBtn = sendCodeForm.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-
-            try {
-                const res = await fetch(`${API_BASE}/api/auth/forgot-password/send-code`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identity: currentIdentity }),
-                });
-                const data = await res.json();
-
-                if (!data.success) {
-                    showResetAlert(data.message || 'This email address or ID is not registered in the system.');
-                    if (resetIdentityInput) resetIdentityInput.focus();
-                    return;
-                }
-
-                resetStep1.classList.add('d-none');
-
-                if (data.method === 'email') {
-                    if (userEmailForOtp) userEmailForOtp.textContent = data.maskedEmail || currentIdentity;
-                    resetStep2.classList.remove('d-none');
-                } else if (data.method === 'phone_verification') {
-                    if (maskedPhoneDisplay) maskedPhoneDisplay.textContent = data.maskedPhone || '••••••••';
-                    resetStepPhone.classList.remove('d-none');
-                } else if (data.method === 'adviser_required') {
-                    if (adviserHelpText) adviserHelpText.textContent = data.message;
-                    resetStepAdviser.classList.remove('d-none');
-                } else {
-                    alert(data.message || 'Verification initiated.');
-                }
-            } catch (err) {
-                console.error(err);
-                showResetAlert('Could not reach the server. Please try again.');
-            } finally {
-                submitBtn.disabled = false;
-            }
+            await requestOtp(currentIdentity);
         });
     }
 
-    // Step 2A: Verify OTP code
+    // Channel Selection button handlers
+    if (btnChooseSms) {
+        btnChooseSms.addEventListener('click', async () => {
+            if (!currentIdentity) return;
+            await requestOtp(currentIdentity, 'sms');
+        });
+    }
+
+    if (btnChooseEmail) {
+        btnChooseEmail.addEventListener('click', async () => {
+            if (!currentIdentity) return;
+            await requestOtp(currentIdentity, 'email');
+        });
+    }
+
+    // Resend OTP button
+    if (btnResendOtp) {
+        btnResendOtp.addEventListener('click', async () => {
+            if (!currentIdentity || resendCountdown > 0) return;
+            await requestOtp(currentIdentity, selectedChannel);
+        });
+    }
+
+    // Step 2: Verify OTP code (works for both SMS and Email)
     if (verifyCodeForm) {
         verifyCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -582,56 +744,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 resetToken = data.resetToken;
+                stopResendTimer();
                 alert('Identity verified! Please set your new password.');
                 resetStep2.classList.add('d-none');
                 resetStep3.classList.remove('d-none');
                 updatePasswordRequirementsUi(newPasswordInput ? newPasswordInput.value : '', 'reset');
-            } catch (err) {
-                console.error(err);
-                alert('Could not reach the server. Please try again.');
-            } finally {
-                submitBtn.disabled = false;
-            }
-        });
-    }
-
-    // Step 2B: Verify Registered Phone (for accounts without real email)
-    if (verifyPhoneForm) {
-        verifyPhoneForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearInlineWarning(verifyPhoneInput);
-            if (!phoneNumber) {
-                showInlineWarning(verifyPhoneInput, 'Please enter your registered phone number.');
-                verifyPhoneInput.focus();
-                return;
-            }
-            if (!/^09\d{9}$/.test(phoneNumber)) {
-                showInlineWarning(verifyPhoneInput, 'Must be an 11-digit number starting with 09 (e.g., 09123456789).');
-                verifyPhoneInput.focus();
-                return;
-            }
-
-            const submitBtn = verifyPhoneForm.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-
-            try {
-                const res = await fetch(`${API_BASE}/api/auth/forgot-password/verify-phone`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identity: currentIdentity, phoneNumber }),
-                });
-                const data = await res.json();
-
-                if (!data.success) {
-                    alert(data.message || 'Phone number does not match our records.');
-                    return;
-                }
-
-                resetToken = data.resetToken;
-                alert('Phone number verified! Please set your new password.');
-                resetStepPhone.classList.add('d-none');
-                resetStep3.classList.remove('d-none');
-                updatePasswordRequirementsUi(newPasswordInput ? newPasswordInput.value : '', 'reset');
+                if (newPasswordInput) newPasswordInput.focus();
             } catch (err) {
                 console.error(err);
                 alert('Could not reach the server. Please try again.');
@@ -705,8 +823,8 @@ document.addEventListener('DOMContentLoaded', () => {
         forgotPasswordModalEl.addEventListener('hide.bs.modal', (event) => {
             if (isResetSaving) return;
 
-            const isBeyondStep1 = (resetStep2 && !resetStep2.classList.contains('d-none')) ||
-                (resetStepPhone && !resetStepPhone.classList.contains('d-none')) ||
+            const isBeyondStep1 = (resetStepChooseChannel && !resetStepChooseChannel.classList.contains('d-none')) ||
+                (resetStep2 && !resetStep2.classList.contains('d-none')) ||
                 (resetStep3 && !resetStep3.classList.contains('d-none'));
             const hasTyped = resetIdentityInput && resetIdentityInput.value.trim() !== '';
 
@@ -723,7 +841,6 @@ document.addEventListener('DOMContentLoaded', () => {
             backToStep1();
             if (sendCodeForm) sendCodeForm.reset();
             if (verifyCodeForm) verifyCodeForm.reset();
-            if (verifyPhoneForm) verifyPhoneForm.reset();
             if (resetPasswordForm) resetPasswordForm.reset();
             currentIdentity = null;
             resetToken = null;

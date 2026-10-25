@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
+const { sendOtpSms, normalizePhoneNumber, maskPhoneNumber } = require('../utils/smsService');
 const { getManilaDate } = require('../utils/dateUtils');
 const { enqueueLoginAudit } = require('../utils/authAuditQueue');
 
@@ -226,11 +227,43 @@ async function logout(req, res) {
   return res.json({ success: true, message: 'Logged out.' });
 }
 
-/** POST /api/auth/forgot-password/send-code  { identity or email } — Step 1 of the login page's modal */
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return email || '';
+  const [localPart, domain] = email.split('@');
+  const maskedLocal = localPart.length > 2 ? `${localPart[0]}***${localPart.slice(-1)}` : `${localPart[0]}***`;
+  return `${maskedLocal}@${domain}`;
+}
+
+/**
+ * Finds user by email, personal email, ID number, or phone number.
+ */
+async function findUserByIdentity(identity) {
+  const trimmed = (identity || '').trim();
+  if (!trimmed) return null;
+
+  const cleanDigits = trimmed.replace(/\D/g, '');
+  const phoneSuffix = cleanDigits.length >= 7 ? `%${cleanDigits.slice(-10)}` : null;
+
+  const [rows] = await pool.query(
+    `SELECT id, role, id_number, first_name, middle_initial, last_name, email, personal_email, contact_number 
+     FROM users 
+     WHERE email = ? 
+        OR personal_email = ? 
+        OR id_number = ? 
+        OR contact_number = ? 
+        OR (? IS NOT NULL AND contact_number LIKE ?)
+     LIMIT 1`,
+    [trimmed, trimmed, trimmed, trimmed, phoneSuffix, phoneSuffix]
+  );
+  return rows[0] || null;
+}
+
+/** POST /api/auth/forgot-password/send-code  { identity or email or phoneNumber, channel } — Step 1 of password reset */
 async function sendResetCode(req, res) {
-  const input = (req.body.identity || req.body.email || '').trim();
+  const input = (req.body.identity || req.body.email || req.body.phoneNumber || '').trim();
+  const requestedChannel = (req.body.channel || '').trim().toLowerCase(); // 'email' | 'sms' | ''
   if (!input) {
-    return res.status(400).json({ success: false, message: 'Please enter your email address or School ID / LRN.' });
+    return res.status(400).json({ success: false, message: 'Please enter your email address, School ID / LRN, or registered phone number.' });
   }
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -239,22 +272,17 @@ async function sendResetCode(req, res) {
   }
 
   try {
-    const [rows] = await pool.query(
-      `SELECT id, role, id_number, first_name, last_name, email, personal_email, contact_number 
-       FROM users 
-       WHERE email = ? OR personal_email = ? OR id_number = ? 
-       LIMIT 1`,
-      [input, input, input]
-    );
-    const user = rows[0];
+    const user = await findUserByIdentity(input);
     if (!user) {
       const msg = input.includes('@')
         ? 'This email address is not registered in the system.'
+        : (/^(\+63|0)?9\d{9}$/.test(input.replace(/\s+/g, '')))
+        ? 'This phone number is not registered in the system.'
         : 'This School ID / LRN is not registered in the system.';
       return res.status(404).json({ success: false, message: msg });
     }
 
-    // Determine deliverable email address (personal email or non-internal vanity email)
+    // Determine deliverable personal/external email address
     let deliverableEmail = null;
     if (user.personal_email && emailPattern.test(user.personal_email.trim())) {
       deliverableEmail = user.personal_email.trim();
@@ -262,7 +290,27 @@ async function sendResetCode(req, res) {
       deliverableEmail = user.email.trim();
     }
 
-    if (deliverableEmail) {
+    // Determine valid phone number
+    const rawPhone = user.contact_number ? user.contact_number.trim() : '';
+    const normalizedPhone = normalizePhoneNumber(rawPhone);
+    const hasValidPhone = Boolean(normalizedPhone && normalizedPhone.length >= 10);
+
+    // If both channels are available and the user has not chosen one yet, prompt them to choose
+    if (!requestedChannel && deliverableEmail && hasValidPhone) {
+      const maskedEmail = maskEmail(deliverableEmail);
+      const maskedPhone = maskPhoneNumber(normalizedPhone);
+      return res.json({
+        success: true,
+        method: 'choose_channel',
+        identity: input,
+        maskedEmail,
+        maskedPhone,
+        message: 'Choose how you would like to receive your verification code.',
+      });
+    }
+
+    // Helper to generate and store OTP
+    const createOtpRecord = async () => {
       const otp = String(Math.floor(100000 + Math.random() * 900000));
       const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
       const expiresAt = new Date(Date.now() + (Number(process.env.OTP_EXPIRES_MIN) || 10) * 60000);
@@ -272,7 +320,49 @@ async function sendResetCode(req, res) {
         otpHash,
         expiresAt,
       ]);
+      return otp;
+    };
 
+    // Determine target channel
+    const shouldSendSms = requestedChannel === 'sms' || (!requestedChannel && hasValidPhone && !deliverableEmail);
+    const shouldSendEmail = requestedChannel === 'email' || (!requestedChannel && deliverableEmail && !hasValidPhone);
+
+    if (shouldSendSms) {
+      if (!hasValidPhone) {
+        return res.status(400).json({ success: false, message: 'No registered phone number found on this account.' });
+      }
+
+      const otp = await createOtpRecord();
+      try {
+        const smsResult = await sendOtpSms(normalizedPhone, fullName(user), otp);
+        const maskedPhone = maskPhoneNumber(normalizedPhone);
+        const isDev = process.env.NODE_ENV !== 'production' || !process.env.SEMAPHORE_API_KEY || process.env.SEMAPHORE_API_KEY === 'YOUR_SEMAPHORE_API_KEY';
+
+        return res.json({
+          success: true,
+          method: 'phone_otp',
+          channel: 'sms',
+          identity: input,
+          maskedPhone,
+          simulated: smsResult.simulated,
+          devOtp: isDev || smsResult.simulated ? otp : undefined,
+          message: `A 6-digit verification code has been sent via SMS to ${maskedPhone}.`,
+        });
+      } catch (smsErr) {
+        console.error('sendOtpSms failed:', smsErr);
+        return res.status(502).json({
+          success: false,
+          message: `Could not send verification SMS: ${smsErr.message || 'SMS service error.'}`,
+        });
+      }
+    }
+
+    if (shouldSendEmail) {
+      if (!deliverableEmail) {
+        return res.status(400).json({ success: false, message: 'No deliverable personal email found on this account.' });
+      }
+
+      const otp = await createOtpRecord();
       try {
         await sendOtpEmail(deliverableEmail, fullName(user), otp);
       } catch (mailErr) {
@@ -284,30 +374,14 @@ async function sendResetCode(req, res) {
         return res.status(502).json({ success: false, message: msg });
       }
 
-      const [localPart, domain] = deliverableEmail.split('@');
-      const maskedLocal = localPart.length > 2 ? `${localPart[0]}***${localPart.slice(-1)}` : `${localPart[0]}***`;
-      const maskedEmail = `${maskedLocal}@${domain}`;
-
+      const maskedEmail = maskEmail(deliverableEmail);
       return res.json({
         success: true,
         method: 'email',
+        channel: 'email',
         identity: input,
         maskedEmail,
         message: `A verification code has been sent to ${maskedEmail}.`,
-      });
-    }
-
-    // No deliverable email: Check if registered phone is available
-    const cleanPhone = user.contact_number ? user.contact_number.trim() : '';
-    if (cleanPhone && cleanPhone.replace(/\D/g, '').length >= 7) {
-      const digits = cleanPhone.replace(/\D/g, '');
-      const last4 = digits.slice(-4);
-      return res.json({
-        success: true,
-        method: 'phone_verification',
-        identity: input,
-        maskedPhone: `••••••${last4}`,
-        message: `No real email is registered, but a contact number ending in ${last4} was found. Verify using your registered phone number.`,
       });
     }
 
@@ -329,18 +403,14 @@ async function sendResetCode(req, res) {
 
 /** POST /api/auth/forgot-password/verify-code  { identity, otp } — Step 2 */
 async function verifyResetCode(req, res) {
-  const identity = (req.body.identity || req.body.email || '').trim();
+  const identity = (req.body.identity || req.body.email || req.body.phoneNumber || '').trim();
   const otp = (req.body.otp || '').trim();
   if (!identity || !otp) {
-    return res.status(400).json({ success: false, message: 'Missing email/ID or code.' });
+    return res.status(400).json({ success: false, message: 'Missing email, School ID / LRN, or verification code.' });
   }
 
   try {
-    const [userRows] = await pool.query(
-      'SELECT id FROM users WHERE email = ? OR personal_email = ? OR id_number = ? LIMIT 1',
-      [identity, identity, identity]
-    );
-    const user = userRows[0];
+    const user = await findUserByIdentity(identity);
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid verification code.' });
     }
@@ -359,9 +429,11 @@ async function verifyResetCode(req, res) {
 
     await pool.query('UPDATE password_resets SET verified = 1 WHERE id = ?', [resetRow.id]);
 
-    const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id, resetId: resetRow.id }, process.env.JWT_SECRET, {
-      expiresIn: '10m',
-    });
+    const resetToken = jwt.sign(
+      { purpose: 'password_reset', userId: user.id, resetId: resetRow.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    );
 
     return res.json({ success: true, message: 'Verification successful!', resetToken });
   } catch (err) {
@@ -370,46 +442,14 @@ async function verifyResetCode(req, res) {
   }
 }
 
-/** POST /api/auth/forgot-password/verify-phone  { identity, phoneNumber } — Verification without email */
+/** POST /api/auth/forgot-password/verify-phone  { identity, phoneNumber, otp } */
 async function verifyResetPhone(req, res) {
-  const identity = (req.body.identity || req.body.email || '').trim();
-  const phoneNumber = (req.body.phoneNumber || '').trim();
-  if (!identity || !phoneNumber) {
-    return res.status(400).json({ success: false, message: 'Please enter your registered phone number.' });
+  if (req.body.otp) {
+    return verifyResetCode(req, res);
   }
-
-  try {
-    const [userRows] = await pool.query(
-      'SELECT id, contact_number FROM users WHERE email = ? OR personal_email = ? OR id_number = ? LIMIT 1',
-      [identity, identity, identity]
-    );
-    const user = userRows[0];
-    if (!user || !user.contact_number) {
-      return res.status(400).json({ success: false, message: 'Could not verify account identity.' });
-    }
-
-    const cleanInput = phoneNumber.replace(/\D/g, '');
-    const cleanStored = user.contact_number.replace(/\D/g, '');
-
-    const isMatch = cleanInput === cleanStored || (cleanInput.length >= 7 && cleanStored.endsWith(cleanInput)) || (cleanStored.length >= 7 && cleanInput.endsWith(cleanStored));
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Phone number does not match our records.' });
-    }
-
-    const [insertResult] = await pool.query(
-      'INSERT INTO password_resets (user_id, otp_hash, expires_at, verified, used) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), 1, 0)',
-      [user.id, 'PHONE_VERIFIED']
-    );
-
-    const resetToken = jwt.sign({ purpose: 'password_reset', userId: user.id, resetId: insertResult.insertId }, process.env.JWT_SECRET, {
-      expiresIn: '10m',
-    });
-
-    return res.json({ success: true, message: 'Phone identity verified!', resetToken });
-  } catch (err) {
-    console.error('verifyResetPhone error:', err);
-    return res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
-  }
+  // If requesting phone verification without an OTP yet, dispatch SMS OTP
+  req.body.channel = 'sms';
+  return sendResetCode(req, res);
 }
 
 /**
