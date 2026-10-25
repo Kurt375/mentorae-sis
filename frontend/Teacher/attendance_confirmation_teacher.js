@@ -645,6 +645,539 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#039;');
     }
 
+    let currentViewerActiveBlobUrl = null;
+
+    function getMimeTypeFromFilename(filename, fallback = 'application/octet-stream') {
+        if (!filename || typeof filename !== 'string') return fallback;
+        const ext = filename.split('.').pop().toLowerCase();
+        const mimeMap = {
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'ppt': 'application/vnd.ms-powerpoint',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'txt': 'text/plain',
+            'csv': 'text/csv',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+            'mp4': 'video/mp4',
+            'webm': 'video/webm'
+        };
+        return mimeMap[ext] || fallback;
+    }
+
+    function dataURItoBlob(dataURI, fileName = 'document') {
+        if (!dataURI) return new Blob();
+        if (!dataURI.includes(',')) return new Blob([dataURI]);
+        try {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], { type: mimeString });
+        } catch (e) {
+            return new Blob([dataURI]);
+        }
+    }
+
+    async function loadFileData(resolvedUrl, fileName = '') {
+        if (!resolvedUrl) throw new Error('No valid file URL provided.');
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        const isMedia = ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'm4a'].includes(ext);
+
+        if (resolvedUrl.startsWith('data:')) {
+            try {
+                const res = await fetch(resolvedUrl);
+                const blob = await res.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const blobUrl = URL.createObjectURL(blob);
+                return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+            } catch (fetchErr) {
+                const b = dataURItoBlob(resolvedUrl, fileName);
+                if (!b) throw new Error('Could not parse data URI.');
+                const arrayBuffer = await b.arrayBuffer();
+                const blobUrl = URL.createObjectURL(b);
+                return { blob: b, arrayBuffer, blobUrl, mimeType: b.type || getMimeTypeFromFilename(fileName) };
+            }
+        }
+
+        if (resolvedUrl.startsWith('blob:')) {
+            try {
+                const res = await fetch(resolvedUrl);
+                const blob = await res.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                return { blob, arrayBuffer, blobUrl: resolvedUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+            } catch (e) {
+                return { blob: null, arrayBuffer: null, blobUrl: resolvedUrl, mimeType: getMimeTypeFromFilename(fileName) };
+            }
+        }
+
+        if (isMedia && /^https?:\/\//i.test(resolvedUrl)) {
+            return {
+                blob: null,
+                arrayBuffer: null,
+                blobUrl: resolvedUrl,
+                mimeType: getMimeTypeFromFilename(fileName)
+            };
+        }
+
+        const token = localStorage.getItem('mentorae_token');
+        const headers = {};
+        if (token && resolvedUrl.includes('/api/')) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        try {
+            const res = await fetch(resolvedUrl, { headers, signal: controller.signal });
+            if (!res.ok) {
+                let errMsg = `Failed to load file (${res.status} ${res.statusText})`;
+                try {
+                    const errJson = await res.json();
+                    if (errJson && errJson.message) errMsg = errJson.message;
+                } catch (e) { }
+                throw new Error(errMsg);
+            }
+            const blob = await res.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const blobUrl = URL.createObjectURL(blob);
+            return { blob, arrayBuffer, blobUrl, mimeType: blob.type || getMimeTypeFromFilename(fileName) };
+        } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+                throw new Error('Connection timed out. The file may be temporarily unreachable.');
+            }
+            throw fetchErr;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    function paginateDocxContainer(hostEl) {
+        if (!hostEl) return;
+        const sections = Array.from(hostEl.querySelectorAll('section.docx, .docx-wrapper > section, .docx-paper-sheet'));
+        if (!sections.length) return;
+
+        const TARGET_PAGE_HEIGHT = 1056; // Standard 8.5" x 11" Letter page height at 96 DPI
+        const PAGE_PADDING_V = 136;
+        const USABLE_HEIGHT = TARGET_PAGE_HEIGHT - PAGE_PADDING_V;
+
+        sections.forEach(sec => {
+            if (sec.classList.contains('docx-paginated-done')) return;
+
+            if (sec.offsetHeight <= TARGET_PAGE_HEIGHT + 60) {
+                if (!sec.querySelector('.docx-page-footer-badge')) {
+                    const footer = document.createElement('div');
+                    footer.className = 'docx-page-footer-badge';
+                    footer.innerHTML = '<span class="docx-page-num-badge">Page 1 of 1</span>';
+                    sec.appendChild(footer);
+                }
+                sec.classList.add('docx-paginated-done');
+                return;
+            }
+
+            const rawChildren = Array.from(sec.children).filter(c => 
+                c.tagName !== 'HEADER' && 
+                c.tagName !== 'FOOTER' && 
+                !c.classList.contains('docx-page-footer-badge')
+            );
+            if (rawChildren.length <= 1) return;
+
+            const pages = [];
+            let curPageChildren = [];
+            let accumulatedH = 0;
+
+            rawChildren.forEach(child => {
+                const h = child.offsetHeight || 30;
+                if (accumulatedH + h > USABLE_HEIGHT && curPageChildren.length > 0) {
+                    pages.push(curPageChildren);
+                    curPageChildren = [child];
+                    accumulatedH = h;
+                } else {
+                    curPageChildren.push(child);
+                    accumulatedH += h;
+                }
+            });
+            if (curPageChildren.length > 0) {
+                pages.push(curPageChildren);
+            }
+
+            if (pages.length <= 1) return;
+
+            pages.forEach((pageChildren, pageIdx) => {
+                const pageSec = document.createElement('section');
+                pageSec.className = `${sec.className} docx-paginated-done`;
+                if (sec.style.cssText) pageSec.style.cssText = sec.style.cssText;
+                pageSec.style.minHeight = `${TARGET_PAGE_HEIGHT}px`;
+                pageSec.style.marginBottom = '32px';
+                pageSec.style.position = 'relative';
+
+                pageChildren.forEach(c => pageSec.appendChild(c));
+
+                const pageFooter = document.createElement('div');
+                pageFooter.className = 'docx-page-footer-badge';
+                pageFooter.innerHTML = `<span class="docx-page-num-badge">Page ${pageIdx + 1} of ${pages.length}</span>`;
+                pageSec.appendChild(pageFooter);
+
+                sec.parentNode.insertBefore(pageSec, sec);
+            });
+            sec.remove();
+        });
+    }
+
+    async function openClassroomViewer(fileName, resolvedUrl, subtitle = 'Excuse Proof Document', meta = {}, returnModal = null) {
+        const viewerEl = document.getElementById('classroomFileViewer');
+        const nameEl = document.getElementById('classroomViewerFileName');
+        const subEl = document.getElementById('classroomViewerSubtitle');
+        const iconEl = document.getElementById('classroomViewerIcon');
+        const stageEl = document.getElementById('classroomViewerStage');
+        const downloadBtn = document.getElementById('classroomViewerDownloadBtn');
+        const popoutBtn = document.getElementById('classroomViewerPopoutBtn');
+        const printBtn = document.getElementById('classroomViewerPrintBtn');
+        const modeSwitcherEl = document.getElementById('classroomViewerModeSwitcher');
+
+        if (!viewerEl || !stageEl) return;
+
+        // Revoke prior active blob URL
+        if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
+            currentViewerActiveBlobUrl = null;
+        }
+
+        viewerEl.classList.remove('d-none');
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+
+        // Track caller modal to restore on close
+        let returnModalInstance = null;
+        if (returnModal && typeof bootstrap !== 'undefined') {
+            returnModalInstance = bootstrap.Modal.getInstance(returnModal) || new bootstrap.Modal(returnModal);
+            if (returnModalInstance) returnModalInstance.hide();
+        }
+
+        let handleViewerKeydown = null;
+        const closeViewer = () => {
+            if (handleViewerKeydown) {
+                window.removeEventListener('keydown', handleViewerKeydown);
+                handleViewerKeydown = null;
+            }
+            viewerEl.classList.add('d-none');
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            stageEl.innerHTML = '';
+            if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
+            if (currentViewerActiveBlobUrl && currentViewerActiveBlobUrl.startsWith('blob:')) {
+                try { URL.revokeObjectURL(currentViewerActiveBlobUrl); } catch (e) { }
+                currentViewerActiveBlobUrl = null;
+            }
+            if (returnModalInstance) {
+                returnModalInstance.show();
+            }
+        };
+
+        const closeBtn = document.getElementById('classroomViewerCloseBtn');
+        const backBtn = document.getElementById('classroomViewerBackBtn');
+        if (closeBtn) closeBtn.onclick = closeViewer;
+        if (backBtn) backBtn.onclick = closeViewer;
+
+        handleViewerKeydown = (e) => {
+            if (e.key === 'Escape' && !viewerEl.classList.contains('d-none')) {
+                e.preventDefault();
+                closeViewer();
+            }
+        };
+        window.addEventListener('keydown', handleViewerKeydown);
+
+        if (nameEl) nameEl.textContent = fileName || 'Document';
+        if (subEl) subEl.textContent = subtitle || 'Excuse Proof Document';
+
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        let mime = (meta && meta.type) ? meta.type : getMimeTypeFromFilename(fileName, '');
+
+        if (iconEl) {
+            if (ext === 'pdf') {
+                iconEl.className = 'bi bi-file-earmark-pdf fs-4 text-danger';
+            } else if (ext === 'pptx' || ext === 'ppt') {
+                iconEl.className = 'bi bi-file-earmark-slides fs-4 text-warning';
+            } else if (ext === 'docx' || ext === 'doc') {
+                iconEl.className = 'bi bi-file-earmark-word fs-4 text-primary';
+            } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+                iconEl.className = 'bi bi-file-earmark-excel fs-4 text-success';
+            } else if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
+                iconEl.className = 'bi bi-file-earmark-image fs-4 text-info';
+            } else {
+                iconEl.className = 'bi bi-file-earmark-text fs-4 text-light';
+            }
+        }
+
+        stageEl.innerHTML = `
+            <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white">
+                <div class="spinner-border text-success mb-3" style="width: 3.2rem; height: 3.2rem;" role="status"></div>
+                <p class="fs-5 fw-semibold mb-1">Loading Document Preview...</p>
+                <p class="text-white-50 small">${escapeHtml(fileName || 'Please wait')}</p>
+            </div>
+        `;
+        if (modeSwitcherEl) modeSwitcherEl.innerHTML = '';
+
+        let fileData = null;
+        try {
+            fileData = await loadFileData(resolvedUrl, fileName);
+            if (fileData.blobUrl && fileData.blobUrl.startsWith('blob:')) {
+                currentViewerActiveBlobUrl = fileData.blobUrl;
+            }
+        } catch (err) {
+            console.error('Error loading file data:', err);
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 520px;">
+                    <i class="bi bi-file-earmark-x text-warning display-4 mb-3 d-block"></i>
+                    <h4 class="fw-bold text-white mb-2">Preview Unavailable</h4>
+                    <p class="text-white-50 mb-3">${escapeHtml(fileName || 'File')}</p>
+                    <p class="text-secondary small mb-4">${escapeHtml(err.message || 'File could not be opened.')}</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button type="button" class="btn btn-outline-light rounded-pill px-4 fw-semibold" id="closeMissingFileViewerBtn">
+                            <i class="bi bi-arrow-left me-2"></i> Close Viewer
+                        </button>
+                        <a href="${resolvedUrl}&download=1" class="btn btn-success rounded-pill px-4 fw-semibold" download="${escapeHtml(fileName)}">
+                            <i class="bi bi-download me-1"></i> Download Directly
+                        </a>
+                    </div>
+                </div>
+            `;
+            document.getElementById('closeMissingFileViewerBtn')?.addEventListener('click', closeViewer);
+            return;
+        }
+
+        const activeUrl = fileData?.blobUrl || resolvedUrl;
+
+        // Configure Top Action Buttons
+        if (downloadBtn) {
+            downloadBtn.href = `${resolvedUrl}&download=1`;
+            downloadBtn.setAttribute('download', fileName || 'proof_document');
+        }
+        if (popoutBtn) {
+            popoutBtn.href = activeUrl;
+            popoutBtn.target = '_blank';
+        }
+        if (printBtn) {
+            printBtn.onclick = () => {
+                const ifr = stageEl.querySelector('iframe');
+                if (ifr && ifr.contentWindow) {
+                    try {
+                        ifr.contentWindow.print();
+                        return;
+                    } catch (e) { }
+                }
+                const printWindow = window.open(activeUrl);
+                if (printWindow) {
+                    printWindow.addEventListener('load', () => printWindow.print(), { once: true });
+                } else {
+                    window.print();
+                }
+            };
+        }
+
+        // 1. PDF RENDERING (Native Frame with Blob URL)
+        if (ext === 'pdf' || mime.includes('pdf')) {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+            if (isMobile) {
+                stageEl.innerHTML = `
+                    <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-white p-4">
+                        <div class="text-center p-4 bg-dark bg-opacity-75 rounded-4 border border-secondary shadow-lg" style="max-width: 440px; width: 100%;">
+                            <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 4.5rem;"></i>
+                            <h5 class="fw-bold text-white mt-3 text-truncate mb-1">${escapeHtml(fileName)}</h5>
+                            <p class="text-white-50 small mb-4">Tap below to view this PDF in full screen.</p>
+                            <a href="${activeUrl}" target="_blank" class="btn btn-danger btn-lg rounded-pill px-4 fw-bold w-100 mb-2">
+                                <i class="bi bi-box-arrow-up-right me-2"></i> Open PDF Fullscreen
+                            </a>
+                            <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-outline-light rounded-pill px-4 fw-semibold w-100 btn-sm">
+                                <i class="bi bi-download me-1"></i> Save to Device
+                            </a>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            stageEl.innerHTML = `
+                <object data="${activeUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                    <iframe src="${activeUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;">
+                        <div class="p-5 text-center text-white">
+                            <p class="mb-3">Unable to display PDF inline.</p>
+                            <a href="${activeUrl}" target="_blank" class="btn btn-danger rounded-pill px-4">Open PDF</a>
+                        </div>
+                    </iframe>
+                </object>
+            `;
+            return;
+        }
+
+        // 2. WORD DOCUMENTS (.docx, .doc)
+        if (ext === 'docx' || ext === 'doc') {
+            stageEl.innerHTML = `
+                <div class="docx-viewer-wrapper">
+                    <div id="docxPreviewHost" class="docx-preview-host"></div>
+                </div>
+            `;
+            const host = document.getElementById('docxPreviewHost');
+
+            if (modeSwitcherEl) {
+                modeSwitcherEl.innerHTML = `
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle p-1 border-0" id="docxZoomOutBtn" title="Zoom Out" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-dash"></i>
+                    </button>
+                    <span class="text-white-50 px-2 fw-semibold" id="docxZoomVal" style="font-size: 0.75rem; min-width: 42px; text-align: center;">100%</span>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle p-1 border-0" id="docxZoomInBtn" title="Zoom In" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0.5 border-0 ms-1 fw-semibold fs-8" id="docxFitBtn" title="Reset Zoom">
+                        Reset
+                    </button>
+                `;
+                let currentZoom = 1.0;
+                const updateZoom = (z) => {
+                    currentZoom = Math.min(Math.max(0.5, Math.round(z * 100) / 100), 2.0);
+                    const zoomValEl = document.getElementById('docxZoomVal');
+                    if (zoomValEl) zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+                    if (host) {
+                        host.style.transform = `scale(${currentZoom})`;
+                        host.style.transformOrigin = 'top center';
+                    }
+                };
+                document.getElementById('docxZoomOutBtn')?.addEventListener('click', () => updateZoom(currentZoom - 0.15));
+                document.getElementById('docxZoomInBtn')?.addEventListener('click', () => updateZoom(currentZoom + 0.15));
+                document.getElementById('docxFitBtn')?.addEventListener('click', () => updateZoom(1.0));
+            }
+
+            if (ext === 'docx' && window.docx && typeof window.docx.renderAsync === 'function' && fileData.arrayBuffer) {
+                try {
+                    await window.docx.renderAsync(fileData.arrayBuffer, host, null, {
+                        className: 'docx',
+                        inWrapper: true,
+                        ignoreWidth: false,
+                        ignoreHeight: false,
+                        ignoreFonts: false,
+                        breakPages: true,
+                        ignoreLastRenderedPageBreak: false,
+                        useBase64URL: true,
+                        renderHeaders: true,
+                        renderFooters: true,
+                        renderFootnotes: true,
+                        renderEndnotes: true
+                    });
+                    paginateDocxContainer(host);
+                    setTimeout(() => paginateDocxContainer(host), 60);
+                    return;
+                } catch (docxErr) {
+                    console.warn('docx-preview notice, trying mammoth fallback:', docxErr);
+                }
+            }
+
+            if (window.mammoth && fileData.arrayBuffer) {
+                try {
+                    const result = await window.mammoth.convertToHtml({ arrayBuffer: fileData.arrayBuffer });
+                    host.innerHTML = `
+                        <div class="docx-paper-sheet">
+                            ${result.value || '<p class="text-muted fst-italic">Empty Document.</p>'}
+                        </div>
+                    `;
+                    paginateDocxContainer(host);
+                    setTimeout(() => paginateDocxContainer(host), 60);
+                    return;
+                } catch (mErr) {
+                    console.warn('mammoth error:', mErr);
+                }
+            }
+
+            stageEl.innerHTML = `
+                <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                    <i class="bi bi-file-earmark-word text-primary" style="font-size: 5rem;"></i>
+                    <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                    <p class="text-white-50 mb-4">Click download below to view this document in Microsoft Word.</p>
+                    <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download Document
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        // 3. IMAGES (PNG, JPG, WEBP, GIF, SVG)
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext) || mime.startsWith('image/')) {
+            stageEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center w-100 h-100 p-4" style="background-color: #0b0c0e;">
+                    <img src="${activeUrl}" alt="${escapeHtml(fileName)}" class="img-fluid rounded shadow-lg" style="max-height: 90vh; max-width: 95vw; object-fit: contain;">
+                </div>
+            `;
+            return;
+        }
+
+        // 4. SPREADSHEETS (.xlsx, .xls, .csv)
+        if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+            if (window.XLSX && fileData.arrayBuffer) {
+                try {
+                    const wb = window.XLSX.read(fileData.arrayBuffer, { type: 'array' });
+                    const sheetNames = wb.SheetNames || [];
+                    if (sheetNames.length > 0) {
+                        const renderSheet = (sIdx) => {
+                            const ws = wb.Sheets[sheetNames[sIdx]];
+                            const htmlTable = window.XLSX.utils.sheet_to_html(ws, { editable: false });
+                            stageEl.innerHTML = `
+                                <div class="spreadsheet-viewer-wrapper">
+                                    <div class="spreadsheet-tabs-bar">
+                                        <span class="fw-bold text-dark small me-2"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Sheets:</span>
+                                        ${sheetNames.map((name, i) => `
+                                            <button type="button" class="btn btn-sm ${i === sIdx ? 'btn-success text-white fw-bold' : 'btn-outline-secondary'} rounded-pill px-3 py-1 small sheet-tab-btn" data-sidx="${i}">
+                                                <i class="bi bi-table me-1"></i>${escapeHtml(name)}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                    <div class="spreadsheet-table-container">
+                                        ${htmlTable}
+                                    </div>
+                                </div>
+                            `;
+                            stageEl.querySelectorAll('.sheet-tab-btn').forEach(btn => {
+                                btn.addEventListener('click', () => {
+                                    const nextIdx = parseInt(btn.getAttribute('data-sidx'), 10);
+                                    renderSheet(nextIdx);
+                                });
+                            });
+                        };
+                        renderSheet(0);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('XLSX render error:', e);
+                }
+            }
+        }
+
+        // 5. GENERIC / FALLBACK PREVIEW
+        stageEl.innerHTML = `
+            <div class="p-5 text-center text-white mx-auto my-auto" style="max-width: 500px;">
+                <i class="bi bi-file-earmark-text text-secondary" style="font-size: 5rem;"></i>
+                <h4 class="fw-bold text-white mt-3">${escapeHtml(fileName)}</h4>
+                <p class="text-white-50 mb-4">Click download below to save and open this attachment on your device.</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="${activeUrl}" download="${escapeHtml(fileName)}" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold">
+                        <i class="bi bi-download me-2"></i> Download File
+                    </a>
+                    <a href="${activeUrl}" target="_blank" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Open in New Tab
+                    </a>
+                </div>
+            </div>
+        `;
+    }
+
     const btnOpenExcuseNotes = document.getElementById('btnOpenExcuseNotesModal');
     const excuseNotesPendingBadge = document.getElementById('excuseNotesPendingBadge');
     const tabPendingBadge = document.getElementById('tabPendingBadge');
@@ -931,53 +1464,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const url = btn.getAttribute('data-url');
                 if (!id || !url) return;
 
-                if (proofViewerTitle) proofViewerTitle.textContent = name;
-                if (proofViewerSubtitle) proofViewerSubtitle.textContent = student ? `Excuse Proof Document for ${student}` : 'Excuse Proof Document';
-                if (proofViewerNewTabBtn) proofViewerNewTabBtn.href = url;
-                if (proofViewerDownloadBtn) {
-                    proofViewerDownloadBtn.href = `${url}&download=1`;
-                    proofViewerDownloadBtn.setAttribute('download', name);
-                }
-                if (proofViewerFileInfo) proofViewerFileInfo.textContent = `Attachment: ${name}`;
-
-                const isImg = type.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(name);
-                const isPdf = type.includes('pdf') || /\.pdf$/i.test(name);
-
-                if (proofViewerBody) {
-                    if (isImg) {
-                        proofViewerBody.innerHTML = `
-                            <div class="d-flex align-items-center justify-content-center py-2" style="min-height: 380px;">
-                                <img src="${url}" class="img-fluid rounded-3 shadow-sm border" style="max-height: 65vh; max-width: 100%; object-fit: contain;" alt="Proof Image">
-                            </div>
-                        `;
-                    } else if (isPdf) {
-                        proofViewerBody.innerHTML = `
-                            <iframe src="${url}#toolbar=1" width="100%" height="520px" class="border rounded-3 shadow-xs" title="PDF Proof Viewer"></iframe>
-                        `;
-                    } else {
-                        proofViewerBody.innerHTML = `
-                            <div class="py-5 text-center">
-                                <div class="p-3.5 rounded-circle bg-white shadow-sm border text-primary d-inline-flex mb-3">
-                                    <i class="bi bi-file-earmark-word-fill display-3"></i>
-                                </div>
-                                <h5 class="fw-bold text-dark mb-1">${name}</h5>
-                                <p class="text-muted small mb-4 mx-auto" style="max-width: 440px;">
-                                    This document is in Microsoft Word format (.doc/.docx). You can download it directly or open it with Word / Google Docs.
-                                </p>
-                                <div class="d-flex justify-content-center gap-2">
-                                    <a href="${url}&download=1" class="btn btn-primary fw-bold px-4 py-2 rounded-pill shadow-sm" download="${name}">
-                                        <i class="bi bi-download me-1.5"></i> Download Document
-                                    </a>
-                                    <a href="${url}" target="_blank" class="btn btn-outline-secondary rounded-pill px-3 py-2">
-                                        <i class="bi bi-box-arrow-up-right me-1.5"></i> Open in New Tab
-                                    </a>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-
-                if (proofViewerModal) proofViewerModal.show();
+                const subtitle = student ? `Excuse Proof Document • ${student}` : 'Excuse Proof Document';
+                openClassroomViewer(name, url, subtitle, { id, name, type, student }, excuseNotesModalEl);
             });
         });
 
