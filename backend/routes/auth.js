@@ -18,7 +18,7 @@ const accountBruteForceLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   keyGenerator: (req) => {
-    const raw = (req.body && (req.body.identity || req.body.email || req.body.phoneNumber || req.body.id_number || ''))
+    const raw = (req.body && (req.body.identity || req.body.email || req.body.id_number || ''))
       .toString().trim().toLowerCase();
     return raw ? `acct:${raw}` : `ip:${req.ip}`;
   },

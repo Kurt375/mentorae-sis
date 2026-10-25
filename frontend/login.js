@@ -418,15 +418,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // 4. Forgot Password Modal — Multi-channel OTP and identity recovery
+    // 4. Forgot Password Modal — Email OTP & School Staff Recovery Flow
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     const forgotPasswordModalEl = document.getElementById('forgotPasswordModal');
     const forgotPasswordModal = new bootstrap.Modal(forgotPasswordModalEl);
 
     const resetStep1 = document.getElementById('resetStep1');
-    const resetStepChooseChannel = document.getElementById('resetStepChooseChannel');
     const resetStep2 = document.getElementById('resetStep2');
-    const resetStepPhone = document.getElementById('resetStepPhone');
     const resetStepAdviser = document.getElementById('resetStepAdviser');
     const resetStep3 = document.getElementById('resetStep3');
 
@@ -435,27 +433,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetPasswordForm = document.getElementById('resetPasswordForm');
 
     const resetIdentityInput = document.getElementById('resetIdentity');
+    const userEmailForOtp = document.getElementById('userEmailForOtp');
     const otpCodeInput = document.getElementById('otpCode');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
     const resetStep1Alert = document.getElementById('resetStep1Alert');
 
-    const btnChooseSms = document.getElementById('btnChooseSms');
-    const btnChooseEmail = document.getElementById('btnChooseEmail');
-    const maskedPhoneChannelText = document.getElementById('maskedPhoneChannelText');
-    const maskedEmailChannelText = document.getElementById('maskedEmailChannelText');
-
-    const otpChannelIcon = document.getElementById('otpChannelIcon');
-    const otpInstructionsText = document.getElementById('otpInstructionsText');
-    const devOtpAlert = document.getElementById('devOtpAlert');
-    const devOtpDisplay = document.getElementById('devOtpDisplay');
     const btnResendOtp = document.getElementById('btnResendOtp');
-    const btnChangeOtpMethod = document.getElementById('btnChangeOtpMethod');
     const adviserHelpText = document.getElementById('adviserHelpText');
 
     let currentIdentity = null;
-    let selectedChannel = null;
-    let multipleChannelsAvailable = false;
     let resetToken = null;
     let isResetSaving = false;
     let resendCooldownTimer = null;
@@ -508,14 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function backToStep1() {
         hideResetAlert();
         stopResendTimer();
-        selectedChannel = null;
-        multipleChannelsAvailable = false;
-        if (devOtpAlert) devOtpAlert.classList.add('d-none');
-        if (btnChangeOtpMethod) btnChangeOtpMethod.classList.add('d-none');
         if (resetStep1) resetStep1.classList.remove('d-none');
-        if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
         if (resetStep2) resetStep2.classList.add('d-none');
-        if (resetStepPhone) resetStepPhone.classList.add('d-none');
         if (resetStepAdviser) resetStepAdviser.classList.add('d-none');
         if (resetStep3) resetStep3.classList.add('d-none');
         if (verifyCodeForm) verifyCodeForm.reset();
@@ -525,14 +506,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', backToStep1);
     });
 
-    if (btnChangeOtpMethod) {
-        btnChangeOtpMethod.addEventListener('click', () => {
-            stopResendTimer();
-            if (resetStep2) resetStep2.classList.add('d-none');
-            if (resetStepChooseChannel) resetStepChooseChannel.classList.remove('d-none');
-        });
-    }
-
     if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -541,23 +514,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Core function to send or resend OTP
-    async function requestOtp(identity, channel = null) {
+    // Sends or resends Email OTP
+    async function requestOtp(identity) {
         hideResetAlert();
         const submitBtn = sendCodeForm ? sendCodeForm.querySelector('button[type="submit"]') : null;
         if (submitBtn) submitBtn.disabled = true;
-        if (btnChooseSms) btnChooseSms.disabled = true;
-        if (btnChooseEmail) btnChooseEmail.disabled = true;
         if (btnResendOtp) btnResendOtp.disabled = true;
 
         try {
-            const body = { identity };
-            if (channel) body.channel = channel;
-
             const res = await fetch(`${API_BASE}/api/auth/forgot-password/send-code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
+                body: JSON.stringify({ identity }),
             });
             const data = await res.json();
 
@@ -567,43 +535,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Case A: User can choose channel (Both Email & Phone available)
-            if (data.method === 'choose_channel') {
-                multipleChannelsAvailable = true;
-                if (maskedPhoneChannelText) maskedPhoneChannelText.textContent = data.maskedPhone || 'Registered Mobile Number';
-                if (maskedEmailChannelText) maskedEmailChannelText.textContent = data.maskedEmail || 'Personal Email';
-
+            // Case A: Email OTP successfully dispatched
+            if (data.method === 'email') {
+                if (userEmailForOtp) {
+                    userEmailForOtp.textContent = data.maskedEmail || identity;
+                }
                 if (resetStep1) resetStep1.classList.add('d-none');
-                if (resetStepChooseChannel) resetStepChooseChannel.classList.remove('d-none');
-                if (resetStep2) resetStep2.classList.add('d-none');
-                return;
-            }
-
-            // Case B: Sent via SMS OTP
-            if (data.method === 'phone_otp' || data.channel === 'sms') {
-                selectedChannel = 'sms';
-                if (otpChannelIcon) {
-                    otpChannelIcon.className = 'bi bi-phone-fill fs-5 text-success flex-shrink-0';
-                }
-                if (otpInstructionsText) {
-                    otpInstructionsText.innerHTML = `A 6-digit verification code has been sent via SMS to <strong>${data.maskedPhone || 'your mobile phone'}</strong>. Please enter it below.`;
-                }
-
-                if (data.devOtp) {
-                    if (devOtpDisplay) devOtpDisplay.textContent = data.devOtp;
-                    if (devOtpAlert) devOtpAlert.classList.remove('d-none');
-                } else if (devOtpAlert) {
-                    devOtpAlert.classList.add('d-none');
-                }
-
-                if (multipleChannelsAvailable && btnChangeOtpMethod) {
-                    btnChangeOtpMethod.classList.remove('d-none');
-                } else if (btnChangeOtpMethod) {
-                    btnChangeOtpMethod.classList.add('d-none');
-                }
-
-                if (resetStep1) resetStep1.classList.add('d-none');
-                if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
+                if (resetStepAdviser) resetStepAdviser.classList.add('d-none');
                 if (resetStep2) resetStep2.classList.remove('d-none');
                 startResendTimer(60);
                 if (otpCodeInput) {
@@ -613,40 +551,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Case C: Sent via Email OTP
-            if (data.method === 'email' || data.channel === 'email') {
-                selectedChannel = 'email';
-                if (otpChannelIcon) {
-                    otpChannelIcon.className = 'bi bi-envelope-fill fs-5 text-success flex-shrink-0';
-                }
-                if (otpInstructionsText) {
-                    otpInstructionsText.innerHTML = `A 6-digit verification code has been sent to <strong>${data.maskedEmail || identity}</strong>. Please enter it below.`;
-                }
-
-                if (devOtpAlert) devOtpAlert.classList.add('d-none');
-
-                if (multipleChannelsAvailable && btnChangeOtpMethod) {
-                    btnChangeOtpMethod.classList.remove('d-none');
-                } else if (btnChangeOtpMethod) {
-                    btnChangeOtpMethod.classList.add('d-none');
-                }
-
-                if (resetStep1) resetStep1.classList.add('d-none');
-                if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
-                if (resetStep2) resetStep2.classList.remove('d-none');
-                startResendTimer(60);
-                if (otpCodeInput) {
-                    otpCodeInput.value = '';
-                    otpCodeInput.focus();
-                }
-                return;
-            }
-
-            // Case D: Adviser required (no email or phone on file)
+            // Case B: No personal email on file — requires Adviser / Admin assistance
             if (data.method === 'adviser_required') {
-                if (adviserHelpText) adviserHelpText.textContent = data.message;
+                if (adviserHelpText && data.message) {
+                    adviserHelpText.textContent = data.message;
+                }
                 if (resetStep1) resetStep1.classList.add('d-none');
-                if (resetStepChooseChannel) resetStepChooseChannel.classList.add('d-none');
+                if (resetStep2) resetStep2.classList.add('d-none');
                 if (resetStepAdviser) resetStepAdviser.classList.remove('d-none');
                 return;
             }
@@ -657,19 +568,17 @@ document.addEventListener('DOMContentLoaded', () => {
             showResetAlert('Could not reach the server. Please check your internet connection.');
         } finally {
             if (submitBtn) submitBtn.disabled = false;
-            if (btnChooseSms) btnChooseSms.disabled = false;
-            if (btnChooseEmail) btnChooseEmail.disabled = false;
         }
     }
 
-    // Step 1: Send verification code or look up channels
+    // Step 1: Submit Identity (Email or School ID / LRN)
     if (sendCodeForm) {
         sendCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideResetAlert();
             currentIdentity = resetIdentityInput ? resetIdentityInput.value.trim() : '';
             if (!currentIdentity) {
-                showResetAlert('Please enter your email address, School ID / LRN, or registered phone number.');
+                showResetAlert('Please enter your email address or School ID / LRN.');
                 if (resetIdentityInput) resetIdentityInput.focus();
                 return;
             }
@@ -688,30 +597,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Channel Selection button handlers
-    if (btnChooseSms) {
-        btnChooseSms.addEventListener('click', async () => {
-            if (!currentIdentity) return;
-            await requestOtp(currentIdentity, 'sms');
-        });
-    }
-
-    if (btnChooseEmail) {
-        btnChooseEmail.addEventListener('click', async () => {
-            if (!currentIdentity) return;
-            await requestOtp(currentIdentity, 'email');
-        });
-    }
-
     // Resend OTP button
     if (btnResendOtp) {
         btnResendOtp.addEventListener('click', async () => {
             if (!currentIdentity || resendCountdown > 0) return;
-            await requestOtp(currentIdentity, selectedChannel);
+            await requestOtp(currentIdentity);
         });
     }
 
-    // Step 2: Verify OTP code (works for both SMS and Email)
+    // Step 2: Verify Email OTP code
     if (verifyCodeForm) {
         verifyCodeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -823,8 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
         forgotPasswordModalEl.addEventListener('hide.bs.modal', (event) => {
             if (isResetSaving) return;
 
-            const isBeyondStep1 = (resetStepChooseChannel && !resetStepChooseChannel.classList.contains('d-none')) ||
-                (resetStep2 && !resetStep2.classList.contains('d-none')) ||
+            const isBeyondStep1 = (resetStep2 && !resetStep2.classList.contains('d-none')) ||
                 (resetStep3 && !resetStep3.classList.contains('d-none'));
             const hasTyped = resetIdentityInput && resetIdentityInput.value.trim() !== '';
 

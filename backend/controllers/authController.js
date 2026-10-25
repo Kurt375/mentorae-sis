@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
-const { sendOtpSms, normalizePhoneNumber, maskPhoneNumber } = require('../utils/smsService');
 const { getManilaDate } = require('../utils/dateUtils');
 const { enqueueLoginAudit } = require('../utils/authAuditQueue');
 
@@ -235,35 +234,29 @@ function maskEmail(email) {
 }
 
 /**
- * Finds user by email, personal email, ID number, or phone number.
+ * Finds user by email, personal email, or ID number (School ID / LRN).
  */
 async function findUserByIdentity(identity) {
   const trimmed = (identity || '').trim();
   if (!trimmed) return null;
 
-  const cleanDigits = trimmed.replace(/\D/g, '');
-  const phoneSuffix = cleanDigits.length >= 7 ? `%${cleanDigits.slice(-10)}` : null;
-
   const [rows] = await pool.query(
-    `SELECT id, role, id_number, first_name, middle_initial, last_name, email, personal_email, contact_number 
+    `SELECT id, role, id_number, first_name, middle_initial, last_name, email, personal_email 
      FROM users 
      WHERE email = ? 
         OR personal_email = ? 
         OR id_number = ? 
-        OR contact_number = ? 
-        OR (? IS NOT NULL AND contact_number LIKE ?)
      LIMIT 1`,
-    [trimmed, trimmed, trimmed, trimmed, phoneSuffix, phoneSuffix]
+    [trimmed, trimmed, trimmed]
   );
   return rows[0] || null;
 }
 
-/** POST /api/auth/forgot-password/send-code  { identity or email or phoneNumber, channel } — Step 1 of password reset */
+/** POST /api/auth/forgot-password/send-code  { identity or email } — Step 1 of password reset */
 async function sendResetCode(req, res) {
-  const input = (req.body.identity || req.body.email || req.body.phoneNumber || '').trim();
-  const requestedChannel = (req.body.channel || '').trim().toLowerCase(); // 'email' | 'sms' | ''
+  const input = (req.body.identity || req.body.email || '').trim();
   if (!input) {
-    return res.status(400).json({ success: false, message: 'Please enter your email address, School ID / LRN, or registered phone number.' });
+    return res.status(400).json({ success: false, message: 'Please enter your email address or School ID / LRN.' });
   }
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -276,8 +269,6 @@ async function sendResetCode(req, res) {
     if (!user) {
       const msg = input.includes('@')
         ? 'This email address is not registered in the system.'
-        : (/^(\+63|0)?9\d{9}$/.test(input.replace(/\s+/g, '')))
-        ? 'This phone number is not registered in the system.'
         : 'This School ID / LRN is not registered in the system.';
       return res.status(404).json({ success: false, message: msg });
     }
@@ -290,110 +281,48 @@ async function sendResetCode(req, res) {
       deliverableEmail = user.email.trim();
     }
 
-    // Determine valid phone number
-    const rawPhone = user.contact_number ? user.contact_number.trim() : '';
-    const normalizedPhone = normalizePhoneNumber(rawPhone);
-    const hasValidPhone = Boolean(normalizedPhone && normalizedPhone.length >= 10);
-
-    // If both channels are available and the user has not chosen one yet, prompt them to choose
-    if (!requestedChannel && deliverableEmail && hasValidPhone) {
-      const maskedEmail = maskEmail(deliverableEmail);
-      const maskedPhone = maskPhoneNumber(normalizedPhone);
+    // If user has no personal email linked for self-service recovery, advise contacting school staff
+    if (!deliverableEmail) {
       return res.json({
         success: true,
-        method: 'choose_channel',
+        method: 'adviser_required',
         identity: input,
-        maskedEmail,
-        maskedPhone,
-        message: 'Choose how you would like to receive your verification code.',
+        role: user.role,
+        message: user.role === 'student'
+          ? 'No personal email is linked to this account. Please approach your Class Adviser or School Administrator to reset your password back to your Student ID / LRN.'
+          : 'No personal email is linked to this account. Please approach the School Administrator to reset your password.',
       });
     }
 
-    // Helper to generate and store OTP
-    const createOtpRecord = async () => {
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
-      const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-      const expiresAt = new Date(Date.now() + (Number(process.env.OTP_EXPIRES_MIN) || 10) * 60000);
+    // Generate 6-digit verification code
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+    const expiresAt = new Date(Date.now() + (Number(process.env.OTP_EXPIRES_MIN) || 10) * 60000);
 
-      await pool.query('INSERT INTO password_resets (user_id, otp_hash, expires_at) VALUES (?, ?, ?)', [
-        user.id,
-        otpHash,
-        expiresAt,
-      ]);
-      return otp;
-    };
+    await pool.query('INSERT INTO password_resets (user_id, otp_hash, expires_at) VALUES (?, ?, ?)', [
+      user.id,
+      otpHash,
+      expiresAt,
+    ]);
 
-    // Determine target channel
-    const shouldSendSms = requestedChannel === 'sms' || (!requestedChannel && hasValidPhone && !deliverableEmail);
-    const shouldSendEmail = requestedChannel === 'email' || (!requestedChannel && deliverableEmail && !hasValidPhone);
-
-    if (shouldSendSms) {
-      if (!hasValidPhone) {
-        return res.status(400).json({ success: false, message: 'No registered phone number found on this account.' });
-      }
-
-      const otp = await createOtpRecord();
-      try {
-        const smsResult = await sendOtpSms(normalizedPhone, fullName(user), otp);
-        const maskedPhone = maskPhoneNumber(normalizedPhone);
-        const isDev = process.env.NODE_ENV !== 'production' || !process.env.SEMAPHORE_API_KEY || process.env.SEMAPHORE_API_KEY === 'YOUR_SEMAPHORE_API_KEY';
-
-        return res.json({
-          success: true,
-          method: 'phone_otp',
-          channel: 'sms',
-          identity: input,
-          maskedPhone,
-          simulated: smsResult.simulated,
-          devOtp: isDev || smsResult.simulated ? otp : undefined,
-          message: `A 6-digit verification code has been sent via SMS to ${maskedPhone}.`,
-        });
-      } catch (smsErr) {
-        console.error('sendOtpSms failed:', smsErr);
-        return res.status(502).json({
-          success: false,
-          message: `Could not send verification SMS: ${smsErr.message || 'SMS service error.'}`,
-        });
-      }
+    try {
+      await sendOtpEmail(deliverableEmail, fullName(user), otp);
+    } catch (mailErr) {
+      console.error('sendOtpEmail failed:', mailErr);
+      const isAuthError = mailErr.code === 'EAUTH' || (mailErr.response && String(mailErr.response).includes('535'));
+      const msg = isAuthError
+        ? 'Could not send verification email: SMTP / Gmail authentication failed. Please configure a valid Gmail App Password in the backend environment variables.'
+        : 'Could not send verification email. Please check mail server settings or contact the administrator.';
+      return res.status(502).json({ success: false, message: msg });
     }
 
-    if (shouldSendEmail) {
-      if (!deliverableEmail) {
-        return res.status(400).json({ success: false, message: 'No deliverable personal email found on this account.' });
-      }
-
-      const otp = await createOtpRecord();
-      try {
-        await sendOtpEmail(deliverableEmail, fullName(user), otp);
-      } catch (mailErr) {
-        console.error('sendOtpEmail failed:', mailErr);
-        const isAuthError = mailErr.code === 'EAUTH' || (mailErr.response && String(mailErr.response).includes('535'));
-        const msg = isAuthError
-          ? 'Could not send verification email: SMTP / Gmail authentication failed. Please configure a valid Gmail App Password in the backend environment variables.'
-          : 'Could not send verification email. Please check mail server settings or contact the administrator.';
-        return res.status(502).json({ success: false, message: msg });
-      }
-
-      const maskedEmail = maskEmail(deliverableEmail);
-      return res.json({
-        success: true,
-        method: 'email',
-        channel: 'email',
-        identity: input,
-        maskedEmail,
-        message: `A verification code has been sent to ${maskedEmail}.`,
-      });
-    }
-
-    // Neither deliverable email nor registered phone
+    const maskedEmail = maskEmail(deliverableEmail);
     return res.json({
       success: true,
-      method: 'adviser_required',
+      method: 'email',
       identity: input,
-      role: user.role,
-      message: user.role === 'student'
-        ? 'No personal email or phone number is linked to this account. Please approach your Class Adviser or School Administrator to reset your password back to your Student ID / LRN.'
-        : 'No personal email or phone number is linked to this account. Please approach the School Administrator to reset your password.',
+      maskedEmail,
+      message: `A verification code has been sent to ${maskedEmail}.`,
     });
   } catch (err) {
     console.error('sendResetCode error:', err);
@@ -403,7 +332,7 @@ async function sendResetCode(req, res) {
 
 /** POST /api/auth/forgot-password/verify-code  { identity, otp } — Step 2 */
 async function verifyResetCode(req, res) {
-  const identity = (req.body.identity || req.body.email || req.body.phoneNumber || '').trim();
+  const identity = (req.body.identity || req.body.email || '').trim();
   const otp = (req.body.otp || '').trim();
   if (!identity || !otp) {
     return res.status(400).json({ success: false, message: 'Missing email, School ID / LRN, or verification code.' });
@@ -442,14 +371,12 @@ async function verifyResetCode(req, res) {
   }
 }
 
-/** POST /api/auth/forgot-password/verify-phone  { identity, phoneNumber, otp } */
+/** POST /api/auth/forgot-password/verify-phone - disabled endpoint */
 async function verifyResetPhone(req, res) {
-  if (req.body.otp) {
-    return verifyResetCode(req, res);
-  }
-  // If requesting phone verification without an OTP yet, dispatch SMS OTP
-  req.body.channel = 'sms';
-  return sendResetCode(req, res);
+  return res.status(400).json({
+    success: false,
+    message: 'Password recovery via SMS/phone number is disabled. Please recover your account using your registered email address or contact your Class Adviser.',
+  });
 }
 
 /**

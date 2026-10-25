@@ -75,19 +75,7 @@
     border: none;
     box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
 }
-.channel-option-card {
-    border: 1.5px solid #d1fae5;
-    background-color: #ffffff;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    text-decoration: none;
-}
-.channel-option-card:hover {
-    border-color: #198754;
-    background-color: #f0fdf4;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px -2px rgba(25, 135, 84, 0.15);
-}
+
 .letter-spacing-1 {
     letter-spacing: 2px;
 }
