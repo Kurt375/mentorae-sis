@@ -270,6 +270,113 @@ function parseDays(raw) {
   return resolved;
 }
 
+/**
+ * Checks whether a given teacher or section has an overlapping schedule.
+ * Returns { hasConflict: boolean, type: 'teacher'|'section'|null, message: string }
+ */
+async function checkScheduleConflict({
+  teacherId,
+  sectionId,
+  day,
+  startTime,
+  endTime,
+  quarter = 'All Terms',
+  excludeScheduleId = null,
+  inMemorySchedules = [],
+}) {
+  const qFilter = (quarter === 'All Terms')
+    ? ''
+    : "AND (quarter = ? OR quarter = 'All Terms')";
+  const qParams = (quarter === 'All Terms') ? [] : [quarter];
+
+  const excludeFilter = excludeScheduleId ? 'AND id != ?' : '';
+  const excludeParams = excludeScheduleId ? [excludeScheduleId] : [];
+
+  // 1. Database Teacher Overlap Check
+  const [teacherConflicts] = await pool.query(
+    `SELECT sch.id, sch.start_time, sch.end_time, sch.day_of_week, sch.quarter,
+            sub.name AS subject_name, sec.name AS section_name
+     FROM schedules sch
+     JOIN subjects sub ON sub.id = sch.subject_id
+     JOIN sections sec ON sec.id = sch.section_id
+     WHERE sch.teacher_id = ? AND sch.day_of_week = ?
+       ${qFilter}
+       ${excludeFilter}
+       AND NOT (sch.end_time <= ? OR sch.start_time >= ?)
+     LIMIT 1`,
+    [teacherId, day, ...qParams, ...excludeParams, startTime, endTime]
+  );
+
+  if (teacherConflicts.length > 0) {
+    const c = teacherConflicts[0];
+    return {
+      hasConflict: true,
+      type: 'teacher',
+      message: `Teacher conflict on ${day}: Already assigned to ${c.subject_name} (${c.section_name}) at ${c.start_time.slice(0, 5)} - ${c.end_time.slice(0, 5)}.`,
+    };
+  }
+
+  // 2. Database Section Overlap Check
+  const [sectionConflicts] = await pool.query(
+    `SELECT sch.id, sch.start_time, sch.end_time, sch.day_of_week, sch.quarter,
+            sub.name AS subject_name, sec.name AS section_name,
+            u.first_name, u.last_name
+     FROM schedules sch
+     JOIN subjects sub ON sub.id = sch.subject_id
+     JOIN sections sec ON sec.id = sch.section_id
+     JOIN users u ON u.id = sch.teacher_id
+     WHERE sch.section_id = ? AND sch.day_of_week = ?
+       ${qFilter}
+       ${excludeFilter}
+       AND NOT (sch.end_time <= ? OR sch.start_time >= ?)
+     LIMIT 1`,
+    [sectionId, day, ...qParams, ...excludeParams, startTime, endTime]
+  );
+
+  if (sectionConflicts.length > 0) {
+    const c = sectionConflicts[0];
+    return {
+      hasConflict: true,
+      type: 'section',
+      message: `Section conflict on ${day}: Section ${c.section_name} already has ${c.subject_name} with ${c.first_name} ${c.last_name} at ${c.start_time.slice(0, 5)} - ${c.end_time.slice(0, 5)}.`,
+    };
+  }
+
+  // 3. In-Memory Staged Schedules Check (for bulk import batches)
+  const newStartMin = toMinutes(startTime);
+  const newEndMin = toMinutes(endTime);
+
+  for (const s of inMemorySchedules) {
+    if (s.day !== day) continue;
+
+    const termsOverlap = (s.quarter === 'All Terms' || quarter === 'All Terms' || s.quarter === quarter);
+    if (!termsOverlap) continue;
+
+    const sStartMin = toMinutes(s.startTime);
+    const sEndMin = toMinutes(s.endTime);
+    const timeOverlap = !(sEndMin <= newStartMin || sStartMin >= newEndMin);
+
+    if (timeOverlap) {
+      if (s.teacherId === teacherId) {
+        return {
+          hasConflict: true,
+          type: 'teacher',
+          message: `Teacher conflict on ${day} (file overlap): Already assigned to another class during ${s.startTime.slice(0, 5)} - ${s.endTime.slice(0, 5)}.`,
+        };
+      }
+      if (s.sectionId === sectionId) {
+        return {
+          hasConflict: true,
+          type: 'section',
+          message: `Section conflict on ${day} (file overlap): Section already assigned to another class during ${s.startTime.slice(0, 5)} - ${s.endTime.slice(0, 5)}.`,
+        };
+      }
+    }
+  }
+
+  return { hasConflict: false };
+}
+
 /** GET /api/schedules — full schedule table (admin), optionally ?search= */
 async function listSchedules(req, res) {
   try {
@@ -344,16 +451,20 @@ async function createSchedule(req, res) {
   try {
     const created = [];
     for (const day of days) {
-      // Conflict check: same teacher already has an overlapping block that day
-      const [conflicts] = await pool.query(
-        `SELECT id FROM schedules WHERE teacher_id = ? AND day_of_week = ?
-         AND NOT (end_time <= ? OR start_time >= ?)`,
-        [teacherId, day, startTime, endTime]
-      );
-      if (conflicts.length) {
+      // Universal conflict check: ensure teacher and section are both free
+      const conflict = await checkScheduleConflict({
+        teacherId,
+        sectionId,
+        day,
+        startTime,
+        endTime,
+        quarter: scheduleQuarter,
+      });
+
+      if (conflict.hasConflict) {
         return res.status(409).json({
           success: false,
-          message: `Conflict: this teacher already has a class on ${day} that overlaps ${startTime}-${endTime}.`,
+          message: conflict.message,
         });
       }
 
@@ -994,6 +1105,31 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
             continue;
           }
 
+          // Strict overlap check for both teacher and section
+          const conflict = await checkScheduleConflict({
+            teacherId: teacher.id,
+            sectionId: section.id,
+            day,
+            startTime: slotTime.startTime,
+            endTime: slotTime.endTime,
+            quarter: term,
+            inMemorySchedules: inMemoryStagedList,
+          });
+
+          if (conflict.hasConflict) {
+            sheetSkippedExisting++;
+            continue;
+          }
+
+          inMemoryStagedList.push({
+            teacherId: teacher.id,
+            sectionId: section.id,
+            day,
+            startTime: slotTime.startTime,
+            endTime: slotTime.endTime,
+            quarter: term,
+          });
+
           existingSchedSet.add(schedKey);
           schedulesToInsert.push([
             teacher.id,
@@ -1259,31 +1395,30 @@ async function importTabularSchedules(workbook, req, res) {
     const rowErrors = [];
 
     for (const day of days) {
-      const [teacherConflicts] = await pool.query(
-        `SELECT id FROM schedules
-         WHERE teacher_id = ? AND day_of_week = ?
-           AND (quarter = ? OR quarter = 'All Terms' OR ? = 'All Terms')
-           AND NOT (end_time <= ? OR start_time >= ?)`,
-        [teacher.id, day, term, term, startTime, endTime]
-      );
-      if (teacherConflicts.length) {
-        rowErrors.push(`Teacher conflict on ${day}: ${teacher.first_name} ${teacher.last_name} already has a class overlapping ${startTime.slice(0, 5)}-${endTime.slice(0, 5)}.`);
+      // Universal conflict check: ensure teacher and section are both free
+      const conflict = await checkScheduleConflict({
+        teacherId: teacher.id,
+        sectionId: section.id,
+        day,
+        startTime,
+        endTime,
+        quarter: term,
+        inMemorySchedules: inMemoryStagedList,
+      });
+
+      if (conflict.hasConflict) {
+        rowErrors.push(conflict.message);
         continue;
       }
 
-      const [sectionConflicts] = await pool.query(
-        `SELECT sch.id, sub.name AS subject_name
-         FROM schedules sch
-         JOIN subjects sub ON sub.id = sch.subject_id
-         WHERE sch.section_id = ? AND sch.day_of_week = ?
-           AND (sch.quarter = ? OR sch.quarter = 'All Terms' OR ? = 'All Terms')
-           AND NOT (sch.end_time <= ? OR sch.start_time >= ?)`,
-        [section.id, day, term, term, startTime, endTime]
-      );
-      if (sectionConflicts.length) {
-        rowErrors.push(`Section conflict on ${day}: ${section.name} already has ${sectionConflicts[0].subject_name} scheduled at that time.`);
-        continue;
-      }
+      inMemoryStagedList.push({
+        teacherId: teacher.id,
+        sectionId: section.id,
+        day,
+        startTime,
+        endTime,
+        quarter: term,
+      });
 
       await pool.query(
         'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',

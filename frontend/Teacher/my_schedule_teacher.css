@@ -59,30 +59,32 @@
 }
 
 .schedule-table tbody td {
-    height: 80px;
-    padding: 0.5rem;
-    vertical-align: top;
+    min-height: 48px;
+    height: auto;
+    padding: 0.4rem;
+    vertical-align: middle;
     font-size: 0.8rem;
 }
 
 .schedule-table .time-slot {
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     vertical-align: middle;
     background-color: #f8f9fa;
+    white-space: nowrap;
 }
 
 .class-entry {
     background-color: #e7f5e7;
     border-left: 3px solid var(--mentorae-green);
-    padding: 0.4rem;
+    padding: 0.35rem 0.45rem;
     border-radius: 4px;
     height: 100%;
     text-align: left;
 }
 
 .class-entry .subject { font-weight: 700; color: var(--mentorae-green); }
-.class-entry .section { font-size: 0.75rem; }
+.class-entry .section { font-size: 0.75rem; color: #4a5568; }
 
 /* Micro Utilities */
 .micro-text { font-size: 0.75rem; }
@@ -90,3 +92,133 @@
 .tracking-sm { letter-spacing: 0.3px; }
 .link-transition { transition: opacity 0.15s; }
 .link-transition:hover { opacity: 0.8; }
+
+/* ==========================================================================
+   Print Optimization — Fits Exactly on 1 Landscape Sheet
+   ========================================================================== */
+@media print {
+    @page {
+        size: landscape;
+        margin: 7mm 8mm 5mm 8mm;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        min-height: auto !important;
+        height: auto !important;
+        font-size: 11pt !important;
+    }
+
+    .portal-wrapper {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        min-height: auto !important;
+    }
+
+    .workspace-content-fill {
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .card.print-card {
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .print-table-responsive,
+    .table-responsive {
+        overflow: visible !important;
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .schedule-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        border: 1.5px solid #2d3748 !important;
+        margin: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .schedule-table thead th {
+        background-color: #0a5c2c !important;
+        color: #ffffff !important;
+        font-size: 0.72rem !important;
+        padding: 4px 3px !important;
+        text-align: center !important;
+        border: 1px solid #1f2937 !important;
+        letter-spacing: 0.3px !important;
+    }
+
+    .schedule-table tbody td {
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 3px 4px !important;
+        font-size: 0.68rem !important;
+        line-height: 1.2 !important;
+        vertical-align: middle !important;
+        border: 1px solid #94a3b8 !important;
+    }
+
+    .schedule-table .time-slot {
+        font-size: 0.68rem !important;
+        font-weight: 700 !important;
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+        padding: 3px 2px !important;
+        white-space: nowrap !important;
+    }
+
+    .class-entry {
+        background-color: #f0fdf4 !important;
+        border-left: 3px solid #0a5c2c !important;
+        padding: 2px 4px !important;
+        border-radius: 2px !important;
+        margin: 0 !important;
+    }
+
+    .class-entry .subject {
+        font-size: 0.69rem !important;
+        font-weight: 700 !important;
+        color: #0a5c2c !important;
+        line-height: 1.15 !important;
+    }
+
+    .class-entry .section {
+        font-size: 0.63rem !important;
+        color: #334155 !important;
+        line-height: 1.15 !important;
+    }
+
+    .print-header {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        margin-bottom: 8px !important;
+    }
+
+    .print-footer {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top: 10px !important;
+    }
+}

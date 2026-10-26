@@ -36,7 +36,7 @@
 
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
         
-        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
+        <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center d-print-none">
             <div class="d-flex align-items-center gap-3">
                 <a href="dashboard_teacher.html" class="text-white text-decoration-none fs-4 link-transition" aria-label="Go Back">
                     <i class="bi bi-chevron-left"></i>
@@ -57,8 +57,33 @@
 
         <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
             
-            <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
-                <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
+            <!-- DepEd / TSHS Official Print Header (Visible only when printed) -->
+            <div class="print-header d-none d-print-block mb-3">
+                <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-2">
+                    <div style="width: 55px; height: 55px;" class="d-flex align-items-center justify-content-center">
+                        <img src="../TSHS_image.png" alt="TSHS Logo" style="width: 50px; height: 50px; object-fit: contain;">
+                    </div>
+                    <div class="text-center flex-grow-1 px-3">
+                        <div class="text-uppercase" style="font-size: 0.68rem; letter-spacing: 0.5px; color: #444;">Republic of the Philippines</div>
+                        <div class="text-uppercase fw-bold" style="font-size: 0.78rem; letter-spacing: 0.6px; color: #111;">Department of Education</div>
+                        <div style="font-size: 0.65rem; color: #555;">National Capital Region &bull; Schools Division of Taguig City and Pateros</div>
+                        <div class="fw-bold text-uppercase" style="font-size: 0.90rem; color: #0a5c2c; letter-spacing: 0.8px;">Taguig Science High School</div>
+                        <div class="fw-bold text-uppercase mt-1" style="font-size: 0.78rem; letter-spacing: 0.4px;">Teacher's Weekly Class Program</div>
+                    </div>
+                    <div style="width: 55px; height: 55px;" class="d-flex align-items-center justify-content-center">
+                        <img src="../TSHS_image.png" alt="DepEd Logo" style="width: 50px; height: 50px; object-fit: contain; opacity: 0.9;">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center px-1" style="font-size: 0.72rem;">
+                    <div><strong>Teacher:</strong> <span id="printTeacherName">—</span></div>
+                    <div><strong>Academic Year:</strong> 2026 – 2027</div>
+                    <div><strong>Term / Quarter:</strong> <span id="printTermName">All Terms</span></div>
+                    <div><strong>Date Generated:</strong> <span id="printDate">—</span></div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-3 overflow-hidden print-card">
+                <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center d-print-none">
                     <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Weekly Timetable</h3>
                     <button class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-2" id="btnPrintSchedule">
                         <i class="bi bi-printer-fill"></i> Print Schedule
@@ -80,6 +105,22 @@
                             <!-- Schedule slots will be populated by JavaScript -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- DepEd / TSHS Signatures Footer (Visible only when printed) -->
+            <div class="print-footer d-none d-print-block mt-3">
+                <div class="row text-center" style="font-size: 0.72rem;">
+                    <div class="col-6">
+                        <div class="mb-3 text-muted" style="font-size: 0.7rem;">Conforme / Prepared by:</div>
+                        <div class="fw-bold text-uppercase border-bottom pb-1 mx-auto" style="max-width: 260px;" id="printTeacherSig">—</div>
+                        <div class="text-muted micro-text mt-1">Teacher / Faculty Member</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3 text-muted" style="font-size: 0.7rem;">Approved by:</div>
+                        <div class="fw-bold text-uppercase border-bottom pb-1 mx-auto" style="max-width: 260px;">School Principal / Head</div>
+                        <div class="text-muted micro-text mt-1">Taguig Science High School</div>
+                    </div>
                 </div>
             </div>
 
