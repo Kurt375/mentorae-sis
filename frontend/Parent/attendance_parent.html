@@ -161,63 +161,46 @@
                 </div>
             </section>
 
-            <!-- Monthly Trend & Alerts Grid -->
-            <div class="row g-3">
-                <div class="col-12 col-md-6">
-                    <div class="card border-0 rounded-3 p-3 shadow-sm bg-white h-100">
-                        <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Attendance Summary & Notes</h3>
-                        <div class="d-flex flex-column gap-2">
-                            <div class="alert alert-success border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
-                                <i class="bi bi-shield-check-fill fs-5 mt-0.5"></i>
-                                <div>
-                                    <div class="fw-bold text-xs">Official School Record</div>
-                                    <div class="micro-text opacity-90 mt-0.5" id="attendanceSummaryNote">Live record synchronized with school scanner check-ins.</div>
-                                </div>
-                            </div>
-                            <div class="alert alert-warning border-0 shadow-none m-0 p-2.5 d-flex align-items-start gap-2.5 rounded-3">
-                                <i class="bi bi-info-circle-fill fs-5 mt-0.5"></i>
-                                <div>
-                                    <div class="fw-bold text-xs">Absence Policy Reminder</div>
-                                    <div class="micro-text opacity-90 mt-0.5">Excuse letters must be submitted within 3 school days following an absence.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Filed Excuse Notes Section -->
-                <div class="col-12 mb-3">
-                    <div class="card border-0 rounded-3 p-4 shadow-sm bg-white">
-                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+            <!-- Attendance Summary & Notes Section -->
+            <section class="card border-0 rounded-3 p-3 p-md-4 shadow-sm bg-white mb-4">
+                <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Attendance Summary & Notes</h3>
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <div class="alert alert-success border-0 shadow-none m-0 p-3 d-flex align-items-start gap-2.5 rounded-3 h-100">
+                            <i class="bi bi-shield-check-fill fs-5 mt-0.5 text-success"></i>
                             <div>
-                                <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Filed Excuse Notes</h3>
-                                <span class="micro-text text-muted">Track status of submitted absence excuses</span>
+                                <div class="fw-bold text-xs">Official School Record</div>
+                                <div class="micro-text opacity-90 mt-1" id="attendanceSummaryNote">Live record synchronized with school scanner check-ins.</div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#excuseModal">
-                                <i class="bi bi-plus-lg me-1"></i> New Excuse Note
-                            </button>
                         </div>
-                        <div id="filedExcuseNotesContainer">
-                            <p class="text-muted small m-0">Loading filed excuse notes...</p>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="alert alert-warning border-0 shadow-none m-0 p-3 d-flex align-items-start gap-2.5 rounded-3 h-100">
+                            <i class="bi bi-info-circle-fill fs-5 mt-0.5 text-warning"></i>
+                            <div>
+                                <div class="fw-bold text-xs">Absence Policy Reminder</div>
+                                <div class="micro-text opacity-90 mt-1">Excuse letters must be submitted within 3 school days following an absence.</div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <div class="col-12 col-md-6">
-                    <div class="card border-0 rounded-3 p-3 shadow-sm bg-white h-100">
-                        <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Quick Navigation</h3>
-                        <p class="text-muted small mb-3">Jump back to the main overview or review grade performance.</p>
-                        <div class="d-flex flex-wrap gap-2">
-                            <a href="dashboard_parent.html" class="btn btn-sm btn-outline-secondary px-3 rounded-pill">
-                                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
-                            </a>
-                            <a href="progress_parent.html" id="linkProgressNav" class="btn btn-sm btn-outline-success px-3 rounded-pill">
-                                <i class="bi bi-graph-up-arrow me-1"></i> Grade & Performance
-                            </a>
-                        </div>
+            <!-- Filed Excuse Notes Section -->
+            <section class="card border-0 rounded-3 p-4 shadow-sm bg-white mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                    <div>
+                        <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Filed Excuse Notes</h3>
+                        <span class="micro-text text-muted">Track status of submitted absence excuses</span>
                     </div>
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#excuseModal">
+                        <i class="bi bi-plus-lg me-1"></i> New Excuse Note
+                    </button>
                 </div>
-            </div>
+                <div id="filedExcuseNotesContainer">
+                    <p class="text-muted small m-0">Loading filed excuse notes...</p>
+                </div>
+            </section>
 
         </main>
     </div>
