@@ -1468,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const proofUrl = `${API_BASE}/api/attendance/excuse-notes/${n.id}/proof?token=${token}`;
 
                 proofSectionHtml = `
-                    <div class="mt-3 p-2.5 rounded-3 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="mt-3 p-3 rounded-3 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-2 excuse-proof-box">
                         <div class="d-flex align-items-center gap-2.5 min-w-0">
                             <div class="p-2 rounded-2 bg-white border ${iconColor} flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
                                 <i class="bi ${docIcon} fs-4"></i>
@@ -1483,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>
                         </div>
-                        <div class="d-flex align-items-center gap-2 ms-auto">
+                        <div class="d-flex align-items-center gap-2 ms-auto me-1">
                             <button type="button" class="btn btn-sm btn-outline-success fw-bold rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1 btn-view-proof shadow-xs" data-id="${n.id}" data-name="${escapeHtml(pName)}" data-type="${pType}" data-student="${escapeHtml(n.student_name)}" data-url="${proofUrl}">
                                 <i class="bi bi-eye-fill"></i> View Proof
                             </button>

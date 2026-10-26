@@ -629,4 +629,8 @@ section.docx img,
 
 .gap-1\.5 {
     gap: 0.375rem !important;
+}
+
+.excuse-proof-box {
+    padding: 12px 18px !important;
 }
