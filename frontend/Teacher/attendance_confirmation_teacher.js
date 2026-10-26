@@ -26,6 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const finishBannerMessage = document.getElementById('finishBannerMessage');
     const closeFinishBannerBtn = document.getElementById('closeFinishBannerBtn');
     const btnFinish = document.getElementById('btnFinishAttendance');
+    const btnSelectAllToolbar = document.getElementById('btnSelectAllToolbar');
+    const selectedStudentsCountBadge = document.getElementById('selectedStudentsCountBadge');
+    const btnClearSelection = document.getElementById('btnClearSelection');
+    const btnBulkPresent = document.getElementById('btnBulkPresent');
+    const btnBulkLate = document.getElementById('btnBulkLate');
+    const btnBulkExcused = document.getElementById('btnBulkExcused');
+    const btnBulkAbsent = document.getElementById('btnBulkAbsent');
+    const btnBulkConfirmOut = document.getElementById('btnBulkConfirmOut');
 
     if (closeFinishBannerBtn) {
         closeFinishBannerBtn.addEventListener('click', () => {
@@ -34,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentRoster = [];
+    let currentlyRenderedRoster = [];
+    const selectedStudentIds = new Set();
     let sessionAllowed = false;
     let isCurrentAdvisory = false;
 
@@ -110,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lockBannerTitle.textContent = 'Session Locked';
             lockBannerMessage.textContent = data.reason || 'You cannot confirm attendance right now.';
         }
+        syncSelectAllStates();
     }
 
     const statusBadgeClass = {
@@ -150,6 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isAdvisory) {
                 thead.innerHTML = `
                     <tr class="table-header-row text-white text-nowrap">
+                        <th class="px-3 py-3 text-center" style="width: 44px;">
+                            <input class="form-check-input my-0 cursor-pointer" type="checkbox" id="selectAllRoster" title="Select / Deselect All">
+                        </th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>
@@ -163,6 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 thead.innerHTML = `
                     <tr class="table-header-row text-white text-nowrap">
+                        <th class="px-3 py-3 text-center" style="width: 44px;">
+                            <input class="form-check-input my-0 cursor-pointer" type="checkbox" id="selectAllRoster" title="Select / Deselect All">
+                        </th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>
@@ -171,6 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Action</th>
                     </tr>
                 `;
+            }
+        }
+        if (btnBulkConfirmOut) {
+            if (isAdvisory) {
+                btnBulkConfirmOut.classList.remove('d-none');
+            } else {
+                btnBulkConfirmOut.classList.add('d-none');
             }
         }
     }
@@ -207,16 +231,227 @@ document.addEventListener('DOMContentLoaded', () => {
         markAttendanceSeen();
     }
 
+    function syncSelectAllStates() {
+        const totalVisible = currentlyRenderedRoster.length;
+        const selectedVisible = currentlyRenderedRoster.filter(s => selectedStudentIds.has(String(s.id))).length;
+        const count = selectedStudentIds.size;
+
+        if (selectedStudentsCountBadge) {
+            selectedStudentsCountBadge.textContent = `${count} selected`;
+            if (count > 0) {
+                selectedStudentsCountBadge.className = 'badge bg-success text-white py-1.5 px-2.5 fw-semibold';
+                if (btnClearSelection) btnClearSelection.classList.remove('d-none');
+            } else {
+                selectedStudentsCountBadge.className = 'badge bg-light text-muted border py-1.5 px-2.5 fw-semibold';
+                if (btnClearSelection) btnClearSelection.classList.add('d-none');
+            }
+        }
+
+        const isAll = totalVisible > 0 && selectedVisible === totalVisible;
+        const isSome = selectedVisible > 0 && selectedVisible < totalVisible;
+
+        const selectAllRoster = document.getElementById('selectAllRoster');
+        if (selectAllRoster) {
+            selectAllRoster.checked = isAll;
+            selectAllRoster.indeterminate = isSome;
+        }
+        if (btnSelectAllToolbar) {
+            btnSelectAllToolbar.checked = isAll;
+            btnSelectAllToolbar.indeterminate = isSome;
+        }
+
+        const canConfirm = count > 0 && sessionAllowed;
+        if (btnBulkPresent) btnBulkPresent.disabled = !canConfirm;
+        if (btnBulkLate) btnBulkLate.disabled = !canConfirm;
+        if (btnBulkExcused) btnBulkExcused.disabled = !canConfirm;
+        if (btnBulkAbsent) btnBulkAbsent.disabled = !canConfirm;
+
+        if (btnBulkConfirmOut) {
+            const hasPendingOut = currentlyRenderedRoster.some(s => selectedStudentIds.has(String(s.id)) && s.timeOut && !s.timeOutConfirmed);
+            btnBulkConfirmOut.disabled = !canConfirm || !hasPendingOut;
+        }
+    }
+
+    function toggleSelectAll(checked) {
+        if (checked) {
+            currentlyRenderedRoster.forEach(s => selectedStudentIds.add(String(s.id)));
+        } else {
+            currentlyRenderedRoster.forEach(s => selectedStudentIds.delete(String(s.id)));
+        }
+        tbody.querySelectorAll('.roster-checkbox').forEach(cb => {
+            const sId = String(cb.dataset.id);
+            const isChecked = selectedStudentIds.has(sId);
+            cb.checked = isChecked;
+            const tr = cb.closest('tr');
+            if (tr) {
+                tr.classList.toggle('table-active', isChecked);
+            }
+        });
+        syncSelectAllStates();
+    }
+
+    async function executeBulkStatus(status) {
+        const ids = Array.from(selectedStudentIds);
+        if (!ids.length) {
+            alert('Please select at least one student.');
+            return;
+        }
+        const sectionId = sectionFilter.value;
+        if (!sectionId) return;
+
+        const activeBtn = status === 'present' ? btnBulkPresent
+            : status === 'late' ? btnBulkLate
+            : status === 'excused' ? btnBulkExcused
+            : btnBulkAbsent;
+
+        const originalText = activeBtn ? activeBtn.innerHTML : '';
+        if (activeBtn) {
+            activeBtn.disabled = true;
+            activeBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...`;
+        }
+
+        try {
+            const data = await authedFetch('/api/attendance/confirm', token, {
+                method: 'POST',
+                body: JSON.stringify({ studentIds: ids, status, sectionId }),
+            });
+
+            if (!data.success) {
+                alert(data.message || 'Could not update attendance in bulk.');
+                return;
+            }
+
+            const idSet = new Set(ids.map(String));
+            currentRoster.forEach(s => {
+                if (idSet.has(String(s.id))) {
+                    s.status = status;
+                }
+            });
+
+            const label = status.charAt(0).toUpperCase() + status.slice(1);
+            ids.forEach(sId => {
+                const badge = document.getElementById(`status-${sId}`);
+                if (badge) {
+                    badge.className = `badge ${statusBadgeClass[status] || ''}`;
+                    badge.textContent = label;
+                }
+            });
+
+            if (filterStatus && filterStatus.value !== 'all') {
+                applyRosterFilters();
+            }
+
+            loadDailyHistory();
+            markAttendanceSeen();
+        } catch (err) {
+            console.error('executeBulkStatus error:', err);
+            alert('An error occurred during bulk attendance confirmation.');
+        } finally {
+            if (activeBtn) {
+                activeBtn.disabled = false;
+                activeBtn.innerHTML = originalText;
+            }
+            syncSelectAllStates();
+        }
+    }
+
+    async function executeBulkConfirmOut() {
+        const ids = Array.from(selectedStudentIds).filter(sId => {
+            const s = currentRoster.find(x => String(x.id) === String(sId));
+            return s && s.timeOut && !s.timeOutConfirmed;
+        });
+
+        if (!ids.length) {
+            alert('None of the selected students have unconfirmed time-outs.');
+            return;
+        }
+        const sectionId = sectionFilter.value;
+        if (!sectionId) return;
+
+        const originalText = btnBulkConfirmOut.innerHTML;
+        btnBulkConfirmOut.disabled = true;
+        btnBulkConfirmOut.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span>Confirming...`;
+
+        try {
+            const data = await authedFetch('/api/attendance/confirm-out', token, {
+                method: 'POST',
+                body: JSON.stringify({ studentIds: ids, sectionId }),
+            });
+
+            if (!data.success) {
+                alert(data.message || 'Could not confirm time-outs.');
+                return;
+            }
+
+            const idSet = new Set(ids.map(String));
+            currentRoster.forEach(s => {
+                if (idSet.has(String(s.id))) {
+                    s.timeOutConfirmed = true;
+                }
+            });
+
+            applyRosterFilters();
+
+            const hasPending = currentRoster.some(s => s.timeOut && !s.timeOutConfirmed);
+            if (!hasPending && currentRoster.some(s => s.timeOut)) {
+                setFinishedButtonState();
+            }
+
+            loadDailyHistory();
+            markAttendanceSeen();
+        } catch (err) {
+            console.error('executeBulkConfirmOut error:', err);
+            alert('An error occurred while confirming time-outs.');
+        } finally {
+            btnBulkConfirmOut.disabled = false;
+            btnBulkConfirmOut.innerHTML = originalText;
+            syncSelectAllStates();
+        }
+    }
+
+    if (btnSelectAllToolbar) {
+        btnSelectAllToolbar.addEventListener('change', (e) => toggleSelectAll(e.target.checked));
+    }
+    if (thead) {
+        thead.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'selectAllRoster') {
+                toggleSelectAll(e.target.checked);
+            }
+        });
+    }
+    if (btnClearSelection) {
+        btnClearSelection.addEventListener('click', () => {
+            selectedStudentIds.clear();
+            tbody.querySelectorAll('.roster-checkbox').forEach(cb => {
+                cb.checked = false;
+                const tr = cb.closest('tr');
+                if (tr) tr.classList.remove('table-active');
+            });
+            syncSelectAllStates();
+        });
+    }
+    if (btnBulkPresent) btnBulkPresent.addEventListener('click', () => executeBulkStatus('present'));
+    if (btnBulkLate) btnBulkLate.addEventListener('click', () => executeBulkStatus('late'));
+    if (btnBulkExcused) btnBulkExcused.addEventListener('click', () => executeBulkStatus('excused'));
+    if (btnBulkAbsent) btnBulkAbsent.addEventListener('click', () => executeBulkStatus('absent'));
+    if (btnBulkConfirmOut) btnBulkConfirmOut.addEventListener('click', executeBulkConfirmOut);
+
     function renderRoster(roster) {
+        currentlyRenderedRoster = roster || [];
         tbody.innerHTML = '';
-        const colSpan = isCurrentAdvisory ? 8 : 6;
+        const colSpan = isCurrentAdvisory ? 9 : 7;
         if (!roster.length) {
             tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-4">No students in this section.</td></tr>`;
+            syncSelectAllStates();
             return;
         }
 
         for (const s of roster) {
             const tr = document.createElement('tr');
+            const isChecked = selectedStudentIds.has(String(s.id));
+            if (isChecked) {
+                tr.classList.add('table-active');
+            }
             const label = s.status.charAt(0).toUpperCase() + s.status.slice(1);
 
             let timeInCell = '';
@@ -254,6 +489,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             tr.innerHTML = `
+                <td class="px-3 py-3 text-center">
+                    <input class="form-check-input my-0 roster-checkbox cursor-pointer" type="checkbox" value="${s.id}" data-id="${s.id}" ${isChecked ? 'checked' : ''} aria-label="Select student">
+                </td>
                 <td class="px-3 py-3 text-nowrap">${s.idNumber}</td>
                 <td class="px-3 py-3 fw-medium text-nowrap">${s.name}</td>
                 <td class="px-3 py-3 text-nowrap">${s.strand}</td>
@@ -273,6 +511,21 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(tr);
         }
 
+        tbody.querySelectorAll('.roster-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const sId = String(cb.dataset.id);
+                const tr = cb.closest('tr');
+                if (cb.checked) {
+                    selectedStudentIds.add(sId);
+                    if (tr) tr.classList.add('table-active');
+                } else {
+                    selectedStudentIds.delete(sId);
+                    if (tr) tr.classList.remove('table-active');
+                }
+                syncSelectAllStates();
+            });
+        });
+
         tbody.querySelectorAll('.confirm-btn').forEach(btn => {
             btn.addEventListener('click', () => setStatus(btn.dataset.id, btn.dataset.status));
         });
@@ -281,6 +534,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.addEventListener('click', () => confirmOut(btn.dataset.id));
             });
         }
+
+        syncSelectAllStates();
     }
 
     async function confirmOut(studentId) {
@@ -406,6 +661,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sectionFilter.addEventListener('change', () => {
         if (finishBanner) finishBanner.classList.add('d-none');
         resetFinishButton();
+        selectedStudentIds.clear();
+        syncSelectAllStates();
         if (historySectionFilter) {
             historySectionFilter.value = sectionFilter.value;
         }

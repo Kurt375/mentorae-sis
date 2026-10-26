@@ -121,12 +121,50 @@
                     </select>
                 </div>
 
+                <!-- Bulk Actions Toolbar -->
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-2.5 px-3 mb-3 d-flex flex-row justify-content-between align-items-center flex-wrap gap-2" id="bulkActionsToolbar">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="form-check m-0 d-flex align-items-center gap-1.5">
+                            <input class="form-check-input my-0 cursor-pointer" type="checkbox" id="btnSelectAllToolbar" style="width: 1.15rem; height: 1.15rem;">
+                            <label class="form-check-label small fw-bold text-dark cursor-pointer user-select-none" for="btnSelectAllToolbar">
+                                Select All
+                            </label>
+                        </div>
+                        <span class="badge bg-light text-muted border py-1.5 px-2.5 fw-semibold" id="selectedStudentsCountBadge">0 selected</span>
+                        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none small d-none" id="btnClearSelection" title="Clear selection">
+                            <i class="bi bi-x-circle me-1"></i>Clear
+                        </button>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                        <span class="micro-text text-muted me-1 fw-semibold d-none d-md-inline">Confirm Selected:</span>
+                        <button type="button" class="btn btn-sm btn-success fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1" id="btnBulkPresent" disabled>
+                            <i class="bi bi-check-circle-fill"></i> Mark Present
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning fw-bold px-2.5 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1" id="btnBulkLate" disabled>
+                            <i class="bi bi-clock-fill"></i> Late
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-info fw-bold px-2.5 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1" id="btnBulkExcused" disabled>
+                            <i class="bi bi-file-earmark-medical"></i> Excused
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger fw-bold px-2.5 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1" id="btnBulkAbsent" disabled>
+                            <i class="bi bi-x-circle-fill"></i> Absent
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2.5 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1 d-none" id="btnBulkConfirmOut" disabled>
+                            <i class="bi bi-box-arrow-right"></i> Confirm Time-Outs
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Attendance Table Sheet Matrix -->
                 <div class="card border-0 shadow-sm overflow-hidden rounded-3 bg-white mb-4">
                     <div class="table-responsive table-scroll-container">
                         <table class="table align-middle m-0 text-sm db-record-table" id="attendanceConfirmationTable">
                             <thead id="attendanceConfirmationHead" class="sticky-top">
                                 <tr class="table-header-row text-white text-nowrap">
+                                    <th class="px-3 py-3 text-center" style="width: 44px;">
+                                        <input class="form-check-input my-0 cursor-pointer" type="checkbox" id="selectAllRoster" title="Select / Deselect All">
+                                    </th>
                                     <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
                                     <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
                                     <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>

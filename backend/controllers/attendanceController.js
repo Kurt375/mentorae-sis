@@ -384,11 +384,15 @@ async function getConfirmationRoster(req, res) {
  * teacher's own active scheduled session for that section/subject.
  */
 async function confirmAttendance(req, res) {
-  const { studentId, status, sectionId, subjectId } = req.body;
+  const { studentId, studentIds, status, sectionId, subjectId } = req.body;
   const validStatuses = ['present', 'late', 'absent', 'excused'];
 
-  if (!studentId || !status || !validStatuses.includes(status) || !sectionId) {
-    return res.status(400).json({ success: false, message: 'studentId, status, and sectionId are required.' });
+  const ids = Array.isArray(studentIds) && studentIds.length > 0
+    ? studentIds.map(Number).filter(Boolean)
+    : (studentId ? [Number(studentId)].filter(Boolean) : []);
+
+  if (ids.length === 0 || !status || !validStatuses.includes(status) || !sectionId) {
+    return res.status(400).json({ success: false, message: 'Valid studentId(s), status, and sectionId are required.' });
   }
 
   try {
@@ -401,41 +405,43 @@ async function confirmAttendance(req, res) {
     const today = getManilaDate();
     const now = getManilaTime();
 
-    const [existing] = await pool.query('SELECT id, status FROM attendance_logs WHERE student_id = ? AND scan_date = ?', [
-      studentId,
-      today,
-    ]);
+    for (const sId of ids) {
+      const [existing] = await pool.query('SELECT id, status FROM attendance_logs WHERE student_id = ? AND scan_date = ?', [
+        sId,
+        today,
+      ]);
 
-    const isStatusChanged = !existing[0] || existing[0].status !== status;
+      const isStatusChanged = !existing[0] || existing[0].status !== status;
 
-    if (existing[0]) {
-      await pool.query(
-        'UPDATE attendance_logs SET status = ?, overridden_by = ?, scan_time = COALESCE(scan_time, ?) WHERE id = ?',
-        [status, req.user.id, now, existing[0].id]
-      );
-    } else {
-      await pool.query(
-        'INSERT INTO attendance_logs (student_id, scanned_by, overridden_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?, ?)',
-        [studentId, req.user.id, req.user.id, status, today, status === 'absent' ? null : now]
-      );
+      if (existing[0]) {
+        await pool.query(
+          'UPDATE attendance_logs SET status = ?, overridden_by = ?, scan_time = COALESCE(scan_time, ?) WHERE id = ?',
+          [status, req.user.id, now, existing[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO attendance_logs (student_id, scanned_by, overridden_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?, ?)',
+          [sId, req.user.id, req.user.id, status, today, status === 'absent' ? null : now]
+        );
+      }
+
+      await logActivity(sId, `Attendance manually set to "${status}" by a teacher.`);
+
+      // Parent notification — only fires if status actually changed or is newly set
+      if (isStatusChanged && ['present', 'late', 'excused'].includes(status)) {
+        const parentIds = await getParentIdsForStudent(sId);
+        const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : 'attendance_excused';
+        const label = status === 'present' ? 'arrived at school' : status === 'late' ? 'arrived late' : 'been marked excused';
+        await notifyMany(parentIds, {
+          type: notifType,
+          title: 'Attendance update',
+          message: `Your child has ${label}, confirmed by their teacher.`,
+          relatedStudentId: sId,
+        });
+      }
     }
 
-    await logActivity(studentId, `Attendance manually set to "${status}" by a teacher.`);
-
-    // Parent notification — only fires if status actually changed or is newly set
-    if (isStatusChanged && ['present', 'late', 'excused'].includes(status)) {
-      const parentIds = await getParentIdsForStudent(studentId);
-      const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : 'attendance_excused';
-      const label = status === 'present' ? 'arrived at school' : status === 'late' ? 'arrived late' : 'been marked excused';
-      await notifyMany(parentIds, {
-        type: notifType,
-        title: 'Attendance update',
-        message: `Your child has ${label}, confirmed by their teacher.`,
-        relatedStudentId: studentId,
-      });
-    }
-
-    return res.json({ success: true, message: `Attendance updated to ${status}.` });
+    return res.json({ success: true, count: ids.length, message: `Attendance updated to ${status} for ${ids.length} student(s).` });
   } catch (err) {
     console.error('confirmAttendance error:', err);
     return res.status(500).json({ success: false, message: 'Could not update attendance.' });
@@ -443,15 +449,19 @@ async function confirmAttendance(req, res) {
 }
 
 /**
- * POST /api/attendance/confirm-out  { studentId, sectionId }
+ * POST /api/attendance/confirm-out  { studentId, studentIds, sectionId }
  * Teacher verifies a student's time-out scan for today. Notifies the
  * parent(s) (out / excused), and if the student left early (excused),
  * also notifies the section adviser.
  */
 async function confirmAttendanceOut(req, res) {
-  const { studentId, sectionId } = req.body;
-  if (!studentId || !sectionId) {
-    return res.status(400).json({ success: false, message: 'studentId and sectionId are required.' });
+  const { studentId, studentIds, sectionId } = req.body;
+  const ids = Array.isArray(studentIds) && studentIds.length > 0
+    ? studentIds.map(Number).filter(Boolean)
+    : (studentId ? [Number(studentId)].filter(Boolean) : []);
+
+  if (ids.length === 0 || !sectionId) {
+    return res.status(400).json({ success: false, message: 'Valid studentId(s) and sectionId are required.' });
   }
 
   try {
@@ -463,50 +473,51 @@ async function confirmAttendanceOut(req, res) {
     }
 
     const today = getManilaDate();
-    const [rows] = await pool.query(
-      'SELECT * FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
-      [studentId, today]
-    );
-    const record = rows[0];
-    if (!record || !record.time_out) {
-      return res.status(400).json({ success: false, message: 'This student has no time-out scan to confirm yet.' });
-    }
+    let confirmedCount = 0;
 
-    if (record.confirmed_at || record.confirmed_by) {
-      return res.json({ success: true, message: 'Time-out already confirmed.' });
-    }
+    for (const sId of ids) {
+      const [rows] = await pool.query(
+        'SELECT * FROM attendance_logs WHERE student_id = ? AND scan_date = ?',
+        [sId, today]
+      );
+      const record = rows[0];
+      if (!record || !record.time_out || record.confirmed_at || record.confirmed_by) {
+        continue;
+      }
 
-    await pool.query('UPDATE attendance_logs SET confirmed_by = ?, confirmed_at = NOW() WHERE id = ?', [
-      req.user.id,
-      record.id,
-    ]);
-    await logActivity(studentId, `Time-out scan (${record.time_out_status}) confirmed by a teacher.`);
+      await pool.query('UPDATE attendance_logs SET confirmed_by = ?, confirmed_at = NOW() WHERE id = ?', [
+        req.user.id,
+        record.id,
+      ]);
+      await logActivity(sId, `Time-out scan (${record.time_out_status}) confirmed by a teacher.`);
 
-    const parentIds = await getParentIdsForStudent(studentId);
-    const isEarly = record.time_out_status === 'excused';
-    await notifyMany(parentIds, {
-      type: isEarly ? 'attendance_excused' : 'attendance_out',
-      title: 'Attendance update',
-      message: isEarly
-        ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
-        : 'Your child has checked out for the day, confirmed by their teacher.',
-      relatedStudentId: studentId,
-    });
+      confirmedCount++;
+      const parentIds = await getParentIdsForStudent(sId);
+      const isEarly = record.time_out_status === 'excused';
+      await notifyMany(parentIds, {
+        type: isEarly ? 'attendance_excused' : 'attendance_out',
+        title: 'Attendance update',
+        message: isEarly
+          ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
+          : 'Your child has checked out for the day, confirmed by their teacher.',
+        relatedStudentId: sId,
+      });
 
-    if (isEarly) {
-      const adviserIds = await getAdviserIdsForStudent(studentId);
-      for (const advId of adviserIds) {
-        await notify({
-          recipientId: advId,
-          type: 'adviser_early_leave',
-          title: 'Student left early',
-          message: `A student from your section left campus early today (${record.time_out}).`,
-          relatedStudentId: studentId,
-        });
+      if (isEarly) {
+        const adviserIds = await getAdviserIdsForStudent(sId);
+        for (const advId of adviserIds) {
+          await notify({
+            recipientId: advId,
+            type: 'adviser_early_leave',
+            title: 'Student left early',
+            message: `A student from your section left campus early today (${record.time_out}).`,
+            relatedStudentId: sId,
+          });
+        }
       }
     }
 
-    return res.json({ success: true, message: 'Time-out confirmed.' });
+    return res.json({ success: true, count: confirmedCount, message: `Time-out confirmed for ${confirmedCount} student(s).` });
   } catch (err) {
     console.error('confirmAttendanceOut error:', err);
     return res.status(500).json({ success: false, message: 'Could not confirm the time-out scan.' });

@@ -633,4 +633,59 @@ section.docx img,
 
 .excuse-proof-box {
     padding: 12px 18px !important;
-}
+}
+
+/* Checkbox and Bulk Actions Styling */
+.db-record-table .form-check-input {
+    cursor: pointer;
+    border-color: #cbd5e1;
+    width: 1.15rem;
+    height: 1.15rem;
+    transition: all 0.15s ease-in-out;
+}
+
+.db-record-table .form-check-input:checked {
+    background-color: var(--mentorae-green);
+    border-color: var(--mentorae-green);
+}
+
+#bulkActionsToolbar .form-check-input:checked {
+    background-color: var(--mentorae-green);
+    border-color: var(--mentorae-green);
+}
+
+.table-header-row .form-check-input {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.table-header-row .form-check-input:hover {
+    border-color: #ffffff;
+}
+
+.table-header-row .form-check-input:checked,
+.table-header-row .form-check-input:indeterminate {
+    background-color: #ffffff;
+    border-color: #ffffff;
+}
+
+.table-header-row .form-check-input:indeterminate {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230a5c2c' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e");
+}
+
+.table-header-row .form-check-input:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230a5c2c' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
+}
+
+.db-record-table tbody tr.table-active td {
+    background-color: #eef7ee !important;
+}
+
+.db-record-table tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
+.db-record-table tbody tr.table-active:hover td {
+    background-color: #e5f4e5 !important;
+}
+
