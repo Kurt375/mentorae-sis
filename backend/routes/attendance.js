@@ -76,10 +76,23 @@ router.get('/section-daily-history', requireAuth, requireRole('teacher', 'admin'
 router.get('/summary', requireAuth, getSummary);
 router.get('/history', requireAuth, getHistory);
 
+const { runSevenAmAttendanceJob } = require('../jobs/attendanceJob');
+
 // Excuse notes
 router.post('/excuse-note', requireAuth, requireRole('parent'), handleProofUpload, submitExcuseNote);
 router.get('/excuse-notes', requireAuth, listExcuseNotes);
 router.get('/excuse-notes/:id/proof', requireAuth, getExcuseNoteProof);
 router.patch('/excuse-notes/:id', requireAuth, requireRole('teacher', 'admin'), reviewExcuseNote);
+
+// Manual trigger for 7:00 AM attendance job (for testing or manual admin check)
+router.post('/trigger-7am-job', requireAuth, requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const force = Boolean(req.body.force);
+    const result = await runSevenAmAttendanceJob(force);
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 module.exports = router;

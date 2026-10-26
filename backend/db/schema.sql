@@ -251,7 +251,7 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
   ('require_2fa', '0'),
   ('session_timeout_minutes', '30'),
   ('backup_frequency', 'daily'),
-  ('attendance_late_cutoff', '07:45:00')
+  ('attendance_late_cutoff', '07:00:00')
 ON DUPLICATE KEY UPDATE setting_key = setting_key;
 
 -- ---------------------------------------------------------

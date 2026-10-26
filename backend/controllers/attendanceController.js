@@ -29,7 +29,7 @@ async function getAttendanceSettings() {
   );
   const map = Object.fromEntries(rows.map((r) => [r.setting_key, r.setting_value]));
   return {
-    lateCutoff: map.attendance_late_cutoff || '07:45:00',
+    lateCutoff: map.attendance_late_cutoff || '07:00:00',
     timeOutCutoff: map.attendance_time_out_cutoff || '15:30:00',
     scannerWindowStart: map.scanner_key_window_start || '06:00:00',
     scannerWindowEnd: map.scanner_key_window_end || '16:00:00',
@@ -103,13 +103,22 @@ async function scanAttendance(req, res) {
       profilePictureUrl: student.profile_picture_url || null,
     };
 
-    if (!existing[0]) {
+    const isFirstTimeIn = !existing[0] || (existing[0].status === 'absent' && !existing[0].scan_time);
+
+    if (isFirstTimeIn) {
       // First scan today = time in
       const status = timeToMinutes(scanTime) > timeToMinutes(lateCutoff) ? 'late' : 'present';
-      await pool.query(
-        'INSERT INTO attendance_logs (student_id, scanned_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?)',
-        [student.id, req.user?.id || null, status, scanDate, scanTime]
-      );
+      if (existing[0]) {
+        await pool.query(
+          'UPDATE attendance_logs SET scanned_by = ?, status = ?, scan_time = ? WHERE id = ?',
+          [req.user?.id || null, status, scanTime, existing[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO attendance_logs (student_id, scanned_by, status, scan_date, scan_time) VALUES (?, ?, ?, ?, ?)',
+          [student.id, req.user?.id || null, status, scanDate, scanTime]
+        );
+      }
       await logActivity(student.id, `Checked in via QR scan — marked ${status}.`);
 
       return res.json({
@@ -427,17 +436,62 @@ async function confirmAttendance(req, res) {
 
       await logActivity(sId, `Attendance manually set to "${status}" by a teacher.`);
 
-      // Parent notification — only fires if status actually changed or is newly set
-      if (isStatusChanged && ['present', 'late', 'excused'].includes(status)) {
+      // Notification dispatch — fires if status actually changed or is newly set
+      if (isStatusChanged && ['present', 'late', 'excused', 'absent'].includes(status)) {
+        const [[studentRow]] = await pool.query(
+          'SELECT first_name, last_name FROM users WHERE id = ?',
+          [sId]
+        );
+        const studentName = studentRow ? `${studentRow.first_name} ${studentRow.last_name}`.trim() : 'Student';
+        const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : status === 'excused' ? 'attendance_excused' : 'attendance_absent';
+        
+        const parentLabel = status === 'present' 
+          ? 'arrived at school on time (Present)' 
+          : status === 'late' 
+          ? 'arrived late (Late-Present)' 
+          : status === 'excused' 
+          ? 'been marked excused' 
+          : 'been marked absent';
+
+        const studentLabel = status === 'present'
+          ? 'Present (on time)'
+          : status === 'late'
+          ? 'Late'
+          : status === 'excused'
+          ? 'Excused'
+          : 'Absent';
+
+        // 1. Notify Parent(s)
         const parentIds = await getParentIdsForStudent(sId);
-        const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : 'attendance_excused';
-        const label = status === 'present' ? 'arrived at school' : status === 'late' ? 'arrived late' : 'been marked excused';
-        await notifyMany(parentIds, {
+        if (parentIds.length > 0) {
+          await notifyMany(parentIds, {
+            type: notifType,
+            title: 'Attendance update',
+            message: `Your child has ${parentLabel}, confirmed by their teacher.`,
+            relatedStudentId: sId,
+          });
+        }
+
+        // 2. Notify Student
+        await notify({
+          recipientId: sId,
           type: notifType,
           title: 'Attendance update',
-          message: `Your child has ${label}, confirmed by their teacher.`,
+          message: `Your attendance for today has been confirmed as ${studentLabel} by your teacher.`,
           relatedStudentId: sId,
         });
+
+        // 3. Notify Section Adviser(s) (exclude confirming teacher)
+        const adviserIds = await getAdviserIdsForStudent(sId);
+        const otherAdviserIds = adviserIds.filter((advId) => advId !== req.user.id);
+        if (otherAdviserIds.length > 0) {
+          await notifyMany(otherAdviserIds, {
+            type: notifType,
+            title: 'Class attendance update',
+            message: `${studentName} has been confirmed as ${status.toUpperCase()} for today.`,
+            relatedStudentId: sId,
+          });
+        }
       }
     }
 
@@ -492,28 +546,49 @@ async function confirmAttendanceOut(req, res) {
       await logActivity(sId, `Time-out scan (${record.time_out_status}) confirmed by a teacher.`);
 
       confirmedCount++;
-      const parentIds = await getParentIdsForStudent(sId);
       const isEarly = record.time_out_status === 'excused';
-      await notifyMany(parentIds, {
+      const [[studentRow]] = await pool.query(
+        'SELECT first_name, last_name FROM users WHERE id = ?',
+        [sId]
+      );
+      const studentName = studentRow ? `${studentRow.first_name} ${studentRow.last_name}`.trim() : 'Student';
+
+      // 1. Notify Parent(s)
+      const parentIds = await getParentIdsForStudent(sId);
+      if (parentIds.length > 0) {
+        await notifyMany(parentIds, {
+          type: isEarly ? 'attendance_excused' : 'attendance_out',
+          title: 'Check-out confirmed',
+          message: isEarly
+            ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
+            : 'Your child has checked out for the day, confirmed by their teacher.',
+          relatedStudentId: sId,
+        });
+      }
+
+      // 2. Notify Student
+      await notify({
+        recipientId: sId,
         type: isEarly ? 'attendance_excused' : 'attendance_out',
-        title: 'Attendance update',
+        title: 'Check-out confirmed',
         message: isEarly
-          ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
-          : 'Your child has checked out for the day, confirmed by their teacher.',
+          ? `Your early check-out (${record.time_out}) has been confirmed by your teacher.`
+          : `Your check-out (${record.time_out}) has been confirmed by your teacher.`,
         relatedStudentId: sId,
       });
 
-      if (isEarly) {
-        const adviserIds = await getAdviserIdsForStudent(sId);
-        for (const advId of adviserIds) {
-          await notify({
-            recipientId: advId,
-            type: 'adviser_early_leave',
-            title: 'Student left early',
-            message: `A student from your section left campus early today (${record.time_out}).`,
-            relatedStudentId: sId,
-          });
-        }
+      // 3. Notify Section Adviser(s)
+      const adviserIds = await getAdviserIdsForStudent(sId);
+      const otherAdviserIds = adviserIds.filter((advId) => advId !== req.user.id);
+      if (otherAdviserIds.length > 0) {
+        await notifyMany(otherAdviserIds, {
+          type: isEarly ? 'adviser_early_leave' : 'attendance_out',
+          title: isEarly ? 'Student left early' : 'Student checked out',
+          message: isEarly
+            ? `${studentName} left campus early today (${record.time_out}), confirmed by teacher.`
+            : `${studentName} checked out for the day (${record.time_out}), confirmed by teacher.`,
+          relatedStudentId: sId,
+        });
       }
     }
 
@@ -563,28 +638,49 @@ async function finishSectionConfirmation(req, res) {
       ]);
       await logActivity(record.student_id, `Time-out scan (${record.time_out_status}) confirmed upon finishing attendance.`);
 
-      const parentIds = await getParentIdsForStudent(record.student_id);
       const isEarly = record.time_out_status === 'excused';
-      await notifyMany(parentIds, {
+      const [[studentRow]] = await pool.query(
+        'SELECT first_name, last_name FROM users WHERE id = ?',
+        [record.student_id]
+      );
+      const studentName = studentRow ? `${studentRow.first_name} ${studentRow.last_name}`.trim() : 'Student';
+
+      // 1. Notify Parent(s)
+      const parentIds = await getParentIdsForStudent(record.student_id);
+      if (parentIds.length > 0) {
+        await notifyMany(parentIds, {
+          type: isEarly ? 'attendance_excused' : 'attendance_out',
+          title: 'Check-out confirmed',
+          message: isEarly
+            ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
+            : 'Your child has checked out for the day, confirmed by their teacher.',
+          relatedStudentId: record.student_id,
+        });
+      }
+
+      // 2. Notify Student
+      await notify({
+        recipientId: record.student_id,
         type: isEarly ? 'attendance_excused' : 'attendance_out',
-        title: 'Attendance update',
+        title: 'Check-out confirmed',
         message: isEarly
-          ? 'Your child left campus early today (before dismissal), confirmed by their teacher.'
-          : 'Your child has checked out for the day, confirmed by their teacher.',
+          ? `Your early check-out (${record.time_out}) has been confirmed by your teacher.`
+          : `Your check-out (${record.time_out}) has been confirmed by your teacher.`,
         relatedStudentId: record.student_id,
       });
 
-      if (isEarly) {
-        const adviserIds = await getAdviserIdsForStudent(record.student_id);
-        for (const advId of adviserIds) {
-          await notify({
-            recipientId: advId,
-            type: 'adviser_early_leave',
-            title: 'Student left early',
-            message: `A student from your section left campus early today (${record.time_out}).`,
-            relatedStudentId: record.student_id,
-          });
-        }
+      // 3. Notify Section Adviser(s)
+      const adviserIds = await getAdviserIdsForStudent(record.student_id);
+      const otherAdviserIds = adviserIds.filter((advId) => advId !== req.user.id);
+      if (otherAdviserIds.length > 0) {
+        await notifyMany(otherAdviserIds, {
+          type: isEarly ? 'adviser_early_leave' : 'attendance_out',
+          title: isEarly ? 'Student left early' : 'Student checked out',
+          message: isEarly
+            ? `${studentName} left campus early today (${record.time_out}), confirmed by teacher.`
+            : `${studentName} checked out for the day (${record.time_out}), confirmed by teacher.`,
+          relatedStudentId: record.student_id,
+        });
       }
     }
 

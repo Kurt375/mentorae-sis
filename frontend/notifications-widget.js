@@ -39,7 +39,197 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         ? (isSubdir ? '../announcement_admin.html' : 'announcement_admin.html')
         : (isSubdir ? '../announcements.html' : 'announcements.html');
     const parentAttendanceUrl = isSubdir ? 'attendance_parent.html' : 'Parent/attendance_parent.html';
+    const studentAttendanceUrl = isSubdir ? 'attendance_student.html' : 'Student/attendance_student.html';
+    const teacherAttendanceUrl = isSubdir ? 'attendance_confirmation.html' : 'Teacher/attendance_confirmation.html';
     const topicRequestsUrl = isSubdir ? '../topic_requests_admin.html' : 'topic_requests_admin.html';
+
+    // Inject floating toast styles if not already present
+    if (!document.getElementById('mentorae-toast-styles')) {
+        const style = document.createElement('style');
+        style.id = 'mentorae-toast-styles';
+        style.textContent = `
+            #mentoraeToastContainer {
+                position: fixed;
+                top: 24px;
+                right: 24px;
+                z-index: 1099;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                pointer-events: none;
+                max-width: 380px;
+                width: calc(100vw - 36px);
+            }
+            .mentorae-toast-card {
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-left: 5px solid #198754;
+                pointer-events: auto;
+                overflow: hidden;
+                cursor: pointer;
+                animation: mentoraeToastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                transition: transform 0.2s ease, opacity 0.3s ease, box-shadow 0.2s ease;
+            }
+            .mentorae-toast-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+            }
+            .mentorae-toast-card.dismissing {
+                animation: mentoraeToastSlideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            @keyframes mentoraeToastSlideIn {
+                from { transform: translateX(115%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes mentoraeToastSlideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(115%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    let toastContainer = document.getElementById('mentoraeToastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'mentoraeToastContainer';
+        document.body.appendChild(toastContainer);
+    }
+
+    // Tracking shown toast IDs to prevent re-alerting the same notification
+    let shownToastIds = new Set();
+    try {
+        const stored = sessionStorage.getItem('mentorae_shown_toasts');
+        if (stored) {
+            shownToastIds = new Set(JSON.parse(stored));
+        }
+    } catch (e) {}
+
+    let isInitialLoad = true;
+
+    function playNotificationChime() {
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+            const ctx = new AudioContextClass();
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+            const now = ctx.currentTime;
+            
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(659.25, now); // E5
+            gain1.gain.setValueAtTime(0.08, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.22);
+
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(880, now + 0.12); // A5
+            gain2.gain.setValueAtTime(0.08, now + 0.12);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(now + 0.12);
+            osc2.stop(now + 0.40);
+        } catch (e) {}
+    }
+
+    function showNotificationToast(item) {
+        if (!toastContainer) return;
+        const toast = document.createElement('div');
+        toast.className = 'mentorae-toast-card';
+
+        const isAttendance = (item.type || '').includes('attendance') || (item.title || '').toLowerCase().includes('attendance');
+        const isLate = (item.type || '').includes('late');
+        const isOut = (item.type || '').includes('out');
+        const isEarly = (item.type || '').includes('early') || (item.type || '').includes('excused');
+        const isAbsent = (item.type || '').includes('absent');
+
+        let borderColor = '#198754';
+        let icon = 'bi-calendar-check-fill text-success';
+        let badgeClass = 'bg-success-subtle text-success border-success-subtle';
+        let badgeText = 'Attendance';
+
+        if (isLate) {
+            borderColor = '#ffc107';
+            icon = 'bi-clock-history text-warning';
+            badgeClass = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+            badgeText = 'Late (Past 7:00 AM)';
+        } else if (isAbsent) {
+            borderColor = '#dc3545';
+            icon = 'bi-x-circle-fill text-danger';
+            badgeClass = 'bg-danger-subtle text-danger border-danger-subtle';
+            badgeText = 'Absent';
+        } else if (isEarly) {
+            borderColor = '#fd7e14';
+            icon = 'bi-shield-exclamation text-warning';
+            badgeClass = 'bg-warning-subtle text-dark border-warning-subtle';
+            badgeText = 'Early Departure';
+        } else if (isOut) {
+            borderColor = '#0dcaf0';
+            icon = 'bi-box-arrow-right text-info';
+            badgeClass = 'bg-info-subtle text-info border-info-subtle';
+            badgeText = 'Checked Out';
+        }
+
+        toast.style.borderLeftColor = borderColor;
+        toast.innerHTML = `
+            <div class="p-3 pb-2 d-flex align-items-start justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="p-1 rounded-circle bg-light d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+                        <i class="bi ${icon} fs-6"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-dark small leading-tight">${item.title || 'Attendance Update'}</div>
+                        <span class="badge ${badgeClass} border micro-text">${badgeText}</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close micro-text p-1 text-muted" aria-label="Close"></button>
+            </div>
+            <div class="px-3 pb-2.5 small text-secondary">
+                ${item.message}
+            </div>
+            <div class="px-3 py-1 bg-light border-top d-flex justify-content-between align-items-center micro-text text-muted">
+                <span><i class="bi bi-clock me-1"></i>Just now</span>
+                <span class="fw-semibold text-primary">Click to view &rarr;</span>
+            </div>
+        `;
+
+        function dismiss() {
+            if (toast.classList.contains('dismissing')) return;
+            toast.classList.add('dismissing');
+            setTimeout(() => toast.remove(), 300);
+        }
+
+        toast.querySelector('.btn-close').addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismiss();
+        });
+
+        toast.addEventListener('click', () => {
+            dismiss();
+            if (panel.classList.contains('d-none')) {
+                positionPanel();
+                panel.classList.remove('d-none');
+            }
+        });
+
+        toastContainer.appendChild(toast);
+        playNotificationChime();
+
+        setTimeout(() => {
+            if (toast.parentNode) dismiss();
+        }, 7000);
+    }
 
     let badge = btn.querySelector('.notif-badge');
     if (!badge) {
@@ -188,6 +378,32 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         const effectiveApiUnread = filteredApiNotifications.filter(n => !n.is_read).length;
         const totalUnread = effectiveApiUnread + pendingTopicRequests.length + unseenAnnCount;
 
+        // Trigger Floating Pop-up Toast for new unread notifications
+        const unreadList = filteredApiNotifications.filter(n => !n.is_read);
+        if (isInitialLoad) {
+            const nowMs = Date.now();
+            for (const n of unreadList) {
+                const notifAgeMs = n.created_at ? (nowMs - new Date(n.created_at).getTime()) : 999999;
+                if (!shownToastIds.has(String(n.id))) {
+                    if (notifAgeMs < 120000) { // within last 2 minutes
+                        showNotificationToast(n);
+                    }
+                    shownToastIds.add(String(n.id));
+                }
+            }
+            isInitialLoad = false;
+        } else {
+            for (const n of unreadList) {
+                if (!shownToastIds.has(String(n.id))) {
+                    showNotificationToast(n);
+                    shownToastIds.add(String(n.id));
+                }
+            }
+        }
+        try {
+            sessionStorage.setItem('mentorae_shown_toasts', JSON.stringify(Array.from(shownToastIds).slice(-100)));
+        } catch (e) {}
+
         badge.textContent = totalUnread > 9 ? '9+' : String(totalUnread);
         badge.classList.toggle('d-none', totalUnread === 0);
 
@@ -312,6 +528,18 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                                             View Child's Attendance &rarr;
                                         </a>
                                     </div>
+                                ` : userRole === 'student' && isAttendance ? `
+                                    <div class="mt-1.5">
+                                        <a href="${studentAttendanceUrl}" class="micro-text fw-semibold text-success text-decoration-none d-inline-flex align-items-center gap-1">
+                                            View My Attendance &rarr;
+                                        </a>
+                                    </div>
+                                ` : userRole === 'teacher' && isAttendance ? `
+                                    <div class="mt-1.5">
+                                        <a href="${teacherAttendanceUrl}" class="micro-text fw-semibold text-success text-decoration-none d-inline-flex align-items-center gap-1">
+                                            Open Attendance Confirmation &rarr;
+                                        </a>
+                                    </div>
                                 ` : ''}
                             </div>
                         </div>
@@ -367,6 +595,20 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             panelHtml += `
                 <div class="p-2.5 d-flex justify-content-around bg-light border-top" style="border-radius: 0 0 12px 12px;">
                     <a href="${parentAttendanceUrl}" class="small text-decoration-none text-success fw-semibold"><i class="bi bi-calendar-check me-1"></i>Attendance</a>
+                    <a href="${announcementsUrl}" class="small text-decoration-none text-primary fw-semibold notif-ann-link"><i class="bi bi-megaphone me-1"></i>Announcements</a>
+                </div>
+            `;
+        } else if (userRole === 'teacher') {
+            panelHtml += `
+                <div class="p-2.5 d-flex justify-content-around bg-light border-top" style="border-radius: 0 0 12px 12px;">
+                    <a href="${teacherAttendanceUrl}" class="small text-decoration-none text-success fw-semibold"><i class="bi bi-calendar-check me-1"></i>Confirm Attendance</a>
+                    <a href="${announcementsUrl}" class="small text-decoration-none text-primary fw-semibold notif-ann-link"><i class="bi bi-megaphone me-1"></i>Announcements</a>
+                </div>
+            `;
+        } else if (userRole === 'student') {
+            panelHtml += `
+                <div class="p-2.5 d-flex justify-content-around bg-light border-top" style="border-radius: 0 0 12px 12px;">
+                    <a href="${studentAttendanceUrl}" class="small text-decoration-none text-success fw-semibold"><i class="bi bi-calendar-check me-1"></i>My Attendance</a>
                     <a href="${announcementsUrl}" class="small text-decoration-none text-primary fw-semibold notif-ann-link"><i class="bi bi-megaphone me-1"></i>Announcements</a>
                 </div>
             `;

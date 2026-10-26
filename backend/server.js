@@ -108,10 +108,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Unexpected server error.' });
 });
 
+const { startAttendanceScheduler } = require('./jobs/attendanceJob');
+
 const PORT = process.env.PORT || 5000;
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Mentorae SIS API listening on port ${PORT}`);
+    startAttendanceScheduler();
   });
 }
 
