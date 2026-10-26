@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 icon.classList.add('d-none');
             }
         }
-    }).catch(() => {});
+    }).catch(() => { });
 
     // 3. Wire Logout Action
     wireLogout('logoutBtn', '../login.html', token);
