@@ -1483,11 +1483,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>
                         </div>
-                        <div class="d-flex align-items-center gap-1.5 ms-auto">
+                        <div class="d-flex align-items-center gap-2 ms-auto">
                             <button type="button" class="btn btn-sm btn-outline-success fw-bold rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1 btn-view-proof shadow-xs" data-id="${n.id}" data-name="${escapeHtml(pName)}" data-type="${pType}" data-student="${escapeHtml(n.student_name)}" data-url="${proofUrl}">
                                 <i class="bi bi-eye-fill"></i> View Proof
                             </button>
-                            <a href="${proofUrl}&download=1" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1.5" title="Download Proof File" download="${escapeHtml(pName)}">
+                            <a href="${proofUrl}&download=1" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1.5 ms-1" title="Download Proof File" download="${escapeHtml(pName)}">
                                 <i class="bi bi-download"></i>
                             </a>
                         </div>

@@ -1542,4 +1542,8 @@ section.docx img,
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
     background: #ffffff;
 }
+
+.gap-1\.5 {
+    gap: 0.375rem !important;
+}
 
