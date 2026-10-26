@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        // 1. PDF RENDERING (Native Frame with Blob URL)
+        // 1. PDF RENDERING (Dual Mode: High-Fidelity Canvas + Native Browser Reader)
         if (ext === 'pdf' || mime.includes('pdf')) {
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
             if (isMobile) {
@@ -1006,16 +1006,125 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            stageEl.innerHTML = `
-                <object data="${activeUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
-                    <iframe src="${activeUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;">
-                        <div class="p-5 text-center text-white">
-                            <p class="mb-3">Unable to display PDF inline.</p>
-                            <a href="${activeUrl}" target="_blank" class="btn btn-danger rounded-pill px-4">Open PDF</a>
+            const renderNativeView = () => {
+                if (modeSwitcherEl) {
+                    modeSwitcherEl.innerHTML = `
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 fw-semibold fs-8" id="pdfSwitchCanvasBtn" title="Switch to Page Canvas View">
+                            <i class="bi bi-file-earmark-text me-1"></i> Page Canvas View
+                        </button>
+                    `;
+                    document.getElementById('pdfSwitchCanvasBtn')?.addEventListener('click', () => renderCanvasView());
+                }
+                stageEl.innerHTML = `
+                    <object data="${activeUrl}" type="application/pdf" class="w-100 h-100 border-0" style="background: #525659;">
+                        <iframe src="${activeUrl}" class="w-100 h-100 border-0" title="${escapeHtml(fileName)}" style="background: #525659;">
+                            <div class="p-5 text-center text-white">
+                                <p class="mb-3">Unable to display PDF inline.</p>
+                                <a href="${activeUrl}" target="_blank" class="btn btn-danger rounded-pill px-4">Open PDF</a>
+                            </div>
+                        </iframe>
+                    </object>
+                `;
+            };
+
+            const renderCanvasView = async () => {
+                if (!window.pdfjsLib || !fileData || !fileData.arrayBuffer) {
+                    renderNativeView();
+                    return;
+                }
+
+                stageEl.innerHTML = `
+                    <div class="docx-viewer-wrapper" id="pdfViewerWrapper">
+                        <div id="pdfPagesHost" class="d-flex flex-column align-items-center py-4 w-100">
+                            <div class="spinner-border text-danger mb-2" role="status"></div>
+                            <span class="text-white-50 small">Rendering PDF Pages...</span>
                         </div>
-                    </iframe>
-                </object>
-            `;
+                    </div>
+                `;
+
+                const host = document.getElementById('pdfPagesHost');
+                try {
+                    if (window.pdfjsLib.GlobalWorkerOptions) {
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    }
+                    const loadingTask = window.pdfjsLib.getDocument({ data: fileData.arrayBuffer });
+                    const pdfDoc = await loadingTask.promise;
+
+                    host.innerHTML = '';
+                    let currentZoom = 1.0;
+
+                    if (modeSwitcherEl) {
+                        modeSwitcherEl.innerHTML = `
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle p-1 border-0" id="pdfZoomOutBtn" title="Zoom Out" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                            <span class="text-white-50 px-2 fw-semibold" id="pdfZoomVal" style="font-size: 0.75rem; min-width: 42px; text-align: center;">100%</span>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle p-1 border-0" id="pdfZoomInBtn" title="Zoom In" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0.5 border-0 ms-1 fw-semibold fs-8" id="pdfFitBtn" title="Reset Zoom">
+                                Reset
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5 py-0.5 border-0 ms-1.5 fw-semibold fs-8" id="pdfSwitchNativeBtn" title="Open with Native Browser PDF Reader">
+                                <i class="bi bi-window me-1"></i> Native Reader
+                            </button>
+                        `;
+
+                        const updatePdfZoom = (z) => {
+                            currentZoom = Math.min(Math.max(0.5, Math.round(z * 100) / 100), 2.5);
+                            const zoomValEl = document.getElementById('pdfZoomVal');
+                            if (zoomValEl) zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+                            host.querySelectorAll('.pdf-page-canvas').forEach(cv => {
+                                cv.style.transform = `scale(${currentZoom})`;
+                                cv.style.transformOrigin = 'top center';
+                            });
+                        };
+
+                        document.getElementById('pdfZoomOutBtn')?.addEventListener('click', () => updatePdfZoom(currentZoom - 0.15));
+                        document.getElementById('pdfZoomInBtn')?.addEventListener('click', () => updatePdfZoom(currentZoom + 0.15));
+                        document.getElementById('pdfFitBtn')?.addEventListener('click', () => updatePdfZoom(1.0));
+                        document.getElementById('pdfSwitchNativeBtn')?.addEventListener('click', () => renderNativeView());
+                    }
+
+                    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                        const page = await pdfDoc.getPage(pageNum);
+                        const viewport = page.getViewport({ scale: 1.5 });
+
+                        const pageCard = document.createElement('div');
+                        pageCard.className = 'pdf-page-card mb-4 text-center';
+                        pageCard.style.maxWidth = '100%';
+
+                        const canvas = document.createElement('canvas');
+                        canvas.className = 'pdf-page-canvas shadow-lg rounded-2';
+                        canvas.style.maxWidth = '100%';
+                        canvas.style.height = 'auto';
+                        canvas.style.background = '#ffffff';
+                        canvas.style.transition = 'transform 0.15s ease';
+
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                        pageCard.appendChild(canvas);
+
+                        if (pdfDoc.numPages > 1) {
+                            const badge = document.createElement('div');
+                            badge.className = 'text-center mt-2 text-white-50 small';
+                            badge.textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
+                            pageCard.appendChild(badge);
+                        }
+
+                        host.appendChild(pageCard);
+                    }
+                } catch (pdfErr) {
+                    console.warn('PDF.js render notice, switching to native viewer:', pdfErr);
+                    renderNativeView();
+                }
+            };
+
+            await renderCanvasView();
             return;
         }
 

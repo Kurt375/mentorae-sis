@@ -1120,10 +1120,38 @@ async function getExcuseNoteProof(req, res) {
     const disposition = isDownload ? 'attachment' : 'inline';
     const filename = note.proof_file_name || 'proof-file';
 
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Content-Disposition', `${disposition}; filename="${encodeURIComponent(filename)}"`);
-    return res.send(buffer);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : buffer.length - 1;
+
+      if (start >= buffer.length || end >= buffer.length || start > end) {
+        res.setHeader('Content-Range', `bytes */${buffer.length}`);
+        return res.status(416).send('Requested range not satisfiable');
+      }
+
+      const chunksize = (end - start) + 1;
+      const chunk = buffer.subarray(start, end + 1);
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${buffer.length}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mimeType,
+        'Content-Disposition': `${disposition}; filename="${encodeURIComponent(filename)}"`
+      });
+      return res.end(chunk);
+    } else {
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Content-Disposition', `${disposition}; filename="${encodeURIComponent(filename)}"`);
+      return res.send(buffer);
+    }
   } catch (err) {
     console.error('getExcuseNoteProof error:', err);
     return res.status(500).json({ success: false, message: 'Could not load proof file.' });
