@@ -61,7 +61,7 @@ async function runSevenAmAttendanceJob(force = false) {
               s.name AS section_name, s.grade_level
        FROM users u
        LEFT JOIN sections s ON s.id = u.section_id
-       WHERE u.role = 'student' AND (u.status = 'active' OR u.status IS NULL)`
+       WHERE u.role = 'student' AND (u.is_active = 1 OR u.is_active IS NULL)`
     );
 
     let unscannedCount = 0;

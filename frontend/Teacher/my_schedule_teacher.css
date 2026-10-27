@@ -58,33 +58,84 @@
     vertical-align: middle;
 }
 
+.schedule-table tbody tr {
+    min-height: 54px;
+    height: 54px;
+}
+
 .schedule-table tbody td {
-    min-height: 48px;
-    height: auto;
-    padding: 0.4rem;
+    height: 54px;
+    min-height: 54px;
+    padding: 5px 6px;
     vertical-align: middle;
     font-size: 0.8rem;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .schedule-table .time-slot {
+    width: 17%;
+    min-width: 130px;
     font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     vertical-align: middle;
-    background-color: #f8f9fa;
+    background-color: #f8fafc;
+    padding: 6px 4px !important;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.time-range-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex-wrap: wrap;
+    line-height: 1.25;
+    width: 100%;
+}
+
+.time-val {
     white-space: nowrap;
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: #1e293b;
+}
+
+.time-hyphen {
+    color: #64748b;
+    font-size: 0.75rem;
+    padding: 0 1px;
 }
 
 .class-entry {
-    background-color: #e7f5e7;
-    border-left: 3px solid var(--mentorae-green);
-    padding: 0.35rem 0.45rem;
+    background-color: #f0fdf4;
+    border-left: 4px solid var(--mentorae-green);
+    padding: 0.45rem 0.6rem;
     border-radius: 4px;
-    height: 100%;
+    box-sizing: border-box;
     text-align: left;
+    height: 100%;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 
-.class-entry .subject { font-weight: 700; color: var(--mentorae-green); }
-.class-entry .section { font-size: 0.75rem; color: #4a5568; }
+.class-entry .subject {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--mentorae-green);
+    line-height: 1.25;
+    margin-bottom: 2px;
+}
+
+.class-entry .section {
+    font-size: 0.73rem;
+    color: #475569;
+    line-height: 1.2;
+}
 
 /* Micro Utilities */
 .micro-text { font-size: 0.75rem; }
@@ -186,7 +237,7 @@
         background-color: #f1f5f9 !important;
         color: #1e293b !important;
         padding: 3px 2px !important;
-        white-space: nowrap !important;
+        text-align: center !important;
     }
 
     .class-entry {

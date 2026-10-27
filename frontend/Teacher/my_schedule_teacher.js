@@ -112,10 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const interval = intervals[idx];
                 const tr = document.createElement('tr');
 
-                // Time Slot column
+                // Time Slot column with responsive non-overlapping layout
                 const timeCell = document.createElement('td');
                 timeCell.className = 'time-slot';
-                timeCell.textContent = `${formatTime(interval.startStr)} - ${formatTime(interval.endStr)}`;
+                timeCell.innerHTML = `
+                    <div class="time-range-wrap">
+                        <span class="time-val">${formatTime(interval.startStr)}</span>
+                        <span class="time-hyphen">–</span>
+                        <span class="time-val">${formatTime(interval.endStr)}</span>
+                    </div>
+                `;
                 tr.appendChild(timeCell);
 
                 // Day columns with rowspan synchronization
@@ -152,30 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         `;
                         tr.appendChild(td);
                     } else {
-                        // Free time slot: span until the next scheduled class on this day
-                        let nextClassStart = Infinity;
-                        for (const s of schedules) {
-                            if (s.day === day) {
-                                const sStartMin = toMinutes(s.startTime);
-                                if (sStartMin >= interval.endMin && sStartMin < nextClassStart) {
-                                    nextClassStart = sStartMin;
-                                }
-                            }
-                        }
-
-                        let emptySpan = 0;
-                        for (let j = idx; j < intervals.length; j++) {
-                            if (intervals[j].startMin < nextClassStart) {
-                                emptySpan++;
-                            } else {
-                                break;
-                            }
-                        }
-                        emptySpan = Math.max(1, emptySpan);
-                        coveredUntil[day] = (nextClassStart === Infinity) ? 99999 : nextClassStart;
-
+                        // Free time slot: render balanced slot placeholder so row heights remain stable
                         const td = document.createElement('td');
-                        if (emptySpan > 1) td.rowSpan = emptySpan;
                         td.className = 'text-muted micro-text align-middle';
                         td.textContent = '—';
                         tr.appendChild(td);
