@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <i class="bi bi-table text-success fs-5"></i>
                         <div>
                             <h3 class="fs-6 fw-bold text-dark m-0">Database Records &amp; Log Archiving</h3>
-                            <span class="text-muted text-sm">Browse students, subjects, strands, and archive/clean login logs.</span>
+                            <span class="text-muted text-sm">Browse students, subjects, clusters, and archive/clean login logs.</span>
                         </div>
                     </div>
                     <a href="database_admin.html" class="btn btn-success btn-sm fw-semibold">

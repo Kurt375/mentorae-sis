@@ -1078,7 +1078,7 @@ async function downloadImportTemplate(req, res) {
       { header: 'Sex', key: 'sex', width: 12 },
       { header: 'Contact Number', key: 'contactNumber', width: 18 },
       { header: 'Grade Level', key: 'gradeLevel', width: 15 },
-      { header: 'Strand', key: 'strand', width: 14 },
+      { header: 'Cluster', key: 'strand', width: 14 },
       { header: 'Section', key: 'section', width: 32 },
       { header: 'Status(Student, 4ps or Aral Program)', key: 'status', width: 34 },
       { header: "Parent's Name", key: 'parentName', width: 26 },
@@ -1653,7 +1653,7 @@ async function bulkImportStudents(req, res) {
 
       const contactNumber = cleanPhone(get(row, 'Contact Number', 'Contact', 'Phone'));
       const gradeLevel = parseGradeLevel(get(row, 'Grade Level', 'Grade'));
-      const strandCode = get(row, 'Strand', 'Strand Code');
+      const strandCode = get(row, 'Cluster', 'Cluster Code', 'Strand', 'Strand Code');
       const sectionName = get(row, 'Section', 'Section Name');
       const statusRaw = get(row, 'Status(Student, 4ps or Aral Program)', 'Status', 'Program');
       const program = mapProgram(statusRaw);

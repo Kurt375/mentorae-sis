@@ -233,7 +233,7 @@ async function listStrands(req, res) {
     return res.json({ success: true, strands: rows });
   } catch (err) {
     console.error('listStrands error:', err);
-    return res.status(500).json({ success: false, message: 'Could not load strands.' });
+    return res.status(500).json({ success: false, message: 'Could not load clusters.' });
   }
 }
 
@@ -268,7 +268,7 @@ async function listSections(req, res) {
 async function createSection(req, res) {
   const { strandId, gradeLevel, name } = req.body;
   if (!strandId || !gradeLevel || !name) {
-    return res.status(400).json({ success: false, message: 'Strand, grade level, and section name are required.' });
+    return res.status(400).json({ success: false, message: 'Cluster, grade level, and section name are required.' });
   }
   try {
     await pool.query('INSERT INTO sections (strand_id, grade_level, name) VALUES (?, ?, ?)', [
@@ -279,7 +279,7 @@ async function createSection(req, res) {
     return res.json({ success: true, message: 'Section created.' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ success: false, message: 'That section already exists for this strand/grade.' });
+      return res.status(409).json({ success: false, message: 'That section already exists for this cluster/grade.' });
     }
     console.error('createSection error:', err);
     return res.status(500).json({ success: false, message: 'Could not create section.' });

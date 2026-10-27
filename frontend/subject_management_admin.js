@@ -770,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         availableStrands.sort();
 
-        strandFilter.innerHTML = '<option value="All">All Strands</option>'; // Reset
+        strandFilter.innerHTML = '<option value="All">All Clusters</option>'; // Reset
         availableStrands.forEach(strand => {
             const option = document.createElement('option');
             option.value = strand;

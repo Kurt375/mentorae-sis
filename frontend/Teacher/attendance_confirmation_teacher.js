@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
-                        <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Cluster</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Section</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time In</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time Out</th>
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
-                        <th class="px-3 py-3 fw-semibold text-nowrap">Strand</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Cluster</th>
                         <th class="px-3 py-3 fw-semibold text-nowrap">Section</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Status</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Action</th>

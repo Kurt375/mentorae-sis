@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     (optsRes.grades || []).map((g) => `<option value="${g}">Grade ${g}</option>`).join('');
             }
             if (filterStrand) {
-                filterStrand.innerHTML = '<option value="all" selected>All Strands</option>' +
+                filterStrand.innerHTML = '<option value="all" selected>All Clusters</option>' +
                     (optsRes.strands || []).map((st) => `<option value="${st.id}">${st.code} - ${st.title}</option>`).join('');
             }
             if (filterSection) {
@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const gradeText = filterGradeLevel && filterGradeLevel.value !== 'all' ? `Grade ${filterGradeLevel.value}` : 'All Grades';
-            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Strands';
+            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Clusters';
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
             const priorityStudents = currentRiskStudents.filter(s => s.risk === 'High' || s.risk === 'Medium');
@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             XLSX.utils.book_append_sheet(wb, wsPriority, "At-Risk Priority");
             XLSX.utils.book_append_sheet(wb, wsComplete, "All Evaluated");
 
-            const safeSectionName = (sectionText !== 'All Sections' ? sectionText : (strandText !== 'All Strands' ? strandText : 'All_Classes'))
+            const safeSectionName = (sectionText !== 'All Sections' ? sectionText : (strandText !== 'All Clusters' ? strandText : 'All_Classes'))
                 .replace(/[^a-zA-Z0-9_-]/g, '_');
             const filename = `TSHS_Admin_At-Risk_Roster_${safeSectionName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
@@ -605,7 +605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const gradeText = filterGradeLevel && filterGradeLevel.value !== 'all' ? `Grade ${filterGradeLevel.value}` : 'All Grades';
-            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Strands';
+            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Clusters';
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
             const highCount = currentRiskStudents.filter(s => s.risk === 'High').length;

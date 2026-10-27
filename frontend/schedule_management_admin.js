@@ -61,14 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await authedFetch('/api/reference/strands', token);
             if (data && data.success && Array.isArray(data.strands) && data.strands.length > 0) {
                 allStrands = data.strands;
-                strandSelect.innerHTML = '<option value="" selected>All Strands / Select Strand</option>' +
+                strandSelect.innerHTML = '<option value="" selected>All Clusters / Select Cluster</option>' +
                     data.strands.map(s => `<option value="${s.id}">${s.code} - ${s.title || s.name || ''}</option>`).join('');
             } else {
-                strandSelect.innerHTML = '<option value="" disabled selected>No strands available</option>';
+                strandSelect.innerHTML = '<option value="" disabled selected>No clusters available</option>';
             }
         } catch (err) {
             console.error('loadStrands error:', err);
-            strandSelect.innerHTML = '<option value="" disabled selected>Failed to load strands</option>';
+            strandSelect.innerHTML = '<option value="" disabled selected>Failed to load clusters</option>';
         }
     }
 
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : allSections;
 
         if (!filtered.length) {
-            sectionSelect.innerHTML = '<option value="" disabled selected>No sections found for this strand</option>';
+            sectionSelect.innerHTML = '<option value="" disabled selected>No sections found for this cluster</option>';
             return;
         }
 
@@ -860,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setSchedProgressBar(currentPct, 'Parsing Days, Times & Terms...', 'Validating time formats and weekday definitions...');
                 } else if (currentPct < 75) {
                     currentPct += 4;
-                    setSchedProgressBar(currentPct, 'Resolving Sections & Teachers...', 'Matching strands, sections, and teacher assignments...');
+                    setSchedProgressBar(currentPct, 'Resolving Sections & Teachers...', 'Matching clusters, sections, and teacher assignments...');
                 } else if (currentPct < 90) {
                     currentPct += 2;
                     setSchedProgressBar(currentPct, 'Saving Schedule Records...', 'Inserting class timetables into database...');

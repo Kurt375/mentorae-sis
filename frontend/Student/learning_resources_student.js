@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <p class="m-0 fw-semibold">No subjects found in the library matching your filters.</p>
-                        <small class="text-secondary">Try selecting "All Terms", "All Grades", or "All Strands".</small>
+                        <small class="text-secondary">Try selecting "All Terms", "All Grades", or "All Clusters".</small>
                     </div>
                 </div>`;
             return;
@@ -352,8 +352,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         strands.sort();
 
         libraryFilterStrand.innerHTML = `
-            <option value="All">All Strands</option>
-            <option value="Common">Common (All Strands)</option>
+            <option value="All">All Clusters</option>
+            <option value="Common">Common (All Clusters)</option>
             ${strands.map(str => `<option value="${escapeHtml(str)}">${escapeHtml(str)}</option>`).join('')}
         `;
         if (strands.includes(currentVal) || currentVal === 'Common') {

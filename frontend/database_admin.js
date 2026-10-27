@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error loading section dropdown options:', err);
         }
 
-        const strandOptions = '<option value="" disabled selected>— Select Strand —</option>' +
+        const strandOptions = '<option value="" disabled selected>— Select Cluster —</option>' +
             cachedStrands.map(s => `<option value="${s.id}">${escapeHtml(s.code || s.f1)} - ${escapeHtml(s.title || s.f2)}</option>`).join('');
 
         const adviserOptions = '<option value="">— Unassigned / None —</option>' +
@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         if (category === 'students') {
             // Strand options
-            let strandOpts = '<option value="">All Strands</option>';
+            let strandOpts = '<option value="">All Clusters</option>';
             const strandList = cachedStrands.length
                 ? cachedStrands.map(s => s.code || s.f1)
                 : [...new Set(currentCategoryRecords.map(r => r.strandCode || r.f3).filter(Boolean))];
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             html = `
                 <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-student-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-funnel"></i></span>
-                    <select class="form-select border-0 py-2 text-sm" id="filterStudentStrand" title="Filter by Strand">
+                    <select class="form-select border-0 py-2 text-sm" id="filterStudentStrand" title="Filter by Cluster">
                         ${strandOpts}
                     </select>
                 </div>
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         } else if (category === 'sections') {
-            let strandOpts = '<option value="">All Strands</option>';
+            let strandOpts = '<option value="">All Clusters</option>';
             const strandList = cachedStrands.length
                 ? cachedStrands.map(s => s.code || s.f1)
                 : [...new Set(currentCategoryRecords.map(r => r.strandCode || (r.f2 ? r.f2.split(' - ')[0] : '')).filter(Boolean))];
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
             html = `
                 <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-funnel"></i></span>
-                    <select class="form-select border-0 py-2 text-sm" id="filterSectionStrand" title="Filter by Strand">
+                    <select class="form-select border-0 py-2 text-sm" id="filterSectionStrand" title="Filter by Cluster">
                         ${strandOpts}
                     </select>
                 </div>
@@ -364,13 +364,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dbSearchInput) {
             dbSearchInput.value = '';
             if (category === 'students') {
-                dbSearchInput.placeholder = 'Search students by name, ID, strand, email...';
+                dbSearchInput.placeholder = 'Search students by name, ID, cluster, email...';
             } else if (category === 'subjects') {
-                dbSearchInput.placeholder = 'Search subjects by code, name, strand, term...';
+                dbSearchInput.placeholder = 'Search subjects by code, name, cluster, term...';
             } else if (category === 'strands') {
-                dbSearchInput.placeholder = 'Search strands by code, title, track...';
+                dbSearchInput.placeholder = 'Search clusters by code, title, track...';
             } else if (category === 'sections') {
-                dbSearchInput.placeholder = 'Search sections by name, strand, adviser...';
+                dbSearchInput.placeholder = 'Search sections by name, cluster, adviser...';
             } else if (category === 'login-logs') {
                 dbSearchInput.placeholder = 'Search logs by user, role, IP, date...';
             }
@@ -678,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (!res.success) {
-                    alert(res.message || 'Could not create strand.');
+                    alert(res.message || 'Could not create cluster.');
                     return;
                 }
 
@@ -720,7 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (!res.success) {
-                    alert(res.message || 'Could not update strand.');
+                    alert(res.message || 'Could not update cluster.');
                     return;
                 }
 
@@ -748,7 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (!res.success) {
-                    alert(res.message || 'Could not delete strand.');
+                    alert(res.message || 'Could not delete cluster.');
                     return;
                 }
 

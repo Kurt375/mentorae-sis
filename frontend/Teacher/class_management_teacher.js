@@ -3485,7 +3485,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <tr>
                                     <td class="meta-label">Grade & Section:</td>
                                     <td class="meta-val">${escapeHtml(gradeSecText)}</td>
-                                    <td class="meta-label">Track & Strand:</td>
+                                    <td class="meta-label">Track & Cluster:</td>
                                     <td class="meta-val">${escapeHtml(trackStrandText)}</td>
                                 </tr>
                                 <tr>

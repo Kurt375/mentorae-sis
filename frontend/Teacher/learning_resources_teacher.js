@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add the "All Strands" option first
         const allOption = document.createElement('option');
         allOption.value = 'All';
-        allOption.textContent = 'All Strands';
+        allOption.textContent = 'All Clusters';
         libraryFilterStrand.appendChild(allOption);
 
         // Add the other sorted, unique strands with Common first
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).forEach(strand => {
             const option = document.createElement('option');
             option.value = strand;
-            option.textContent = strand === 'Common' ? 'Common (All Strands)' : strand;
+            option.textContent = strand === 'Common' ? 'Common (All Clusters)' : strand;
             libraryFilterStrand.appendChild(option);
         });
 
@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         classFilterStrand.innerHTML = '';
         const allOption = document.createElement('option');
         allOption.value = 'All';
-        allOption.textContent = 'All Strands';
+        allOption.textContent = 'All Clusters';
         classFilterStrand.appendChild(allOption);
 
         availableStrands.sort((a, b) => {
@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).forEach(strand => {
             const option = document.createElement('option');
             option.value = strand;
-            option.textContent = strand === 'Common' ? 'Common (All Strands)' : strand;
+            option.textContent = strand === 'Common' ? 'Common (All Clusters)' : strand;
             classFilterStrand.appendChild(option);
         });
         classFilterStrand.value = Array.from(classFilterStrand.options).some(opt => opt.value === currentStrandValue) ? currentStrandValue : 'All';

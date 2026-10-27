@@ -1223,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <tr>
                             <td class="meta-label">Grade & Section:</td>
                             <td class="meta-val">${escapeHtml(gradeSec)}</td>
-                            <td class="meta-label">Track & Strand:</td>
+                            <td class="meta-label">Track & Cluster:</td>
                             <td class="meta-val">${escapeHtml(trackStrand)}</td>
                         </tr>
                         <tr>
@@ -1305,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ["Academic Year 2026-2027 - " + term],
             [],
             ["Learner Name:", studentName, "LRN:", lrn],
-            ["Grade & Section:", section, "Track & Strand:", strand],
+            ["Grade & Section:", section, "Track & Cluster:", strand],
             ["General Weighted Average (GWA):", `${overallGrade || '--'} (${overallRemarks})`, "Grading Period:", term],
             [],
             ["Subject Code", "Learning Area", "Written Works", "Performance Tasks", "Quarterly Assessment", "Final Grade", "Remarks"]

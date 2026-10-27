@@ -86,7 +86,7 @@ async function browseStudents(req, res) {
         f4: r.email,
       };
     });
-    return res.json({ success: true, headers: ['Name', 'ID Number', 'Strand', 'Email'], records });
+    return res.json({ success: true, headers: ['Name', 'ID Number', 'Cluster', 'Email'], records });
   } catch (err) {
     console.error('browseStudents error:', err);
     return res.status(500).json({ success: false, message: 'Could not load students.' });
@@ -136,10 +136,10 @@ async function browseStrands(req, res) {
       f3: r.department,
       f4: `${r.enrollees} Students`,
     }));
-    return res.json({ success: true, headers: ['Track Code', 'Strand Title', 'Department', 'Active Enrollees'], records });
+    return res.json({ success: true, headers: ['Track Code', 'Cluster Title', 'Department', 'Active Enrollees'], records });
   } catch (err) {
     console.error('browseStrands error:', err);
-    return res.status(500).json({ success: false, message: 'Could not load strands.' });
+    return res.status(500).json({ success: false, message: 'Could not load clusters.' });
   }
 }
 
@@ -187,7 +187,7 @@ async function browseSections(req, res) {
     });
     return res.json({
       success: true,
-      headers: ['Section Name', 'Strand', 'Grade Level', 'Class Adviser', 'Active Enrollees'],
+      headers: ['Section Name', 'Cluster', 'Grade Level', 'Class Adviser', 'Active Enrollees'],
       records,
     });
   } catch (err) {
@@ -222,7 +222,7 @@ async function browseAdvisers(req, res) {
 async function createSection(req, res) {
   const { name, strandId, gradeLevel, adviserId, coAdviserId } = req.body;
   if (!name || !strandId || !gradeLevel) {
-    return res.status(400).json({ success: false, message: 'Section name, strand, and grade level are required.' });
+    return res.status(400).json({ success: false, message: 'Section name, cluster, and grade level are required.' });
   }
 
   try {
@@ -237,7 +237,7 @@ async function createSection(req, res) {
       [sId, gLevel, cleanName]
     );
     if (existing.length > 0) {
-      return res.status(409).json({ success: false, message: `Section "${cleanName}" already exists for this strand and grade level.` });
+      return res.status(409).json({ success: false, message: `Section "${cleanName}" already exists for this cluster and grade level.` });
     }
 
     const [result] = await pool.query(
@@ -261,7 +261,7 @@ async function updateSection(req, res) {
   const sectionId = req.params.id;
   const { name, strandId, gradeLevel, adviserId, coAdviserId } = req.body;
   if (!sectionId || !name || !strandId || !gradeLevel) {
-    return res.status(400).json({ success: false, message: 'Section ID, name, strand, and grade level are required.' });
+    return res.status(400).json({ success: false, message: 'Section ID, name, cluster, and grade level are required.' });
   }
 
   try {
@@ -281,7 +281,7 @@ async function updateSection(req, res) {
       [sId, gLevel, cleanName, sectionId]
     );
     if (dup.length > 0) {
-      return res.status(409).json({ success: false, message: `Another section named "${cleanName}" already exists for this strand and grade.` });
+      return res.status(409).json({ success: false, message: `Another section named "${cleanName}" already exists for this cluster and grade.` });
     }
 
     await pool.query(
@@ -334,7 +334,7 @@ async function deleteSection(req, res) {
 async function createStrand(req, res) {
   const { code, title, department } = req.body;
   if (!code || !title) {
-    return res.status(400).json({ success: false, message: 'Strand code and title are required.' });
+    return res.status(400).json({ success: false, message: 'Cluster code and title are required.' });
   }
 
   try {
@@ -344,7 +344,7 @@ async function createStrand(req, res) {
 
     const [existing] = await pool.query('SELECT id FROM strands WHERE code = ? LIMIT 1', [cleanCode]);
     if (existing.length > 0) {
-      return res.status(409).json({ success: false, message: `Strand code "${cleanCode}" already exists.` });
+      return res.status(409).json({ success: false, message: `Cluster code "${cleanCode}" already exists.` });
     }
 
     const [result] = await pool.query(
@@ -355,11 +355,11 @@ async function createStrand(req, res) {
     return res.status(201).json({
       success: true,
       strandId: result.insertId,
-      message: `Strand ${cleanCode} created successfully.`
+      message: `Cluster ${cleanCode} created successfully.`
     });
   } catch (err) {
     console.error('createStrand error:', err);
-    return res.status(500).json({ success: false, message: 'Could not create strand.' });
+    return res.status(500).json({ success: false, message: 'Could not create cluster.' });
   }
 }
 
@@ -369,10 +369,10 @@ async function updateStrand(req, res) {
   const { code, title, department } = req.body;
 
   if (!strandId) {
-    return res.status(400).json({ success: false, message: 'Strand ID is required.' });
+    return res.status(400).json({ success: false, message: 'Cluster ID is required.' });
   }
   if (!code || !title) {
-    return res.status(400).json({ success: false, message: 'Strand code and title are required.' });
+    return res.status(400).json({ success: false, message: 'Cluster code and title are required.' });
   }
 
   try {
@@ -383,13 +383,13 @@ async function updateStrand(req, res) {
     // Check if target strand exists
     const [target] = await pool.query('SELECT id FROM strands WHERE id = ?', [strandId]);
     if (target.length === 0) {
-      return res.status(404).json({ success: false, message: 'Strand not found.' });
+      return res.status(404).json({ success: false, message: 'Cluster not found.' });
     }
 
     // Check for duplicate code in another strand
     const [dup] = await pool.query('SELECT id FROM strands WHERE code = ? AND id != ? LIMIT 1', [cleanCode, strandId]);
     if (dup.length > 0) {
-      return res.status(409).json({ success: false, message: `Strand code "${cleanCode}" is already in use by another strand.` });
+      return res.status(409).json({ success: false, message: `Cluster code "${cleanCode}" is already in use by another cluster.` });
     }
 
     await pool.query(
@@ -397,10 +397,10 @@ async function updateStrand(req, res) {
       [cleanCode, cleanTitle, cleanDept, strandId]
     );
 
-    return res.json({ success: true, message: `Strand ${cleanCode} updated successfully.` });
+    return res.json({ success: true, message: `Cluster ${cleanCode} updated successfully.` });
   } catch (err) {
     console.error('updateStrand error:', err);
-    return res.status(500).json({ success: false, message: 'Could not update strand.' });
+    return res.status(500).json({ success: false, message: 'Could not update cluster.' });
   }
 }
 
@@ -408,13 +408,13 @@ async function updateStrand(req, res) {
 async function deleteStrand(req, res) {
   const strandId = req.params.id;
   if (!strandId) {
-    return res.status(400).json({ success: false, message: 'Strand ID is required.' });
+    return res.status(400).json({ success: false, message: 'Cluster ID is required.' });
   }
 
   try {
     const [target] = await pool.query('SELECT id, code, title FROM strands WHERE id = ?', [strandId]);
     if (target.length === 0) {
-      return res.status(404).json({ success: false, message: 'Strand not found.' });
+      return res.status(404).json({ success: false, message: 'Cluster not found.' });
     }
     const strand = target[0];
 
@@ -437,10 +437,10 @@ async function deleteStrand(req, res) {
 
     await pool.query('DELETE FROM strands WHERE id = ?', [strandId]);
 
-    return res.json({ success: true, message: `Strand "${strand.code}" was deleted successfully.` });
+    return res.json({ success: true, message: `Cluster "${strand.code}" was deleted successfully.` });
   } catch (err) {
     console.error('deleteStrand error:', err);
-    return res.status(500).json({ success: false, message: 'Could not delete strand.' });
+    return res.status(500).json({ success: false, message: 'Could not delete cluster.' });
   }
 }
 
@@ -460,7 +460,7 @@ async function exportStudentsCSV(req, res) {
        WHERE u.role = 'student'
        ORDER BY u.last_name`
     );
-    const headers = ['First Name', 'M.I.', 'Last Name', 'ID Number', 'Email', 'Strand', 'Section'];
+    const headers = ['First Name', 'M.I.', 'Last Name', 'ID Number', 'Email', 'Cluster', 'Section'];
     const dataRows = rows.map((r) => [
       r.first_name || '',
       r.middle_initial || '',
@@ -519,7 +519,7 @@ async function exportStrandsCSV(req, res) {
               (SELECT COUNT(*) FROM users u JOIN sections s ON s.id = u.section_id WHERE s.strand_id = st.id AND u.role = 'student') AS enrollees
        FROM strands st ORDER BY st.code`
     );
-    const headers = ['Track Code', 'Strand Title', 'Department', 'Active Enrollees'];
+    const headers = ['Track Code', 'Cluster Title', 'Department', 'Active Enrollees'];
     const dataRows = rows.map((r) => [
       r.code || '',
       r.title || '',
@@ -529,14 +529,14 @@ async function exportStrandsCSV(req, res) {
     return sendDataExport(res, {
       headers,
       dataRows,
-      filenameBase: 'strands-export',
+      filenameBase: 'clusters-export',
       format,
-      sheetName: 'Strands',
+      sheetName: 'Clusters',
       colWidths: [{ wch: 14 }, { wch: 35 }, { wch: 22 }, { wch: 16 }],
     });
   } catch (err) {
     console.error('exportStrandsCSV error:', err);
-    return res.status(500).json({ success: false, message: 'Could not export strands.' });
+    return res.status(500).json({ success: false, message: 'Could not export clusters.' });
   }
 }
 
@@ -555,7 +555,7 @@ async function exportSectionsCSV(req, res) {
        LEFT JOIN users coadv ON coadv.id = s.co_adviser_id
        ORDER BY st.code ASC, s.grade_level ASC, s.name ASC`
     );
-    const headers = ['Section Name', 'Strand Code', 'Strand Title', 'Grade Level', 'Class Adviser', 'Co-Adviser', 'Active Enrollees'];
+    const headers = ['Section Name', 'Cluster Code', 'Cluster Title', 'Grade Level', 'Class Adviser', 'Co-Adviser', 'Active Enrollees'];
     const dataRows = rows.map((r) => [
       r.name || '',
       r.strandCode || '',

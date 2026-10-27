@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentStrand = studentStrandSelect.value;
         const matchingStrands = strandsMatchingGrade(gradeLevel);
         const strandOptions = matchingStrands.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
-        studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Strand —</option>${strandOptions}`;
+        studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Cluster —</option>${strandOptions}`;
         if (currentStrand && matchingStrands.some(s => String(s.id) === String(currentStrand))) {
             studentStrandSelect.value = currentStrand;
         } else {
@@ -240,10 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (strandsData.success) {
             strandsCache = strandsData.strands;
             const strandOptions = strandsCache.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
-            document.getElementById('manageStrandFilter').innerHTML = `<option value="">All strands</option>${strandOptions}`;
-            studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Strand —</option>${strandOptions}`;
+            document.getElementById('manageStrandFilter').innerHTML = `<option value="">All clusters</option>${strandOptions}`;
+            studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Cluster —</option>${strandOptions}`;
             const parentLinksStrandEl = document.getElementById('parentLinksStrandFilter');
-            if (parentLinksStrandEl) parentLinksStrandEl.innerHTML = `<option value="">All Strands</option>${strandOptions}`;
+            if (parentLinksStrandEl) parentLinksStrandEl.innerHTML = `<option value="">All Clusters</option>${strandOptions}`;
         }
         if (sectionsData.success) {
             sectionsCache = sectionsData.sections;
@@ -1642,7 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentStrand = manageStrandFilter.value;
         const matchingStrands = strandsMatchingGrade(gradeLevel);
         const strandOptions = matchingStrands.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
-        manageStrandFilter.innerHTML = `<option value="">All strands</option>${strandOptions}`;
+        manageStrandFilter.innerHTML = `<option value="">All clusters</option>${strandOptions}`;
         if (currentStrand && matchingStrands.some(s => String(s.id) === String(currentStrand))) {
             manageStrandFilter.value = currentStrand;
         } else {
@@ -1842,7 +1842,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressInterval = setInterval(() => {
             if (currentPct < 35) {
                 currentPct += 5;
-                setProgressBar(currentPct, 'Validating Rows & Checking Sections...', 'Checking sections, strands, and duplicate ID numbers...');
+                setProgressBar(currentPct, 'Validating Rows & Checking Sections...', 'Checking sections, clusters, and duplicate ID numbers...');
             } else if (currentPct < 68) {
                 currentPct += 3;
                 setProgressBar(currentPct, 'Creating Accounts & Credentials...', 'Generating emails, hashing passwords, and linking parents...');

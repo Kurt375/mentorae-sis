@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             filteredStrands = availableStrands.filter(st => validStrandIds.has(String(st.id)));
         }
 
-        filterStrand.innerHTML = '<option value="all" selected>All Strands</option>' +
+        filterStrand.innerHTML = '<option value="all" selected>All Clusters</option>' +
             filteredStrands.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
 
         if (currentStrand && filteredStrands.some(s => String(s.id) === String(currentStrand))) {
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
                     <i class="bi bi-person-check fs-2 d-block mb-2 text-success opacity-75"></i>
                     <p class="m-0 fw-semibold">No students found matching the selected class criteria.</p>
-                    <span class="micro-text text-muted">Try selecting "All Strands" or "All Sections" above.</span>
+                    <span class="micro-text text-muted">Try selecting "All Clusters" or "All Sections" above.</span>
                 </div>
             `;
             return;
@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Determine active filter labels
             const gradeText = filterGradeLevel && filterGradeLevel.value !== 'all' ? `Grade ${filterGradeLevel.value}` : 'All Grades';
-            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Strands';
+            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Clusters';
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
             // Filter out only High & Medium risk students for the Priority tab
@@ -1080,7 +1080,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             XLSX.utils.book_append_sheet(wb, wsPriority, "At-Risk Priority");
             XLSX.utils.book_append_sheet(wb, wsComplete, "All Evaluated");
 
-            const safeSectionName = (sectionText !== 'All Sections' ? sectionText : (strandText !== 'All Strands' ? strandText : 'All_Classes'))
+            const safeSectionName = (sectionText !== 'All Sections' ? sectionText : (strandText !== 'All Clusters' ? strandText : 'All_Classes'))
                 .replace(/[^a-zA-Z0-9_-]/g, '_');
             const filename = `TSHS_At-Risk_Roster_${safeSectionName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
@@ -1104,7 +1104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : currentRiskStudents;
 
             const gradeText = filterGradeLevel && filterGradeLevel.value !== 'all' ? `Grade ${filterGradeLevel.value}` : 'All Grades';
-            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Strands';
+            const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Clusters';
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
             const highCount = studentsToPrint.filter(s => s.risk === 'High').length;

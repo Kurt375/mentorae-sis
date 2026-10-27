@@ -588,7 +588,7 @@ async function downloadScheduleTemplate(req, res) {
       ws.columns = [
         { header: 'Teacher ID or Name', key: 'teacher', width: 26 },
         { header: 'Subject', key: 'subject', width: 32 },
-        { header: 'Strand Code', key: 'strand', width: 16 },
+        { header: 'Cluster Code', key: 'strand', width: 16 },
         { header: 'Grade Level', key: 'grade', width: 14 },
         { header: 'Section Name', key: 'section', width: 28 },
         { header: 'Academic Term', key: 'quarter', width: 18 },
@@ -1247,7 +1247,7 @@ async function importTabularSchedules(workbook, req, res) {
 
     const teacherInput = getStr(row, 'Teacher ID or Name', 'Teacher', 'Teacher ID', 'Instructor', 'Faculty');
     const subjectInput = getStr(row, 'Subject', 'Subject Name', 'Course', 'Subject Code');
-    const strandCode = getStr(row, 'Strand Code', 'Strand', 'Track');
+    const strandCode = getStr(row, 'Cluster Code', 'Cluster', 'Strand Code', 'Strand', 'Track');
     const gradeLevel = getStr(row, 'Grade Level', 'Grade', 'Year');
     const sectionName = getStr(row, 'Section Name', 'Section');
     const termRaw = getStr(row, 'Academic Term', 'Term', 'Quarter', 'Semester');
