@@ -57,6 +57,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <option value="tl" ${settings.language === 'tl' ? 'selected' : ''}>Filipino</option>
                     </select>
                 </div>
+                <div class="row g-2">
+                    <div class="col-md-7">
+                        <label class="form-label text-dark fw-bold text-sm mb-1">School Principal / Head</label>
+                        <input type="text" class="form-control custom-form-input w-100" id="cfgSchoolPrincipal" value="${settings.school_principal || ''}" placeholder="e.g. MARIA L. SANTOS, PhD">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label text-dark fw-bold text-sm mb-1">Principal Title / Designation</label>
+                        <input type="text" class="form-control custom-form-input w-100" id="cfgSchoolPrincipalTitle" value="${settings.school_principal_title || 'Principal II'}" placeholder="e.g. Principal II">
+                    </div>
+                </div>
                 <div class="maintenance-block p-3 mt-2 d-flex align-items-start gap-3">
                     <input type="checkbox" class="form-check-input custom-checkbox mt-1" id="cfgMaintenance" ${bool(settings.maintenance_mode) ? 'checked' : ''}>
                     <div>
@@ -194,6 +204,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const elTerm = document.getElementById('cfgCurrentTerm');
             const elLang = document.getElementById('cfgLanguage');
             const elMaint = document.getElementById('cfgMaintenance');
+            const elPrincipal = document.getElementById('cfgSchoolPrincipal');
+            const elPrincipalTitle = document.getElementById('cfgSchoolPrincipalTitle');
             if (!elSchool) return {};
             return {
                 school_name: elSchool.value,
@@ -201,6 +213,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 current_semester: elTerm ? elTerm.value : '1st Term',
                 current_quarter: elTerm ? elTerm.value : '1st Term',
                 language: elLang ? elLang.value : 'en',
+                school_principal: elPrincipal ? elPrincipal.value.trim() : (settings.school_principal || ''),
+                school_principal_title: elPrincipalTitle ? elPrincipalTitle.value.trim() : (settings.school_principal_title || 'Principal II'),
                 maintenance_mode: elMaint && elMaint.checked ? '1' : '0',
             };
         },

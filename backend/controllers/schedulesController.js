@@ -510,6 +510,23 @@ async function getMySchedule(req, res) {
        ORDER BY sch.start_time`,
       [req.user.id]
     );
+
+    // Fetch teacher's name from database
+    const [teacherRows] = await pool.query(
+      'SELECT first_name, last_name FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    const teacherName = teacherRows.length
+      ? `${teacherRows[0].first_name || ''} ${teacherRows[0].last_name || ''}`.trim()
+      : 'Teacher';
+
+    // Fetch school principal settings
+    const [settingRows] = await pool.query(
+      "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('school_principal', 'school_principal_title')"
+    );
+    const settingsMap = {};
+    settingRows.forEach((r) => (settingsMap[r.setting_key] = r.setting_value));
+
     const schedule = rows.map((r) => ({
       day: r.day_of_week,
       startTime: r.start_time,
@@ -519,7 +536,14 @@ async function getMySchedule(req, res) {
       strand: `${r.strandCode} ${r.grade_level}`,
       section: r.sectionName,
     }));
-    return res.json({ success: true, schedule });
+
+    return res.json({
+      success: true,
+      teacherName,
+      principalName: settingsMap.school_principal || 'SCHOOL PRINCIPAL / HEAD',
+      principalTitle: settingsMap.school_principal_title || 'Talisay Senior High School',
+      schedule,
+    });
   } catch (err) {
     console.error('getMySchedule error:', err);
     return res.status(500).json({ success: false, message: 'Could not load your schedule.' });

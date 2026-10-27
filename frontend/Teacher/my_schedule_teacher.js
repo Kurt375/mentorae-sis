@@ -11,16 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    // Populate Print Metadata
-    const storedUser = user || JSON.parse(localStorage.getItem('mentorae_user') || '{}');
-    const teacherName = (storedUser.firstName || storedUser.first_name)
-        ? `${storedUser.firstName || storedUser.first_name} ${storedUser.lastName || storedUser.last_name}`
-        : 'Teacher';
-    const teacherNameEl = document.getElementById('printTeacherName');
-    const teacherSigEl = document.getElementById('printTeacherSig');
-    if (teacherNameEl) teacherNameEl.textContent = teacherName;
-    if (teacherSigEl) teacherSigEl.textContent = teacherName;
-
     const printDateEl = document.getElementById('printDate');
     if (printDateEl) {
         printDateEl.textContent = new Date().toLocaleDateString('en-US', {
@@ -29,6 +19,118 @@ document.addEventListener('DOMContentLoaded', () => {
             year: 'numeric'
         });
     }
+
+    // =========================================================================
+    // Signatories Management (Teacher / Conforme & School Principal / Head)
+    // =========================================================================
+    const teacherNameEl = document.getElementById('printTeacherName');
+    const teacherSigEl = document.getElementById('printTeacherSig');
+    const teacherTitleEl = document.getElementById('printTeacherTitle');
+    const principalSigEl = document.getElementById('printPrincipalSig');
+    const principalTitleEl = document.getElementById('printPrincipalTitle');
+
+    function applySignatories(sigs) {
+        if (sigs.teacherName) {
+            if (teacherNameEl) teacherNameEl.textContent = sigs.teacherName;
+            if (teacherSigEl) teacherSigEl.textContent = sigs.teacherName;
+        }
+        if (sigs.teacherTitle && teacherTitleEl) {
+            teacherTitleEl.textContent = sigs.teacherTitle;
+        }
+        if (sigs.principalName && principalSigEl) {
+            principalSigEl.textContent = sigs.principalName;
+        }
+        if (sigs.principalTitle && principalTitleEl) {
+            principalTitleEl.textContent = sigs.principalTitle;
+        }
+    }
+
+    function getSignatoriesState() {
+        const saved = JSON.parse(localStorage.getItem('mentorae_schedule_signatories') || 'null');
+        if (saved) return saved;
+
+        const storedUser = user || JSON.parse(localStorage.getItem('mentorae_user') || '{}');
+        const defaultTeacher = (storedUser.firstName || storedUser.first_name)
+            ? `${storedUser.firstName || storedUser.first_name} ${storedUser.lastName || storedUser.last_name}`
+            : 'Teacher';
+
+        return {
+            teacherName: defaultTeacher,
+            teacherTitle: 'Teacher / Faculty Member',
+            principalName: 'SCHOOL PRINCIPAL / HEAD',
+            principalTitle: 'Talisay Senior High School'
+        };
+    }
+
+    let serverDefaultSignatories = {};
+    let currentSignatories = getSignatoriesState();
+    applySignatories(currentSignatories);
+
+    // Modal Interaction
+    const signatoriesModal = document.getElementById('signatoriesModal');
+    if (signatoriesModal) {
+        signatoriesModal.addEventListener('show.bs.modal', () => {
+            const inputTName = document.getElementById('inputTeacherName');
+            const inputTTitle = document.getElementById('inputTeacherTitle');
+            const inputPName = document.getElementById('inputPrincipalName');
+            const inputPTitle = document.getElementById('inputPrincipalTitle');
+
+            if (inputTName) inputTName.value = currentSignatories.teacherName || '';
+            if (inputTTitle) inputTTitle.value = currentSignatories.teacherTitle || 'Teacher / Faculty Member';
+            if (inputPName) inputPName.value = currentSignatories.principalName || '';
+            if (inputPTitle) inputPTitle.value = currentSignatories.principalTitle || 'Talisay Senior High School';
+        });
+    }
+
+    document.getElementById('btnSaveSignatories')?.addEventListener('click', () => {
+        const inputTName = document.getElementById('inputTeacherName');
+        const inputTTitle = document.getElementById('inputTeacherTitle');
+        const inputPName = document.getElementById('inputPrincipalName');
+        const inputPTitle = document.getElementById('inputPrincipalTitle');
+
+        const newTeacherName = (inputTName && inputTName.value.trim()) ? inputTName.value.trim() : currentSignatories.teacherName;
+        const newTeacherTitle = (inputTTitle && inputTTitle.value.trim()) ? inputTTitle.value.trim() : 'Teacher / Faculty Member';
+        const newPrincipalName = (inputPName && inputPName.value.trim()) ? inputPName.value.trim() : 'SCHOOL PRINCIPAL / HEAD';
+        const newPrincipalTitle = (inputPTitle && inputPTitle.value.trim()) ? inputPTitle.value.trim() : 'Talisay Senior High School';
+
+        currentSignatories = {
+            teacherName: newTeacherName,
+            teacherTitle: newTeacherTitle,
+            principalName: newPrincipalName,
+            principalTitle: newPrincipalTitle
+        };
+
+        applySignatories(currentSignatories);
+        localStorage.setItem('mentorae_schedule_signatories', JSON.stringify(currentSignatories));
+
+        if (signatoriesModal && window.bootstrap && window.bootstrap.Modal) {
+            const modalInstance = bootstrap.Modal.getInstance(signatoriesModal);
+            if (modalInstance) modalInstance.hide();
+        }
+    });
+
+    document.getElementById('btnResetSignatories')?.addEventListener('click', () => {
+        localStorage.removeItem('mentorae_schedule_signatories');
+        currentSignatories = getSignatoriesState();
+        if (serverDefaultSignatories.teacherName) currentSignatories.teacherName = serverDefaultSignatories.teacherName;
+        if (serverDefaultSignatories.principalName) currentSignatories.principalName = serverDefaultSignatories.principalName;
+        if (serverDefaultSignatories.principalTitle) currentSignatories.principalTitle = serverDefaultSignatories.principalTitle;
+        applySignatories(currentSignatories);
+
+        const inputTName = document.getElementById('inputTeacherName');
+        const inputTTitle = document.getElementById('inputTeacherTitle');
+        const inputPName = document.getElementById('inputPrincipalName');
+        const inputPTitle = document.getElementById('inputPrincipalTitle');
+        if (inputTName) inputTName.value = currentSignatories.teacherName || '';
+        if (inputTTitle) inputTTitle.value = currentSignatories.teacherTitle || 'Teacher / Faculty Member';
+        if (inputPName) inputPName.value = currentSignatories.principalName || '';
+        if (inputPTitle) inputPTitle.value = currentSignatories.principalTitle || 'Talisay Senior High School';
+
+        if (signatoriesModal && window.bootstrap && window.bootstrap.Modal) {
+            const modalInstance = bootstrap.Modal.getInstance(signatoriesModal);
+            if (modalInstance) modalInstance.hide();
+        }
+    });
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -98,6 +200,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const schedules = data.schedule;
+
+            serverDefaultSignatories = {
+                teacherName: data.teacherName || '',
+                principalName: data.principalName || '',
+                principalTitle: data.principalTitle || ''
+            };
+
+            // Automatically sync registered teacher and configured principal from database if user hasn't overridden
+            const hasLocalOverride = !!localStorage.getItem('mentorae_schedule_signatories');
+            if (!hasLocalOverride) {
+                if (data.teacherName) currentSignatories.teacherName = data.teacherName;
+                if (data.principalName) currentSignatories.principalName = data.principalName;
+                if (data.principalTitle) currentSignatories.principalTitle = data.principalTitle;
+                applySignatories(currentSignatories);
+            }
 
             // Populate Quarter/Term name in header
             const terms = Array.from(new Set(schedules.map(s => s.quarter).filter(Boolean)));
