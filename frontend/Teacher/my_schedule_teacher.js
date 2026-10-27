@@ -32,6 +32,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+    // Official Talisay Senior High School Program Events & Breaks
+    const FIXED_SCHOOL_EVENTS = [
+        {
+            type: 'routine',
+            startMin: 6 * 60 + 30, // 06:30 AM
+            endMin: 7 * 60,        // 07:00 AM
+            startStr: '06:30',
+            endStr: '07:00'
+        },
+        {
+            type: 'health_break',
+            name: 'HEALTH BREAK',
+            subtitle: '20 mins',
+            icon: 'bi-cup-hot-fill',
+            startMin: 9 * 60,      // 09:00 AM
+            endMin: 9 * 60 + 20,   // 09:20 AM
+            startStr: '09:00',
+            endStr: '09:20'
+        },
+        {
+            type: 'lunch_break',
+            name: 'LUNCH BREAK',
+            subtitle: '40 mins',
+            icon: 'bi-egg-fried',
+            startMin: 11 * 60 + 20, // 11:20 AM
+            endMin: 12 * 60,        // 12:00 PM
+            startStr: '11:20',
+            endStr: '12:00'
+        }
+    ];
+
     function toMinutes(t) {
         if (!t) return 0;
         const [h, m] = t.split(':').map(Number);
@@ -75,26 +106,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 termEl.textContent = terms.length === 1 ? terms[0] : (terms.length > 1 ? terms.join(', ') : 'All Terms');
             }
 
-            // Extract all unique start and end boundaries
+            // Extract all unique start and end boundaries (classes + fixed school routines)
             const timePointsSet = new Set();
             for (const s of schedules) {
                 timePointsSet.add(toMinutes(s.startTime));
                 timePointsSet.add(toMinutes(s.endTime));
             }
+            for (const evt of FIXED_SCHOOL_EVENTS) {
+                timePointsSet.add(evt.startMin);
+                timePointsSet.add(evt.endMin);
+            }
             const sortedPoints = Array.from(timePointsSet).sort((a, b) => a - b);
 
-            // Construct atomic intervals that have at least one scheduled class
+            // Construct atomic intervals that have a fixed event or at least one scheduled class
             const intervals = [];
             for (let i = 0; i < sortedPoints.length - 1; i++) {
                 const startMin = sortedPoints[i];
                 const endMin = sortedPoints[i + 1];
+                const fixedEvt = FIXED_SCHOOL_EVENTS.find(e => e.startMin === startMin && e.endMin === endMin);
                 const hasClass = schedules.some(s => toMinutes(s.startTime) <= startMin && toMinutes(s.endTime) >= endMin);
-                if (hasClass) {
+
+                if (fixedEvt || hasClass) {
                     intervals.push({
                         startMin,
                         endMin,
                         startStr: toTimeStr(startMin),
                         endStr: toTimeStr(endMin),
+                        fixedEvt: fixedEvt || null,
                     });
                 }
             }
@@ -112,6 +150,81 @@ document.addEventListener('DOMContentLoaded', () => {
                 const interval = intervals[idx];
                 const tr = document.createElement('tr');
 
+                // 1. Check for Fixed Break / Routine Row
+                if (interval.fixedEvt) {
+                    if (interval.fixedEvt.type === 'routine') {
+                        tr.className = 'routine-row';
+                        tr.innerHTML = `
+                            <td class="time-slot">
+                                <div class="time-range-wrap">
+                                    <span class="time-val">${formatTime(interval.startStr)}</span>
+                                    <span class="time-hyphen">–</span>
+                                    <span class="time-val">${formatTime(interval.endStr)}</span>
+                                </div>
+                            </td>
+                            <td class="p-1 align-middle">
+                                <div class="class-entry routine-flag">
+                                    <div class="subject"><i class="bi bi-flag-fill me-1 text-primary"></i>Flag Ceremony</div>
+                                    <div class="section">School Assembly</div>
+                                </div>
+                            </td>
+                            <td colspan="4" class="p-1 align-middle">
+                                <div class="class-entry routine-management">
+                                    <div class="subject text-secondary"><i class="bi bi-clipboard-check me-1"></i>Ground Improvement &amp; Classroom Management</div>
+                                    <div class="section">Tuesday – Friday Faculty Routine</div>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                        continue;
+                    }
+
+                    if (interval.fixedEvt.type === 'health_break') {
+                        tr.className = 'break-row break-row-health';
+                        tr.innerHTML = `
+                            <td class="time-slot">
+                                <div class="time-range-wrap">
+                                    <span class="time-val">${formatTime(interval.startStr)}</span>
+                                    <span class="time-hyphen">–</span>
+                                    <span class="time-val">${formatTime(interval.endStr)}</span>
+                                </div>
+                            </td>
+                            <td colspan="5" class="break-cell break-cell-health text-center align-middle">
+                                <div class="d-inline-flex align-items-center justify-content-center gap-2">
+                                    <i class="bi bi-cup-hot-fill text-warning"></i>
+                                    <strong class="tracking-wide">HEALTH BREAK</strong>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-0.5 micro-text">20 mins</span>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                        continue;
+                    }
+
+                    if (interval.fixedEvt.type === 'lunch_break') {
+                        tr.className = 'break-row break-row-lunch';
+                        tr.innerHTML = `
+                            <td class="time-slot">
+                                <div class="time-range-wrap">
+                                    <span class="time-val">${formatTime(interval.startStr)}</span>
+                                    <span class="time-hyphen">–</span>
+                                    <span class="time-val">${formatTime(interval.endStr)}</span>
+                                </div>
+                            </td>
+                            <td colspan="5" class="break-cell break-cell-lunch text-center align-middle">
+                                <div class="d-inline-flex align-items-center justify-content-center gap-2">
+                                    <i class="bi bi-egg-fried text-success"></i>
+                                    <strong class="tracking-wide">LUNCH BREAK</strong>
+                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-2 py-0.5 micro-text">40 mins</span>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                        continue;
+                    }
+                }
+
+                // 2. Standard Academic Class Interval Row
                 // Time Slot column with responsive non-overlapping layout
                 const timeCell = document.createElement('td');
                 timeCell.className = 'time-slot';
@@ -138,6 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         let span = 0;
                         const entryEndMin = toMinutes(entry.endTime);
                         for (let j = idx; j < intervals.length; j++) {
+                            // Only span through academic intervals that don't cross a fixed event
+                            if (intervals[j].fixedEvt) break;
                             if (intervals[j].endMin <= entryEndMin) {
                                 span++;
                             } else {

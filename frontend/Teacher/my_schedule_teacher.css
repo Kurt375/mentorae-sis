@@ -144,6 +144,48 @@
 .link-transition { transition: opacity 0.15s; }
 .link-transition:hover { opacity: 0.8; }
 
+/* Break and Routine Row Styles */
+.break-row {
+    height: 40px !important;
+}
+
+.break-cell {
+    padding: 0.3rem 0.5rem !important;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+}
+
+.break-cell-health {
+    background: linear-gradient(90deg, #fffbeb, #fef3c7, #fffbeb) !important;
+    color: #92400e !important;
+    border-top: 1px dashed #fcd34d !important;
+    border-bottom: 1px dashed #fcd34d !important;
+}
+
+.break-cell-lunch {
+    background: linear-gradient(90deg, #f0fdf4, #dcfce7, #f0fdf4) !important;
+    color: #166534 !important;
+    border-top: 1px dashed #86efac !important;
+    border-bottom: 1px dashed #86efac !important;
+}
+
+.routine-flag {
+    background-color: #eff6ff !important;
+    border-left: 4px solid #2563eb !important;
+}
+.routine-flag .subject {
+    color: #1e40af !important;
+}
+
+.routine-management {
+    background-color: #f8fafc !important;
+    border-left: 4px solid #64748b !important;
+    text-align: center !important;
+}
+.routine-management .subject {
+    color: #334155 !important;
+}
+
 /* ==========================================================================
    Print Optimization — Fits Exactly on 1 Landscape Sheet
    ========================================================================== */
@@ -271,5 +313,31 @@
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         margin-top: 10px !important;
+    }
+
+    .break-row {
+        height: 26px !important;
+    }
+    .break-cell {
+        padding: 2px 4px !important;
+        font-size: 0.68rem !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .break-cell-health {
+        background-color: #fef3c7 !important;
+        color: #78350f !important;
+    }
+    .break-cell-lunch {
+        background-color: #dcfce7 !important;
+        color: #14532d !important;
+    }
+    .routine-flag {
+        background-color: #eff6ff !important;
+        border-left: 3px solid #2563eb !important;
+    }
+    .routine-management {
+        background-color: #f8fafc !important;
+        border-left: 3px solid #64748b !important;
     }
 }
