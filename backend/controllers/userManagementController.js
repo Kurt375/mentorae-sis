@@ -933,25 +933,55 @@ async function listStudents(req, res) {
   }
 }
 
-/** POST /api/users/bulk-assign-section  { studentIds: [...], sectionId: number|null } */
+/** POST /api/users/bulk-assign-section  { studentIds: [...], userIds: [...], sectionId: number|null } */
 async function bulkAssignSection(req, res) {
-  const { studentIds, sectionId } = req.body;
-  if (!Array.isArray(studentIds) || !studentIds.length) {
-    return res.status(400).json({ success: false, message: 'Select at least one student.' });
+  const { studentIds, userIds, sectionId } = req.body;
+  const targetIds = Array.isArray(userIds) && userIds.length ? userIds : (Array.isArray(studentIds) ? studentIds : []);
+  if (!targetIds.length) {
+    return res.status(400).json({ success: false, message: 'Select at least one user or student.' });
   }
   try {
-    if (sectionId !== null && sectionId !== undefined) {
-      const [[section]] = await pool.query('SELECT id FROM sections WHERE id = ?', [sectionId]);
+    if (sectionId !== null && sectionId !== undefined && sectionId !== '') {
+      const [[section]] = await pool.query('SELECT id, name FROM sections WHERE id = ?', [sectionId]);
       if (!section) {
         return res.status(400).json({ success: false, message: 'That section does not exist.' });
       }
     }
-    const placeholders = studentIds.map(() => '?').join(',');
-    const [result] = await pool.query(
-      `UPDATE users SET section_id = ? WHERE role = 'student' AND id IN (${placeholders})`,
-      [sectionId ?? null, ...studentIds]
+    const cleanSectionId = (sectionId === '' || sectionId === undefined) ? null : sectionId;
+    const placeholders = targetIds.map(() => '?').join(',');
+
+    // Find which of the selected users are students
+    const [matchingUsers] = await pool.query(
+      `SELECT id, role FROM users WHERE id IN (${placeholders})`,
+      targetIds
     );
-    return res.json({ success: true, message: `${result.affectedRows} student(s) assigned.` });
+    const studentUsers = matchingUsers.filter(u => u.role === 'student');
+    const nonStudentCount = matchingUsers.length - studentUsers.length;
+
+    if (!studentUsers.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'None of the selected accounts are students. Only student accounts can be enrolled in a section.'
+      });
+    }
+
+    const studentPlaceholders = studentUsers.map(() => '?').join(',');
+    const [result] = await pool.query(
+      `UPDATE users SET section_id = ? WHERE role = 'student' AND id IN (${studentPlaceholders})`,
+      [cleanSectionId, ...studentUsers.map(u => u.id)]
+    );
+
+    let msg = `${result.affectedRows} student(s) assigned to section.`;
+    if (nonStudentCount > 0) {
+      msg += ` (${nonStudentCount} non-student account${nonStudentCount === 1 ? '' : 's'} were skipped)`;
+    }
+
+    return res.json({
+      success: true,
+      message: msg,
+      affectedRows: result.affectedRows,
+      skippedCount: nonStudentCount
+    });
   } catch (err) {
     console.error('bulkAssignSection error:', err);
     return res.status(500).json({ success: false, message: 'Could not bulk-assign section.' });
@@ -2257,6 +2287,153 @@ async function resetDefaultPassword(req, res) {
   }
 }
 
+/** POST /api/users/bulk-reset-password  { userIds: [...] } */
+async function bulkResetPassword(req, res) {
+  const { userIds } = req.body;
+  if (!Array.isArray(userIds) || !userIds.length) {
+    return res.status(400).json({ success: false, message: 'Select at least one user.' });
+  }
+  try {
+    const placeholders = userIds.map(() => '?').join(',');
+    const [users] = await pool.query(
+      `SELECT id, role, id_number, first_name, last_name FROM users WHERE id IN (${placeholders})`,
+      userIds
+    );
+    if (!users.length) {
+      return res.status(404).json({ success: false, message: 'No matching users found.' });
+    }
+
+    let successCount = 0;
+    for (const user of users) {
+      const defaultPassword = user.id_number;
+      if (!defaultPassword) continue;
+      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      await pool.query(
+        'UPDATE users SET password_hash = ?, temp_password = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?',
+        [passwordHash, defaultPassword, user.id]
+      );
+      try {
+        await notify({
+          recipientId: user.id,
+          type: 'password_reset',
+          title: 'Password Reset to Default',
+          message: `Your password has been reset by the administrator to your ID/LRN (${defaultPassword}). You will be required to choose a new password upon your next login.`,
+        });
+      } catch (e) {
+        // Notification failure shouldn't abort batch
+      }
+      successCount++;
+    }
+
+    return res.json({
+      success: true,
+      message: `Password reset to default ID/LRN successfully for ${successCount} user(s).`,
+      affectedRows: successCount,
+    });
+  } catch (err) {
+    console.error('bulkResetPassword error:', err);
+    return res.status(500).json({ success: false, message: 'Could not reset passwords.' });
+  }
+}
+
+/** POST /api/users/bulk-status  { userIds: [...], isActive: boolean } */
+async function bulkUpdateStatus(req, res) {
+  const { userIds, isActive } = req.body;
+  if (!Array.isArray(userIds) || !userIds.length) {
+    return res.status(400).json({ success: false, message: 'Select at least one user.' });
+  }
+  const activeVal = Boolean(isActive) ? 1 : 0;
+  const currentAdminId = req.user?.id;
+  const filteredIds = (activeVal === 0 && currentAdminId)
+    ? userIds.filter(id => String(id) !== String(currentAdminId))
+    : userIds;
+
+  if (!filteredIds.length) {
+    return res.status(400).json({ success: false, message: 'You cannot deactivate your own admin account.' });
+  }
+
+  try {
+    const placeholders = filteredIds.map(() => '?').join(',');
+    const [result] = await pool.query(
+      `UPDATE users SET is_active = ? WHERE id IN (${placeholders})`,
+      [activeVal, ...filteredIds]
+    );
+    const actionLabel = activeVal === 1 ? 'activated' : 'deactivated';
+    return res.json({
+      success: true,
+      message: `${result.affectedRows} user(s) ${actionLabel} successfully.`,
+      affectedRows: result.affectedRows,
+    });
+  } catch (err) {
+    console.error('bulkUpdateStatus error:', err);
+    return res.status(500).json({ success: false, message: 'Could not update status.' });
+  }
+}
+
+/** POST /api/users/bulk-archive  { userIds: [...] } */
+async function bulkArchiveUsers(req, res) {
+  const { userIds } = req.body;
+  if (!Array.isArray(userIds) || !userIds.length) {
+    return res.status(400).json({ success: false, message: 'Select at least one user.' });
+  }
+  const currentAdminId = req.user?.id;
+  const filteredIds = currentAdminId
+    ? userIds.filter(id => String(id) !== String(currentAdminId))
+    : userIds;
+
+  if (!filteredIds.length) {
+    return res.status(400).json({ success: false, message: 'You cannot archive your own admin account.' });
+  }
+
+  try {
+    const placeholders = filteredIds.map(() => '?').join(',');
+    const [result] = await pool.query(
+      `UPDATE users SET is_active = 0 WHERE id IN (${placeholders})`,
+      filteredIds
+    );
+    return res.json({
+      success: true,
+      message: `${result.affectedRows} user(s) archived successfully.`,
+      affectedRows: result.affectedRows,
+    });
+  } catch (err) {
+    console.error('bulkArchiveUsers error:', err);
+    return res.status(500).json({ success: false, message: 'Could not archive users.' });
+  }
+}
+
+/** POST /api/users/bulk-delete  { userIds: [...] } */
+async function bulkDeleteUsers(req, res) {
+  const { userIds } = req.body;
+  if (!Array.isArray(userIds) || !userIds.length) {
+    return res.status(400).json({ success: false, message: 'Select at least one user.' });
+  }
+  const currentAdminId = req.user?.id;
+  const filteredIds = currentAdminId
+    ? userIds.filter(id => String(id) !== String(currentAdminId))
+    : userIds;
+
+  if (!filteredIds.length) {
+    return res.status(400).json({ success: false, message: 'You cannot delete your own admin account.' });
+  }
+
+  try {
+    const placeholders = filteredIds.map(() => '?').join(',');
+    const [result] = await pool.query(
+      `DELETE FROM users WHERE id IN (${placeholders})`,
+      filteredIds
+    );
+    return res.json({
+      success: true,
+      message: `${result.affectedRows} user(s) permanently deleted.`,
+      affectedRows: result.affectedRows,
+    });
+  } catch (err) {
+    console.error('bulkDeleteUsers error:', err);
+    return res.status(500).json({ success: false, message: 'Could not delete users.' });
+  }
+}
+
 module.exports = {
   generateId,
   generateEmail,
@@ -2279,4 +2456,8 @@ module.exports = {
   downloadImportTemplate,
   bulkImportStudents,
   resetDefaultPassword,
+  bulkResetPassword,
+  bulkUpdateStatus,
+  bulkArchiveUsers,
+  bulkDeleteUsers,
 };

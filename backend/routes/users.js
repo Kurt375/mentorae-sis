@@ -24,6 +24,10 @@ const {
   downloadImportTemplate,
   bulkImportStudents,
   resetDefaultPassword,
+  bulkResetPassword,
+  bulkUpdateStatus,
+  bulkArchiveUsers,
+  bulkDeleteUsers,
 } = require('../controllers/userManagementController');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -42,6 +46,10 @@ router.post('/parent-links', linkParentToStudent);
 router.delete('/parent-links/:id', unlinkParentFromStudent);
 router.get('/students', listStudents);
 router.post('/bulk-assign-section', bulkAssignSection);
+router.post('/bulk-reset-password', bulkResetPassword);
+router.post('/bulk-status', bulkUpdateStatus);
+router.post('/bulk-archive', bulkArchiveUsers);
+router.post('/bulk-delete', bulkDeleteUsers);
 router.post('/promote', promoteStudents);
 router.post('/graduate', graduateStudents);
 router.post('/undo-graduate', undoGraduateStudents);

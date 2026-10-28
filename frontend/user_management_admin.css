@@ -338,3 +338,55 @@
 #bulkImportResults::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* Bulk Actions Bar and Selection Styles */
+.user-bulk-actions-bar {
+    background: linear-gradient(135deg, #0a5c2c, #0f763e);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 12px rgba(10, 92, 44, 0.18) !important;
+    animation: bulkBarSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bulkBarSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-bulk-actions-bar .btn {
+    transition: all 0.15s ease-in-out;
+}
+
+.user-bulk-actions-bar .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.user-row-selected {
+    background-color: #ecfdf5 !important;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+#usersDirectoryTable tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+#usersDirectoryTable .form-check-input:checked {
+    background-color: var(--mentorae-green);
+    border-color: var(--mentorae-green);
+}
+
+#usersDirectoryTable .form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.2);
+    border-color: var(--mentorae-green);
+}
+

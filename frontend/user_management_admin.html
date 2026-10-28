@@ -31,7 +31,7 @@
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="user_management_admin.css?v=20261010-1"> <!-- Keep for specific user management styles -->
+    <link rel="stylesheet" href="user_management_admin.css?v=20261028-1"> <!-- Keep for specific user management styles -->
 </head>
 
 <body class="dashboard-bg">
@@ -542,10 +542,46 @@
                     </div>
                 </div>
 
+                <!-- Contextual Bulk Actions Bar -->
+                <div id="userAccountsBulkBar" class="user-bulk-actions-bar shadow-sm rounded-3 p-2 px-3 mb-3 d-none align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-white text-dark border fw-bold px-2.5 py-1.5 fs-7 d-inline-flex align-items-center gap-1.5 shadow-xs">
+                            <i class="bi bi-check2-square text-success fs-6"></i>
+                            <span id="userAccountsSelectedCount">0</span> selected
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-light fw-semibold text-primary d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnBulkAssignSectionUsers">
+                            <i class="bi bi-diagram-3-fill"></i> Assign Section
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light fw-semibold text-dark d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnBulkResetPasswordUsers">
+                            <i class="bi bi-arrow-counterclockwise text-warning"></i> Reset Password
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light fw-semibold text-danger d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnBulkDeactivateUsers">
+                            <i class="bi bi-person-dash-fill"></i> Deactivate
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light fw-semibold text-success d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnBulkActivateUsers">
+                            <i class="bi bi-person-check-fill"></i> Activate
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light fw-semibold text-dark d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnBulkArchiveUsers">
+                            <i class="bi bi-archive-fill text-warning"></i> Archive
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger fw-semibold d-inline-flex align-items-center gap-1.5 shadow-xs" id="btnBulkDeleteUsers">
+                            <i class="bi bi-trash-fill"></i> Delete
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 micro-text ms-1" id="btnClearUserSelection" title="Clear selection">
+                            <i class="bi bi-x-lg"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
                 <div class="table-responsive border rounded-2 table-scroll-container" style="max-height: 480px; overflow-y: auto;">
                     <table class="table table-striped text-sm align-middle m-0" id="usersDirectoryTable">
                         <thead class="sticky-top bg-mentorae-green" style="z-index: 2;">
                             <tr class="table-header-row text-white">
+                                <th class="px-2 py-2.5 text-center text-nowrap" style="width: 44px;">
+                                    <input type="checkbox" class="form-check-input m-0 cursor-pointer" id="userAccountsSelectAll" title="Select / deselect all visible on this page">
+                                </th>
                                 <th class="px-3 py-2.5 text-nowrap">Name</th>
                                 <th class="px-3 py-2.5 text-nowrap">LRN / ID Number</th>
                                 <th class="px-3 py-2.5 text-nowrap">Email</th>
@@ -591,11 +627,12 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Assign Section</h5>
+                    <h5 class="modal-title" id="assignSectionModalTitle">Assign Section</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="assignSectionUserId">
+                    <div id="assignSectionBulkNotice" class="alert alert-info py-2 micro-text d-none mb-3"></div>
                     <label for="assignSectionSelect" class="form-label fw-bold micro-text">Section</label>
                     <select class="form-select form-input" id="assignSectionSelect">
                         <option value="">— No section —</option>
@@ -604,6 +641,33 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-success" id="btnSaveSection">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Action Confirmation Modal -->
+    <div class="modal fade" id="bulkConfirmModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog">
+            <div class="modal-content shadow-lg border-0 rounded-3">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="bulkConfirmModalTitle">
+                        <i class="bi bi-exclamation-triangle-fill text-warning" id="bulkConfirmIcon"></i>
+                        <span id="bulkConfirmModalHeading">Confirm Bulk Action</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-secondary mb-3" id="bulkConfirmMessage"></p>
+                    <div id="bulkConfirmDetail" class="p-3 bg-light rounded-2 border micro-text mb-3 d-none"></div>
+                    <div id="bulkConfirmInputWrap" class="d-none">
+                        <label for="bulkConfirmInput" class="form-label fw-bold micro-text mb-1 text-danger" id="bulkConfirmInputLabel">Type DELETE to confirm:</label>
+                        <input type="text" class="form-control form-input" id="bulkConfirmInput" placeholder="DELETE" autocomplete="off">
+                    </div>
+                </div>
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary fw-semibold px-4" id="btnExecuteBulkAction">Confirm</button>
                 </div>
             </div>
         </div>
@@ -807,7 +871,7 @@
     <script src="input_restrictions.js"></script>
     <script src="session.js"></script>
     <script src="avatar_cropper.js"></script>
-    <script src="user_management_admin.js?v=20261016-3"></script>
+    <script src="user_management_admin.js?v=20261028-1"></script>
 </body>
 
 </html>

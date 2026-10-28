@@ -724,6 +724,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Map of selected users in the main directory table: id -> { id, role, name, id_number, is_active }
+    const selectedUserMap = new Map();
+
+    function updateBulkBar() {
+        const count = selectedUserMap.size;
+        const bulkBar = document.getElementById('userAccountsBulkBar');
+        const countSpan = document.getElementById('userAccountsSelectedCount');
+        const selectAllCb = document.getElementById('userAccountsSelectAll');
+
+        if (countSpan) countSpan.textContent = count.toLocaleString();
+
+        if (bulkBar) {
+            if (count > 0) {
+                bulkBar.classList.remove('d-none');
+                bulkBar.classList.add('d-flex');
+            } else {
+                bulkBar.classList.add('d-none');
+                bulkBar.classList.remove('d-flex');
+            }
+        }
+
+        if (selectAllCb) {
+            const pageCbs = Array.from(document.querySelectorAll('.user-row-checkbox'));
+            if (!pageCbs.length) {
+                selectAllCb.checked = false;
+                selectAllCb.indeterminate = false;
+            } else {
+                const checkedCount = pageCbs.filter(cb => cb.checked).length;
+                if (checkedCount === 0) {
+                    selectAllCb.checked = false;
+                    selectAllCb.indeterminate = false;
+                } else if (checkedCount === pageCbs.length) {
+                    selectAllCb.checked = true;
+                    selectAllCb.indeterminate = false;
+                } else {
+                    selectAllCb.checked = false;
+                    selectAllCb.indeterminate = true;
+                }
+            }
+        }
+    }
+
+    function clearUserSelection() {
+        selectedUserMap.clear();
+        document.querySelectorAll('.user-row-checkbox').forEach(cb => {
+            cb.checked = false;
+            const tr = cb.closest('tr');
+            if (tr) tr.classList.remove('user-row-selected');
+        });
+        const selectAllCb = document.getElementById('userAccountsSelectAll');
+        if (selectAllCb) {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = false;
+        }
+        updateBulkBar();
+    }
+
     async function loadUsers(page = 1) {
         currentPage = page;
         loadOverview();
@@ -744,10 +801,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const paginationInfo = document.getElementById('usersTablePaginationInfo');
 
         if (!data || !data.success || !data.users || !data.users.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No users found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No users found.</td></tr>';
             if (countBadge) countBadge.textContent = '0 accounts found';
             if (paginationInfo) paginationInfo.textContent = 'Showing 0 of 0 accounts';
             renderUsersPagination(0, 1, limit);
+            updateBulkBar();
             return;
         }
 
@@ -812,7 +870,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const tr = document.createElement('tr');
             tr.dataset.role = roleLabel;
+            const isChecked = selectedUserMap.has(Number(u.id));
+            if (isChecked) tr.classList.add('user-row-selected');
+
             tr.innerHTML = `
+                <td class="px-2 py-2 text-center">
+                    <input type="checkbox" class="form-check-input user-row-checkbox cursor-pointer" data-id="${u.id}" data-role="${u.role}" data-name="${escapeHtml(name)}" data-idnumber="${escapeHtml(u.id_number || '')}" data-active="${u.is_active ? '1' : '0'}" ${isChecked ? 'checked' : ''}>
+                </td>
                 <td class="px-3 py-2 fw-medium">
                     <div class="d-flex align-items-center">
                         ${avatarHtml}
@@ -867,6 +931,30 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(tr);
         }
+
+        // Attach checkbox change event listeners to row checkboxes
+        tbody.querySelectorAll('.user-row-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const id = Number(cb.dataset.id);
+                const tr = cb.closest('tr');
+                if (cb.checked) {
+                    selectedUserMap.set(id, {
+                        id,
+                        role: cb.dataset.role,
+                        name: cb.dataset.name,
+                        id_number: cb.dataset.idnumber,
+                        is_active: cb.dataset.active === '1'
+                    });
+                    if (tr) tr.classList.add('user-row-selected');
+                } else {
+                    selectedUserMap.delete(id);
+                    if (tr) tr.classList.remove('user-row-selected');
+                }
+                updateBulkBar();
+            });
+        });
+
+        updateBulkBar();
 
         // --- Copy Generated Password ---
         tbody.querySelectorAll('.copy-pw-btn').forEach(btn => {
@@ -1042,6 +1130,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', () => {
                 document.getElementById('assignSectionUserId').value = btn.dataset.id;
                 document.getElementById('assignSectionSelect').value = '';
+                const noticeEl = document.getElementById('assignSectionBulkNotice');
+                if (noticeEl) noticeEl.classList.add('d-none');
+                const titleEl = document.getElementById('assignSectionModalTitle');
+                if (titleEl) titleEl.textContent = 'Assign Section';
                 showAssignSectionModal();
             });
         });
@@ -1219,15 +1311,31 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSaveSection.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
 
             try {
-                const result = await authedFetch(`/api/users/${userId}`, token, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ sectionId }),
-                });
-                if (result.success) {
-                    hideAssignSectionModal();
-                    loadUsers(currentPage);
+                if (userId === 'bulk') {
+                    const targetIds = Array.from(selectedUserMap.values()).map(u => u.id);
+                    const result = await authedFetch('/api/users/bulk-assign-section', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ userIds: targetIds, sectionId }),
+                    });
+                    if (result.success) {
+                        hideAssignSectionModal();
+                        alert(result.message || 'Sections assigned successfully.');
+                        clearUserSelection();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Could not bulk-assign section.');
+                    }
                 } else {
-                    alert(result.message || 'Could not assign section.');
+                    const result = await authedFetch(`/api/users/${userId}`, token, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ sectionId }),
+                    });
+                    if (result.success) {
+                        hideAssignSectionModal();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Could not assign section.');
+                    }
                 }
             } catch (err) {
                 console.error('Save section error:', err);
@@ -1746,6 +1854,344 @@ document.addEventListener('DOMContentLoaded', () => {
         if (search) params.set('search', search);
         window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/users/export?${params.toString()}`, '_blank');
     });
+
+    // --- Contextual Bulk Actions Implementation for User Accounts Table ---
+    let pendingBulkAction = null;
+
+    function showBulkConfirmModal({ title, iconClass, message, detailHtml, requireDeleteWord, confirmBtnText, confirmBtnClass, onConfirm }) {
+        const modalEl = document.getElementById('bulkConfirmModal');
+        if (!modalEl) return;
+
+        const headingEl = document.getElementById('bulkConfirmModalHeading');
+        const iconEl = document.getElementById('bulkConfirmIcon');
+        const msgEl = document.getElementById('bulkConfirmMessage');
+        const detailEl = document.getElementById('bulkConfirmDetail');
+        const inputWrap = document.getElementById('bulkConfirmInputWrap');
+        const inputEl = document.getElementById('bulkConfirmInput');
+        const execBtn = document.getElementById('btnExecuteBulkAction');
+
+        if (headingEl) headingEl.textContent = title;
+        if (iconEl) iconEl.className = iconClass || 'bi bi-exclamation-triangle-fill text-warning';
+        if (msgEl) msgEl.textContent = message;
+
+        if (detailHtml && detailEl) {
+            detailEl.innerHTML = detailHtml;
+            detailEl.classList.remove('d-none');
+        } else if (detailEl) {
+            detailEl.classList.add('d-none');
+            detailEl.innerHTML = '';
+        }
+
+        if (inputWrap && inputEl) {
+            inputEl.value = '';
+            if (requireDeleteWord) {
+                inputWrap.classList.remove('d-none');
+                execBtn.disabled = true;
+                inputEl.oninput = () => {
+                    execBtn.disabled = inputEl.value.trim() !== 'DELETE';
+                };
+            } else {
+                inputWrap.classList.add('d-none');
+                execBtn.disabled = false;
+                inputEl.oninput = null;
+            }
+        }
+
+        if (execBtn) {
+            execBtn.textContent = confirmBtnText || 'Confirm';
+            execBtn.className = `btn ${confirmBtnClass || 'btn-primary'} fw-semibold px-4`;
+        }
+
+        pendingBulkAction = onConfirm;
+
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    function hideBulkConfirmModal() {
+        const modalEl = document.getElementById('bulkConfirmModal');
+        if (!modalEl) return;
+        const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        if (modal) modal.hide();
+        setTimeout(() => {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }, 350);
+    }
+
+    const btnExecuteBulkAction = document.getElementById('btnExecuteBulkAction');
+    if (btnExecuteBulkAction) {
+        btnExecuteBulkAction.addEventListener('click', async () => {
+            if (typeof pendingBulkAction === 'function') {
+                const action = pendingBulkAction;
+                const originalText = btnExecuteBulkAction.innerHTML;
+                btnExecuteBulkAction.disabled = true;
+                btnExecuteBulkAction.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...';
+                try {
+                    await action();
+                } catch (err) {
+                    console.error('Bulk action execution error:', err);
+                    alert('An error occurred while executing the bulk action.');
+                } finally {
+                    btnExecuteBulkAction.disabled = false;
+                    btnExecuteBulkAction.innerHTML = originalText;
+                    hideBulkConfirmModal();
+                    pendingBulkAction = null;
+                }
+            }
+        });
+    }
+
+    // Select/Deselect All on Current Page
+    const selectAllCheckbox = document.getElementById('userAccountsSelectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', () => {
+            const checked = selectAllCheckbox.checked;
+            const pageCbs = document.querySelectorAll('.user-row-checkbox');
+            pageCbs.forEach(cb => {
+                cb.checked = checked;
+                const id = Number(cb.dataset.id);
+                const tr = cb.closest('tr');
+                if (checked) {
+                    selectedUserMap.set(id, {
+                        id,
+                        role: cb.dataset.role,
+                        name: cb.dataset.name,
+                        id_number: cb.dataset.idnumber,
+                        is_active: cb.dataset.active === '1'
+                    });
+                    if (tr) tr.classList.add('user-row-selected');
+                } else {
+                    selectedUserMap.delete(id);
+                    if (tr) tr.classList.remove('user-row-selected');
+                }
+            });
+            updateBulkBar();
+        });
+    }
+
+    // Clear Selection
+    const btnClearUserSelection = document.getElementById('btnClearUserSelection');
+    if (btnClearUserSelection) {
+        btnClearUserSelection.addEventListener('click', clearUserSelection);
+    }
+
+    // 1. Bulk Assign Section
+    const btnBulkAssignSectionUsers = document.getElementById('btnBulkAssignSectionUsers');
+    if (btnBulkAssignSectionUsers) {
+        btnBulkAssignSectionUsers.addEventListener('click', () => {
+            const selectedUsers = Array.from(selectedUserMap.values());
+            if (!selectedUsers.length) {
+                alert('Please select at least one user from the table first.');
+                return;
+            }
+            const studentUsers = selectedUsers.filter(u => u.role === 'student');
+            const nonStudentCount = selectedUsers.length - studentUsers.length;
+
+            if (studentUsers.length === 0) {
+                alert('None of the selected accounts are students. Section assignment is only applicable to Student accounts.');
+                return;
+            }
+
+            document.getElementById('assignSectionUserId').value = 'bulk';
+            document.getElementById('assignSectionSelect').value = '';
+            const titleEl = document.getElementById('assignSectionModalTitle');
+            if (titleEl) titleEl.textContent = 'Assign Section to Selected Students';
+
+            const noticeEl = document.getElementById('assignSectionBulkNotice');
+            if (noticeEl) {
+                noticeEl.classList.remove('d-none');
+                noticeEl.innerHTML = `<i class="bi bi-info-circle-fill me-1"></i> Assigning section to <strong>${studentUsers.length}</strong> student account${studentUsers.length === 1 ? '' : 's'}.${nonStudentCount > 0 ? ` <span class="text-muted">(${nonStudentCount} non-student account${nonStudentCount === 1 ? '' : 's'} will be automatically skipped)</span>` : ''}`;
+            }
+
+            showAssignSectionModal();
+        });
+    }
+
+    // 2. Bulk Reset Password
+    const btnBulkResetPasswordUsers = document.getElementById('btnBulkResetPasswordUsers');
+    if (btnBulkResetPasswordUsers) {
+        btnBulkResetPasswordUsers.addEventListener('click', () => {
+            const selectedUsers = Array.from(selectedUserMap.values());
+            if (!selectedUsers.length) {
+                alert('Please select at least one user from the table first.');
+                return;
+            }
+
+            const namesList = selectedUsers.slice(0, 5).map(u => `<li><strong>${escapeHtml(u.name)}</strong> (${escapeHtml(u.id_number || 'No ID')})</li>`).join('');
+            const moreCount = selectedUsers.length - 5;
+            const detailHtml = `<p class="mb-1 fw-bold text-dark">Selected accounts (${selectedUsers.length}):</p><ul class="mb-0 ps-3 text-secondary">${namesList}${moreCount > 0 ? `<li><em>...and ${moreCount} more account${moreCount === 1 ? '' : 's'}</em></li>` : ''}</ul>`;
+
+            showBulkConfirmModal({
+                title: 'Reset Passwords to Default',
+                iconClass: 'bi bi-arrow-counterclockwise text-warning fs-4',
+                message: `Reset temporary password for ${selectedUsers.length} selected user(s) back to their default ID/LRN? Each user will be required to create a new password upon their next login.`,
+                detailHtml,
+                requireDeleteWord: false,
+                confirmBtnText: `Reset ${selectedUsers.length} Password(s)`,
+                confirmBtnClass: 'btn-warning text-dark',
+                onConfirm: async () => {
+                    const result = await authedFetch('/api/users/bulk-reset-password', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ userIds: selectedUsers.map(u => u.id) })
+                    });
+                    if (result.success) {
+                        alert(result.message || 'Passwords reset successfully.');
+                        clearUserSelection();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Failed to reset passwords.');
+                    }
+                }
+            });
+        });
+    }
+
+    // 3. Bulk Deactivate
+    const btnBulkDeactivateUsers = document.getElementById('btnBulkDeactivateUsers');
+    if (btnBulkDeactivateUsers) {
+        btnBulkDeactivateUsers.addEventListener('click', () => {
+            const selectedUsers = Array.from(selectedUserMap.values());
+            if (!selectedUsers.length) {
+                alert('Please select at least one user from the table first.');
+                return;
+            }
+
+            showBulkConfirmModal({
+                title: `Deactivate ${selectedUsers.length} Account(s)`,
+                iconClass: 'bi bi-person-dash-fill text-danger fs-4',
+                message: `Deactivate login access for ${selectedUsers.length} selected user(s)? Deactivated users will be blocked from logging into the Mentorae portal until reactivated.`,
+                detailHtml: '',
+                requireDeleteWord: false,
+                confirmBtnText: `Deactivate ${selectedUsers.length} User(s)`,
+                confirmBtnClass: 'btn-danger',
+                onConfirm: async () => {
+                    const result = await authedFetch('/api/users/bulk-status', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ userIds: selectedUsers.map(u => u.id), isActive: false })
+                    });
+                    if (result.success) {
+                        alert(result.message || 'Users deactivated successfully.');
+                        clearUserSelection();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Failed to deactivate users.');
+                    }
+                }
+            });
+        });
+    }
+
+    // 4. Bulk Activate
+    const btnBulkActivateUsers = document.getElementById('btnBulkActivateUsers');
+    if (btnBulkActivateUsers) {
+        btnBulkActivateUsers.addEventListener('click', () => {
+            const selectedUsers = Array.from(selectedUserMap.values());
+            if (!selectedUsers.length) {
+                alert('Please select at least one user from the table first.');
+                return;
+            }
+
+            showBulkConfirmModal({
+                title: `Activate ${selectedUsers.length} Account(s)`,
+                iconClass: 'bi bi-person-check-fill text-success fs-4',
+                message: `Activate portal login access for ${selectedUsers.length} selected user(s)?`,
+                detailHtml: '',
+                requireDeleteWord: false,
+                confirmBtnText: `Activate ${selectedUsers.length} User(s)`,
+                confirmBtnClass: 'btn-success',
+                onConfirm: async () => {
+                    const result = await authedFetch('/api/users/bulk-status', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ userIds: selectedUsers.map(u => u.id), isActive: true })
+                    });
+                    if (result.success) {
+                        alert(result.message || 'Users activated successfully.');
+                        clearUserSelection();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Failed to activate users.');
+                    }
+                }
+            });
+        });
+    }
+
+    // 5. Bulk Archive
+    const btnBulkArchiveUsers = document.getElementById('btnBulkArchiveUsers');
+    if (btnBulkArchiveUsers) {
+        btnBulkArchiveUsers.addEventListener('click', () => {
+            const selectedUsers = Array.from(selectedUserMap.values());
+            if (!selectedUsers.length) {
+                alert('Please select at least one user from the table first.');
+                return;
+            }
+
+            showBulkConfirmModal({
+                title: `Archive ${selectedUsers.length} Account(s)`,
+                iconClass: 'bi bi-archive-fill text-warning fs-4',
+                message: `Archive ${selectedUsers.length} selected user(s)? This deactivates their login but preserves all of their historical records (grades, attendance, quiz records).`,
+                detailHtml: '',
+                requireDeleteWord: false,
+                confirmBtnText: `Archive ${selectedUsers.length} User(s)`,
+                confirmBtnClass: 'btn-warning text-dark',
+                onConfirm: async () => {
+                    const result = await authedFetch('/api/users/bulk-archive', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ userIds: selectedUsers.map(u => u.id) })
+                    });
+                    if (result.success) {
+                        alert(result.message || 'Users archived successfully.');
+                        clearUserSelection();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Failed to archive users.');
+                    }
+                }
+            });
+        });
+    }
+
+    // 6. Bulk Delete
+    const btnBulkDeleteUsers = document.getElementById('btnBulkDeleteUsers');
+    if (btnBulkDeleteUsers) {
+        btnBulkDeleteUsers.addEventListener('click', () => {
+            const selectedUsers = Array.from(selectedUserMap.values());
+            if (!selectedUsers.length) {
+                alert('Please select at least one user from the table first.');
+                return;
+            }
+
+            const namesList = selectedUsers.slice(0, 5).map(u => `<li><strong>${escapeHtml(u.name)}</strong> (${escapeHtml(u.id_number || 'No ID')})</li>`).join('');
+            const moreCount = selectedUsers.length - 5;
+            const detailHtml = `<p class="mb-1 fw-bold text-danger">The following accounts will be PERMANENTLY deleted (${selectedUsers.length}):</p><ul class="mb-0 ps-3 text-secondary">${namesList}${moreCount > 0 ? `<li><em>...and ${moreCount} more account${moreCount === 1 ? '' : 's'}</em></li>` : ''}</ul>`;
+
+            showBulkConfirmModal({
+                title: `Permanently Delete ${selectedUsers.length} User(s)`,
+                iconClass: 'bi bi-trash-fill text-danger fs-4',
+                message: `WARNING: You are about to permanently delete ${selectedUsers.length} user account(s). This cascades and PERMANENTLY DELETES all related data (schedules, grades, attendance, quiz attempts, and parent links). This action CANNOT be undone!`,
+                detailHtml,
+                requireDeleteWord: true,
+                confirmBtnText: `Delete ${selectedUsers.length} User(s)`,
+                confirmBtnClass: 'btn-danger',
+                onConfirm: async () => {
+                    const result = await authedFetch('/api/users/bulk-delete', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ userIds: selectedUsers.map(u => u.id) })
+                    });
+                    if (result.success) {
+                        alert(result.message || 'Users deleted successfully.');
+                        clearUserSelection();
+                        loadUsers(currentPage);
+                    } else {
+                        alert(result.message || 'Failed to delete users.');
+                    }
+                }
+            });
+        });
+    }
 
     document.getElementById('btnDownloadTemplate').addEventListener('click', (e) => {
         e.preventDefault();
