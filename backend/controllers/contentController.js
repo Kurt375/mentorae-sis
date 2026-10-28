@@ -1426,6 +1426,11 @@ async function convertDocument(req, res) {
     return res.status(400).json({ success: false, message: 'File name and data URL are required.' });
   }
 
+  const ext = (fileName || '').split('.').pop().toLowerCase();
+  if (['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'].includes(ext)) {
+    return res.status(400).json({ success: false, message: 'Unsupported file type. Please upload a valid document or media file.' });
+  }
+
   try {
     const result = await convertOfficeToPdf(dataUrl, fileName);
     if (!result.success) {

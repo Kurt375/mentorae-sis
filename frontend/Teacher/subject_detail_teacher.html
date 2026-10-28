@@ -1,14 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <script src="../auth_guard.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mentorae - GenPhy1 Topics</title>
-    <style id="authGuardStyle">body { display: none !important; }</style>
+    <style id="authGuardStyle">
+        body {
+            display: none !important;
+        }
+    </style>
     <script>
-        (function() {
+        (function () {
             try {
                 var token = localStorage.getItem('mentorae_token');
                 var user = JSON.parse(localStorage.getItem('mentorae_user') || 'null');
@@ -34,37 +39,57 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Google Fonts for Presentation Rendering -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Montserrat:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="subject_detail_teacher.css">
     <style>
         /* Color definitions for card banners, matching learning_resources_teacher */
-        .bg-card-green { background-color: #4CAF50 !important; }
-        .bg-card-orange { background-color: #FF9800 !important; }
-        .bg-card-blue { background-color: #2196F3 !important; }
-        .bg-card-purple { background-color: #9C27B0 !important; }
-        .bg-card-red { background-color: #f44336 !important; }
+        .bg-card-green {
+            background-color: #4CAF50 !important;
+        }
+
+        .bg-card-orange {
+            background-color: #FF9800 !important;
+        }
+
+        .bg-card-blue {
+            background-color: #2196F3 !important;
+        }
+
+        .bg-card-purple {
+            background-color: #9C27B0 !important;
+        }
+
+        .bg-card-red {
+            background-color: #f44336 !important;
+        }
 
         /* Style for resource buttons inside topic cards */
         .btn-resource {
-            background-color: #6c757d; /* A neutral gray as a default */
+            background-color: #6c757d;
+            /* A neutral gray as a default */
             border: none;
         }
+
         .btn-resource:hover {
             background-color: #5a6268;
         }
     </style>
 </head>
+
 <body class="dashboard-bg">
 
     <!-- Bounded Page Wrapper matching portal frame specifications -->
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        
+
         <!-- Header Ribbon Navbar -->
         <nav class="navbar navbar-dark custom-navbar py-3 border-bottom">
             <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div class="d-flex align-items-center gap-3">
-                    <a href="learning_resources_teacher.html" class="text-white text-decoration-none fs-4 link-transition" id="backBtn" aria-label="Go Back">
+                    <a href="learning_resources_teacher.html"
+                        class="text-white text-decoration-none fs-4 link-transition" id="backBtn" aria-label="Go Back">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
@@ -88,14 +113,16 @@
             <!-- Section 1: Topics under GenPhy1 -->
             <section class="mb-5">
                 <h2 class="h5 fw-bold text-dark mb-3">Topics under GenPhy1</h2>
-                
-                <div class="row g-3" id="topicsList"> 
+
+                <div class="row g-3" id="topicsList">
                     <!-- Topics will be dynamically inserted here -->
                     <!-- Add New Topic Button Card -->
-                    <div class="col-12 col-md-6 d-flex" id="btnAddItemCol">
-                        <div class="card add-topic-card border-2 border-dashed shadow-sm p-3 text-center cursor-pointer d-flex flex-column align-items-center justify-content-center w-100 h-100" id="btnAddItem" style="min-height: 120px;">
+                    <div class="col-12 col-md-6 d-flex" id="btnAddItemCol" title="Add Resources Panel">
+                        <div class="card add-topic-card border-2 border-dashed shadow-sm p-3 text-center cursor-pointer d-flex flex-column align-items-center justify-content-center w-100 h-100"
+                            id="btnAddItem" style="min-height: 120px;">
                             <i class="bi bi-plus-lg display-5 text-secondary"></i>
-                            <span class="micro-text text-muted fw-bold text-uppercase mt-1">Add Content</span>
+                            <span class="micro-text text-muted fw-bold text-uppercase mt-1"
+                                id="addResourcesLabelText">Add Resources</span>
                         </div>
                     </div>
                 </div>
@@ -114,11 +141,13 @@
     </div>
 
     <!-- Add Topic Modal -->
-    <div class="modal fade" id="addTopicModal" tabindex="-1" aria-labelledby="addTopicModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="addTopicModal" tabindex="-1" aria-labelledby="addTopicModalLabel" aria-hidden="true"
+        data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addTopicModalLabel">Add New Topic</h5>
+                    <h5 class="modal-title fw-bold" id="addTopicModalLabel"><i
+                            class="bi bi-folder-plus text-success me-2"></i>Add Resources</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -142,30 +171,40 @@
                         </div>
                         <div class="mb-3 d-none" id="topicCommentContainer">
                             <label for="topicComment" class="form-label">Comment</label>
-                            <input type="text" class="form-control" id="topicComment" placeholder="e.g., For the upcoming quiz.">
+                            <input type="text" class="form-control" id="topicComment"
+                                placeholder="e.g., For the upcoming quiz.">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Resources</label>
                             <div class="resource-selection-group">
                                 <div class="form-check">
-                                    <input class="form-check-input resource-checkbox" type="checkbox" value="File" id="resourceFile" data-content-manager="fileManager">
+                                    <input class="form-check-input resource-checkbox" type="checkbox" value="File"
+                                        id="resourceFile" data-content-manager="fileManager">
                                     <label class="form-check-label" for="resourceFile">File</label>
                                     <div id="fileManager" class="content-manager d-none mt-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary manage-request-content-btn" data-type="file">Manage Files</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary manage-request-content-btn"
+                                            data-type="file">Manage Files</button>
                                     </div>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input resource-checkbox" type="checkbox" value="Practice Quiz" id="resourceQuiz" data-content-manager="quizManager">
+                                    <input class="form-check-input resource-checkbox" type="checkbox"
+                                        value="Practice Quiz" id="resourceQuiz" data-content-manager="quizManager">
                                     <label class="form-check-label" for="resourceQuiz">Practice Quiz</label>
                                     <div id="quizManager" class="content-manager d-none mt-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary manage-request-content-btn" data-type="quiz">Manage Quiz</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary manage-request-content-btn"
+                                            data-type="quiz">Manage Quiz</button>
                                     </div>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input resource-checkbox" type="checkbox" value="Flashcards" id="resourceFlashcards" data-content-manager="flashcardManager">
+                                    <input class="form-check-input resource-checkbox" type="checkbox" value="Flashcards"
+                                        id="resourceFlashcards" data-content-manager="flashcardManager">
                                     <label class="form-check-label" for="resourceFlashcards">Flashcards</label>
                                     <div id="flashcardManager" class="content-manager d-none mt-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary manage-request-content-btn" data-type="flashcards">Manage Flashcards</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary manage-request-content-btn"
+                                            data-type="flashcards">Manage Flashcards</button>
                                     </div>
                                 </div>
                             </div>
@@ -184,37 +223,59 @@
     <!-- Modals for Managing Request Content -->
 
     <!-- File Manager Modal for Topic Request -->
-    <div class="modal fade" id="requestContentFileModal" tabindex="-1" aria-labelledby="requestContentFileModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="requestContentFileModal" tabindex="-1" aria-labelledby="requestContentFileModalLabel"
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="requestContentFileModalLabel">Manage Request Files</h5>
+                    <h5 class="modal-title fw-bold" id="requestContentFileModalLabel"><i
+                            class="bi bi-file-earmark-plus text-primary me-2"></i>Add Resources - File Upload</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div id="requestFilesContainer" class="mb-4"></div>
                     <div class="card bg-light border p-3">
                         <h6 class="fw-bold mb-2">Upload New File</h6>
-                        
-                        <div class="alert alert-info py-2.5 px-3 small border-0 bg-info-subtle text-info-emphasis rounded-3 mb-3 shadow-xs">
+
+                        <div
+                            class="alert alert-info py-2.5 px-3 small border-0 bg-info-subtle text-info-emphasis rounded-3 mb-3 shadow-xs">
                             <div class="d-flex align-items-start gap-2">
                                 <i class="bi bi-file-earmark-pdf-fill fs-5 text-primary mt-0.5 flex-shrink-0"></i>
                                 <div class="lh-sm">
-                                    <div class="fw-bold mb-1 text-dark">Supported Formats: PDF, Word (.docx), Images, or MP4 Video (Max 35MB)</div>
+                                    <div class="fw-bold mb-1 text-dark">Supported Formats: PDF, Word (.docx), Images, or
+                                        MP4 Video (Max 35MB)</div>
                                     <div class="text-secondary" style="font-size: 0.82rem;">
-                                        <strong>Why PowerPoint (.pptx / .ppt) is restricted:</strong> Slide presentations often contain heavy, uncompressed media that slow down portal performance and cannot be previewed natively on student mobile phones. For instant loading and universal mobile compatibility, please export or save your slides as a <strong>PDF</strong> (in PowerPoint: <em>File &rarr; Export &rarr; Create PDF</em>) before uploading!
+                                        <strong>Why PowerPoint (.pptx / .ppt) is restricted:</strong> Slide
+                                        presentations often contain heavy, uncompressed media that slow down portal
+                                        performance and cannot be previewed natively on student mobile phones. For
+                                        instant loading and universal mobile compatibility, please export or save your
+                                        slides as a <strong>PDF</strong> (in PowerPoint: <em>File &rarr; Export &rarr;
+                                            Create PDF</em>) before uploading!
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- On-screen Error Alert Banner -->
+                        <div class="alert alert-danger d-none py-2.5 px-3 small rounded-3 mb-3 border-danger-subtle shadow-xs"
+                            id="fileUploadErrorAlert" role="alert">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-exclamation-triangle-fill fs-6 text-danger flex-shrink-0"></i>
+                                <span id="fileUploadErrorMessage" class="fw-semibold"></span>
                             </div>
                         </div>
 
                         <form id="requestFileUploadForm">
                             <div class="mb-3">
                                 <label for="requestFileInput" class="form-label">Select File</label>
-                                <input class="form-control" type="file" id="requestFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.webm,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,image/*" required>
+                                <input class="form-control" type="file" id="requestFileInput"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.mp4,.webm,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,image/*"
+                                    required>
                                 <div class="form-text mt-1.5 text-muted small">
-                                    <i class="bi bi-info-circle text-primary me-1"></i><strong>Allowed: PDF, DOCX, Images, MP4 (Max 35MB).</strong>
-                                    <span class="d-block mt-0.5 text-secondary">Presentations must be saved as PDF prior to uploading.</span>
+                                    <i class="bi bi-info-circle text-primary me-1"></i><strong>Allowed: PDF, DOCX,
+                                        Images, MP4 (Max 35MB).</strong>
+                                    <span class="d-block mt-0.5 text-secondary">Presentations must be saved as PDF prior
+                                        to uploading.</span>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-success">Upload File</button>
@@ -229,7 +290,8 @@
     </div>
 
     <!-- Quiz Editor Modal for Topic Request -->
-    <div class="modal fade" id="requestContentQuizModal" tabindex="-1" aria-labelledby="requestContentQuizModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="requestContentQuizModal" tabindex="-1" aria-labelledby="requestContentQuizModalLabel"
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
@@ -243,7 +305,8 @@
                     <!-- Current Quiz Questions List -->
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0 text-dark">Current Quiz Questions</h6>
-                        <span class="badge bg-secondary-subtle text-dark rounded-pill px-2.5 py-1" id="currentQuizBadge">0 questions</span>
+                        <span class="badge bg-secondary-subtle text-dark rounded-pill px-2.5 py-1"
+                            id="currentQuizBadge">0 questions</span>
                     </div>
                     <div id="requestQuizContainer" class="mb-4" style="max-height: 200px; overflow-y: auto;"></div>
 
@@ -252,17 +315,22 @@
                         <div class="card-header bg-light border-bottom p-2">
                             <ul class="nav nav-pills nav-fill gap-1" id="quizModalTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link active py-1.5 px-3 fw-semibold small" id="quiz-manual-tab" data-bs-toggle="pill" data-bs-target="#quiz-manual-pane" type="button" role="tab">
+                                    <button class="nav-link active py-1.5 px-3 fw-semibold small" id="quiz-manual-tab"
+                                        data-bs-toggle="pill" data-bs-target="#quiz-manual-pane" type="button"
+                                        role="tab">
                                         <i class="bi bi-pencil-square me-1"></i> Single Question
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="quiz-paste-tab" data-bs-toggle="pill" data-bs-target="#quiz-paste-pane" type="button" role="tab">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="quiz-paste-tab"
+                                        data-bs-toggle="pill" data-bs-target="#quiz-paste-pane" type="button"
+                                        role="tab">
                                         <i class="bi bi-clipboard-plus me-1"></i> Bulk Paste
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="quiz-file-tab" data-bs-toggle="pill" data-bs-target="#quiz-file-pane" type="button" role="tab">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="quiz-file-tab"
+                                        data-bs-toggle="pill" data-bs-target="#quiz-file-pane" type="button" role="tab">
                                         <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel / CSV Import
                                     </button>
                                 </li>
@@ -276,45 +344,54 @@
                                     <form id="requestQuizForm">
                                         <input type="hidden" id="requestQuizQuestionId">
                                         <div class="mb-3">
-                                            <label for="requestQuizQuestionText" class="form-label small fw-semibold">Question</label>
-                                            <textarea class="form-control" id="requestQuizQuestionText" rows="2" placeholder="e.g., What is the unit of force?" required></textarea>
+                                            <label for="requestQuizQuestionText"
+                                                class="form-label small fw-semibold">Question</label>
+                                            <textarea class="form-control" id="requestQuizQuestionText" rows="2"
+                                                placeholder="e.g., What is the unit of force?" required></textarea>
                                         </div>
                                         <div class="row g-2 mb-3">
                                             <div class="col-md-6">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text fw-bold">A</span>
-                                                    <input type="text" class="form-control" id="requestQuizOptionA" placeholder="Option A" required>
+                                                    <input type="text" class="form-control" id="requestQuizOptionA"
+                                                        placeholder="Option A" required>
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text fw-bold">B</span>
-                                                    <input type="text" class="form-control" id="requestQuizOptionB" placeholder="Option B" required>
+                                                    <input type="text" class="form-control" id="requestQuizOptionB"
+                                                        placeholder="Option B" required>
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text fw-bold">C</span>
-                                                    <input type="text" class="form-control" id="requestQuizOptionC" placeholder="Option C">
+                                                    <input type="text" class="form-control" id="requestQuizOptionC"
+                                                        placeholder="Option C">
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text fw-bold">D</span>
-                                                    <input type="text" class="form-control" id="requestQuizOptionD" placeholder="Option D">
+                                                    <input type="text" class="form-control" id="requestQuizOptionD"
+                                                        placeholder="Option D">
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="requestQuizCorrectAnswer" class="form-label small fw-semibold">Correct Answer</label>
-                                            <select class="form-select form-select-sm" id="requestQuizCorrectAnswer" required>
+                                            <label for="requestQuizCorrectAnswer"
+                                                class="form-label small fw-semibold">Correct Answer</label>
+                                            <select class="form-select form-select-sm" id="requestQuizCorrectAnswer"
+                                                required>
                                                 <option value="A">Option A</option>
                                                 <option value="B">Option B</option>
                                                 <option value="C">Option C</option>
                                                 <option value="D">Option D</option>
                                             </select>
                                         </div>
-                                        <button type="submit" class="btn btn-success fw-semibold px-3"><i class="bi bi-plus-lg me-1"></i> Save Question</button>
+                                        <button type="submit" class="btn btn-success fw-semibold px-3"><i
+                                                class="bi bi-plus-lg me-1"></i> Save Question</button>
                                     </form>
                                 </div>
 
@@ -323,24 +400,35 @@
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <div>
                                             <h6 class="fw-bold mb-0">Smart Bulk Paste</h6>
-                                            <p class="micro-text text-muted mb-0">Supports numbered format or tab-separated spreadsheet columns.</p>
+                                            <p class="micro-text text-muted mb-0">Supports numbered format or
+                                                tab-separated spreadsheet columns.</p>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary micro-text py-0.5" id="insertSampleQuizBtn">Insert Sample</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary micro-text py-0.5"
+                                            id="insertSampleQuizBtn">Insert Sample</button>
                                     </div>
-                                    <textarea class="form-control font-monospace small mb-2" id="bulkQuizTextarea" rows="8" placeholder="1. What is the SI unit of force?&#10;A. Joule&#10;B. Newton&#10;C. Watt&#10;D. Pascal&#10;Answer: B&#10;&#10;2. What is the formula for speed?&#10;A. Distance / Time&#10;B. Mass * Acceleration&#10;C. Work / Force&#10;D. Velocity * Time&#10;Answer: A"></textarea>
-                                    
+                                    <textarea class="form-control font-monospace small mb-2" id="bulkQuizTextarea"
+                                        rows="8"
+                                        placeholder="1. What is the SI unit of force?&#10;A. Joule&#10;B. Newton&#10;C. Watt&#10;D. Pascal&#10;Answer: B&#10;&#10;2. What is the formula for speed?&#10;A. Distance / Time&#10;B. Mass * Acceleration&#10;C. Work / Force&#10;D. Velocity * Time&#10;Answer: A"></textarea>
+
                                     <!-- Live Preview & Counter -->
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span class="micro-text fw-semibold text-secondary">
-                                            Preview: <span id="bulkQuizCountBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0 questions detected</span>
+                                            Preview: <span id="bulkQuizCountBadge"
+                                                class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0
+                                                questions detected</span>
                                         </span>
-                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearBulkQuizBtn">Clear</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text"
+                                            id="clearBulkQuizBtn">Clear</button>
                                     </div>
-                                    <div id="bulkQuizPreviewContainer" class="border rounded-2 p-2 bg-light mb-3" style="max-height: 140px; overflow-y: auto; font-size: 0.8rem;">
-                                        <span class="text-muted fst-italic">Paste or type questions above to see them parsed live...</span>
+                                    <div id="bulkQuizPreviewContainer" class="border rounded-2 p-2 bg-light mb-3"
+                                        style="max-height: 140px; overflow-y: auto; font-size: 0.8rem;">
+                                        <span class="text-muted fst-italic">Paste or type questions above to see them
+                                            parsed live...</span>
                                     </div>
 
-                                    <button type="button" class="btn btn-success fw-semibold px-3" id="addBulkQuizBtn" disabled>
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="addBulkQuizBtn"
+                                        disabled>
                                         <i class="bi bi-plus-circle me-1"></i> Add All Questions to Quiz
                                     </button>
                                 </div>
@@ -350,29 +438,41 @@
                                     <div class="d-flex justify-content-between align-items-center mb-3">
                                         <div>
                                             <h6 class="fw-bold mb-0">Import from Spreadsheet</h6>
-                                            <p class="micro-text text-muted mb-0">Upload an Excel (.xlsx, .xls) or CSV file with Question, Options A-D, and Correct Answer.</p>
+                                            <p class="micro-text text-muted mb-0">Upload an Excel (.xlsx, .xls) or CSV
+                                                file with Question, Options A-D, and Correct Answer.</p>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-success fw-semibold text-nowrap" id="downloadQuizTemplateBtn">
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-success fw-semibold text-nowrap"
+                                            id="downloadQuizTemplateBtn">
                                             <i class="bi bi-download me-1"></i> Download Template (.xlsx)
                                         </button>
                                     </div>
 
-                                    <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3" id="quizDropZone">
+                                    <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3"
+                                        id="quizDropZone">
                                         <i class="bi bi-cloud-arrow-up fs-2 text-success"></i>
-                                        <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file here</p>
-                                        <input type="file" class="form-control form-control-sm mx-auto" id="quizFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
+                                        <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file
+                                            here</p>
+                                        <input type="file" class="form-control form-control-sm mx-auto"
+                                            id="quizFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
                                     </div>
 
                                     <!-- Spreadsheet Preview Table -->
                                     <div id="quizFilePreviewSection" class="d-none mb-3">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="micro-text fw-semibold text-secondary">
-                                                Spreadsheet Rows: <span id="fileQuizCountBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0 questions</span>
+                                                Spreadsheet Rows: <span id="fileQuizCountBadge"
+                                                    class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0
+                                                    questions</span>
                                             </span>
-                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearFileQuizBtn">Remove File</button>
+                                            <button type="button"
+                                                class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text"
+                                                id="clearFileQuizBtn">Remove File</button>
                                         </div>
-                                        <div class="table-responsive border rounded-2" style="max-height: 140px; overflow-y: auto;">
-                                            <table class="table table-sm table-striped mb-0" style="font-size: 0.75rem;">
+                                        <div class="table-responsive border rounded-2"
+                                            style="max-height: 140px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped mb-0"
+                                                style="font-size: 0.75rem;">
                                                 <thead class="table-light sticky-top">
                                                     <tr>
                                                         <th style="width: 30px;">#</th>
@@ -389,7 +489,8 @@
                                         </div>
                                     </div>
 
-                                    <button type="button" class="btn btn-success fw-semibold px-3" id="importFileQuizBtn" disabled>
+                                    <button type="button" class="btn btn-success fw-semibold px-3"
+                                        id="importFileQuizBtn" disabled>
                                         <i class="bi bi-file-earmark-arrow-down me-1"></i> Import Questions to Quiz
                                     </button>
                                 </div>
@@ -405,7 +506,8 @@
     </div>
 
     <!-- Flashcard Editor Modal for Topic Request -->
-    <div class="modal fade" id="requestContentFlashcardModal" tabindex="-1" aria-labelledby="requestContentFlashcardModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="requestContentFlashcardModal" tabindex="-1"
+        aria-labelledby="requestContentFlashcardModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
@@ -419,26 +521,31 @@
                     <!-- Current Deck List -->
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0 text-dark">Current Flashcard Deck</h6>
-                        <span class="badge bg-secondary-subtle text-dark rounded-pill px-2.5 py-1" id="currentDeckBadge">0 cards</span>
+                        <span class="badge bg-secondary-subtle text-dark rounded-pill px-2.5 py-1"
+                            id="currentDeckBadge">0 cards</span>
                     </div>
-                    <div id="requestFlashcardsContainer" class="mb-4" style="max-height: 200px; overflow-y: auto;"></div>
+                    <div id="requestFlashcardsContainer" class="mb-4" style="max-height: 200px; overflow-y: auto;">
+                    </div>
 
                     <!-- Creation Options Navigation Tabs -->
                     <div class="card border shadow-sm">
                         <div class="card-header bg-light border-bottom p-2">
                             <ul class="nav nav-pills nav-fill gap-1" id="flashcardModalTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link active py-1.5 px-3 fw-semibold small" id="fc-manual-tab" data-bs-toggle="pill" data-bs-target="#fc-manual-pane" type="button" role="tab">
+                                    <button class="nav-link active py-1.5 px-3 fw-semibold small" id="fc-manual-tab"
+                                        data-bs-toggle="pill" data-bs-target="#fc-manual-pane" type="button" role="tab">
                                         <i class="bi bi-pencil-square me-1"></i> Single Card
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="fc-paste-tab" data-bs-toggle="pill" data-bs-target="#fc-paste-pane" type="button" role="tab">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="fc-paste-tab"
+                                        data-bs-toggle="pill" data-bs-target="#fc-paste-pane" type="button" role="tab">
                                         <i class="bi bi-clipboard-plus me-1"></i> Bulk Paste
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="fc-file-tab" data-bs-toggle="pill" data-bs-target="#fc-file-pane" type="button" role="tab">
+                                    <button class="nav-link py-1.5 px-3 fw-semibold small" id="fc-file-tab"
+                                        data-bs-toggle="pill" data-bs-target="#fc-file-pane" type="button" role="tab">
                                         <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel / CSV Import
                                     </button>
                                 </li>
@@ -452,14 +559,20 @@
                                     <form id="requestFlashcardForm">
                                         <input type="hidden" id="requestFlashcardId">
                                         <div class="mb-3">
-                                            <label for="requestFlashcardTerm" class="form-label small fw-semibold">Term / Concept</label>
-                                            <input type="text" class="form-control" id="requestFlashcardTerm" placeholder="e.g., Photosynthesis" required>
+                                            <label for="requestFlashcardTerm" class="form-label small fw-semibold">Term
+                                                / Concept</label>
+                                            <input type="text" class="form-control" id="requestFlashcardTerm"
+                                                placeholder="e.g., Photosynthesis" required>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="requestFlashcardDefinition" class="form-label small fw-semibold">Definition / Explanation</label>
-                                            <textarea class="form-control" id="requestFlashcardDefinition" rows="2" placeholder="e.g., The process by which green plants transform light energy into chemical energy." required></textarea>
+                                            <label for="requestFlashcardDefinition"
+                                                class="form-label small fw-semibold">Definition / Explanation</label>
+                                            <textarea class="form-control" id="requestFlashcardDefinition" rows="2"
+                                                placeholder="e.g., The process by which green plants transform light energy into chemical energy."
+                                                required></textarea>
                                         </div>
-                                        <button type="submit" class="btn btn-success fw-semibold px-3"><i class="bi bi-plus-lg me-1"></i> Save Card</button>
+                                        <button type="submit" class="btn btn-success fw-semibold px-3"><i
+                                                class="bi bi-plus-lg me-1"></i> Save Card</button>
                                     </form>
                                 </div>
 
@@ -468,11 +581,14 @@
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <div>
                                             <h6 class="fw-bold mb-0">Smart Bulk Paste</h6>
-                                            <p class="micro-text text-muted mb-0">Type or paste multiple cards, one per line.</p>
+                                            <p class="micro-text text-muted mb-0">Type or paste multiple cards, one per
+                                                line.</p>
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
-                                            <label for="bulkFcDelimiter" class="form-label micro-text mb-0 fw-semibold text-nowrap">Separator:</label>
-                                            <select class="form-select form-select-sm" id="bulkFcDelimiter" style="width: 140px;">
+                                            <label for="bulkFcDelimiter"
+                                                class="form-label micro-text mb-0 fw-semibold text-nowrap">Separator:</label>
+                                            <select class="form-select form-select-sm" id="bulkFcDelimiter"
+                                                style="width: 140px;">
                                                 <option value="auto" selected>Auto-detect</option>
                                                 <option value="dash">Hyphen / Dash ( - )</option>
                                                 <option value="tab">Tab (Spreadsheet)</option>
@@ -481,20 +597,29 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <textarea class="form-control font-monospace small mb-2" id="bulkFcTextarea" rows="6" placeholder="Photosynthesis - Process by which plants produce energy from sunlight&#10;Mitochondria - The powerhouse of the cell producing ATP&#10;Velocity - Speed in a given direction"></textarea>
-                                    
+                                    <textarea class="form-control font-monospace small mb-2" id="bulkFcTextarea"
+                                        rows="6"
+                                        placeholder="Photosynthesis - Process by which plants produce energy from sunlight&#10;Mitochondria - The powerhouse of the cell producing ATP&#10;Velocity - Speed in a given direction"></textarea>
+
                                     <!-- Live Preview & Counter -->
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span class="micro-text fw-semibold text-secondary">
-                                            Preview: <span id="bulkFcCountBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0 cards detected</span>
+                                            Preview: <span id="bulkFcCountBadge"
+                                                class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0
+                                                cards detected</span>
                                         </span>
-                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearBulkFcBtn">Clear</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text"
+                                            id="clearBulkFcBtn">Clear</button>
                                     </div>
-                                    <div id="bulkFcPreviewContainer" class="border rounded-2 p-2 bg-light mb-3" style="max-height: 120px; overflow-y: auto; font-size: 0.8rem;">
-                                        <span class="text-muted fst-italic">Paste or type above to see cards here...</span>
+                                    <div id="bulkFcPreviewContainer" class="border rounded-2 p-2 bg-light mb-3"
+                                        style="max-height: 120px; overflow-y: auto; font-size: 0.8rem;">
+                                        <span class="text-muted fst-italic">Paste or type above to see cards
+                                            here...</span>
                                     </div>
 
-                                    <button type="button" class="btn btn-success fw-semibold px-3" id="addBulkFcBtn" disabled>
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="addBulkFcBtn"
+                                        disabled>
                                         <i class="bi bi-plus-circle me-1"></i> Add All Cards to Deck
                                     </button>
                                 </div>
@@ -504,29 +629,41 @@
                                     <div class="d-flex justify-content-between align-items-center mb-3">
                                         <div>
                                             <h6 class="fw-bold mb-0">Import from Spreadsheet</h6>
-                                            <p class="micro-text text-muted mb-0">Upload an Excel (.xlsx, .xls) or CSV file with Term and Definition columns.</p>
+                                            <p class="micro-text text-muted mb-0">Upload an Excel (.xlsx, .xls) or CSV
+                                                file with Term and Definition columns.</p>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-success fw-semibold text-nowrap" id="downloadFcTemplateBtn">
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-success fw-semibold text-nowrap"
+                                            id="downloadFcTemplateBtn">
                                             <i class="bi bi-download me-1"></i> Download Template (.xlsx)
                                         </button>
                                     </div>
 
-                                    <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3" id="fcDropZone">
+                                    <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3"
+                                        id="fcDropZone">
                                         <i class="bi bi-cloud-arrow-up fs-2 text-success"></i>
-                                        <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file here</p>
-                                        <input type="file" class="form-control form-control-sm mx-auto" id="fcFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
+                                        <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file
+                                            here</p>
+                                        <input type="file" class="form-control form-control-sm mx-auto" id="fcFileInput"
+                                            accept=".xlsx,.xls,.csv" style="max-width: 320px;">
                                     </div>
 
                                     <!-- Spreadsheet Preview Table -->
                                     <div id="fcFilePreviewSection" class="d-none mb-3">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="micro-text fw-semibold text-secondary">
-                                                Spreadsheet Rows: <span id="fileFcCountBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0 cards</span>
+                                                Spreadsheet Rows: <span id="fileFcCountBadge"
+                                                    class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0
+                                                    cards</span>
                                             </span>
-                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="clearFileFcBtn">Remove File</button>
+                                            <button type="button"
+                                                class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text"
+                                                id="clearFileFcBtn">Remove File</button>
                                         </div>
-                                        <div class="table-responsive border rounded-2" style="max-height: 140px; overflow-y: auto;">
-                                            <table class="table table-sm table-striped mb-0" style="font-size: 0.78rem;">
+                                        <div class="table-responsive border rounded-2"
+                                            style="max-height: 140px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped mb-0"
+                                                style="font-size: 0.78rem;">
                                                 <thead class="table-light sticky-top">
                                                     <tr>
                                                         <th style="width: 40px;">#</th>
@@ -539,7 +676,8 @@
                                         </div>
                                     </div>
 
-                                    <button type="button" class="btn btn-success fw-semibold px-3" id="importFileFcBtn" disabled>
+                                    <button type="button" class="btn btn-success fw-semibold px-3" id="importFileFcBtn"
+                                        disabled>
                                         <i class="bi bi-file-earmark-arrow-down me-1"></i> Import Cards to Deck
                                     </button>
                                 </div>
@@ -555,13 +693,15 @@
     </div>
 
     <!-- Quick Append Content to Existing Topic Modal -->
-    <div class="modal fade" id="quickAppendModal" tabindex="-1" aria-labelledby="quickAppendModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="quickAppendModal" tabindex="-1" aria-labelledby="quickAppendModalLabel"
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title fw-bold" id="quickAppendModalLabel">Add Content to Topic</h5>
-                        <p class="micro-text text-muted mb-0" id="quickAppendSubtitle">Appending to: <span class="fw-bold text-dark" id="quickAppendTopicTitle">Topic Name</span></p>
+                        <p class="micro-text text-muted mb-0" id="quickAppendSubtitle">Appending to: <span
+                                class="fw-bold text-dark" id="quickAppendTopicTitle">Topic Name</span></p>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -575,13 +715,15 @@
                         <label class="form-label small fw-semibold text-dark">Select Content to Add:</label>
                         <div class="d-flex gap-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="quickAppendContentType" id="quickAppendTypeFc" value="flashcards" checked>
+                                <input class="form-check-input" type="radio" name="quickAppendContentType"
+                                    id="quickAppendTypeFc" value="flashcards" checked>
                                 <label class="form-check-label fw-semibold" for="quickAppendTypeFc">
                                     <i class="bi bi-stack text-success me-1"></i> Flashcards
                                 </label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="quickAppendContentType" id="quickAppendTypeQuiz" value="quiz">
+                                <input class="form-check-input" type="radio" name="quickAppendContentType"
+                                    id="quickAppendTypeQuiz" value="quiz">
                                 <label class="form-check-label fw-semibold" for="quickAppendTypeQuiz">
                                     <i class="bi bi-question-circle text-primary me-1"></i> Practice Quiz
                                 </label>
@@ -592,12 +734,14 @@
                     <!-- Input Mode Tabs -->
                     <ul class="nav nav-tabs mb-3" id="quickAppendTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-semibold small" id="qa-paste-tab" data-bs-toggle="tab" data-bs-target="#qa-paste-pane" type="button" role="tab">
+                            <button class="nav-link active fw-semibold small" id="qa-paste-tab" data-bs-toggle="tab"
+                                data-bs-target="#qa-paste-pane" type="button" role="tab">
                                 <i class="bi bi-clipboard-plus me-1"></i> Bulk Paste
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-semibold small" id="qa-file-tab" data-bs-toggle="tab" data-bs-target="#qa-file-pane" type="button" role="tab">
+                            <button class="nav-link fw-semibold small" id="qa-file-tab" data-bs-toggle="tab"
+                                data-bs-target="#qa-file-pane" type="button" role="tab">
                                 <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel / CSV Import
                             </button>
                         </li>
@@ -607,10 +751,12 @@
                         <!-- Bulk Paste Tab -->
                         <div class="tab-pane fade show active" id="qa-paste-pane" role="tabpanel">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted" id="qaPasteHint">Paste cards one per line (Term - Definition).</span>
+                                <span class="small text-muted" id="qaPasteHint">Paste cards one per line (Term -
+                                    Definition).</span>
                                 <div id="qaDelimiterContainer" class="d-flex align-items-center gap-1">
                                     <span class="micro-text text-muted">Sep:</span>
-                                    <select class="form-select form-select-sm micro-text py-0" id="qaFcDelimiter" style="width: 120px;">
+                                    <select class="form-select form-select-sm micro-text py-0" id="qaFcDelimiter"
+                                        style="width: 120px;">
                                         <option value="auto" selected>Auto-detect</option>
                                         <option value="dash">Hyphen (-)</option>
                                         <option value="tab">Tab</option>
@@ -619,14 +765,20 @@
                                     </select>
                                 </div>
                             </div>
-                            <textarea class="form-control font-monospace small mb-2" id="qaPasteTextarea" rows="7" placeholder=""></textarea>
+                            <textarea class="form-control font-monospace small mb-2" id="qaPasteTextarea" rows="7"
+                                placeholder=""></textarea>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="micro-text fw-semibold text-secondary">
-                                    Parsed Items: <span id="qaParsedBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0 detected</span>
+                                    Parsed Items: <span id="qaParsedBadge"
+                                        class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">0
+                                        detected</span>
                                 </span>
-                                <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="qaClearPasteBtn">Clear</button>
+                                <button type="button"
+                                    class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text"
+                                    id="qaClearPasteBtn">Clear</button>
                             </div>
-                            <div id="qaPreviewContainer" class="border rounded-2 p-2 bg-light mb-2" style="max-height: 130px; overflow-y: auto; font-size: 0.8rem;">
+                            <div id="qaPreviewContainer" class="border rounded-2 p-2 bg-light mb-2"
+                                style="max-height: 130px; overflow-y: auto; font-size: 0.8rem;">
                                 <span class="text-muted fst-italic">Parsed preview will display here...</span>
                             </div>
                         </div>
@@ -635,23 +787,30 @@
                         <div class="tab-pane fade" id="qa-file-pane" role="tabpanel">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <span class="small text-muted">Upload an Excel or CSV file to append.</span>
-                                <button type="button" class="btn btn-sm btn-outline-success fw-semibold" id="qaDownloadTemplateBtn">
+                                <button type="button" class="btn btn-sm btn-outline-success fw-semibold"
+                                    id="qaDownloadTemplateBtn">
                                     <i class="bi bi-download me-1"></i> Download Template (.xlsx)
                                 </button>
                             </div>
                             <div class="border-2 border-dashed rounded-3 p-3 text-center bg-light mb-3">
                                 <i class="bi bi-cloud-arrow-up fs-2 text-success"></i>
                                 <p class="small fw-semibold text-dark mb-1">Choose or drag an Excel/CSV file here</p>
-                                <input type="file" class="form-control form-control-sm mx-auto" id="qaFileInput" accept=".xlsx,.xls,.csv" style="max-width: 320px;">
+                                <input type="file" class="form-control form-control-sm mx-auto" id="qaFileInput"
+                                    accept=".xlsx,.xls,.csv" style="max-width: 320px;">
                             </div>
                             <div id="qaFilePreviewSection" class="d-none mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span class="micro-text fw-semibold text-secondary">
-                                        Spreadsheet Items: <span id="qaFileParsedBadge" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0 items</span>
+                                        Spreadsheet Items: <span id="qaFileParsedBadge"
+                                            class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">0
+                                            items</span>
                                     </span>
-                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text" id="qaClearFileBtn">Remove File</button>
+                                    <button type="button"
+                                        class="btn btn-sm btn-link text-danger p-0 text-decoration-none micro-text"
+                                        id="qaClearFileBtn">Remove File</button>
                                 </div>
-                                <div class="table-responsive border rounded-2" style="max-height: 130px; overflow-y: auto;">
+                                <div class="table-responsive border rounded-2"
+                                    style="max-height: 130px; overflow-y: auto;">
                                     <table class="table table-sm table-striped mb-0" style="font-size: 0.78rem;">
                                         <tbody id="qaFilePreviewTbody"></tbody>
                                     </table>
@@ -679,7 +838,8 @@
                         <i class="bi bi-folder2-open fs-5"></i>
                         <h5 class="modal-title fw-bold fs-6 m-0" id="viewFilesModalLabel">Attached Study Materials</h5>
                     </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
                     <h6 class="fw-bold text-dark mb-1" id="modalTopicTitle">Topic Title</h6>
@@ -689,7 +849,8 @@
                     </ul>
                 </div>
                 <div class="modal-footer bg-light py-2 px-4">
-                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3 fw-semibold" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3 fw-semibold"
+                        data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -700,7 +861,9 @@
         <!-- Top App Bar -->
         <header class="classroom-viewer-header d-flex justify-content-between align-items-center px-4 py-2.5">
             <div class="d-flex align-items-center gap-3 text-truncate">
-                <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white-50" id="classroomViewerBackBtn" title="Back to Files">
+                <button type="button"
+                    class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white-50"
+                    id="classroomViewerBackBtn" title="Back to Files">
                     <i class="bi bi-arrow-left fs-5 text-white"></i>
                 </button>
                 <div class="d-flex align-items-center gap-2.5 text-truncate">
@@ -708,23 +871,35 @@
                         <i class="bi bi-file-earmark-text fs-4 text-warning" id="classroomViewerIcon"></i>
                     </div>
                     <div class="text-truncate">
-                        <h1 class="fs-6 fw-bold text-white mb-0 text-truncate" id="classroomViewerFileName">Document.pdf</h1>
-                        <div class="micro-text text-white-50 text-truncate" id="classroomViewerSubtitle">Mentorae Learning Materials</div>
+                        <h1 class="fs-6 fw-bold text-white mb-0 text-truncate" id="classroomViewerFileName">Document.pdf
+                        </h1>
+                        <div class="micro-text text-white-50 text-truncate" id="classroomViewerSubtitle">Mentorae
+                            Learning Materials</div>
                     </div>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <div id="classroomViewerModeSwitcher" class="d-none d-md-flex align-items-center gap-1 bg-black bg-opacity-40 p-1 rounded-pill border border-secondary border-opacity-50 me-1"></div>
-                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-none d-sm-inline-flex align-items-center gap-1.5" id="classroomViewerPrintBtn" title="Print document">
+                <div id="classroomViewerModeSwitcher"
+                    class="d-none d-md-flex align-items-center gap-1 bg-black bg-opacity-40 p-1 rounded-pill border border-secondary border-opacity-50 me-1">
+                </div>
+                <button type="button"
+                    class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-none d-sm-inline-flex align-items-center gap-1.5"
+                    id="classroomViewerPrintBtn" title="Print document">
                     <i class="bi bi-printer"></i> Print
                 </button>
-                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" id="classroomViewerPopoutBtn" title="Open in new window">
+                <a href="#" target="_blank" rel="noopener noreferrer"
+                    class="btn btn-sm btn-outline-light rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5"
+                    id="classroomViewerPopoutBtn" title="Open in new window">
                     <i class="bi bi-box-arrow-up-right"></i> <span class="d-none d-md-inline">Pop-out</span>
                 </a>
-                <a href="#" download class="btn btn-sm btn-primary rounded-pill px-3.5 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm" id="classroomViewerDownloadBtn" title="Download to device">
+                <a href="#" download
+                    class="btn btn-sm btn-primary rounded-pill px-3.5 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm"
+                    id="classroomViewerDownloadBtn" title="Download to device">
                     <i class="bi bi-download"></i> Download
                 </a>
-                <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white ms-1" id="classroomViewerCloseBtn" title="Close">
+                <button type="button"
+                    class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center border-0 text-white ms-1"
+                    id="classroomViewerCloseBtn" title="Close">
                     <i class="bi bi-x-lg fs-5"></i>
                 </button>
             </div>
@@ -737,7 +912,8 @@
     </div>
 
     <!-- Class Quiz Results & Analytics Modal -->
-    <div class="modal fade" id="classQuizResultsModal" tabindex="-1" aria-labelledby="classQuizResultsModalLabel" aria-hidden="true">
+    <div class="modal fade" id="classQuizResultsModal" tabindex="-1" aria-labelledby="classQuizResultsModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content rounded-4 border-0 shadow">
                 <div class="modal-header border-bottom py-3 px-4 bg-light">
@@ -746,7 +922,8 @@
                             <i class="bi bi-bar-chart-line fs-5"></i>
                         </div>
                         <div>
-                            <h5 class="modal-title fw-bold text-dark m-0" id="classQuizResultsModalLabel">Practice Quiz Results</h5>
+                            <h5 class="modal-title fw-bold text-dark m-0" id="classQuizResultsModalLabel">Practice Quiz
+                                Results</h5>
                             <p class="micro-text text-muted m-0" id="classQuizResultsSubheader">Topic: Loading...</p>
                         </div>
                     </div>
@@ -769,7 +946,8 @@
                         </div>
                         <div class="col-6 col-md-3">
                             <div class="card border rounded-3 p-3 bg-white shadow-none h-100">
-                                <span class="micro-text text-uppercase text-muted fw-semibold">Pass Rate (&ge;60%)</span>
+                                <span class="micro-text text-uppercase text-muted fw-semibold">Pass Rate
+                                    (&ge;60%)</span>
                                 <h3 class="fw-bold text-success m-0 mt-1" id="quizStatPassRate">0%</h3>
                             </div>
                         </div>
@@ -782,11 +960,14 @@
                     </div>
 
                     <!-- Search & Filter Bar -->
-                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3 flex-wrap">
+                    <div
+                        class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3 flex-wrap">
                         <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap">
                             <div class="input-group input-group-sm" style="max-width: 250px;">
-                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                                <input type="text" class="form-control border-start-0 ps-0" id="quizStudentSearchInput" placeholder="Search student name or LRN...">
+                                <span class="input-group-text bg-white border-end-0"><i
+                                        class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0 ps-0" id="quizStudentSearchInput"
+                                    placeholder="Search student name or LRN...">
                             </div>
                             <select class="form-select form-select-sm" id="quizFilterSubmission" style="width: 175px;">
                                 <option value="all" selected>All Submissions</option>
@@ -825,8 +1006,10 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top py-2.5 px-4 bg-light d-flex justify-content-between">
-                    <span class="micro-text text-muted"><i class="bi bi-info-circle me-1"></i>Only student practice submissions are displayed here.</span>
-                    <button type="button" class="btn btn-secondary btn-sm px-4 rounded-pill" data-bs-dismiss="modal">Close</button>
+                    <span class="micro-text text-muted"><i class="bi bi-info-circle me-1"></i>Only student practice
+                        submissions are displayed here.</span>
+                    <button type="button" class="btn btn-secondary btn-sm px-4 rounded-pill"
+                        data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -847,4 +1030,5 @@
     <!-- Component Logic Link -->
     <script src="subject_detail_teacher.js?v=20261017-3"></script>
 </body>
+
 </html>

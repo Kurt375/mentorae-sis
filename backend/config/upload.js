@@ -41,14 +41,21 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/webp',
   'text/plain',
+  'text/csv',
+  'video/mp4',
+  'video/webm',
+]);
+
+const ALLOWED_EXTENSIONS = new Set([
+  'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif'
 ]);
 
 const FORBIDDEN_EXTENSIONS = new Set(['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar']);
 
 function fileFilter(req, file, cb) {
   const ext = path.extname(file.originalname || '').replace('.', '').toLowerCase();
-  if (FORBIDDEN_EXTENSIONS.has(ext) || !ALLOWED_MIME_TYPES.has(file.mimetype)) {
-    return cb(new Error('Unsupported file type. Allowed: PDF, Word, PowerPoint, Excel, images, or plain text.'));
+  if (FORBIDDEN_EXTENSIONS.has(ext) || !ALLOWED_EXTENSIONS.has(ext)) {
+    return cb(new Error('Unsupported file type. Please upload a valid document or media file (PDF, Word, Excel, images, videos, or plain text).'));
   }
   cb(null, true);
 }

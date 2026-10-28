@@ -1545,11 +1545,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         return alert('The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.');
                     }
                     const ext = (file.name || '').split('.').pop().toLowerCase();
+                    const allowedExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
+                    const forbiddenExts = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
                     if (ext === 'ppt' || ext === 'pptx') {
                         updateSaveTopicLoading(false);
                         isSubmittingTopicModal = false;
                         fileInput.value = '';
-                        return alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                        return alert('Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                    }
+                    if (!allowedExts.includes(ext) || forbiddenExts.includes(ext)) {
+                        updateSaveTopicLoading(false);
+                        isSubmittingTopicModal = false;
+                        fileInput.value = '';
+                        return alert('Unsupported file type. Please upload a valid document or media file (PDF, Word, Excel, image, or video).');
                     }
                     updateSaveTopicLoading(true, 'Processing File...');
                     file = await optimizePresentationIfEligible(file);
@@ -1604,11 +1612,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         return alert('The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.');
                     }
                     const ext = (file.name || '').split('.').pop().toLowerCase();
+                    const allowedExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
+                    const forbiddenExts = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
                     if (ext === 'ppt' || ext === 'pptx') {
                         updateSaveTopicLoading(false);
                         isSubmittingTopicModal = false;
                         fileInput.value = '';
-                        return alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                        return alert('Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                    }
+                    if (!allowedExts.includes(ext) || forbiddenExts.includes(ext)) {
+                        updateSaveTopicLoading(false);
+                        isSubmittingTopicModal = false;
+                        fileInput.value = '';
+                        return alert('Unsupported file type. Please upload a valid document or media file (PDF, Word, Excel, image, or video).');
                     }
                     updateSaveTopicLoading(true, 'Processing File...');
                     file = await optimizePresentationIfEligible(file);

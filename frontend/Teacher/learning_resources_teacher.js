@@ -598,5 +598,278 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    // =========================================================================
+    // ADD RESOURCES PANEL (TEACHER SUBJECT LIBRARY UPLOADER)
+    // =========================================================================
+    const ALLOWED_RESOURCE_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
+    const FORBIDDEN_RESOURCE_EXTENSIONS = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
+
+    function validateResourceFile(file) {
+        if (!file) return { valid: false, message: 'No file selected.' };
+        if (file.size === 0) {
+            return {
+                valid: false,
+                message: 'The selected file appears to be empty. Please choose a valid file.'
+            };
+        }
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        if (ext === 'ppt' || ext === 'pptx') {
+            return {
+                valid: false,
+                ext,
+                message: 'Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
+            };
+        }
+        if (!ALLOWED_RESOURCE_EXTENSIONS.includes(ext) || FORBIDDEN_RESOURCE_EXTENSIONS.includes(ext)) {
+            return {
+                valid: false,
+                ext,
+                message: 'Unsupported file type. Please upload a valid document or media file (PDF, Word, Excel, image, or video).'
+            };
+        }
+        if (file.size > 35 * 1024 * 1024) {
+            return {
+                valid: false,
+                ext,
+                message: `File "${file.name}" is too large (max 35MB). Please compress or reduce file size before uploading.`
+            };
+        }
+        return { valid: true, ext };
+    }
+
+    function showAddResourcesError(msg) {
+        const errAlert = document.getElementById('addResourcesErrorAlert');
+        const errMsg = document.getElementById('addResourcesErrorMessage');
+        if (errAlert && errMsg) {
+            errMsg.textContent = msg;
+            errAlert.classList.remove('d-none');
+        }
+        const succAlert = document.getElementById('addResourcesSuccessAlert');
+        if (succAlert) succAlert.classList.add('d-none');
+    }
+
+    function hideAddResourcesAlerts() {
+        const errAlert = document.getElementById('addResourcesErrorAlert');
+        if (errAlert) errAlert.classList.add('d-none');
+        const succAlert = document.getElementById('addResourcesSuccessAlert');
+        if (succAlert) succAlert.classList.add('d-none');
+    }
+
+    function showAddResourcesSuccess(msg) {
+        const succAlert = document.getElementById('addResourcesSuccessAlert');
+        const succMsg = document.getElementById('addResourcesSuccessMessage');
+        if (succAlert && succMsg) {
+            succMsg.textContent = msg;
+            succAlert.classList.remove('d-none');
+        }
+        const errAlert = document.getElementById('addResourcesErrorAlert');
+        if (errAlert) errAlert.classList.add('d-none');
+    }
+
+    function populateResourceSubjectDropdown() {
+        const select = document.getElementById('resourceSubjectSelect');
+        if (!select) return;
+        const currentVal = select.value;
+        select.innerHTML = '<option value="" selected disabled>Choose a subject...</option>';
+        if (Array.isArray(allSubjects)) {
+            allSubjects.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                opt.textContent = `${s.name} (${s.code || ''})`;
+                select.appendChild(opt);
+            });
+        }
+        if (currentVal) select.value = currentVal;
+    }
+
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function initAddResourcesPanel() {
+        const openBtn1 = document.getElementById('openAddResourcesPanelBtn');
+        const openBtn2 = document.getElementById('navAddResourcesBtn');
+        const modalEl = document.getElementById('addResourcesModal');
+        const modal = modalEl && window.bootstrap ? new bootstrap.Modal(modalEl) : null;
+        const form = document.getElementById('addResourcesForm');
+        const fileInput = document.getElementById('panelFileInput');
+        const dropZone = document.getElementById('resourceDropZone');
+
+        function openModal() {
+            hideAddResourcesAlerts();
+            populateResourceSubjectDropdown();
+            if (form) form.reset();
+            if (modal) modal.show();
+        }
+
+        if (openBtn1) openBtn1.addEventListener('click', openModal);
+        if (openBtn2) openBtn2.addEventListener('click', openModal);
+
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    const check = validateResourceFile(file);
+                    if (!check.valid) {
+                        showAddResourcesError(check.message);
+                        e.target.value = '';
+                        alert(check.message);
+                    } else {
+                        hideAddResourcesAlerts();
+                    }
+                }
+            });
+        }
+
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(name => {
+                dropZone.addEventListener(name, (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    dropZone.classList.add('border-success');
+                });
+            });
+            ['dragleave', 'drop'].forEach(name => {
+                dropZone.addEventListener(name, (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    dropZone.classList.remove('border-success');
+                });
+            });
+            dropZone.addEventListener('drop', (ev) => {
+                const dt = ev.dataTransfer;
+                const files = dt?.files;
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    const check = validateResourceFile(file);
+                    if (!check.valid) {
+                        showAddResourcesError(check.message);
+                        if (fileInput) fileInput.value = '';
+                        alert(check.message);
+                        return;
+                    }
+                    hideAddResourcesAlerts();
+                    try {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        if (fileInput) fileInput.files = dataTransfer.files;
+                    } catch (_) {}
+                }
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAddResourcesAlerts();
+
+                const subjectSelect = document.getElementById('resourceSubjectSelect');
+                const quarterSelect = document.getElementById('resourceQuarterSelect');
+                const titleInput = document.getElementById('resourceTopicTitle');
+                const descInput = document.getElementById('resourceTopicDesc');
+                const submitBtn = document.getElementById('submitResourceBtn');
+
+                if (!subjectSelect || !subjectSelect.value) {
+                    showAddResourcesError('Please select a target subject.');
+                    return;
+                }
+                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                    showAddResourcesError('Please select a resource file to upload.');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const check = validateResourceFile(file);
+                if (!check.valid) {
+                    showAddResourcesError(check.message);
+                    fileInput.value = '';
+                    alert(check.message);
+                    return; // Rejects upload; file is NOT added to library
+                }
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Uploading...';
+                }
+
+                try {
+                    const dataUrl = await readFileAsDataURL(file);
+                    const resourcePayload = {
+                        resources: ['File'],
+                        files: [{
+                            name: file.name,
+                            size: file.size,
+                            dataUrl: dataUrl
+                        }]
+                    };
+
+                    const targetSubjectName = subjectSelect.value;
+                    const resourceTitle = titleInput.value.trim();
+                    const resourceDesc = descInput ? descInput.value.trim() : '';
+                    const token = localStorage.getItem('mentorae_token');
+
+                    // Save to backend database
+                    if (token) {
+                        try {
+                            await authedFetch('/api/content/topics', token, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    subjectName: targetSubjectName,
+                                    title: resourceTitle,
+                                    description: resourceDesc,
+                                    quarter: parseInt(quarterSelect.value, 10) || 1,
+                                    isRecommendation: false,
+                                    contentPayload: resourcePayload
+                                })
+                            });
+                        } catch (apiErr) {
+                            console.warn('Backend sync warning for new resource:', apiErr);
+                        }
+                    }
+
+                    // Update local library data
+                    const subIndex = allSubjects.findIndex(s => s.name === targetSubjectName);
+                    if (subIndex !== -1) {
+                        if (!Array.isArray(allSubjects[subIndex].topics)) {
+                            allSubjects[subIndex].topics = [];
+                        }
+                        allSubjects[subIndex].topics.push({
+                            title: resourceTitle,
+                            description: resourceDesc,
+                            resources: ['File'],
+                            files: resourcePayload.files
+                        });
+                        saveSubjects(allSubjects);
+                        applyFilters();
+                    }
+
+                    showAddResourcesSuccess(`Resource "${file.name}" was successfully added to ${targetSubjectName} in the library!`);
+                    form.reset();
+
+                    setTimeout(() => {
+                        if (modal) modal.hide();
+                    }, 1400);
+
+                } catch (uploadErr) {
+                    console.error('Error adding resource:', uploadErr);
+                    showAddResourcesError('Failed to process file upload. Please try again.');
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> Add to Library';
+                    }
+                }
+            });
+        }
+    }
+
+    // Call add resources panel setup
+    initAddResourcesPanel();
     init();
 });

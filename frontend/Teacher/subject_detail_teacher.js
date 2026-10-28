@@ -2684,6 +2684,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return { valid: true, ext };
     }
 
+    function showFileValidationError(msg) {
+        const errAlert = document.getElementById('fileUploadErrorAlert');
+        const errMsg = document.getElementById('fileUploadErrorMessage');
+        if (errAlert && errMsg) {
+            errMsg.textContent = msg;
+            errAlert.classList.remove('d-none');
+        }
+    }
+    function hideFileValidationError() {
+        const errAlert = document.getElementById('fileUploadErrorAlert');
+        if (errAlert) errAlert.classList.add('d-none');
+    }
+
     const requestFileInputEl = document.getElementById('requestFileInput');
     if (requestFileInputEl) {
         requestFileInputEl.addEventListener('change', (e) => {
@@ -2691,8 +2704,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (file) {
                 const check = validateResourceFile(file);
                 if (!check.valid) {
+                    showFileValidationError(check.message);
                     e.target.value = '';
                     alert(check.message);
+                } else {
+                    hideFileValidationError();
                 }
             }
         });
@@ -2722,10 +2738,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const file = files[0];
                 const check = validateResourceFile(file);
                 if (!check.valid) {
+                    showFileValidationError(check.message);
                     if (requestFileInputEl) requestFileInputEl.value = '';
                     alert(check.message);
                     return;
                 }
+                hideFileValidationError();
                 try {
                     const dataTransfer = new DataTransfer();
                     dataTransfer.items.add(file);
@@ -2741,10 +2759,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let file = fileInput.files[0];
             const check = validateResourceFile(file);
             if (!check.valid) {
+                showFileValidationError(check.message);
                 fileInput.value = '';
                 alert(check.message);
                 return;
             }
+            hideFileValidationError();
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
@@ -2778,6 +2798,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderRequestFiles();
             fileInput.value = '';
 
+            const ext = check.ext || (file.name || '').split('.').pop().toLowerCase();
             // Pre-convert Office documents in background for 100% pixel-perfect classroom viewing
             if (['pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
                 const token = localStorage.getItem('mentorae_token');
