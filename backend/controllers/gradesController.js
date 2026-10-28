@@ -431,6 +431,15 @@ async function computeStudentGradePerformance(studentId) {
       const aPct = a !== null ? Math.min(100, Math.max(0, Math.round((a / ptMax) * 100))) : null;
       const ePct = e !== null ? Math.min(100, Math.max(0, Math.round((e / qaMax) * 100))) : null;
 
+      let parsedRaw = null;
+      if (existing.raw_scores) {
+        try {
+          parsedRaw = typeof existing.raw_scores === 'string' ? JSON.parse(existing.raw_scores) : existing.raw_scores;
+        } catch (_) {
+          parsedRaw = null;
+        }
+      }
+
       grades.push({
         gradeId: existing.gradeId,
         subjectId: subjId,
@@ -452,6 +461,7 @@ async function computeStudentGradePerformance(studentId) {
         qa_weight: qaMax,
         remarks: getRemarks(transmuted),
         status: transmuted >= 75 ? 'Passed' : 'Needs Remediation',
+        raw_scores: parsedRaw,
       });
     } else {
       // Pending subject (student enrolled, grade not yet encoded)

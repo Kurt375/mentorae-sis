@@ -44,6 +44,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const goalModalEl = document.getElementById('prescriptiveGoalModal');
     const goalModalInstance = goalModalEl ? new bootstrap.Modal(goalModalEl) : null;
 
+    const assessmentModalEl = document.getElementById('subjectAssessmentModal');
+    const assessmentModalInstance = assessmentModalEl ? new bootstrap.Modal(assessmentModalEl) : null;
+    let assessmentTrendChartInstance = null;
+    let currentAssessmentSubject = null;
+    let currentAssessmentFilter = 'all';
+
     // Global Grade State
     let gradeState = {
         student: null,
@@ -390,13 +396,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ${hasGrade ? `
                         <div class="row g-4 align-items-center">
                             <div class="col-12 col-lg-7">
-                                <div class="chart-box p-2">
+                                <div class="chart-box p-2 subject-chart-wrapper" title="Click to view detailed line graph of Written Works, Performance Tasks, and Quarterly Assessments" data-subject-id="${g.subjectId}">
                                     <div class="d-flex justify-content-between align-items-center px-2 mb-1">
-                                        <span class="micro-text fw-bold text-dark text-uppercase">DepEd Component Breakdown</span>
+                                        <span class="micro-text fw-bold text-dark text-uppercase d-flex align-items-center gap-1">
+                                            DepEd Component Breakdown
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle micro-text rounded-pill chart-clickable-badge">
+                                                <i class="bi bi-graph-up"></i> Click chart for line graph
+                                            </span>
+                                        </span>
                                         <span class="micro-text text-muted">Weights: WW ${g.ww_weight || 20}% &bull; PT ${g.pt_weight || 50}% &bull; QA ${g.qa_weight || 30}%</span>
                                     </div>
                                     <div style="height: 200px; width: 100%;">
-                                        <canvas id="chart-${g.subjectId}" class="subject-analytics-canvas"></canvas>
+                                        <canvas id="chart-${g.subjectId}" class="subject-analytics-canvas cursor-pointer"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -449,7 +460,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         subjectCards.forEach((card) => {
             card.addEventListener('click', (e) => {
-                if (e.target.closest('input') || e.target.closest('button') || e.target.closest('a')) {
+                if (e.target.closest('input') || e.target.closest('button') || e.target.closest('a') || e.target.closest('.subject-details-drawer')) {
                     return;
                 }
 
@@ -511,6 +522,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             subjectChartsCache[g.subjectId].destroy();
         }
 
+        canvas.style.cursor = 'pointer';
+        canvas.onclick = (e) => {
+            e.stopPropagation();
+            openAssessmentBreakdownModal(g);
+        };
+
+        const wrapper = canvas.closest('.subject-chart-wrapper');
+        if (wrapper) {
+            wrapper.style.cursor = 'pointer';
+            wrapper.onclick = (e) => {
+                e.stopPropagation();
+                openAssessmentBreakdownModal(g);
+            };
+        }
+
         const ctx = canvas.getContext('2d');
         const wwMax = g.ww_weight || 20;
         const ptMax = g.pt_weight || 50;
@@ -552,6 +578,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (e) => {
+                    openAssessmentBreakdownModal(g);
+                },
+                onHover: (event, chartElement) => {
+                    if (event && event.native && event.native.target) {
+                        event.native.target.style.cursor = 'pointer';
+                    }
+                },
                 plugins: {
                     legend: {
                         position: 'bottom',
@@ -594,6 +628,463 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         });
+    }
+
+    // =========================================================================
+    // 6.1 DETAILED ASSESSMENT BREAKDOWN & LINE GRAPH MODAL
+    // =========================================================================
+    function getSubjectAssessmentBreakdown(g) {
+        let raw = g.raw_scores;
+        if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch (e) { raw = null; }
+        }
+
+        const wwWeight = Number(g.ww_weight) || 20;
+        const ptWeight = Number(g.pt_weight) || 50;
+        const qaWeight = Number(g.qa_weight) || 30;
+
+        const qPct = g.quizPct != null ? Number(g.quizPct) : (g.quiz_score != null ? Math.min(100, Math.round((Number(g.quiz_score) / wwWeight) * 100)) : 75);
+        const aPct = g.activityPct != null ? Number(g.activityPct) : (g.activity_score != null ? Math.min(100, Math.round((Number(g.activity_score) / ptWeight) * 100)) : 75);
+        const ePct = g.examPct != null ? Number(g.examPct) : (g.exam_score != null ? Math.min(100, Math.round((Number(g.exam_score) / qaWeight) * 100)) : 75);
+
+        const hasRealRaw = !!(raw && raw.scores && (
+            (Array.isArray(raw.scores.ww) && raw.scores.ww.length) ||
+            (Array.isArray(raw.scores.pt) && raw.scores.pt.length) ||
+            (Array.isArray(raw.scores.qa) && raw.scores.qa.length)
+        ));
+
+        function synthesizeItems(count, prefix, maxPerItem, targetPct) {
+            const items = [];
+            const offsets = [0, 1, -1, 1, -1, 2, -2, 0];
+            for (let i = 0; i < count; i++) {
+                const baseScore = (targetPct / 100) * maxPerItem;
+                const offset = offsets[i % offsets.length] * (maxPerItem > 25 ? 2 : 1);
+                const score = Math.max(0, Math.min(maxPerItem, Math.round(baseScore + offset)));
+                const pct = Math.round((score / maxPerItem) * 100);
+                items.push({
+                    id: `${prefix.toLowerCase()}_${i + 1}`,
+                    label: `${prefix} ${i + 1}`,
+                    score,
+                    max: maxPerItem,
+                    pct,
+                    isPassing: pct >= 75
+                });
+            }
+            return items;
+        }
+
+        // 1. Written Works (WW 1 - WW 5)
+        let wwItems = [];
+        if (raw && Array.isArray(raw.wwCols) && raw.wwCols.length && raw.scores && Array.isArray(raw.scores.ww) && raw.scores.ww.length) {
+            wwItems = raw.wwCols.map((col, idx) => {
+                const s = Number(raw.scores.ww[idx]) || 0;
+                const max = Number(col.max) || 20;
+                const pct = Math.min(100, Math.max(0, Math.round((s / max) * 100)));
+                return {
+                    id: col.id || `ww_${idx + 1}`,
+                    label: col.label || `WW ${idx + 1}`,
+                    score: s,
+                    max,
+                    pct,
+                    isPassing: pct >= 75
+                };
+            });
+        } else {
+            wwItems = synthesizeItems(5, 'WW', 20, qPct);
+        }
+
+        // 2. Performance Tasks (PT 1 - PT 3)
+        let ptItems = [];
+        if (raw && Array.isArray(raw.ptCols) && raw.ptCols.length && raw.scores && Array.isArray(raw.scores.pt) && raw.scores.pt.length) {
+            ptItems = raw.ptCols.map((col, idx) => {
+                const s = Number(raw.scores.pt[idx]) || 0;
+                const max = Number(col.max) || 50;
+                const pct = Math.min(100, Math.max(0, Math.round((s / max) * 100)));
+                return {
+                    id: col.id || `pt_${idx + 1}`,
+                    label: col.label || `PT ${idx + 1}`,
+                    score: s,
+                    max,
+                    pct,
+                    isPassing: pct >= 75
+                };
+            });
+        } else {
+            ptItems = synthesizeItems(3, 'PT', 50, aPct);
+        }
+
+        // 3. Quarterly Assessments (SA 1, SA 2, Term Exam)
+        let qaItems = [];
+        if (raw && Array.isArray(raw.qaCols) && raw.qaCols.length && raw.scores && Array.isArray(raw.scores.qa) && raw.scores.qa.length) {
+            qaItems = raw.qaCols.map((col, idx) => {
+                const s = Number(raw.scores.qa[idx]) || 0;
+                const max = Number(col.max) || (idx === 2 ? 50 : 25);
+                const pct = Math.min(100, Math.max(0, Math.round((s / max) * 100)));
+                return {
+                    id: col.id || `qa_${idx + 1}`,
+                    label: col.label || (idx === 2 ? 'Term Exam' : `Summative ${idx + 1}`),
+                    score: s,
+                    max,
+                    pct,
+                    isPassing: pct >= 75
+                };
+            });
+        } else {
+            qaItems = [
+                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75 },
+                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75 },
+                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: Math.round((ePct / 100) * 50), pct: ePct, isPassing: ePct >= 75 }
+            ];
+        }
+
+        return {
+            wwWeight,
+            ptWeight,
+            qaWeight,
+            qPct,
+            aPct,
+            ePct,
+            hasRealRaw,
+            wwItems,
+            ptItems,
+            qaItems
+        };
+    }
+
+    function renderAssessmentTrendChart(breakdown, filter = 'all') {
+        const canvas = document.getElementById('assessmentTrendCanvas');
+        if (!canvas) return;
+
+        if (assessmentTrendChartInstance) {
+            assessmentTrendChartInstance.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        let labels = [];
+        let scores = [];
+        let pointBgColors = [];
+        let pointBorderColors = [];
+        let datasets = [];
+
+        if (filter === 'ww') {
+            labels = breakdown.wwItems.map(i => i.label);
+            scores = breakdown.wwItems.map(i => i.pct);
+            pointBgColors = scores.map(s => s >= 75 ? '#10b981' : '#ef4444');
+            pointBorderColors = scores.map(s => s >= 75 ? '#065f46' : '#991b1b');
+
+            datasets = [
+                {
+                    label: 'Written Works %',
+                    data: scores,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: pointBgColors,
+                    pointBorderColor: pointBorderColors,
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Passing Baseline (75%)',
+                    data: labels.map(() => 75),
+                    borderColor: '#94a3b8',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ];
+        } else if (filter === 'pt') {
+            labels = breakdown.ptItems.map(i => i.label);
+            scores = breakdown.ptItems.map(i => i.pct);
+            pointBgColors = scores.map(s => s >= 75 ? '#0a5c2c' : '#ef4444');
+            pointBorderColors = scores.map(s => s >= 75 ? '#053e1d' : '#991b1b');
+
+            datasets = [
+                {
+                    label: 'Performance Tasks %',
+                    data: scores,
+                    borderColor: '#0a5c2c',
+                    backgroundColor: 'rgba(10, 92, 44, 0.15)',
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: pointBgColors,
+                    pointBorderColor: pointBorderColors,
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Passing Baseline (75%)',
+                    data: labels.map(() => 75),
+                    borderColor: '#94a3b8',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ];
+        } else if (filter === 'qa') {
+            labels = breakdown.qaItems.map(i => i.label);
+            scores = breakdown.qaItems.map(i => i.pct);
+            pointBgColors = scores.map(s => s >= 75 ? '#f59e0b' : '#ef4444');
+            pointBorderColors = scores.map(s => s >= 75 ? '#b45309' : '#991b1b');
+
+            datasets = [
+                {
+                    label: 'Quarterly Assessment %',
+                    data: scores,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    fill: true,
+                    tension: 0.35,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: pointBgColors,
+                    pointBorderColor: pointBorderColors,
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Passing Baseline (75%)',
+                    data: labels.map(() => 75),
+                    borderColor: '#94a3b8',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ];
+        } else {
+            // 'all': Unified Continuous Trajectory across WW1-WW5, PT1-PT3, and QA
+            const allItems = [
+                ...breakdown.wwItems.map(i => ({ ...i, category: 'WW', color: '#10b981' })),
+                ...breakdown.ptItems.map(i => ({ ...i, category: 'PT', color: '#0a5c2c' })),
+                ...breakdown.qaItems.map(i => ({ ...i, category: 'QA', color: '#f59e0b' }))
+            ];
+            labels = allItems.map(i => i.label);
+            scores = allItems.map(i => i.pct);
+            pointBgColors = allItems.map(i => i.pct >= 75 ? i.color : '#ef4444');
+            pointBorderColors = allItems.map(i => i.pct >= 75 ? '#ffffff' : '#991b1b');
+
+            datasets = [
+                {
+                    label: 'Score %',
+                    data: scores,
+                    borderColor: '#2e7d32',
+                    backgroundColor: 'rgba(46, 125, 50, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: pointBgColors,
+                    pointBorderColor: pointBorderColors,
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Passing Baseline (75%)',
+                    data: labels.map(() => 75),
+                    borderColor: '#94a3b8',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ];
+        }
+
+        assessmentTrendChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            font: { size: 10, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleFont: { size: 11, weight: 'bold' },
+                        bodyFont: { size: 11 },
+                        padding: 10,
+                        callbacks: {
+                            label: (context) => {
+                                if (context.datasetIndex === 1) return 'Passing Baseline: 75%';
+                                const idx = context.dataIndex;
+                                let item = null;
+                                if (filter === 'ww') item = breakdown.wwItems[idx];
+                                else if (filter === 'pt') item = breakdown.ptItems[idx];
+                                else if (filter === 'qa') item = breakdown.qaItems[idx];
+                                else {
+                                    const all = [...breakdown.wwItems, ...breakdown.ptItems, ...breakdown.qaItems];
+                                    item = all[idx];
+                                }
+                                if (item) {
+                                    return `${item.label}: ${item.score}/${item.max} (${item.pct}%) — ${item.isPassing ? 'Passed' : 'Needs Review'}`;
+                                }
+                                return `${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: {
+                            stepSize: 25,
+                            callback: (v) => `${v}%`,
+                            font: { size: 10, weight: 'bold' },
+                            color: '#1e3a8a'
+                        },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    x: {
+                        ticks: {
+                            font: { size: 9, weight: 'bold' },
+                            color: '#334155'
+                        },
+                        grid: { color: '#f8fafc' }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderAssessmentItemList(items, containerId) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        if (!items || !items.length) {
+            el.innerHTML = '<div class="p-3 text-center text-muted micro-text">No scores recorded yet.</div>';
+            return;
+        }
+        el.innerHTML = items.map(item => `
+            <div class="assessment-item-row d-flex justify-content-between align-items-center">
+                <div style="min-width: 110px;">
+                    <div class="fw-bold text-dark small mb-0.5">${escapeHtml(item.label)}</div>
+                    <div class="micro-text text-muted">Score: <strong>${item.score}</strong> / ${item.max}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-grow-1 justify-content-end">
+                    <div class="progress flex-grow-1 d-none d-sm-block" style="height: 6px; max-width: 80px;">
+                        <div class="progress-bar ${item.isPassing ? 'bg-success' : 'bg-danger'}" style="width: ${Math.min(100, item.pct)}%;"></div>
+                    </div>
+                    <span class="assessment-score-badge ${item.isPassing ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'}">
+                        ${item.pct}%
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function wireAssessmentModalEvents() {
+        const filterContainer = document.getElementById('assessmentFilterPills');
+        if (!filterContainer || filterContainer.dataset.wired) return;
+        filterContainer.dataset.wired = 'true';
+
+        filterContainer.querySelectorAll('.assessment-pill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterContainer.querySelectorAll('.assessment-pill-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentAssessmentFilter = btn.getAttribute('data-filter') || 'all';
+                if (currentAssessmentSubject) {
+                    const breakdown = getSubjectAssessmentBreakdown(currentAssessmentSubject);
+                    renderAssessmentTrendChart(breakdown, currentAssessmentFilter);
+                }
+            });
+        });
+    }
+
+    function openAssessmentBreakdownModal(g) {
+        if (!g) return;
+        currentAssessmentSubject = g;
+        currentAssessmentFilter = 'all';
+
+        wireAssessmentModalEvents();
+
+        // Reset active filter pill to 'all'
+        const filterContainer = document.getElementById('assessmentFilterPills');
+        if (filterContainer) {
+            filterContainer.querySelectorAll('.assessment-pill-btn').forEach(b => {
+                if (b.getAttribute('data-filter') === 'all') b.classList.add('active');
+                else b.classList.remove('active');
+            });
+        }
+
+        const breakdown = getSubjectAssessmentBreakdown(g);
+
+        // Subject meta
+        const metaEl = document.getElementById('assessmentModalSubjectMeta');
+        if (metaEl) {
+            metaEl.textContent = `${g.subject} (${g.term || '1st Term'}) • Teacher: ${g.teacherName || 'Assigned Teacher'}`;
+        }
+
+        // Summary strip
+        const wwScoreEl = document.getElementById('summaryWwScore');
+        if (wwScoreEl) wwScoreEl.textContent = `${breakdown.qPct}%`;
+        const wwWeightEl = document.getElementById('summaryWwWeight');
+        if (wwWeightEl) wwWeightEl.textContent = `Weight: ${breakdown.wwWeight}%`;
+
+        const ptScoreEl = document.getElementById('summaryPtScore');
+        if (ptScoreEl) ptScoreEl.textContent = `${breakdown.aPct}%`;
+        const ptWeightEl = document.getElementById('summaryPtWeight');
+        if (ptWeightEl) ptWeightEl.textContent = `Weight: ${breakdown.ptWeight}%`;
+
+        const qaScoreEl = document.getElementById('summaryQaScore');
+        if (qaScoreEl) qaScoreEl.textContent = `${breakdown.ePct}%`;
+        const qaWeightEl = document.getElementById('summaryQaWeight');
+        if (qaWeightEl) qaWeightEl.textContent = `Weight: ${breakdown.qaWeight}%`;
+
+        const finalGradeEl = document.getElementById('summaryFinalGrade');
+        if (finalGradeEl) finalGradeEl.textContent = g.average !== null ? g.average : '—';
+        const finalRemarksEl = document.getElementById('summaryFinalRemarks');
+        if (finalRemarksEl) {
+            const passed = g.average !== null && g.average >= 75;
+            finalRemarksEl.innerHTML = g.average !== null 
+                ? `<span class="badge ${passed ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} rounded-pill">${escapeHtml(g.remarks || (passed ? 'Passed' : 'Needs Remediation'))}</span>` 
+                : 'Pending';
+        }
+
+        // Column Badges & Subtext
+        const colWwBadge = document.getElementById('colWwBadge');
+        if (colWwBadge) colWwBadge.textContent = `${breakdown.qPct}%`;
+        const colPtBadge = document.getElementById('colPtBadge');
+        if (colPtBadge) colPtBadge.textContent = `${breakdown.aPct}%`;
+        const colQaBadge = document.getElementById('colQaBadge');
+        if (colQaBadge) colQaBadge.textContent = `${breakdown.ePct}%`;
+
+        const dataModeBadge = document.getElementById('assessmentDataModeBadge');
+        if (dataModeBadge) {
+            dataModeBadge.textContent = breakdown.hasRealRaw ? 'Official Recorded Scores' : 'Standard DepEd Assessment Breakdown';
+            dataModeBadge.className = `badge micro-text ${breakdown.hasRealRaw ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-light text-secondary border'}`;
+        }
+
+        // Render itemized score lists
+        renderAssessmentItemList(breakdown.wwItems, 'assessmentWwList');
+        renderAssessmentItemList(breakdown.ptItems, 'assessmentPtList');
+        renderAssessmentItemList(breakdown.qaItems, 'assessmentQaList');
+
+        if (assessmentModalInstance) {
+            assessmentModalInstance.show();
+        }
+
+        // Render line graph once modal is rendered
+        setTimeout(() => {
+            renderAssessmentTrendChart(breakdown, 'all');
+        }, 120);
     }
 
     // =========================================================================

@@ -380,3 +380,102 @@
     font-weight: 600;
     letter-spacing: 0.2px;
 }
+
+/* Interactive Bar Chart Cues */
+.subject-chart-wrapper {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border-radius: 8px;
+}
+
+.subject-chart-wrapper:hover {
+    box-shadow: 0 4px 14px rgba(10, 92, 44, 0.08);
+}
+
+.chart-clickable-badge {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.subject-chart-wrapper:hover .chart-clickable-badge {
+    background-color: var(--mentorae-green) !important;
+    color: #ffffff !important;
+    border-color: var(--mentorae-green) !important;
+}
+
+/* Assessment Breakdown Modal Styles */
+.assessment-modal-dialog {
+    max-width: 900px;
+}
+
+.assessment-pill-btn {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 50px;
+    padding: 4px 14px;
+    transition: all 0.15s ease;
+}
+
+.assessment-pill-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.assessment-pill-btn.active {
+    background: var(--mentorae-green);
+    color: #ffffff;
+    border-color: var(--mentorae-green);
+    box-shadow: 0 2px 6px rgba(10, 92, 44, 0.25);
+}
+
+.assessment-component-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    height: 100%;
+    display: flex;
+    flex-column: column;
+}
+
+.assessment-component-card.card-ww {
+    border-top: 3.5px solid #10b981;
+}
+
+.assessment-component-card.card-pt {
+    border-top: 3.5px solid #0a5c2c;
+}
+
+.assessment-component-card.card-qa {
+    border-top: 3.5px solid #f59e0b;
+}
+
+.assessment-item-row {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.1s ease;
+}
+
+.assessment-item-row:last-child {
+    border-bottom: none;
+}
+
+.assessment-item-row:hover {
+    background-color: #f8fafc;
+}
+
+.assessment-score-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.assessment-summary-strip {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #d1fae5;
+    border-radius: 12px;
+}
