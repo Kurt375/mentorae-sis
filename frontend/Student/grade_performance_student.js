@@ -965,29 +965,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function renderAssessmentItemList(items, containerId) {
+    function renderAssessmentItemList(items, containerId, footerId) {
         const el = document.getElementById(containerId);
         if (!el) return;
         if (!items || !items.length) {
             el.innerHTML = '<div class="p-3 text-center text-muted micro-text">No scores recorded yet.</div>';
+            const footerEl = document.getElementById(footerId);
+            if (footerEl) footerEl.innerHTML = '<span class="micro-text text-muted">No records</span>';
             return;
         }
-        el.innerHTML = items.map(item => `
-            <div class="assessment-item-row d-flex justify-content-between align-items-center">
-                <div style="min-width: 110px;">
-                    <div class="fw-bold text-dark small mb-0.5">${escapeHtml(item.label)}</div>
-                    <div class="micro-text text-muted">Score: <strong>${item.score}</strong> / ${item.max}</div>
-                </div>
-                <div class="d-flex align-items-center gap-2 flex-grow-1 justify-content-end">
-                    <div class="progress flex-grow-1 d-none d-sm-block" style="height: 6px; max-width: 80px;">
-                        <div class="progress-bar ${item.isPassing ? 'bg-success' : 'bg-danger'}" style="width: ${Math.min(100, item.pct)}%;"></div>
+
+        const totalScore = items.reduce((sum, item) => sum + Number(item.score || 0), 0);
+        const totalMax = items.reduce((sum, item) => sum + Number(item.max || 0), 0);
+        const avgPct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+
+        el.innerHTML = items.map(item => {
+            let badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
+            let barColor = 'bg-danger';
+            if (item.pct >= 75) {
+                badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+                barColor = 'bg-success';
+            } else if (item.pct >= 60) {
+                badgeClass = 'bg-warning-subtle text-warning border border-warning-subtle';
+                barColor = 'bg-warning';
+            }
+
+            return `
+                <div class="assessment-item-row d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="item-tag-pill fw-bold text-dark bg-light border px-2 py-0.5 rounded">${escapeHtml(item.label)}</span>
+                        <span class="micro-text text-muted">Score: <strong class="text-dark">${item.score}</strong> / ${item.max}</span>
                     </div>
-                    <span class="assessment-score-badge ${item.isPassing ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'}">
-                        ${item.pct}%
-                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="progress d-none d-sm-block" style="width: 50px; height: 5px; border-radius: 4px;">
+                            <div class="progress-bar ${barColor}" style="width: ${Math.min(100, item.pct)}%;"></div>
+                        </div>
+                        <span class="badge ${badgeClass} micro-text fw-bold px-2 py-1 rounded-pill" style="min-width: 44px; text-align: center;">
+                            ${item.pct}%
+                        </span>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+
+        const footerEl = document.getElementById(footerId);
+        if (footerEl) {
+            const isPassing = avgPct >= 75;
+            footerEl.innerHTML = `
+                <span>Total: <strong class="text-dark">${totalScore}</strong> / ${totalMax} pts</span>
+                <span>Average: <strong class="${isPassing ? 'text-success' : (avgPct >= 60 ? 'text-warning' : 'text-danger')}">${avgPct}%</strong></span>
+            `;
+        }
     }
 
     function wireAssessmentModalEvents() {
@@ -1032,19 +1060,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             metaEl.textContent = `${g.subject} (${g.term || '1st Term'}) • Teacher: ${g.teacherName || 'Assigned Teacher'}`;
         }
 
+        function getScoreTextColor(pct) {
+            if (pct >= 75) return 'text-success';
+            if (pct >= 60) return 'text-warning';
+            return 'text-danger';
+        }
+
+        function getPctBadgeClass(pct) {
+            if (pct >= 75) return 'bg-success-subtle text-success border border-success-subtle';
+            if (pct >= 60) return 'bg-warning-subtle text-warning border border-warning-subtle';
+            return 'bg-danger-subtle text-danger border border-danger-subtle';
+        }
+
         // Summary strip
         const wwScoreEl = document.getElementById('summaryWwScore');
-        if (wwScoreEl) wwScoreEl.textContent = `${breakdown.qPct}%`;
+        if (wwScoreEl) {
+            wwScoreEl.textContent = `${breakdown.qPct}%`;
+            wwScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.qPct)}`;
+        }
         const wwWeightEl = document.getElementById('summaryWwWeight');
         if (wwWeightEl) wwWeightEl.textContent = `Weight: ${breakdown.wwWeight}%`;
 
         const ptScoreEl = document.getElementById('summaryPtScore');
-        if (ptScoreEl) ptScoreEl.textContent = `${breakdown.aPct}%`;
+        if (ptScoreEl) {
+            ptScoreEl.textContent = `${breakdown.aPct}%`;
+            ptScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.aPct)}`;
+        }
         const ptWeightEl = document.getElementById('summaryPtWeight');
         if (ptWeightEl) ptWeightEl.textContent = `Weight: ${breakdown.ptWeight}%`;
 
         const qaScoreEl = document.getElementById('summaryQaScore');
-        if (qaScoreEl) qaScoreEl.textContent = `${breakdown.ePct}%`;
+        if (qaScoreEl) {
+            qaScoreEl.textContent = `${breakdown.ePct}%`;
+            qaScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.ePct)}`;
+        }
         const qaWeightEl = document.getElementById('summaryQaWeight');
         if (qaWeightEl) qaWeightEl.textContent = `Weight: ${breakdown.qaWeight}%`;
 
@@ -1054,17 +1103,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (finalRemarksEl) {
             const passed = g.average !== null && g.average >= 75;
             finalRemarksEl.innerHTML = g.average !== null 
-                ? `<span class="badge ${passed ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} rounded-pill">${escapeHtml(g.remarks || (passed ? 'Passed' : 'Needs Remediation'))}</span>` 
+                ? `<span class="badge ${passed ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} rounded-pill">${escapeHtml(g.remarks || (passed ? 'Passed' : 'Needs Remediation'))}</span>` 
                 : 'Pending';
         }
 
-        // Column Badges & Subtext
+        // Column Badges & Subtext with dynamic color-coding
         const colWwBadge = document.getElementById('colWwBadge');
-        if (colWwBadge) colWwBadge.textContent = `${breakdown.qPct}%`;
+        if (colWwBadge) {
+            colWwBadge.textContent = `${breakdown.qPct}%`;
+            colWwBadge.className = `badge micro-text rounded-pill ${getPctBadgeClass(breakdown.qPct)}`;
+        }
         const colPtBadge = document.getElementById('colPtBadge');
-        if (colPtBadge) colPtBadge.textContent = `${breakdown.aPct}%`;
+        if (colPtBadge) {
+            colPtBadge.textContent = `${breakdown.aPct}%`;
+            colPtBadge.className = `badge micro-text rounded-pill ${getPctBadgeClass(breakdown.aPct)}`;
+        }
         const colQaBadge = document.getElementById('colQaBadge');
-        if (colQaBadge) colQaBadge.textContent = `${breakdown.ePct}%`;
+        if (colQaBadge) {
+            colQaBadge.textContent = `${breakdown.ePct}%`;
+            colQaBadge.className = `badge micro-text rounded-pill ${getPctBadgeClass(breakdown.ePct)}`;
+        }
 
         const dataModeBadge = document.getElementById('assessmentDataModeBadge');
         if (dataModeBadge) {
@@ -1072,10 +1130,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             dataModeBadge.className = `badge micro-text ${breakdown.hasRealRaw ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-light text-secondary border'}`;
         }
 
-        // Render itemized score lists
-        renderAssessmentItemList(breakdown.wwItems, 'assessmentWwList');
-        renderAssessmentItemList(breakdown.ptItems, 'assessmentPtList');
-        renderAssessmentItemList(breakdown.qaItems, 'assessmentQaList');
+        // Render itemized score lists with footers
+        renderAssessmentItemList(breakdown.wwItems, 'assessmentWwList', 'colWwFooter');
+        renderAssessmentItemList(breakdown.ptItems, 'assessmentPtList', 'colPtFooter');
+        renderAssessmentItemList(breakdown.qaItems, 'assessmentQaList', 'colQaFooter');
 
         if (assessmentModalInstance) {
             assessmentModalInstance.show();

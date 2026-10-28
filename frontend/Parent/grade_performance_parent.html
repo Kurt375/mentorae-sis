@@ -855,49 +855,73 @@
                     <!-- Unified View: 3 Columns for WW, PT, QA -->
                     <div class="row g-3" id="assessmentBreakdownColumns">
                         <!-- Written Works Column -->
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-lg-4">
                             <div class="assessment-component-card card-ww">
                                 <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light-subtle rounded-top-3">
-                                    <div>
-                                        <h6 class="fw-bold text-dark m-0 small">Written Works</h6>
-                                        <span class="micro-text text-muted" id="colWwSubtext">WW 1 – WW 5</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-3 p-1.5 bg-success-subtle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="bi bi-pencil-square text-success fs-6"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark m-0 small">Written Works</h6>
+                                            <span class="micro-text text-muted" id="colWwSubtext">WW 1 – WW 5</span>
+                                        </div>
                                     </div>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle micro-text" id="colWwBadge">—%</span>
+                                    <span class="badge micro-text rounded-pill" id="colWwBadge">—%</span>
                                 </div>
                                 <div class="p-0 flex-grow-1" id="assessmentWwList">
                                     <!-- Rendered dynamically -->
+                                </div>
+                                <div class="p-2 px-3 bg-light-subtle border-top d-flex justify-content-between align-items-center micro-text text-muted rounded-bottom-3 mt-auto" id="colWwFooter">
+                                    <!-- Dynamic totals -->
                                 </div>
                             </div>
                         </div>
 
                         <!-- Performance Tasks Column -->
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-lg-4">
                             <div class="assessment-component-card card-pt">
                                 <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light-subtle rounded-top-3">
-                                    <div>
-                                        <h6 class="fw-bold text-dark m-0 small">Performance Tasks</h6>
-                                        <span class="micro-text text-muted" id="colPtSubtext">PT 1 – PT 3</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-3 p-1.5 bg-success-subtle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="bi bi-award text-success fs-6"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark m-0 small">Performance Tasks</h6>
+                                            <span class="micro-text text-muted" id="colPtSubtext">PT 1 – PT 3</span>
+                                        </div>
                                     </div>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle micro-text" id="colPtBadge">—%</span>
+                                    <span class="badge micro-text rounded-pill" id="colPtBadge">—%</span>
                                 </div>
                                 <div class="p-0 flex-grow-1" id="assessmentPtList">
                                     <!-- Rendered dynamically -->
+                                </div>
+                                <div class="p-2 px-3 bg-light-subtle border-top d-flex justify-content-between align-items-center micro-text text-muted rounded-bottom-3 mt-auto" id="colPtFooter">
+                                    <!-- Dynamic totals -->
                                 </div>
                             </div>
                         </div>
 
                         <!-- Quarterly Assessment Column -->
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-lg-4">
                             <div class="assessment-component-card card-qa">
                                 <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light-subtle rounded-top-3">
-                                    <div>
-                                        <h6 class="fw-bold text-dark m-0 small">Quarterly Assessment</h6>
-                                        <span class="micro-text text-muted" id="colQaSubtext">Summatives & Exam</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-3 p-1.5 bg-warning-subtle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="bi bi-file-earmark-check text-warning fs-6"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark m-0 small">Quarterly Assessment</h6>
+                                            <span class="micro-text text-muted" id="colQaSubtext">Summatives & Exam</span>
+                                        </div>
                                     </div>
-                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle micro-text" id="colQaBadge">—%</span>
+                                    <span class="badge micro-text rounded-pill" id="colQaBadge">—%</span>
                                 </div>
                                 <div class="p-0 flex-grow-1" id="assessmentQaList">
                                     <!-- Rendered dynamically -->
+                                </div>
+                                <div class="p-2 px-3 bg-light-subtle border-top d-flex justify-content-between align-items-center micro-text text-muted rounded-bottom-3 mt-auto" id="colQaFooter">
+                                    <!-- Dynamic totals -->
                                 </div>
                             </div>
                         </div>

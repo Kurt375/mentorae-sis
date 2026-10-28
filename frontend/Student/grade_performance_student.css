@@ -405,7 +405,10 @@
 
 /* Assessment Breakdown Modal Styles */
 .assessment-modal-dialog {
-    max-width: 900px;
+    max-width: 1040px;
+    width: 95%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .assessment-pill-btn {
@@ -433,30 +436,36 @@
 
 .assessment-component-card {
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 14px;
     background: #ffffff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     height: 100%;
-    display: flex;
-    flex-column: column;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.assessment-component-card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
 }
 
 .assessment-component-card.card-ww {
-    border-top: 3.5px solid #10b981;
+    border-top: 4px solid #10b981 !important;
 }
 
 .assessment-component-card.card-pt {
-    border-top: 3.5px solid #0a5c2c;
+    border-top: 4px solid #0a5c2c !important;
 }
 
 .assessment-component-card.card-qa {
-    border-top: 3.5px solid #f59e0b;
+    border-top: 4px solid #f59e0b !important;
 }
 
 .assessment-item-row {
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-bottom: 1px solid #f1f5f9;
-    transition: background-color 0.1s ease;
+    transition: background-color 0.15s ease;
 }
 
 .assessment-item-row:last-child {
@@ -465,6 +474,12 @@
 
 .assessment-item-row:hover {
     background-color: #f8fafc;
+}
+
+.item-tag-pill {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
 }
 
 .assessment-score-badge {
@@ -477,5 +492,5 @@
 .assessment-summary-strip {
     background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
     border: 1px solid #d1fae5;
-    border-radius: 12px;
+    border-radius: 14px;
 }
