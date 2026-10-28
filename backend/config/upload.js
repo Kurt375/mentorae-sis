@@ -43,8 +43,11 @@ const ALLOWED_MIME_TYPES = new Set([
   'text/plain',
 ]);
 
+const FORBIDDEN_EXTENSIONS = new Set(['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar']);
+
 function fileFilter(req, file, cb) {
-  if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+  const ext = path.extname(file.originalname || '').replace('.', '').toLowerCase();
+  if (FORBIDDEN_EXTENSIONS.has(ext) || !ALLOWED_MIME_TYPES.has(file.mimetype)) {
     return cb(new Error('Unsupported file type. Allowed: PDF, Word, PowerPoint, Excel, images, or plain text.'));
   }
   cb(null, true);

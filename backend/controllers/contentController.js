@@ -42,6 +42,23 @@ function getMimeType(fileName = '', fallback = 'application/octet-stream') {
   return map[ext] || fallback;
 }
 
+const ALLOWED_CONTENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers']);
+const FORBIDDEN_CONTENT_EXTENSIONS = new Set(['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar']);
+
+function validateContentFiles(files) {
+  if (!Array.isArray(files)) return null;
+  for (const file of files) {
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    if (ext === 'pptx' || ext === 'ppt') {
+      return 'Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.';
+    }
+    if (!ALLOWED_CONTENT_EXTENSIONS.has(ext) || FORBIDDEN_CONTENT_EXTENSIONS.has(ext)) {
+      return 'Unsupported file type. Please upload a valid document or media file (PDF, Word, image, or video).';
+    }
+  }
+  return null;
+}
+
 function sendFileBuffer(req, res, buffer, fileName, mimeType) {
   const range = req.headers.range;
   res.setHeader('Accept-Ranges', 'bytes');
@@ -284,16 +301,11 @@ async function createTopic(req, res) {
     }
     subjectId = resolvedSubjectId;
 
-    // Disallow PowerPoint uploads to preserve storage and ensure mobile compatibility
+    // Disallow unsupported file types and PowerPoint presentations
     if (contentPayload && Array.isArray(contentPayload.files)) {
-      for (const file of contentPayload.files) {
-        const ext = (file.name || '').split('.').pop().toLowerCase();
-        if (ext === 'pptx' || ext === 'ppt') {
-          return res.status(400).json({
-            success: false,
-            message: 'PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
-          });
-        }
+      const errorMsg = validateContentFiles(contentPayload.files);
+      if (errorMsg) {
+        return res.status(400).json({ success: false, message: errorMsg });
       }
     }
 
@@ -446,14 +458,9 @@ async function updateTopic(req, res) {
     }
 
     if (finalPayload && Array.isArray(finalPayload.files)) {
-      for (const file of finalPayload.files) {
-        const ext = (file.name || '').split('.').pop().toLowerCase();
-        if (ext === 'pptx' || ext === 'ppt') {
-          return res.status(400).json({
-            success: false,
-            message: 'PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
-          });
-        }
+      const errorMsg = validateContentFiles(finalPayload.files);
+      if (errorMsg) {
+        return res.status(400).json({ success: false, message: errorMsg });
       }
     }
 
@@ -975,16 +982,11 @@ async function createTopicRequest(req, res) {
       return res.status(400).json({ success: false, message: 'Valid subject is required.' });
     }
 
-    // Disallow PowerPoint uploads to preserve storage and ensure mobile compatibility
+    // Disallow unsupported file types and PowerPoint presentations
     if (contentPayload && Array.isArray(contentPayload.files)) {
-      for (const file of contentPayload.files) {
-        const ext = (file.name || '').split('.').pop().toLowerCase();
-        if (ext === 'pptx' || ext === 'ppt') {
-          return res.status(400).json({
-            success: false,
-            message: 'PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.'
-          });
-        }
+      const errorMsg = validateContentFiles(contentPayload.files);
+      if (errorMsg) {
+        return res.status(400).json({ success: false, message: errorMsg });
       }
     }
 

@@ -1740,6 +1740,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 addStagedTopicBtn.innerHTML = `<i class="bi bi-plus-lg me-1"></i> Add This Topic`;
                 return;
             }
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            const allowedExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
+            const forbiddenExts = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
+            if (ext === 'ppt' || ext === 'pptx') {
+                alert('Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted. Please export or save your PowerPoint presentation as a PDF and upload the PDF version instead.');
+                fileInput.value = '';
+                addStagedTopicBtn.disabled = false;
+                addStagedTopicBtn.innerHTML = `<i class="bi bi-plus-lg me-1"></i> Add This Topic`;
+                return;
+            }
+            if (!allowedExts.includes(ext) || forbiddenExts.includes(ext)) {
+                alert('Unsupported file type. Please upload a valid document or media file (PDF, Word, image, or video).');
+                fileInput.value = '';
+                addStagedTopicBtn.disabled = false;
+                addStagedTopicBtn.innerHTML = `<i class="bi bi-plus-lg me-1"></i> Add This Topic`;
+                return;
+            }
             file = await optimizePresentationIfEligible(file);
             if (file.size > 35 * 1024 * 1024) {
                 alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);

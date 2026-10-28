@@ -2456,8 +2456,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const needsContentValidation = isEditingRec || isCreatingNew;
 
         if (needsContentValidation) {
-            if (selectedResources.includes('File') && newTopicRequestContent.files.length === 0) {
-                return alert('Please upload a file for the "File" resource before submitting.');
+            if (selectedResources.includes('File')) {
+                if (newTopicRequestContent.files.length === 0) {
+                    return alert('Please upload a file for the "File" resource before submitting.');
+                }
+                for (const f of newTopicRequestContent.files) {
+                    const check = validateResourceFile(f);
+                    if (!check.valid) {
+                        return alert(check.message);
+                    }
+                }
             }
             if (selectedResources.includes('Practice Quiz') && newTopicRequestContent.quiz.length === 0) {
                 return alert('Please add at least one question for the "Practice Quiz" resource before submitting.');
@@ -2649,44 +2657,94 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>`).join('')}</div>`;
     }
+    const ALLOWED_RESOURCE_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
+    const FORBIDDEN_RESOURCE_EXTENSIONS = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
+
+    function validateResourceFile(file) {
+        if (!file) return { valid: false, message: 'No file selected.' };
+        if (file.size === 0) {
+            return {
+                valid: false,
+                message: 'The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.'
+            };
+        }
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        if (ext === 'ppt' || ext === 'pptx') {
+            return {
+                valid: false,
+                message: 'Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!'
+            };
+        }
+        if (!ALLOWED_RESOURCE_EXTENSIONS.includes(ext) || FORBIDDEN_RESOURCE_EXTENSIONS.includes(ext)) {
+            return {
+                valid: false,
+                message: 'Unsupported file type. Please upload a valid document or media file (PDF, Word, image, or video).'
+            };
+        }
+        return { valid: true, ext };
+    }
+
     const requestFileInputEl = document.getElementById('requestFileInput');
     if (requestFileInputEl) {
         requestFileInputEl.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             if (file) {
-                const ext = (file.name || '').split('.').pop().toLowerCase();
-                if (ext === 'ppt' || ext === 'pptx') {
+                const check = validateResourceFile(file);
+                if (!check.valid) {
                     e.target.value = '';
-                    alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
+                    alert(check.message);
                 }
             }
         });
     }
 
-    document.getElementById('requestFileUploadForm').addEventListener('submit', async e => {
-        e.preventDefault();
-        const fileInput = document.getElementById('requestFileInput');
-        if (fileInput.files.length === 0) return;
-        let file = fileInput.files[0];
-        if (!file || file.size === 0) {
-            alert('The selected file appears to be empty or has not finished downloading from iCloud / Cloud Storage. Please open it on your device first so it downloads locally, then try uploading again.');
-            fileInput.value = '';
-            return;
-        }
+    const requestFileUploadFormEl = document.getElementById('requestFileUploadForm');
+    if (requestFileUploadFormEl) {
+        const dropCard = requestFileUploadFormEl.closest('.card') || requestFileUploadFormEl;
+        ['dragenter', 'dragover'].forEach(name => {
+            dropCard.addEventListener(name, (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                dropCard.classList.add('border-primary');
+            });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+            dropCard.addEventListener(name, (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                dropCard.classList.remove('border-primary');
+            });
+        });
+        dropCard.addEventListener('drop', (ev) => {
+            const dt = ev.dataTransfer;
+            const files = dt?.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                const check = validateResourceFile(file);
+                if (!check.valid) {
+                    if (requestFileInputEl) requestFileInputEl.value = '';
+                    alert(check.message);
+                    return;
+                }
+                try {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    if (requestFileInputEl) requestFileInputEl.files = dataTransfer.files;
+                } catch (_) {}
+            }
+        });
 
-        const ext = (file.name || '').split('.').pop().toLowerCase();
-        if (ext === 'ppt' || ext === 'pptx') {
-            alert('PowerPoint presentations (.pptx, .ppt) are restricted to ensure fast performance and mobile compatibility for students.\n\nPlease export or save your PowerPoint presentation as a PDF (File > Save As / Export to PDF) and upload the PDF version instead!');
-            fileInput.value = '';
-            return;
-        }
-
-        const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
-        if (!allowedExtensions.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
-            alert('Unsupported file type. Please upload a valid document or media file (PDF, Word, image, or video).');
-            fileInput.value = '';
-            return;
-        }
+        requestFileUploadFormEl.addEventListener('submit', async e => {
+            e.preventDefault();
+            const fileInput = document.getElementById('requestFileInput');
+            if (fileInput.files.length === 0) return;
+            let file = fileInput.files[0];
+            const check = validateResourceFile(file);
+            if (!check.valid) {
+                fileInput.value = '';
+                alert(check.message);
+                return;
+            }
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
@@ -2767,6 +2825,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    }
 
     document.getElementById('requestFilesContainer').addEventListener('click', e => {
         const delBtn = e.target.closest('.delete-request-file');
@@ -3313,6 +3372,12 @@ document.addEventListener('DOMContentLoaded', () => {
         fcFileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                fcFileInput.value = '';
+                alert('Unsupported file type. Please upload an Excel (.xlsx, .xls) or CSV file.');
+                return;
+            }
             try {
                 const rows = await readSpreadsheetRows(file);
                 fileFcParsedCache = parseFlashcardsFromSheetRows(rows);
@@ -3334,7 +3399,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error('Error parsing flashcards file:', err);
-                alert('Could not read the spreadsheet file. Please ensure it is a valid .xlsx or .csv file.');
+                fcFileInput.value = '';
+                alert('Unsupported file type or damaged file. Please ensure it is a valid .xlsx or .csv file.');
             }
         });
     }
@@ -3463,6 +3529,12 @@ document.addEventListener('DOMContentLoaded', () => {
         quizFileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                quizFileInput.value = '';
+                alert('Unsupported file type. Please upload an Excel (.xlsx, .xls) or CSV file.');
+                return;
+            }
             try {
                 const rows = await readSpreadsheetRows(file);
                 fileQuizParsedCache = parseQuizFromSheetRows(rows);
@@ -3488,7 +3560,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error('Error parsing quiz file:', err);
-                alert('Could not read the spreadsheet file. Please ensure it is a valid .xlsx or .csv file.');
+                quizFileInput.value = '';
+                alert('Unsupported file type or damaged file. Please ensure it is a valid .xlsx or .csv file.');
+            }
+        });
+    }
+
+    const quizDropZoneEl = document.getElementById('quizDropZone');
+    if (quizDropZoneEl) {
+        ['dragenter', 'dragover'].forEach(n => quizDropZoneEl.addEventListener(n, e => { e.preventDefault(); e.stopPropagation(); quizDropZoneEl.classList.add('border-primary'); }));
+        ['dragleave', 'drop'].forEach(n => quizDropZoneEl.addEventListener(n, e => { e.preventDefault(); e.stopPropagation(); quizDropZoneEl.classList.remove('border-primary'); }));
+        quizDropZoneEl.addEventListener('drop', (e) => {
+            const file = e.dataTransfer?.files?.[0];
+            if (file) {
+                const ext = (file.name || '').split('.').pop().toLowerCase();
+                if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                    if (quizFileInput) quizFileInput.value = '';
+                    alert('Unsupported file type. Please upload an Excel (.xlsx, .xls) or CSV file.');
+                    return;
+                }
+                try {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    if (quizFileInput) {
+                        quizFileInput.files = dt.files;
+                        quizFileInput.dispatchEvent(new Event('change'));
+                    }
+                } catch (_) {}
             }
         });
     }

@@ -1073,9 +1073,20 @@
                 for (let file of files) {
                     const promise = (async () => {
                         const ext = (file.name || '').split('.').pop().toLowerCase();
-                        const allowedExts = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp'];
-                        if (!allowedExts.includes(ext) || ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1'].includes(ext)) {
-                            alert(`Unsupported file type for "${file.name}". Please upload a PDF, Office document, text file, or image.`);
+                        const allowedExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'webp', 'mp4', 'webm', 'heic', 'heif', 'key', 'pages', 'numbers'];
+                        const forbiddenExts = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
+
+                        if (ext === 'ppt' || ext === 'pptx') {
+                            alert('Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted. Please export or save your PowerPoint presentation as a PDF and upload the PDF version instead.');
+                            const input = document.getElementById('fileUploadInput');
+                            if (input) input.value = '';
+                            return null;
+                        }
+
+                        if (!allowedExts.includes(ext) || forbiddenExts.includes(ext)) {
+                            alert('Unsupported file type. Please upload a PDF, Office document, text file, image, or video.');
+                            const input = document.getElementById('fileUploadInput');
+                            if (input) input.value = '';
                             return null;
                         }
 
@@ -1132,7 +1143,24 @@
             const browseFilesBtn = document.getElementById('browseFilesBtn');
             const fileUploadInput = document.getElementById('fileUploadInput');
             browseFilesBtn.addEventListener('click', () => fileUploadInput.click());
-            fileUploadInput.addEventListener('change', (e) => handleFileUpload(e.target.files));
+            fileUploadInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleFileUpload(e.target.files);
+                }
+                e.target.value = '';
+            });
+
+            const dropZone = document.getElementById('dropZone');
+            if (dropZone) {
+                ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, ev => { ev.preventDefault(); ev.stopPropagation(); dropZone.classList.add('border-primary'); }));
+                ['dragleave', 'drop'].forEach(n => dropZone.addEventListener(n, ev => { ev.preventDefault(); ev.stopPropagation(); dropZone.classList.remove('border-primary'); }));
+                dropZone.addEventListener('drop', (ev) => {
+                    const dt = ev.dataTransfer;
+                    if (dt && dt.files && dt.files.length > 0) {
+                        handleFileUpload(dt.files);
+                    }
+                });
+            }
 
             document.getElementById('fileList').addEventListener('click', (e) => {
                 const deleteBtn = e.target.closest('.delete-file-btn');
