@@ -418,8 +418,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <div class="mb-3">
                                         <input type="number"
                                             class="form-control target-goal-input text-center mx-auto"
-                                            placeholder="Grade Goal" min="75" max="100" value="${defaultGoal}"
-                                            id="goal-input-${g.subjectId}">
+                                            placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="${defaultGoal}"
+                                            id="goal-input-${g.subjectId}"
+                                            onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                            oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}">
                                     </div>
                                     <button type="button"
                                         class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
@@ -499,11 +501,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const inputId = btn.getAttribute('data-target-input');
                 const targetInput = document.getElementById(inputId);
                 const rawVal = targetInput ? targetInput.value.trim() : '';
-                const goalNum = parseFloat(rawVal);
+                const goalNum = parseInt(rawVal, 10);
 
                 if (!rawVal || isNaN(goalNum) || goalNum < 0 || goalNum > 100) {
                     alert('The target grade must be a number from 0 to 100.');
-                    if (targetInput) targetInput.focus();
+                    if (targetInput) {
+                        targetInput.value = isNaN(goalNum) ? '75' : String(Math.min(100, Math.max(0, goalNum)));
+                        targetInput.focus();
+                    }
                     return;
                 }
 
@@ -511,6 +516,85 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
     }
+
+    // Strict 0-100 real-time input enforcement for all Target Grade Calculator inputs
+    document.addEventListener('keydown', (e) => {
+        const input = e.target.closest && e.target.closest('.target-goal-input');
+        if (!input) return;
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const panel = input.closest('.calculator-panel');
+            const checkBtn = panel ? panel.querySelector('.btn-check-target') : null;
+            if (checkBtn) checkBtn.click();
+            return;
+        }
+
+        // Prevent negative signs, plus signs, scientific notation, and decimal points
+        if (['-', '+', 'e', 'E', '.'].includes(e.key)) {
+            e.preventDefault();
+            return;
+        }
+
+        // Allow navigation/editing keys
+        if (e.ctrlKey || e.metaKey || e.altKey || [
+            'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End'
+        ].includes(e.key)) {
+            return;
+        }
+
+        // For digit keys 0-9: immediately block if resulting integer would exceed 100
+        if (/^[0-9]$/.test(e.key)) {
+            const val = input.value || '';
+            const start = input.selectionStart ?? val.length;
+            const end = input.selectionEnd ?? val.length;
+            const nextStr = val.slice(0, start) + e.key + val.slice(end);
+            const nextNum = parseInt(nextStr, 10);
+
+            if (!isNaN(nextNum) && nextNum > 100) {
+                e.preventDefault();
+                input.value = '100';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        } else {
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('input', (e) => {
+        const input = e.target.closest && e.target.closest('.target-goal-input');
+        if (!input) return;
+
+        if (input.value === '') return;
+        const clean = input.value.replace(/\D/g, '');
+        if (clean === '') {
+            input.value = '';
+            return;
+        }
+        let num = parseInt(clean, 10);
+        if (isNaN(num) || num < 0) {
+            input.value = '0';
+        } else if (num > 100) {
+            input.value = '100';
+        } else {
+            input.value = String(num);
+        }
+    });
+
+    document.addEventListener('paste', (e) => {
+        const input = e.target.closest && e.target.closest('.target-goal-input');
+        if (!input) return;
+
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const clean = text.replace(/\D/g, '');
+        if (!clean) return;
+        let num = parseInt(clean, 10);
+        if (isNaN(num) || num < 0) num = 0;
+        else if (num > 100) num = 100;
+        input.value = String(num);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Render multi-bar/line chart inside expanded subject drawer
     function renderSubjectDrawerChart(g) {
@@ -1221,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (displayGoalScore) displayGoalScore.textContent = Math.round(goalValue);
 
         // Approximate required slider targets
-        const targetNum = Math.min(100, Math.max(75, Math.round(goalValue)));
+        const targetNum = Math.min(100, Math.max(0, Math.round(goalValue)));
         if (sliderPT) sliderPT.value = Math.min(100, targetNum);
         if (sliderWW) sliderWW.value = Math.min(100, targetNum);
         if (sliderExam) sliderExam.value = Math.min(100, targetNum);

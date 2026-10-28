@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <script src="../auth_guard.js"></script>
 
@@ -13,14 +14,16 @@
     <!-- Custom CSS Link -->
     <link rel="stylesheet" href="attendance_parent.css">
 </head>
+
 <body class="dashboard-bg">
 
     <div class="portal-wrapper shadow-sm min-vh-100 d-flex flex-column bg-white">
-        
+
         <!-- Header Ribbon Navbar -->
         <header class="custom-navbar text-white py-3 px-4 d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-3">
-                <a href="dashboard_parent.html" class="text-white text-decoration-none fs-4 link-transition" id="backToDashboardBtn" aria-label="Go Back to Parent Dashboard">
+                <a href="dashboard_parent.html" class="text-white text-decoration-none fs-4 link-transition"
+                    id="backToDashboardBtn" aria-label="Go Back to Parent Dashboard">
                     <i class="bi bi-chevron-left"></i>
                 </a>
                 <div class="bg-white rounded-circle d-flex align-items-center justify-content-center logo-wrap">
@@ -28,7 +31,8 @@
                 </div>
                 <div>
                     <h1 class="m-0 fs-4 fw-bold tracking-wide d-inline-block">Child Attendance</h1>
-                    <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Parental Attendance Monitoring</p>
+                    <p class="m-0 micro-text text-white-50 opacity-75 d-none d-sm-block">Parental Attendance Monitoring
+                    </p>
                 </div>
             </div>
             <div class="text-white text-end dashboard-time">
@@ -39,24 +43,29 @@
 
         <!-- Main Content Area -->
         <main class="container-fluid px-4 py-4 flex-grow-1 workspace-content-fill">
-            
+
             <!-- Student Monitored Context Card -->
             <div class="student-context-banner p-3 mb-4 shadow-sm bg-white">
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+                <div
+                    class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
                     <div class="d-flex align-items-center gap-3">
-                        <div class="avatar-mini-wrap rounded-circle bg-light border border-2 d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0">
+                        <div
+                            class="avatar-mini-wrap rounded-circle bg-light border border-2 d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0">
                             <i class="bi bi-person-fill text-secondary fs-4"></i>
                         </div>
                         <div>
                             <div class="d-flex align-items-center gap-2">
                                 <h2 class="fw-bold m-0 fs-5 text-dark" id="studentHeaderName">Loading student…</h2>
-                                <span class="badge badge-status-empty fw-bold micro-text px-2.5 py-1 rounded-pill" id="studentHeaderStatus">—</span>
+                                <span class="badge badge-status-empty fw-bold micro-text px-2.5 py-1 rounded-pill"
+                                    id="studentHeaderStatus">—</span>
                             </div>
                             <p class="m-0 text-muted small mt-0.5" id="studentHeaderMeta">—</p>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#excuseModal">
+                        <button
+                            class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1.5"
+                            data-bs-toggle="modal" data-bs-target="#excuseModal">
                             <i class="bi bi-file-earmark-text"></i> Submit Excuse Note
                         </button>
                     </div>
@@ -69,7 +78,8 @@
                     <div class="card stat-metric-card border-0 shadow-sm p-3 bg-white">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Total School Days</span>
+                                <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Total
+                                    School Days</span>
                                 <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricTotalDays">—</h2>
                             </div>
                             <div class="text-primary fs-3"><i class="bi bi-calendar3"></i></div>
@@ -80,7 +90,9 @@
                     <div class="card stat-metric-card border-0 shadow-sm p-3 bg-white">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Present Days</span>
+                                <span
+                                    class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Present
+                                    Days</span>
                                 <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricPresentDays">—</h2>
                             </div>
                             <div class="text-success fs-3"><i class="bi bi-check-circle-fill"></i></div>
@@ -91,7 +103,9 @@
                     <div class="card stat-metric-card border-0 shadow-sm p-3 bg-white">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <span class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Attendance Rate</span>
+                                <span
+                                    class="text-muted fw-semibold tiny-text text-uppercase tracking-sm d-block">Attendance
+                                    Rate</span>
                                 <h2 class="fw-bold m-0 fs-2 text-dark mt-1" id="metricAttendanceRate">—</h2>
                             </div>
                             <div class="text-info fs-3"><i class="bi bi-pie-chart-fill"></i></div>
@@ -102,19 +116,25 @@
 
             <!-- Real-time Absence Alert Banner (Conditional) -->
             <section class="absence-alert-banner p-4 mb-4 shadow-sm text-dark d-none" id="absenceAlertBanner">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                <div
+                    class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                     <div class="d-flex align-items-start gap-3">
-                        <div class="bg-danger text-white rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                        <div class="bg-danger text-white rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style="width: 40px; height: 40px;">
                             <i class="bi bi-exclamation-triangle-fill fs-5"></i>
                         </div>
                         <div>
                             <h3 class="h6 fw-bold m-0 text-danger text-uppercase">Attendance Alert Recorded Today</h3>
-                            <p class="m-0 small text-dark mt-1" id="absenceAlertText">Student was marked <strong>Absent</strong> during homeroom check-in.</p>
-                            <small class="text-muted micro-text">If this is an authorized absence, please submit an excuse letter or contact the adviser.</small>
+                            <p class="m-0 small text-dark mt-1" id="absenceAlertText">Student was marked
+                                <strong>Absent</strong> during homeroom check-in.</p>
+                            <small class="text-muted micro-text">If this is an authorized absence, please submit an
+                                excuse letter or contact the adviser.</small>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button type="button" class="btn btn-sm btn-danger fw-bold rounded-pill px-3 py-2 d-inline-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#excuseModal">
+                        <button type="button"
+                            class="btn btn-sm btn-danger fw-bold rounded-pill px-3 py-2 d-inline-flex align-items-center gap-1.5"
+                            data-bs-toggle="modal" data-bs-target="#excuseModal">
                             <i class="bi bi-file-earmark-medical"></i> File Excuse Note
                         </button>
                     </div>
@@ -123,20 +143,24 @@
 
             <!-- Attendance History Table Section -->
             <section class="card border-0 rounded-3 p-4 shadow-sm bg-white mb-4">
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3 border-bottom pb-2">
+                <div
+                    class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3 border-bottom pb-2">
                     <div>
                         <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Attendance Log History</h3>
                         <span class="micro-text text-muted">Daily QR scan and classroom check-in records</span>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" id="filterStatusSelect" style="width: auto;" aria-label="Filter attendance by status">
+                        <select class="form-select form-select-sm" id="filterStatusSelect" style="width: auto;"
+                            aria-label="Filter attendance by status">
                             <option value="all" selected>All Statuses</option>
                             <option value="present">Present</option>
                             <option value="absent">Absent</option>
                             <option value="late">Late</option>
                             <option value="excused">Excused</option>
                         </select>
-                        <button type="button" class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1" id="btnExportLogs">
+                        <button type="button"
+                            class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1"
+                            id="btnExportLogs">
                             <i class="bi bi-download"></i> Export
                         </button>
                     </div>
@@ -163,23 +187,28 @@
 
             <!-- Attendance Summary & Notes Section -->
             <section class="card border-0 rounded-3 p-3 p-md-4 shadow-sm bg-white mb-4">
-                <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Attendance Summary & Notes</h3>
+                <h3 class="h6 fw-bold text-dark text-uppercase tracking-sm mb-3 border-bottom pb-2">Attendance Summary &
+                    Notes</h3>
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
-                        <div class="alert alert-success border-0 shadow-none m-0 p-3 d-flex align-items-start gap-2.5 rounded-3 h-100">
+                        <div
+                            class="alert alert-success border-0 shadow-none m-0 p-3 d-flex align-items-start gap-2.5 rounded-3 h-100">
                             <i class="bi bi-shield-check-fill fs-5 mt-0.5 text-success"></i>
                             <div>
                                 <div class="fw-bold text-xs">Official School Record</div>
-                                <div class="micro-text opacity-90 mt-1" id="attendanceSummaryNote">Live record synchronized with school scanner check-ins.</div>
+                                <div class="micro-text opacity-90 mt-1" id="attendanceSummaryNote">Live record
+                                    synchronized with school scanner check-ins.</div>
                             </div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
-                        <div class="alert alert-warning border-0 shadow-none m-0 p-3 d-flex align-items-start gap-2.5 rounded-3 h-100">
+                        <div
+                            class="alert alert-warning border-0 shadow-none m-0 p-3 d-flex align-items-start gap-2.5 rounded-3 h-100">
                             <i class="bi bi-info-circle-fill fs-5 mt-0.5 text-warning"></i>
                             <div>
                                 <div class="fw-bold text-xs">Absence Policy Reminder</div>
-                                <div class="micro-text opacity-90 mt-1">Excuse letters must be submitted within 3 school days following an absence.</div>
+                                <div class="micro-text opacity-90 mt-1">Excuse letters must be submitted within 3 school
+                                    days following an absence.</div>
                             </div>
                         </div>
                     </div>
@@ -193,7 +222,8 @@
                         <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Filed Excuse Notes</h3>
                         <span class="micro-text text-muted">Track status of submitted absence excuses</span>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#excuseModal">
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3"
+                        data-bs-toggle="modal" data-bs-target="#excuseModal">
                         <i class="bi bi-plus-lg me-1"></i> New Excuse Note
                     </button>
                 </div>
@@ -206,7 +236,8 @@
     </div>
 
     <!-- Excuse Note Modal -->
-    <div class="modal fade" id="excuseModal" tabindex="-1" aria-labelledby="excuseModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal fade" id="excuseModal" tabindex="-1" aria-labelledby="excuseModalLabel" aria-hidden="true"
+        data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
                 <div class="modal-header border-bottom py-3 px-4">
@@ -219,15 +250,18 @@
                     <form id="excuseForm">
                         <div class="mb-3">
                             <label class="form-label text-sm fw-semibold text-dark">Student Name</label>
-                            <input type="text" class="form-control form-control-sm bg-light" id="excuseStudentName" readonly value="Loading…">
+                            <input type="text" class="form-control form-control-sm bg-light" id="excuseStudentName"
+                                readonly value="Loading…">
                         </div>
                         <div class="row g-2 mb-3">
                             <div class="col-6">
-                                <label for="excuseDate" class="form-label text-sm fw-semibold text-dark">Date of Absence</label>
+                                <label for="excuseDate" class="form-label text-sm fw-semibold text-dark">Date of
+                                    Absence</label>
                                 <input type="date" class="form-control form-control-sm" id="excuseDate" required>
                             </div>
                             <div class="col-6">
-                                <label for="excuseReason" class="form-label text-sm fw-semibold text-dark">Primary Reason</label>
+                                <label for="excuseReason" class="form-label text-sm fw-semibold text-dark">Primary
+                                    Reason</label>
                                 <select class="form-select form-select-sm" id="excuseReason" required>
                                     <option value="" disabled selected>Select Reason</option>
                                     <option value="Illness / Medical">Illness / Medical</option>
@@ -239,18 +273,26 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="excuseRemarks" class="form-label text-sm fw-semibold text-dark">Detailed Explanation / Remarks</label>
-                            <textarea class="form-control form-control-sm" id="excuseRemarks" rows="3" placeholder="Please provide specific details regarding the absence..." required></textarea>
+                            <label for="excuseRemarks" class="form-label text-sm fw-semibold text-dark">Detailed
+                                Explanation / Remarks</label>
+                            <textarea class="form-control form-control-sm" id="excuseRemarks" rows="3"
+                                placeholder="Please provide specific details regarding the absence..."
+                                required></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="excuseFile" class="form-label text-sm fw-semibold text-dark">Attach Supporting Document / Proof (Optional)</label>
-                            <input class="form-control form-control-sm" type="file" id="excuseFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp">
+                            <label for="excuseFile" class="form-label text-sm fw-semibold text-dark">Attach Supporting
+                                Document / Proof (Optional)</label>
+                            <input class="form-control form-control-sm" type="file" id="excuseFile"
+                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp">
                             <div class="form-text text-muted micro-text mt-1">
-                                <i class="bi bi-info-circle me-1 text-success"></i>Accepted formats: <strong>PDF, Word (DOC/DOCX), or Image (JPG/PNG/WEBP)</strong>. Max 5MB. Large presentations (PPT) and video files are not allowed.
+                                <i class="bi bi-info-circle me-1 text-success"></i>Accepted formats: <strong>PDF, Word
+                                    (DOC/DOCX), or Image (JPG/PNG/WEBP)</strong>. Max 5MB. Large presentations (PPT) and
+                                video files are not allowed.
                             </div>
                         </div>
                         <div class="d-flex justify-content-end gap-2 mt-4">
-                            <button type="button" class="btn btn-sm btn-light px-3" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-sm btn-light px-3"
+                                data-bs-dismiss="modal">Cancel</button>
                             <button type="submit" class="btn btn-sm btn-success px-4 fw-bold">Submit Note</button>
                         </div>
                     </form>
@@ -265,4 +307,5 @@
     <script src="../session.js"></script>
     <script src="attendance_parent.js"></script>
 </body>
+
 </html>

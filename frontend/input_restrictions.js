@@ -95,13 +95,16 @@
         if (!el || el.tagName !== 'INPUT') return false;
         if (el.dataset.restrict === 'none') return false;
         if (el.dataset.restrict === 'grade' || el.dataset.restrict === 'score') return true;
+        const id = (el.id || '').toLowerCase();
         return (
             el.classList.contains('grade-input-cell') ||
             el.classList.contains('sub-activity-input') ||
             el.classList.contains('hps-input') ||
             el.classList.contains('quiz-grade') ||
             el.classList.contains('activity-grade') ||
-            el.classList.contains('exam-grade')
+            el.classList.contains('exam-grade') ||
+            el.classList.contains('target-goal-input') ||
+            id.startsWith('goal-input-')
         );
     }
 
@@ -149,6 +152,23 @@
         let val = el.value;
         if (val === '') return;
 
+        const isTargetGoal = el.classList.contains('target-goal-input') || (el.id && el.id.startsWith('goal-input-'));
+
+        // For target goal inputs, strictly enforce whole integers between 0 and 100
+        if (isTargetGoal) {
+            val = val.replace(/\D/g, '');
+            if (val === '') {
+                el.value = '';
+                return;
+            }
+            let num = parseInt(val, 10);
+            if (isNaN(num) || num < 0) val = '0';
+            else if (num > 100) val = '100';
+            else val = String(num);
+            if (el.value !== val) el.value = val;
+            return;
+        }
+
         // Allow typing negative or extra decimals momentarily, but strip non-numeric/non-decimal
         val = val.replace(/[^0-9.]/g, '');
         // Ensure at most one decimal point
@@ -162,10 +182,11 @@
         }
 
         const max = parseFloat(el.getAttribute('max') || '100');
+        const min = parseFloat(el.getAttribute('min') || '0');
         const num = parseFloat(val);
         if (!isNaN(num)) {
             if (num > max) val = String(max);
-            if (num < 0) val = '0';
+            if (num < min) val = String(min);
         }
 
         if (el.value !== val) el.value = val;
@@ -186,6 +207,25 @@
             sanitizeOtp(target);
         } else if (isGradeField(target)) {
             sanitizeGrade(target);
+        }
+    }, true);
+
+    // Intercept paste on target goal inputs to enforce clean 0-100 values
+    document.addEventListener('paste', (e) => {
+        const target = e.target;
+        if (!target || target.tagName !== 'INPUT') return;
+
+        const isTargetGoal = target.classList.contains('target-goal-input') || (target.id && target.id.startsWith('goal-input-'));
+        if (isTargetGoal) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+            const clean = text.replace(/\D/g, '');
+            if (!clean) return;
+            let num = parseInt(clean, 10);
+            if (isNaN(num) || num < 0) num = 0;
+            else if (num > 100) num = 100;
+            target.value = String(num);
+            target.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }, true);
 
@@ -215,12 +255,33 @@
             }
         }
 
-        // 3. Grades: block non-numeric except a single decimal point
+        // 3. Grades: block negative signs, exponential, symbols and cap excess digits at 100
         if (isGradeField(target)) {
+            const isTargetGoal = target.classList.contains('target-goal-input') || (target.id && target.id.startsWith('goal-input-'));
+            if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') {
+                e.preventDefault();
+                return;
+            }
             if (e.key === '.') {
-                if (target.value.includes('.')) e.preventDefault();
+                if (isTargetGoal || target.value.includes('.')) {
+                    e.preventDefault();
+                    return;
+                }
             } else if (e.key.length === 1 && !/^\d$/.test(e.key)) {
                 e.preventDefault();
+                return;
+            } else if (isTargetGoal && /^\d$/.test(e.key)) {
+                const val = target.value || '';
+                const start = target.selectionStart ?? val.length;
+                const end = target.selectionEnd ?? val.length;
+                const nextValStr = val.slice(0, start) + e.key + val.slice(end);
+                const nextNum = parseInt(nextValStr, 10);
+                if (!isNaN(nextNum) && nextNum > 100) {
+                    e.preventDefault();
+                    target.value = '100';
+                    target.dispatchEvent(new Event('input', { bubbles: true }));
+                    return;
+                }
             }
         }
     }, true);
@@ -363,7 +424,13 @@
             } else if (isMiddleInitialField(input)) {
                 input.setAttribute('maxlength', '3');
             } else if (isGradeField(input)) {
-                input.setAttribute('inputmode', 'decimal');
+                const isTargetGoal = input.classList.contains('target-goal-input') || (input.id && input.id.startsWith('goal-input-'));
+                input.setAttribute('inputmode', isTargetGoal ? 'numeric' : 'decimal');
+                if (isTargetGoal) {
+                    input.setAttribute('maxlength', '3');
+                    input.setAttribute('min', '0');
+                    input.setAttribute('max', '100');
+                }
             }
         });
     }

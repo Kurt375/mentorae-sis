@@ -266,7 +266,9 @@
                                         <div class="mb-3">
                                             <input type="number"
                                                 class="form-control target-goal-input text-center mx-auto"
-                                                placeholder="Grade Goal" min="75" max="100" value="96"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="96"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                                oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}"
                                                 id="goal-input-eapp">
                                         </div>
                                         <button type="button"
@@ -315,7 +317,9 @@
                                         <div class="mb-3">
                                             <input type="number"
                                                 class="form-control target-goal-input text-center mx-auto"
-                                                placeholder="Grade Goal" min="75" max="100" value="95"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="95"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                                oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}"
                                                 id="goal-input-genphy1">
                                         </div>
                                         <button type="button"
@@ -364,7 +368,9 @@
                                         <div class="mb-3">
                                             <input type="number"
                                                 class="form-control target-goal-input text-center mx-auto"
-                                                placeholder="Grade Goal" min="75" max="100" value="94"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="94"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                                oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}"
                                                 id="goal-input-genchem1">
                                         </div>
                                         <button type="button"
@@ -413,7 +419,9 @@
                                         <div class="mb-3">
                                             <input type="number"
                                                 class="form-control target-goal-input text-center mx-auto"
-                                                placeholder="Grade Goal" min="75" max="100" value="92"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="92"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                                oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}"
                                                 id="goal-input-genbio1">
                                         </div>
                                         <button type="button"
@@ -463,7 +471,9 @@
                                         <div class="mb-3">
                                             <input type="number"
                                                 class="form-control target-goal-input text-center mx-auto"
-                                                placeholder="Grade Goal" min="75" max="100" value="96"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="96"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                                oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}">
                                                 id="goal-input-iphp">
                                         </div>
                                         <button type="button"
@@ -512,7 +522,9 @@
                                         <div class="mb-3">
                                             <input type="number"
                                                 class="form-control target-goal-input text-center mx-auto"
-                                                placeholder="Grade Goal" min="75" max="100" value="98"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="98"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
+                                                oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}">
                                                 id="goal-input-pe">
                                         </div>
                                         <button type="button"
@@ -731,19 +743,19 @@
                     <div class="d-flex flex-column gap-3 mb-4 px-2">
                         <div>
                             <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderPtLabel">Goal Adjustment: Performance Task</label>
-                            <input type="range" class="form-range custom-green-range" id="sliderPT" min="70" max="100"
+                            <input type="range" class="form-range custom-green-range" id="sliderPT" min="0" max="100"
                                 value="98">
                         </div>
 
                         <div>
                             <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderWwLabel">Goal Adjustment: Written Work</label>
-                            <input type="range" class="form-range custom-green-range" id="sliderWW" min="70" max="100"
+                            <input type="range" class="form-range custom-green-range" id="sliderWW" min="0" max="100"
                                 value="95">
                         </div>
 
                         <div>
                             <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderExamLabel">Goal Adjustment: Quarterly Assessment</label>
-                            <input type="range" class="form-range custom-green-range" id="sliderExam" min="70" max="100"
+                            <input type="range" class="form-range custom-green-range" id="sliderExam" min="0" max="100"
                                 value="94">
                         </div>
                     </div>
