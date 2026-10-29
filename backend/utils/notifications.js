@@ -10,21 +10,24 @@ const pool = require('../config/db');
  * @param {string} opts.title
  * @param {string} opts.message
  * @param {number|null} [opts.relatedStudentId]
+ * @param {boolean} [opts.skipEmail] - If true, skip background email dispatch
  */
 async function notify(optsOrRecipientId, maybeOpts = {}) {
-  let recipientId, type, title, message, relatedStudentId;
+  let recipientId, type, title, message, relatedStudentId, skipEmail;
   if (typeof optsOrRecipientId === 'object' && optsOrRecipientId !== null) {
     recipientId = optsOrRecipientId.recipientId;
     type = optsOrRecipientId.type || 'general';
     title = optsOrRecipientId.title;
     message = optsOrRecipientId.message;
     relatedStudentId = optsOrRecipientId.relatedStudentId !== undefined ? optsOrRecipientId.relatedStudentId : (optsOrRecipientId.related_student_id ?? null);
+    skipEmail = Boolean(optsOrRecipientId.skipEmail);
   } else {
     recipientId = optsOrRecipientId;
     type = maybeOpts.type || 'general';
     title = maybeOpts.title;
     message = maybeOpts.message;
     relatedStudentId = maybeOpts.relatedStudentId !== undefined ? maybeOpts.relatedStudentId : (maybeOpts.related_student_id ?? null);
+    skipEmail = Boolean(maybeOpts.skipEmail);
   }
 
   if (!recipientId || !title || !message) return;
@@ -104,6 +107,24 @@ async function notify(optsOrRecipientId, maybeOpts = {}) {
        VALUES (?, ?, ?, ?, ?)`,
       [recipientId, type, title, message, studentIdParam]
     );
+
+    // 5. Automatic email notification dispatch for key system alerts
+    const autoEmailTypes = ['password_reset', 'lesson_module_posted', 'topic_approved', 'topic_rejected'];
+    if (autoEmailTypes.includes(type) && !skipEmail) {
+      (async () => {
+        try {
+          const { sendGeneralNotificationEmail } = require('./mailer');
+          await sendGeneralNotificationEmail({
+            recipientId,
+            title,
+            message,
+            type,
+          });
+        } catch (mailErr) {
+          console.error('Background notify email dispatch error:', mailErr.message);
+        }
+      })();
+    }
   } catch (err) {
     // Notifications are best-effort — never let a failed notification insert
     // fail the parent transaction

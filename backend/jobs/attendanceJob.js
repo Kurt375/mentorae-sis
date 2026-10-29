@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const { getManilaDate, getManilaTime, getManilaDayOfWeek } = require('../utils/dateUtils');
 const { getParentIdsForStudent, getAdviserIdsForStudent } = require('../utils/authz');
 const { notify, notifyMany } = require('../utils/notifications');
+const { sendAttendanceEmail } = require('../utils/mailer');
 
 let lastRunDate = null;
 let isJobRunning = false;
@@ -115,6 +116,21 @@ async function runSevenAmAttendanceJob(force = false) {
             relatedStudentId: st.id,
           });
         }
+
+        // 4. Dispatch Email Notification to Student & Linked Parents in background
+        (async () => {
+          try {
+            await sendAttendanceEmail({
+              studentId: st.id,
+              status: 'tardy_warning',
+              date: today,
+              time: '7:00 AM',
+              remarks: '7:00 AM on-time cutoff has passed; subsequent scans will be logged as late-present.',
+            });
+          } catch (e) {
+            console.error('Background 7am job attendance email error:', e.message);
+          }
+        })();
       }
     }
 

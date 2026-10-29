@@ -1,5 +1,7 @@
 const pool = require('../config/db');
-const { canViewStudent, teacherTeachesStudent, teacherTeachesSection } = require('../utils/authz');
+const { canViewStudent, teacherTeachesStudent, teacherTeachesSection, getParentIdsForStudent } = require('../utils/authz');
+const { notify, notifyMany } = require('../utils/notifications');
+const { sendBadgeAwardedEmail } = require('../utils/mailer');
 
 // Badges reserved for automated system distribution (cannot be manually awarded by teachers)
 const SYSTEM_AWARDED_BADGE_IDS = [
@@ -102,6 +104,9 @@ async function awardBadges(req, res) {
       return res.status(400).json({ success: false, message: 'No valid badges selected.' });
     }
 
+    const teacherName = req.user ? `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() : 'Teacher';
+    const badgeNames = catalogRows.map((b) => b.name).join(', ');
+
     for (const sId of cleanStudentIds) {
       for (const badge of catalogRows) {
         await pool.query('INSERT IGNORE INTO student_badges (student_id, badge_id, awarded_by) VALUES (?, ?, ?)', [
@@ -114,9 +119,42 @@ async function awardBadges(req, res) {
           `Awarded "${badge.name}" badge`,
         ]);
       }
-    }
 
-    const badgeNames = catalogRows.map((b) => b.name).join(', ');
+      // 1. In-App Notification for Student
+      await notify({
+        recipientId: sId,
+        type: 'badge_awarded',
+        title: `🎉 Badge Unlocked: ${badgeNames}`,
+        message: `Congratulations! Teacher ${teacherName} awarded you the "${badgeNames}" badge(s). Keep up the great work!`,
+        relatedStudentId: sId,
+        skipEmail: true,
+      });
+
+      // 2. In-App Notification for Linked Parent(s)
+      const parentIds = await getParentIdsForStudent(sId);
+      if (parentIds.length > 0) {
+        await notifyMany(parentIds, {
+          type: 'badge_awarded',
+          title: 'Student Achievement: New Badge Awarded',
+          message: `Your child has been awarded the "${badgeNames}" badge(s) by Teacher ${teacherName}!`,
+          relatedStudentId: sId,
+          skipEmail: true,
+        });
+      }
+
+      // 3. Dispatch celebratory email to Student & Linked Parents in background
+      (async () => {
+        try {
+          await sendBadgeAwardedEmail({
+            studentId: sId,
+            teacherName,
+            badges: catalogRows,
+          });
+        } catch (e) {
+          console.error('Background badge email error:', e.message);
+        }
+      })();
+    }
     const countLabel = cleanStudentIds.length === 1 ? '1 student' : `${cleanStudentIds.length} students`;
     return res.json({
       success: true,

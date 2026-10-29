@@ -61,23 +61,38 @@ async function createAnnouncement(req, res) {
         );
         if (setting && setting.setting_value === '0') return; // Email notifications toggled off
 
-        let userSql = 'SELECT email, personal_email, role FROM users WHERE is_active = 1 ';
+        let userSql = 'SELECT id, email, personal_email, role FROM users WHERE is_active = 1 ';
         const userParams = [];
         if (audience && audience !== 'all') {
-          userSql += 'AND role = ? ';
-          userParams.push(audience);
+          if (audience === 'student' || audience === 'students') {
+            userSql += 'AND (role = "student" OR role = "parent") ';
+          } else {
+            userSql += 'AND role = ? ';
+            userParams.push(audience);
+          }
         }
         const [users] = await pool.query(userSql, userParams);
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const validEmails = new Set();
+        const targetUserIds = [];
         for (const u of users) {
+          targetUserIds.push(u.id);
           if (u.personal_email && emailRegex.test(u.personal_email.trim())) {
             validEmails.add(u.personal_email.trim().toLowerCase());
-          } else if (u.email && emailRegex.test(u.email.trim()) && !u.email.endsWith('.tshs.edu.ph') && !u.email.endsWith('.edu.ph')) {
+          } else if (u.email && emailRegex.test(u.email.trim()) && !u.email.endsWith('.tshs.edu.ph') && !u.email.endsWith('.talisay.shs')) {
             validEmails.add(u.email.trim().toLowerCase());
           }
         }
+
+        // Send In-App Notification to all target audience users
+        const { notifyMany } = require('../utils/notifications');
+        await notifyMany(targetUserIds, {
+          type: 'announcement',
+          title: `Announcement: ${title}`,
+          message: description.length > 120 ? description.slice(0, 117) + '...' : description,
+          skipEmail: true,
+        });
 
         if (validEmails.size > 0) {
           const { sendAnnouncementEmail } = require('../utils/mailer');

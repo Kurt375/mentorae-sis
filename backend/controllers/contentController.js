@@ -3,7 +3,8 @@ const path = require('path');
 const crypto = require('crypto');
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
-const { teacherTeachesSection } = require('../utils/authz');
+const { teacherTeachesSection, getParentIdsForStudent } = require('../utils/authz');
+const { sendInterventionEmail, sendTopicRequestUpdateEmail } = require('../utils/mailer');
 const { notify, notifyMany } = require('../utils/notifications');
 const { convertOfficeToPdf } = require('../utils/documentConverter');
 
@@ -1176,6 +1177,19 @@ async function reviewTopicRequest(req, res) {
         message: `Great news! Your request to add main topic "${request.title}" to ${request.subject_name || 'your subject'} has been approved by the school administrator.`
       });
 
+      (async () => {
+        try {
+          await sendTopicRequestUpdateEmail({
+            teacherId: request.teacher_id,
+            topicTitle: request.title,
+            subjectName: request.subject_name,
+            status: 'approved',
+          });
+        } catch (e) {
+          console.error('Background topic approve email error:', e.message);
+        }
+      })();
+
       return res.json({ success: true, topicId, message: 'Topic request approved.' });
     } else {
       await pool.query(
@@ -1194,6 +1208,20 @@ async function reviewTopicRequest(req, res) {
         title: 'Topic Request Not Approved',
         message: rejectionMsg
       });
+
+      (async () => {
+        try {
+          await sendTopicRequestUpdateEmail({
+            teacherId: request.teacher_id,
+            topicTitle: request.title,
+            subjectName: request.subject_name,
+            status: 'rejected',
+            reason: reason || '',
+          });
+        } catch (e) {
+          console.error('Background topic reject email error:', e.message);
+        }
+      })();
 
       return res.json({ success: true, message: 'Topic request marked as not approved and teacher notified.' });
     }
@@ -2249,6 +2277,38 @@ async function assignLesson(req, res) {
       message: notifMsg,
       relatedStudentId: student.id,
     });
+
+    // 5. Notify Linked Parent(s) in-app
+    const parentIds = await getParentIdsForStudent(student.id);
+    if (parentIds.length > 0) {
+      const parentTitle = isRec ? `New ${subjectName} Recommendation for Your Child` : `Targeted Remedial Lesson Assigned for Your Child`;
+      const parentMsg = note && note.trim()
+        ? `Teacher ${teacherName} assigned ${student.first_name} "${topic.title}": "${note.trim()}".`
+        : `Teacher ${teacherName} assigned ${student.first_name} a targeted learning module: "${topic.title}".`;
+      await notifyMany(parentIds, {
+        type: 'intervention_assigned',
+        title: parentTitle,
+        message: parentMsg,
+        relatedStudentId: student.id,
+        skipEmail: true,
+      });
+    }
+
+    // 6. Dispatch Rich Email to Student & Linked Parents in background
+    (async () => {
+      try {
+        await sendInterventionEmail({
+          studentId: student.id,
+          teacherName,
+          subjectName,
+          topicTitle: topic.title,
+          note: note || '',
+          isRecommendation: isRec,
+        });
+      } catch (e) {
+        console.error('Background intervention email error:', e.message);
+      }
+    })();
 
     return res.json({
       success: true,
