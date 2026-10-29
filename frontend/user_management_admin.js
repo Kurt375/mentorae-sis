@@ -176,8 +176,128 @@ document.addEventListener('DOMContentLoaded', () => {
     let sectionsCache = [];
     let strandsCache = [];
 
+    function buildSectionOptionsHtml(list, selectedId = null) {
+        if (!Array.isArray(list) || !list.length) {
+            return '<option value="">— No sections available —</option>';
+        }
+
+        // Sort by grade_level ASC, strandCode ASC, name ASC
+        const sorted = [...list].sort((a, b) => {
+            if ((a.grade_level || 0) !== (b.grade_level || 0)) {
+                return (a.grade_level || 0) - (b.grade_level || 0);
+            }
+            const strandA = (a.strandCode || a.strand_code || '').toLowerCase();
+            const strandB = (b.strandCode || b.strand_code || '').toLowerCase();
+            if (strandA !== strandB) return strandA.localeCompare(strandB);
+            return (a.name || '').localeCompare(b.name || '');
+        });
+
+        // Group by Grade and Strand
+        const groups = {};
+        sorted.forEach(s => {
+            const grade = s.grade_level ? `Grade ${s.grade_level}` : 'General Grade';
+            const strand = s.strandCode || s.strand_code || 'General Cluster';
+            const strandTitle = s.strandTitle || s.strand_title ? ` (${s.strandTitle || s.strand_title})` : '';
+            const groupKey = `${grade} • ${strand}${strandTitle}`;
+            if (!groups[groupKey]) groups[groupKey] = [];
+            groups[groupKey].push(s);
+        });
+
+        let html = '<option value="">— No section (Unassign) —</option>';
+        for (const [groupLabel, secs] of Object.entries(groups)) {
+            html += `<optgroup label="${escapeHtml(groupLabel)}">`;
+            html += secs.map(s => {
+                const countStr = s.studentCount != null ? ` (${s.studentCount} student${s.studentCount === 1 ? '' : 's'})` : '';
+                const isSel = selectedId && String(s.id) === String(selectedId) ? 'selected' : '';
+                return `<option value="${s.id}" ${isSel}>${escapeHtml(s.name)}${countStr}</option>`;
+            }).join('');
+            html += `</optgroup>`;
+        }
+        return html;
+    }
+
     function sectionOptionsHtml(list) {
-        return list.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        return list.map(s => {
+            const prefix = s.grade_level ? `Grade ${s.grade_level} ` : '';
+            const strand = s.strandCode || s.strand_code ? `[${s.strandCode || s.strand_code}] ` : '';
+            return `<option value="${s.id}">${prefix}${strand}${escapeHtml(s.name)}</option>`;
+        }).join('');
+    }
+
+    function populateAllSectionDropdowns() {
+        const formattedOptions = buildSectionOptionsHtml(sectionsCache);
+
+        // 1. Assign Section Modal
+        const assignSectionSelect = document.getElementById('assignSectionSelect');
+        if (assignSectionSelect) {
+            const currentVal = assignSectionSelect.value;
+            assignSectionSelect.innerHTML = formattedOptions;
+            if (currentVal) assignSectionSelect.value = currentVal;
+        }
+
+        // 2. Manage card Assign Section
+        const manageAssignSectionSelect = document.getElementById('manageAssignSectionSelect');
+        if (manageAssignSectionSelect) {
+            const currentVal = manageAssignSectionSelect.value;
+            manageAssignSectionSelect.innerHTML = formattedOptions;
+            if (currentVal) manageAssignSectionSelect.value = currentVal;
+        }
+
+        // 3. Manage card Section Filter
+        const manageSectionFilter = document.getElementById('manageSectionFilter');
+        if (manageSectionFilter) {
+            const currentVal = manageSectionFilter.value;
+            const plainOptions = sectionsCache.map(s => {
+                const prefix = s.grade_level ? `G${s.grade_level} ` : '';
+                const strand = s.strandCode ? `[${s.strandCode}] ` : '';
+                return `<option value="${s.id}">${prefix}${strand}${escapeHtml(s.name)}</option>`;
+            }).join('');
+            manageSectionFilter.innerHTML = `<option value="">All sections</option>${plainOptions}`;
+            if (currentVal) manageSectionFilter.value = currentVal;
+        }
+
+        // 4. Link Student Filter
+        const linkStudentSecEl = document.getElementById('linkStudentSectionFilter');
+        if (linkStudentSecEl) {
+            const currentVal = linkStudentSecEl.value;
+            const plainOptions = sectionsCache.map(s => `<option value="${s.id}">${s.grade_level ? `G${s.grade_level} ` : ''}${s.strandCode ? `[${s.strandCode}] ` : ''}${escapeHtml(s.name)}</option>`).join('');
+            linkStudentSecEl.innerHTML = `<option value="">Any section</option>${plainOptions}`;
+            if (currentVal) linkStudentSecEl.value = currentVal;
+        }
+
+        // 5. Adviser selects
+        const adviserOptions = sectionsCache.map(s => `<option value="${s.id}">${s.grade_level ? `G${s.grade_level} ` : ''}${s.strandCode ? `[${s.strandCode}] ` : ''}${escapeHtml(s.name)}</option>`).join('');
+        if (userAdviserSectionSelect) {
+            const currentVal = userAdviserSectionSelect.value;
+            userAdviserSectionSelect.innerHTML = `<option value="">— Not an adviser —</option>${adviserOptions}`;
+            if (currentVal) userAdviserSectionSelect.value = currentVal;
+        }
+        const editAdviserSectionSelect = document.getElementById('editAdviserSectionSelect');
+        if (editAdviserSectionSelect) {
+            const currentVal = editAdviserSectionSelect.value;
+            editAdviserSectionSelect.innerHTML = `<option value="">— Not an adviser —</option>${adviserOptions}`;
+            if (currentVal) editAdviserSectionSelect.value = currentVal;
+        }
+
+        refreshPromoteSectionOptions();
+        refreshStudentSections();
+    }
+
+    async function ensureSectionsLoaded(force = false) {
+        if (sectionsCache && sectionsCache.length > 0 && !force) {
+            return sectionsCache;
+        }
+        try {
+            const res = await authedFetch('/api/reference/sections', token);
+            if (res && res.success && Array.isArray(res.sections)) {
+                sectionsCache = res.sections;
+                populateAllSectionDropdowns();
+                return sectionsCache;
+            }
+        } catch (e) {
+            console.error('Failed to load sections reference:', e);
+        }
+        return sectionsCache || [];
     }
 
     function sectionsMatching(strandId, gradeLevel) {
@@ -232,36 +352,46 @@ document.addEventListener('DOMContentLoaded', () => {
     let subjectsCache = [];
 
     async function loadReferenceData() {
-        const [strandsData, sectionsData, subjectsData] = await Promise.all([
-            authedFetch('/api/reference/strands', token),
-            authedFetch('/api/reference/sections', token),
-            authedFetch('/api/reference/subjects', token),
-        ]);
-        if (strandsData.success) {
-            strandsCache = strandsData.strands;
-            const strandOptions = strandsCache.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
-            document.getElementById('manageStrandFilter').innerHTML = `<option value="">All clusters</option>${strandOptions}`;
-            studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Cluster —</option>${strandOptions}`;
-            const parentLinksStrandEl = document.getElementById('parentLinksStrandFilter');
-            if (parentLinksStrandEl) parentLinksStrandEl.innerHTML = `<option value="">All Clusters</option>${strandOptions}`;
+        try {
+            // 1. Load strands
+            try {
+                const strandsData = await authedFetch('/api/reference/strands', token);
+                if (strandsData && strandsData.success && Array.isArray(strandsData.strands)) {
+                    strandsCache = strandsData.strands;
+                    const strandOptions = strandsCache.map(s => `<option value="${s.id}">${s.code} - ${s.title}</option>`).join('');
+                    const mStrand = document.getElementById('manageStrandFilter');
+                    if (mStrand) mStrand.innerHTML = `<option value="">All clusters</option>${strandOptions}`;
+                    if (studentStrandSelect) studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Cluster —</option>${strandOptions}`;
+                    const parentLinksStrandEl = document.getElementById('parentLinksStrandFilter');
+                    if (parentLinksStrandEl) parentLinksStrandEl.innerHTML = `<option value="">All Clusters</option>${strandOptions}`;
+                }
+            } catch (errStrands) {
+                console.error('Failed to load strands reference:', errStrands);
+            }
+
+            // 2. Load sections
+            try {
+                await ensureSectionsLoaded(true);
+            } catch (errSections) {
+                console.error('Failed to load sections reference:', errSections);
+            }
+
+            // 3. Load subjects
+            try {
+                const subjectsData = await authedFetch('/api/reference/subjects', token);
+                if (subjectsData && subjectsData.success && Array.isArray(subjectsData.subjects)) {
+                    subjectsCache = subjectsData.subjects;
+                    const subjectOptions = subjectsCache.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                    const editSubj = document.getElementById('editSubjectsHandledSelect');
+                    if (editSubj) editSubj.innerHTML = subjectOptions;
+                }
+            } catch (errSubjects) {
+                console.error('Failed to load subjects reference:', errSubjects);
+            }
+        } catch (err) {
+            console.error('loadReferenceData error:', err);
         }
-        if (sectionsData.success) {
-            sectionsCache = sectionsData.sections;
-            const allOptions = sectionOptionsHtml(sectionsCache);
-            refreshStudentSections();
-            document.getElementById('assignSectionSelect').innerHTML = `<option value="">— No section —</option>${allOptions}`;
-            const linkStudentSecEl = document.getElementById('linkStudentSectionFilter');
-            if (linkStudentSecEl) linkStudentSecEl.innerHTML = `<option value="">Any section</option>${allOptions}`;
-            document.getElementById('manageSectionFilter').innerHTML = `<option value="">All sections</option>${allOptions}`;
-            document.getElementById('manageAssignSectionSelect').innerHTML = `<option value="">— No section —</option>${allOptions}`;
-            userAdviserSectionSelect.innerHTML = `<option value="">— Not an adviser —</option>${allOptions}`;
-            document.getElementById('editAdviserSectionSelect').innerHTML = `<option value="">— Not an adviser —</option>${allOptions}`;
-            refreshPromoteSectionOptions();
-        }
-        if (subjectsData.success) {
-            subjectsCache = subjectsData.subjects;
-            const subjectOptions = subjectsCache.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            document.getElementById('editSubjectsHandledSelect').innerHTML = subjectOptions;
+        if (subjectsCache.length > 0) {
 
             // Real-time autocomplete for the teacher "Subjects Handled" text field
             const suggestionsEl = document.getElementById('subjectSuggestionsDropdown');
@@ -908,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="px-3 py-2 text-center">
                     <div class="d-inline-flex gap-2 align-items-center">
                         ${u.role === 'student' ? `
-                        <button class="btn btn-link p-0 text-primary fs-5 assign-section-btn" title="Assign Section" data-id="${u.id}">
+                        <button class="btn btn-link p-0 text-primary fs-5 assign-section-btn" title="Assign Section" data-id="${u.id}" data-name="${escapeHtml(name)}" data-idnumber="${escapeHtml(u.id_number || '')}" data-section-id="${u.section_id || ''}" data-section-name="${escapeHtml(u.studentSection || '')}">
                             <i class="bi bi-diagram-3-fill"></i>
                         </button>` : ''}
                         <button class="btn btn-link p-0 text-warning fs-5 reset-default-pw-btn" title="Reset to Default Password (${u.id_number})" data-id="${u.id}" data-name="${name}" data-idnumber="${u.id_number}">
@@ -1127,13 +1257,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Assign/Reassign Section (students only) ---
         tbody.querySelectorAll('.assign-section-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.getElementById('assignSectionUserId').value = btn.dataset.id;
-                document.getElementById('assignSectionSelect').value = '';
+            btn.addEventListener('click', async () => {
+                const userId = btn.dataset.id;
+                const studentName = btn.dataset.name || 'Student';
+                const studentIdNum = btn.dataset.idnumber || '';
+                const currentSectionId = btn.dataset.sectionId || '';
+                const currentSectionName = btn.dataset.sectionName || '';
+
+                await ensureSectionsLoaded();
+
+                document.getElementById('assignSectionUserId').value = userId;
+
+                const bannerEl = document.getElementById('assignSectionStudentBanner');
+                if (bannerEl) {
+                    bannerEl.classList.remove('d-none');
+                    bannerEl.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="micro-text text-muted text-uppercase fw-bold">Student</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Student Account</span>
+                        </div>
+                        <h6 class="fw-bold text-dark m-0 fs-6">${escapeHtml(studentName)}</h6>
+                        <div class="micro-text text-muted mt-1">
+                            ${studentIdNum ? `<span class="font-monospace text-secondary me-2"><i class="bi bi-person-badge me-1"></i>LRN/ID: <strong>${escapeHtml(studentIdNum)}</strong></span>` : ''}
+                            <span>Current: <strong class="${currentSectionName ? 'text-success' : 'text-warning'}">${escapeHtml(currentSectionName || 'No section assigned')}</strong></span>
+                        </div>
+                    `;
+                }
+
                 const noticeEl = document.getElementById('assignSectionBulkNotice');
                 if (noticeEl) noticeEl.classList.add('d-none');
                 const titleEl = document.getElementById('assignSectionModalTitle');
                 if (titleEl) titleEl.textContent = 'Assign Section';
+
+                const assignSelect = document.getElementById('assignSectionSelect');
+                if (assignSelect) {
+                    assignSelect.innerHTML = buildSectionOptionsHtml(sectionsCache, currentSectionId);
+                    if (currentSectionId) {
+                        assignSelect.value = String(currentSectionId);
+                    } else {
+                        assignSelect.value = '';
+                    }
+                }
+
                 showAssignSectionModal();
             });
         });
@@ -1981,7 +2146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Bulk Assign Section
     const btnBulkAssignSectionUsers = document.getElementById('btnBulkAssignSectionUsers');
     if (btnBulkAssignSectionUsers) {
-        btnBulkAssignSectionUsers.addEventListener('click', () => {
+        btnBulkAssignSectionUsers.addEventListener('click', async () => {
             const selectedUsers = Array.from(selectedUserMap.values());
             if (!selectedUsers.length) {
                 alert('Please select at least one user from the table first.');
@@ -1995,8 +2160,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            await ensureSectionsLoaded();
+
             document.getElementById('assignSectionUserId').value = 'bulk';
-            document.getElementById('assignSectionSelect').value = '';
+            
+            const bannerEl = document.getElementById('assignSectionStudentBanner');
+            if (bannerEl) bannerEl.classList.add('d-none');
+
+            const assignSelect = document.getElementById('assignSectionSelect');
+            if (assignSelect) {
+                assignSelect.innerHTML = buildSectionOptionsHtml(sectionsCache);
+                assignSelect.value = '';
+            }
+
             const titleEl = document.getElementById('assignSectionModalTitle');
             if (titleEl) titleEl.textContent = 'Assign Section to Selected Students';
 
