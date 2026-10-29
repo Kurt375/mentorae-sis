@@ -11,7 +11,22 @@ const pool = require('../config/db');
  * @param {string} opts.message
  * @param {number|null} [opts.relatedStudentId]
  */
-async function notify({ recipientId, type, title, message, relatedStudentId = null }) {
+async function notify(optsOrRecipientId, maybeOpts = {}) {
+  let recipientId, type, title, message, relatedStudentId;
+  if (typeof optsOrRecipientId === 'object' && optsOrRecipientId !== null) {
+    recipientId = optsOrRecipientId.recipientId;
+    type = optsOrRecipientId.type || 'general';
+    title = optsOrRecipientId.title;
+    message = optsOrRecipientId.message;
+    relatedStudentId = optsOrRecipientId.relatedStudentId !== undefined ? optsOrRecipientId.relatedStudentId : (optsOrRecipientId.related_student_id ?? null);
+  } else {
+    recipientId = optsOrRecipientId;
+    type = maybeOpts.type || 'general';
+    title = maybeOpts.title;
+    message = maybeOpts.message;
+    relatedStudentId = maybeOpts.relatedStudentId !== undefined ? maybeOpts.relatedStudentId : (maybeOpts.related_student_id ?? null);
+  }
+
   if (!recipientId || !title || !message) return;
   try {
     const studentIdParam = relatedStudentId !== undefined ? relatedStudentId : null;

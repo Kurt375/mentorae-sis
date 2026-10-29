@@ -623,8 +623,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     let assignModalInstance = null;
+    let currentAssignStudent = null;
+
+    async function loadAssignableTopics(student, selectedTopicId = null) {
+        const topicSelect = document.getElementById('assignTopicSelect');
+        const topicMeta = document.getElementById('assignTopicMeta');
+        if (!topicSelect) return;
+
+        topicSelect.innerHTML = '<option value="">Loading topics...</option>';
+        if (topicMeta) topicMeta.textContent = 'Loading available lessons and recommendations...';
+
+        const subjName = (student && student.subjectName) || document.getElementById('assignSubjectName').value || 'General Mathematics';
+
+        try {
+            const params = new URLSearchParams();
+            if (student && student.subjectId) params.append('subjectId', student.subjectId);
+            if (subjName) params.append('subjectName', subjName);
+
+            const res = await authedFetch(`/api/content/assignable-topics?${params.toString()}`, token);
+            if (!res.success || !Array.isArray(res.topics) || res.topics.length === 0) {
+                topicSelect.innerHTML = '<option value="">No approved lessons or recommendations found</option>';
+                if (topicMeta) topicMeta.textContent = 'Use "+ New Recommendation" above to create a recommendation topic.';
+                return;
+            }
+
+            const recTopics = res.topics.filter(t => t.isRecommendation);
+            const lessonTopics = res.topics.filter(t => !t.isRecommendation);
+
+            let optionsHtml = '';
+
+            if (recTopics.length > 0) {
+                optionsHtml += `<optgroup label="⭐ Teacher Recommendations (${recTopics.length})">`;
+                optionsHtml += recTopics.map(t => {
+                    const badges = [
+                        t.hasFiles ? '📄 File' : '',
+                        t.hasQuiz ? '📝 Quiz' : '',
+                        t.hasFlashcards ? '🗂️ Flashcards' : ''
+                    ].filter(Boolean).join(' • ');
+                    const isSelected = selectedTopicId && String(t.id) === String(selectedTopicId) ? 'selected' : '';
+                    return `<option value="${t.id}" data-rec="true" ${isSelected}>⭐ [Recommendation] ${escapeHtml(t.title)} ${badges ? `(${badges})` : ''}</option>`;
+                }).join('');
+                optionsHtml += `</optgroup>`;
+            }
+
+            if (lessonTopics.length > 0) {
+                optionsHtml += `<optgroup label="📖 Subject Lessons (${lessonTopics.length})">`;
+                optionsHtml += lessonTopics.map(t => {
+                    const badges = [
+                        t.hasFiles ? '📄 File' : '',
+                        t.hasQuiz ? '📝 Quiz' : '',
+                        t.hasFlashcards ? '🗂️ Flashcards' : ''
+                    ].filter(Boolean).join(' • ');
+                    const isSelected = selectedTopicId && String(t.id) === String(selectedTopicId) ? 'selected' : '';
+                    return `<option value="${t.id}" data-rec="false" ${isSelected}>📖 ${escapeHtml(t.title)} ${badges ? `(${badges})` : ''}</option>`;
+                }).join('');
+                optionsHtml += `</optgroup>`;
+            }
+
+            topicSelect.innerHTML = optionsHtml;
+
+            if (selectedTopicId) {
+                topicSelect.value = String(selectedTopicId);
+            }
+
+            if (topicMeta) {
+                topicMeta.textContent = `Found ${res.topics.length} topic(s) (${recTopics.length} recommendation(s), ${lessonTopics.length} lesson(s)) for ${subjName}.`;
+            }
+        } catch (err) {
+            console.error('Error fetching assignable topics:', err);
+            topicSelect.innerHTML = '<option value="">Error loading topics</option>';
+            if (topicMeta) topicMeta.textContent = 'Could not load topics.';
+        }
+    }
 
     async function openAssignLessonModal(student) {
+        currentAssignStudent = student;
         const modalEl = document.getElementById('assignLessonModal');
         if (!modalEl) return;
         if (!assignModalInstance) {
@@ -650,38 +723,185 @@ document.addEventListener('DOMContentLoaded', async () => {
             openSubjectLink.href = student.action && student.action.url ? student.action.url : `subject_detail_teacher.html?subject=${encodeURIComponent(subjName)}&from=analytics`;
         }
 
-        const topicSelect = document.getElementById('assignTopicSelect');
-        const topicMeta = document.getElementById('assignTopicMeta');
+        // Reset inline recommendation form
+        const inlineSec = document.getElementById('inlineCreateRecSection');
+        if (inlineSec) inlineSec.classList.add('d-none');
+        const inlineTitle = document.getElementById('inlineRecTitle');
+        if (inlineTitle) inlineTitle.value = '';
+        const inlineDesc = document.getElementById('inlineRecDesc');
+        if (inlineDesc) inlineDesc.value = '';
+        const inlineFile = document.getElementById('inlineRecFile');
+        if (inlineFile) inlineFile.value = '';
+        const fileErr = document.getElementById('inlineRecFileError');
+        if (fileErr) { fileErr.textContent = ''; fileErr.classList.add('d-none'); }
+        const inlineAlert = document.getElementById('inlineRecAlert');
+        if (inlineAlert) inlineAlert.innerHTML = '';
+
         const alertContainer = document.getElementById('assignAlertContainer');
         if (alertContainer) alertContainer.innerHTML = '';
-        if (topicMeta) topicMeta.textContent = 'Loading available lessons...';
 
-        topicSelect.innerHTML = '<option value="">Loading lessons...</option>';
-
-        try {
-            const query = student.subjectId ? `subjectId=${student.subjectId}` : `subjectName=${encodeURIComponent(subjName)}`;
-            const res = await authedFetch(`/api/content/assignable-topics?${query}`, token);
-            if (!res.success || !Array.isArray(res.topics) || res.topics.length === 0) {
-                topicSelect.innerHTML = '<option value="">No approved lessons found for this subject</option>';
-                if (topicMeta) topicMeta.textContent = 'Use "Open Subject Topics" below to add a new lesson first.';
-            } else {
-                topicSelect.innerHTML = res.topics.map(t => {
-                    const badges = [
-                        t.hasFiles ? '📄 File' : '',
-                        t.hasQuiz ? '📝 Quiz' : '',
-                        t.hasFlashcards ? '🗂️ Flashcards' : ''
-                    ].filter(Boolean).join(' • ');
-                    const recPrefix = t.isRecommendation ? '★ ' : '';
-                    return `<option value="${t.id}">${recPrefix}${t.title} ${badges ? `(${badges})` : ''}</option>`;
-                }).join('');
-                if (topicMeta) topicMeta.textContent = `Found ${res.topics.length} available lesson(s) for ${subjName}.`;
-            }
-        } catch (err) {
-            console.error('Error fetching assignable topics:', err);
-            topicSelect.innerHTML = '<option value="">Error loading topics</option>';
-        }
+        await loadAssignableTopics(student);
 
         assignModalInstance.show();
+    }
+
+    // Toggle and wire inline recommendation section
+    const btnToggleCreateRec = document.getElementById('btnToggleCreateRec');
+    const btnCloseInlineRec = document.getElementById('btnCloseInlineRec');
+    const btnCancelInlineRec = document.getElementById('btnCancelInlineRec');
+    const inlineCreateRecSection = document.getElementById('inlineCreateRecSection');
+    const inlineRecFile = document.getElementById('inlineRecFile');
+    const inlineRecFileError = document.getElementById('inlineRecFileError');
+    const btnSaveInlineRec = document.getElementById('btnSaveInlineRec');
+
+    function closeInlineRec() {
+        if (inlineCreateRecSection) inlineCreateRecSection.classList.add('d-none');
+        if (inlineRecFileError) { inlineRecFileError.textContent = ''; inlineRecFileError.classList.add('d-none'); }
+        const inlineAlert = document.getElementById('inlineRecAlert');
+        if (inlineAlert) inlineAlert.innerHTML = '';
+    }
+
+    if (btnToggleCreateRec) {
+        btnToggleCreateRec.addEventListener('click', () => {
+            if (!inlineCreateRecSection) return;
+            const isHidden = inlineCreateRecSection.classList.contains('d-none');
+            if (isHidden) {
+                inlineCreateRecSection.classList.remove('d-none');
+                const titleInput = document.getElementById('inlineRecTitle');
+                if (titleInput) {
+                    titleInput.focus();
+                }
+            } else {
+                closeInlineRec();
+            }
+        });
+    }
+
+    if (btnCloseInlineRec) btnCloseInlineRec.addEventListener('click', closeInlineRec);
+    if (btnCancelInlineRec) btnCancelInlineRec.addEventListener('click', closeInlineRec);
+
+    // Validate file upload for inline recommendation
+    if (inlineRecFile) {
+        inlineRecFile.addEventListener('change', () => {
+            if (inlineRecFileError) {
+                inlineRecFileError.textContent = '';
+                inlineRecFileError.classList.add('d-none');
+            }
+            if (!inlineRecFile.files || !inlineRecFile.files.length) return;
+            const file = inlineRecFile.files[0];
+            const lowerName = (file.name || '').toLowerCase();
+            const disallowed = ['.exe', '.zip', '.rar', '.7z', '.tar', '.gz', '.sh', '.bat', '.cmd', '.msi', '.apk', '.bin', '.iso', '.ppt', '.pptx'];
+            const isDisallowed = disallowed.some(ext => lowerName.endsWith(ext));
+            if (isDisallowed) {
+                inlineRecFile.value = '';
+                if (inlineRecFileError) {
+                    inlineRecFileError.textContent = 'Unsupported file type. PowerPoint presentations (.ppt, .pptx), executables, and compressed archives cannot be uploaded.';
+                    inlineRecFileError.classList.remove('d-none');
+                }
+                return;
+            }
+            if (file.size > 25 * 1024 * 1024) {
+                inlineRecFile.value = '';
+                if (inlineRecFileError) {
+                    inlineRecFileError.textContent = 'File size exceeds 25MB limit.';
+                    inlineRecFileError.classList.remove('d-none');
+                }
+            }
+        });
+    }
+
+    // Save inline recommendation
+    if (btnSaveInlineRec) {
+        btnSaveInlineRec.addEventListener('click', async () => {
+            const titleInput = document.getElementById('inlineRecTitle');
+            const descInput = document.getElementById('inlineRecDesc');
+            const inlineAlert = document.getElementById('inlineRecAlert');
+            const title = titleInput ? titleInput.value.trim() : '';
+            const desc = descInput ? descInput.value.trim() : '';
+
+            if (inlineAlert) inlineAlert.innerHTML = '';
+
+            if (!title) {
+                if (inlineAlert) {
+                    inlineAlert.innerHTML = '<div class="alert alert-warning py-1.5 px-2.5 micro-text rounded-2">Please enter a topic title for the recommendation.</div>';
+                }
+                if (titleInput) titleInput.focus();
+                return;
+            }
+
+            const subjectId = document.getElementById('assignSubjectId').value || (currentAssignStudent ? currentAssignStudent.subjectId : null);
+            const subjectName = document.getElementById('assignSubjectName').value || (currentAssignStudent ? currentAssignStudent.subjectName : '');
+
+            btnSaveInlineRec.disabled = true;
+            btnSaveInlineRec.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+            try {
+                let attachedFileObj = null;
+                if (inlineRecFile && inlineRecFile.files && inlineRecFile.files.length > 0) {
+                    const f = inlineRecFile.files[0];
+                    const base64Data = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(new Error('Failed to read file.'));
+                        reader.readAsDataURL(f);
+                    });
+                    attachedFileObj = {
+                        name: f.name,
+                        type: f.type || 'application/octet-stream',
+                        size: f.size,
+                        dataUrl: base64Data
+                    };
+                }
+
+                const postPayload = {
+                    subjectId: subjectId || undefined,
+                    subjectName: subjectName,
+                    title: title,
+                    description: desc || null,
+                    comment: desc || null,
+                    isRecommendation: true,
+                    color: 'bg-card-green',
+                    contentPayload: {
+                        files: attachedFileObj ? [attachedFileObj] : [],
+                        quizzes: [],
+                        flashcards: []
+                    }
+                };
+
+                const res = await authedFetch('/api/content/topics', token, {
+                    method: 'POST',
+                    body: JSON.stringify(postPayload)
+                });
+
+                if (res && res.success) {
+                    const newTopicId = res.topicId;
+                    closeInlineRec();
+                    if (titleInput) titleInput.value = '';
+                    if (descInput) descInput.value = '';
+                    if (inlineRecFile) inlineRecFile.value = '';
+
+                    // Reload assignable topics and select the newly created recommendation
+                    await loadAssignableTopics(currentAssignStudent || { subjectId, subjectName }, newTopicId);
+
+                    const alertContainer = document.getElementById('assignAlertContainer');
+                    if (alertContainer) {
+                        alertContainer.innerHTML = `<div class="alert alert-success py-2 px-3 small rounded-3 mt-2"><i class="bi bi-check-circle-fill me-1"></i> Recommendation "<strong>${escapeHtml(title)}</strong>" was created and selected in your choices! You can now write teacher instructions and click "Save & Notify Student".</div>`;
+                    }
+                } else {
+                    if (inlineAlert) {
+                        inlineAlert.innerHTML = `<div class="alert alert-danger py-1.5 px-2.5 micro-text rounded-2">${(res && res.message) || 'Failed to create recommendation topic.'}</div>`;
+                    }
+                }
+            } catch (err) {
+                console.error('Error creating recommendation topic:', err);
+                if (inlineAlert) {
+                    inlineAlert.innerHTML = '<div class="alert alert-danger py-1.5 px-2.5 micro-text rounded-2">Error creating recommendation topic. Please try again.</div>';
+                }
+            } finally {
+                btnSaveInlineRec.disabled = false;
+                btnSaveInlineRec.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Add to Choices & Select';
+            }
+        });
     }
 
     const btnConfirmAssignLesson = document.getElementById('btnConfirmAssignLesson');
@@ -695,13 +915,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!topicId) {
                 if (alertContainer) {
-                    alertContainer.innerHTML = '<div class="alert alert-warning py-2 px-3 small rounded-3 mt-2">Please select a lesson to assign.</div>';
+                    alertContainer.innerHTML = '<div class="alert alert-warning py-2 px-3 small rounded-3 mt-2">Please select a lesson or recommendation topic to assign.</div>';
                 }
                 return;
             }
 
             btnConfirmAssignLesson.disabled = true;
-            btnConfirmAssignLesson.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+            btnConfirmAssignLesson.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving & Notifying...';
 
             try {
                 const res = await authedFetch('/api/content/assign-lesson', token, {
@@ -711,11 +931,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (res.success) {
                     if (alertContainer) {
-                        alertContainer.innerHTML = `<div class="alert alert-success py-2 px-3 small rounded-3 mt-2"><i class="bi bi-check-circle-fill me-1"></i>${res.message || 'Lesson assigned and saved! Student has been notified.'}</div>`;
+                        alertContainer.innerHTML = `<div class="alert alert-success py-2 px-3 small rounded-3 mt-2"><i class="bi bi-check-circle-fill me-1"></i>${res.message || 'Intervention assigned and saved! Student has been notified.'}</div>`;
                     }
                     setTimeout(() => {
                         if (assignModalInstance) assignModalInstance.hide();
-                        alert(`Confirmation:\n${res.message || 'The lesson has been successfully assigned and the student has been notified.'}`);
+                        alert(`Confirmation:\n${res.message || 'The intervention has been successfully assigned and the student has been notified.'}`);
                     }, 800);
                 } else {
                     if (alertContainer) {

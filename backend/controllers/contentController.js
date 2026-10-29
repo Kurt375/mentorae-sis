@@ -2212,7 +2212,7 @@ async function assignLesson(req, res) {
 
     // 2. Verify topic
     const [topicRows] = await pool.query(
-      `SELECT t.id, t.title, t.subject_id, s.name AS subject_name, s.code AS subject_code
+      `SELECT t.id, t.title, t.subject_id, t.is_recommendation, s.name AS subject_name, s.code AS subject_code
        FROM topics t
        LEFT JOIN subjects s ON s.id = t.subject_id
        WHERE t.id = ? LIMIT 1`,
@@ -2234,11 +2234,20 @@ async function assignLesson(req, res) {
 
     // 4. Send In-App Notification to Student
     const teacherName = fullName(req.user);
-    await notify(student.id, {
-      type: 'academic',
-      title: `New ${subjectName} Lesson Assigned`,
-      message: `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`,
-      related_student_id: student.id,
+    const isRec = !!topic.is_recommendation;
+    const notifTitle = isRec
+      ? `New ${subjectName} Recommendation Assigned`
+      : `New ${subjectName} Lesson Assigned`;
+    const notifMsg = note && note.trim()
+      ? `Teacher ${teacherName} assigned you "${topic.title}": "${note.trim()}". Please review the learning materials.`
+      : `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`;
+
+    await notify({
+      recipientId: student.id,
+      type: 'intervention_assigned',
+      title: notifTitle,
+      message: notifMsg,
+      relatedStudentId: student.id,
     });
 
     return res.json({
@@ -2340,15 +2349,18 @@ async function listAssignableTopics(req, res) {
     let query = `
       SELECT t.id, t.title, t.description, t.is_recommendation, t.content_payload, s.id AS subject_id, s.name AS subject_name, s.code AS subject_code
       FROM topics t
-      JOIN subjects s ON s.id = t.subject_id
-      WHERE t.status = 'approved'
+      LEFT JOIN subjects s ON s.id = t.subject_id
+      WHERE (t.status = 'approved' OR t.status IS NULL OR t.is_recommendation = 1)
     `;
     const params = [];
-    if (subjectId) {
-      query += ' AND t.subject_id = ?';
-      params.push(subjectId);
+    if (subjectId && subjectName) {
+      query += ' AND (t.subject_id = ? OR s.id = ? OR LOWER(TRIM(s.name)) = LOWER(TRIM(?)) OR LOWER(TRIM(s.code)) = LOWER(TRIM(?)) OR LOWER(s.name) LIKE LOWER(?))';
+      params.push(subjectId, subjectId, subjectName, subjectName, `%${subjectName}%`);
+    } else if (subjectId) {
+      query += ' AND (t.subject_id = ? OR s.id = ?)';
+      params.push(subjectId, subjectId);
     } else if (subjectName) {
-      query += ' AND (LOWER(s.name) = LOWER(?) OR LOWER(s.code) = LOWER(?) OR LOWER(s.name) LIKE LOWER(?))';
+      query += ' AND (LOWER(TRIM(s.name)) = LOWER(TRIM(?)) OR LOWER(TRIM(s.code)) = LOWER(TRIM(?)) OR LOWER(s.name) LIKE LOWER(?))';
       params.push(subjectName, subjectName, `%${subjectName}%`);
     }
     query += ' ORDER BY t.is_recommendation DESC, t.title ASC';
@@ -2357,6 +2369,7 @@ async function listAssignableTopics(req, res) {
     const topics = rows.map((r) => {
       let p = {};
       try { p = typeof r.content_payload === 'string' ? JSON.parse(r.content_payload) : (r.content_payload || {}); } catch(e){}
+      const quizzes = Array.isArray(p.quizzes) ? p.quizzes : (Array.isArray(p.quiz) ? p.quiz : []);
       return {
         id: r.id,
         title: r.title,
@@ -2365,9 +2378,9 @@ async function listAssignableTopics(req, res) {
         subjectId: r.subject_id,
         subjectName: r.subject_name,
         subjectCode: r.subject_code,
-        hasFiles: (p.files || []).length > 0,
-        hasQuiz: (p.quiz || []).length > 0,
-        hasFlashcards: (p.flashcards || []).length > 0,
+        hasFiles: Array.isArray(p.files) && p.files.length > 0,
+        hasQuiz: quizzes.length > 0,
+        hasFlashcards: Array.isArray(p.flashcards) && p.flashcards.length > 0,
       };
     });
 

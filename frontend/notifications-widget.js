@@ -149,6 +149,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         toast.className = 'mentorae-toast-card';
 
         const isAttendance = (item.type || '').includes('attendance') || (item.title || '').toLowerCase().includes('attendance');
+        const isIntervention = (item.type || '') === 'intervention_assigned' || (item.type || '').includes('intervention') || (item.title || '').toLowerCase().includes('intervention') || (item.title || '').toLowerCase().includes('lesson assigned');
         const isLate = (item.type || '').includes('late');
         const isOut = (item.type || '').includes('out');
         const isEarly = (item.type || '').includes('early') || (item.type || '').includes('excused');
@@ -159,7 +160,12 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         let badgeClass = 'bg-success-subtle text-success border-success-subtle';
         let badgeText = 'Attendance';
 
-        if (isLate) {
+        if (isIntervention) {
+            borderColor = '#0a5c2c';
+            icon = 'bi-journal-check text-success';
+            badgeClass = 'bg-success-subtle text-success border-success-subtle';
+            badgeText = 'Intervention Lesson';
+        } else if (isLate) {
             borderColor = '#ffc107';
             icon = 'bi-clock-history text-warning';
             badgeClass = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
@@ -217,6 +223,10 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
 
         toast.addEventListener('click', () => {
             dismiss();
+            if (userRole === 'student' && isIntervention) {
+                window.location.href = 'dashboard_student.html#my-recommendations';
+                return;
+            }
             if (panel.classList.contains('d-none')) {
                 positionPanel();
                 panel.classList.remove('d-none');
@@ -486,6 +496,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                 const isAttendance = (n.type || '').includes('attendance') || (n.title || '').toLowerCase().includes('attendance');
                 const isTopicApproved = n.type === 'topic_approved';
                 const isTopicRejected = n.type === 'topic_rejected';
+                const isIntervention = n.type === 'intervention_assigned' || (n.type || '').includes('intervention') || (n.title || '').toLowerCase().includes('intervention') || (n.title || '').toLowerCase().includes('lesson assigned');
 
                 let iconClass = 'bi-bell-fill text-primary';
                 let badgeClass = 'bg-primary-subtle text-primary border-primary-subtle';
@@ -496,6 +507,11 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                     iconClass = 'bi-calendar-check-fill text-success';
                     badgeClass = 'bg-success-subtle text-success border-success-subtle';
                     badgeLabel = 'Attendance';
+                    bgClass = n.is_read ? 'bg-white' : '#f0fbf4';
+                } else if (isIntervention) {
+                    iconClass = 'bi-journal-check text-success';
+                    badgeClass = 'bg-success-subtle text-success border-success-subtle';
+                    badgeLabel = 'Intervention Lesson';
                     bgClass = n.is_read ? 'bg-white' : '#f0fbf4';
                 } else if (isTopicApproved) {
                     iconClass = 'bi-check-circle-fill text-success';
@@ -532,6 +548,12 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                                     <div class="mt-1.5">
                                         <a href="${studentAttendanceUrl}" class="micro-text fw-semibold text-success text-decoration-none d-inline-flex align-items-center gap-1">
                                             View My Attendance &rarr;
+                                        </a>
+                                    </div>
+                                ` : userRole === 'student' && isIntervention ? `
+                                    <div class="mt-1.5">
+                                        <a href="dashboard_student.html#my-recommendations" class="micro-text fw-semibold text-success text-decoration-none d-inline-flex align-items-center gap-1">
+                                            View Assigned Lesson &rarr;
                                         </a>
                                     </div>
                                 ` : userRole === 'teacher' && isAttendance ? `

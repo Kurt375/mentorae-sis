@@ -331,11 +331,55 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="assignTopicSelect" class="form-label text-xs fw-bold text-dark text-uppercase tracking-sm mb-1">Select Lesson / Recommendation Topic</label>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="assignTopicSelect" class="form-label text-xs fw-bold text-dark text-uppercase tracking-sm m-0">Select Lesson / Recommendation Topic</label>
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-2.5 py-0.5 text-xs fw-semibold" id="btnToggleCreateRec">
+                                <i class="bi bi-plus-circle me-1"></i> New Recommendation
+                            </button>
+                        </div>
                         <select class="form-select rounded-3" id="assignTopicSelect" required>
                             <option value="">Loading topics...</option>
                         </select>
                         <div class="form-text micro-text mt-1 text-muted" id="assignTopicMeta">Select a lesson to assign to this student.</div>
+                    </div>
+
+                    <!-- Inline Create Recommendation Section -->
+                    <div id="inlineCreateRecSection" class="p-3 border rounded-3 mb-3 bg-success-subtle bg-opacity-10 d-none" style="border-color: #badbcc !important;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-success text-xs text-uppercase m-0 d-flex align-items-center gap-1">
+                                <i class="bi bi-lightbulb-fill"></i> Create Teacher's Recommendation
+                            </h6>
+                            <button type="button" class="btn-close micro-text" id="btnCloseInlineRec" aria-label="Close form"></button>
+                        </div>
+                        <p class="micro-text text-muted mb-2">
+                            Create a custom recommendation topic for this subject. Once saved, it will immediately appear in your choices and be selected for this student.
+                        </p>
+                        
+                        <div class="mb-2">
+                            <label for="inlineRecTitle" class="form-label text-xs fw-bold text-dark mb-1">Recommendation Topic Title <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm rounded-2" id="inlineRecTitle" placeholder="e.g., Remedial Focus: Effective Listening & Clarity">
+                        </div>
+
+                        <div class="mb-2">
+                            <label for="inlineRecDesc" class="form-label text-xs fw-bold text-dark mb-1">Description / Remediation Objective (Optional)</label>
+                            <textarea class="form-control form-control-sm rounded-2" id="inlineRecDesc" rows="2" placeholder="e.g., Targeted reinforcement activities to strengthen foundational skills."></textarea>
+                        </div>
+
+                        <div class="mb-2">
+                            <label for="inlineRecFile" class="form-label text-xs fw-bold text-dark mb-1">Attach Resource / Handout (Optional)</label>
+                            <input type="file" class="form-control form-control-sm rounded-2" id="inlineRecFile" accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.png,.jpg,.jpeg">
+                            <div class="micro-text text-muted mt-1">Accepted: PDF, DOC, DOCX, TXT, RTF, images (max 25MB). Unsupported file types will be rejected.</div>
+                            <div id="inlineRecFileError" class="alert alert-danger py-1 px-2 micro-text rounded-2 mt-1 d-none"></div>
+                        </div>
+
+                        <div id="inlineRecAlert" class="mt-2"></div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-2 pt-1 border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="btnCancelInlineRec">Cancel</button>
+                            <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-semibold" id="btnSaveInlineRec">
+                                <i class="bi bi-plus-circle me-1"></i> Add to Choices & Select
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mb-3">
