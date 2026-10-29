@@ -19,6 +19,7 @@ const {
   reviewExcuseNote,
   getExcuseNoteProof,
 } = require('../controllers/attendanceController');
+const { runSevenAmAttendanceJob, maybeTriggerSevenAmJobOpportunistically } = require('../jobs/attendanceJob');
 const multer = require('multer');
 
 // Proof file upload handling: PDFs, Word documents (DOC/DOCX), and Images only. Max 5MB.
@@ -63,6 +64,23 @@ function handleProofUpload(req, res, next) {
   });
 }
 
+// Opportunistic auto-trigger for 7:00 AM attendance job on morning traffic
+router.use((req, res, next) => {
+  maybeTriggerSevenAmJobOpportunistically();
+  next();
+});
+
+// Public / Scheduled Cron endpoint (Vercel Cron, external cron monitors, webhook)
+router.get('/cron-7am', async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    const result = await runSevenAmAttendanceJob(force);
+    return res.json({ success: true, timestamp: new Date().toISOString(), ...result });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/my-qr', requireAuth, requireRole('student'), getMyQrCode);
 router.post('/scan', requireAuth, requireRole('teacher', 'admin', 'security'), scanAttendance);
 router.post('/verify-scanner-key', verifyScannerKey); // public — used before login
@@ -75,8 +93,6 @@ router.post('/finish-section', requireAuth, requireRole('teacher'), finishSectio
 router.get('/section-daily-history', requireAuth, requireRole('teacher', 'admin'), getSectionDailyHistory);
 router.get('/summary', requireAuth, getSummary);
 router.get('/history', requireAuth, getHistory);
-
-const { runSevenAmAttendanceJob } = require('../jobs/attendanceJob');
 
 // Excuse notes
 router.post('/excuse-note', requireAuth, requireRole('parent'), handleProofUpload, submitExcuseNote);
