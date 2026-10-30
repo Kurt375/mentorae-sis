@@ -11,11 +11,23 @@
         body { background: var(--mentorae-bg-canvas); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .portal-wrapper { max-width: 900px; margin: 0 auto; min-height: 100vh; background: #fff; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
         .custom-navbar { background: var(--mentorae-green); }
-        .announce-card { border-radius: 12px; border: 1px solid #eee; padding: 16px; margin-bottom: 14px; }
+        .announce-card { border-radius: 12px; border: 1px solid #eee; padding: 16px; margin-bottom: 14px; background: #fff; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .announce-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
         .announce-type { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 10px; border-radius: 20px; }
         .type-event { background: #e0edff; color: #2554a0; }
         .type-academic { background: #e2f0d9; color: #385723; }
         .type-seminar { background: #fce4d6; color: #c65911; }
+
+        /* Search & Filter Toolbar */
+        .announcement-filter-toolbar { border: 1px solid #e2e8f0 !important; }
+        .announcement-search-group .form-control:focus { box-shadow: none; border-color: #cbd5e1; }
+        .announcement-search-group .input-group-text { border-color: #dee2e6; }
+        .announcement-filter-select { font-size: 0.78rem; border-color: #cbd5e1; color: #334155; font-weight: 500; }
+        .announcement-filter-select:focus { border-color: var(--mentorae-green); box-shadow: 0 0 0 0.15rem rgba(10, 92, 44, 0.15); }
+        .announcement-active-chip { font-size: 0.7rem; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.15rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; }
+        .announcement-active-chip .btn-remove-chip { cursor: pointer; font-size: 0.65rem; color: #94a3b8; transition: color 0.15s ease; }
+        .announcement-active-chip .btn-remove-chip:hover { color: #dc3545; }
+        .micro-text { font-size: 0.75rem; }
     </style>
 </head>
 <body>
@@ -28,6 +40,57 @@
             </div>
         </nav>
         <main class="container-fluid px-4 py-4 flex-grow-1">
+
+            <!-- Search and Filters Bar for Announcements -->
+            <div class="card border-0 shadow-sm p-3 rounded-4 bg-white mb-3 announcement-filter-toolbar">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-4">
+                        <div class="input-group input-group-sm announcement-search-group">
+                            <span class="input-group-text bg-white border-end-0 text-muted ps-2.5 pe-1.5"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0 border-end-0 ps-1" id="announcementSearchInput" placeholder="Search announcements by title or keyword...">
+                            <button class="btn btn-outline-secondary border-start-0 text-muted d-none" type="button" id="btnAnnouncementSearchClear" title="Clear Search">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select class="form-select form-select-sm announcement-filter-select" id="announcementFilterType" aria-label="Filter Type">
+                            <option value="all" selected>All Types</option>
+                            <option value="academic">Academic</option>
+                            <option value="seminar">Seminar &amp; Workshop</option>
+                            <option value="event">General Event</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm announcement-filter-select" id="announcementFilterAudience" aria-label="Filter Target Audience">
+                            <option value="all" selected>All Audiences</option>
+                            <option value="all-users">All Users</option>
+                            <option value="role-specific" id="optRoleSpecific">My Role</option>
+                        </select>
+                    </div>
+                    <div class="col-8 col-md-2">
+                        <select class="form-select form-select-sm announcement-filter-select" id="announcementFilterDate" aria-label="Filter Event Timeline">
+                            <option value="all" selected>All Dates</option>
+                            <option value="upcoming">Upcoming Events</option>
+                            <option value="past">Past Events</option>
+                            <option value="this-month">This Month</option>
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-1 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100 fw-semibold d-inline-flex align-items-center justify-content-center gap-1" id="btnAnnouncementResetFilters" title="Reset Filters">
+                            <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-md-inline">Reset</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2.5 pt-2 border-top micro-text text-muted flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <i class="bi bi-funnel-fill text-success"></i>
+                        <span id="announcementResultsCounter" class="fw-semibold text-dark">Showing all announcements</span>
+                    </div>
+                    <div id="announcementActiveFiltersBadges" class="d-flex gap-1 flex-wrap"></div>
+                </div>
+            </div>
+
             <div id="announceList"></div>
             <p class="text-center text-muted py-4 d-none" id="emptyMsg">No announcements right now.</p>
         </main>
@@ -48,9 +111,221 @@
             window.location.href = backPaths[user.role] || 'login.html';
         });
 
+        // Update role-specific audience option label
+        const optRoleSpecific = document.getElementById('optRoleSpecific');
+        if (optRoleSpecific && user && user.role) {
+            const roleCap = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+            optRoleSpecific.textContent = `${roleCap}s Only`;
+            optRoleSpecific.value = user.role.toLowerCase();
+        }
+
+        let allAnnouncements = [];
+        let filteredAnnouncements = [];
+
+        const announcementSearchInput = document.getElementById('announcementSearchInput');
+        const btnAnnouncementSearchClear = document.getElementById('btnAnnouncementSearchClear');
+        const announcementFilterType = document.getElementById('announcementFilterType');
+        const announcementFilterAudience = document.getElementById('announcementFilterAudience');
+        const announcementFilterDate = document.getElementById('announcementFilterDate');
+        const btnAnnouncementResetFilters = document.getElementById('btnAnnouncementResetFilters');
+        const announcementResultsCounter = document.getElementById('announcementResultsCounter');
+        const announcementActiveFiltersBadges = document.getElementById('announcementActiveFiltersBadges');
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function formatDate(dateStr) {
             const d = new Date(dateStr + 'T00:00:00');
             return d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+        }
+
+        function resetAnnouncementFilters() {
+            if (announcementSearchInput) announcementSearchInput.value = '';
+            if (announcementFilterType) announcementFilterType.value = 'all';
+            if (announcementFilterAudience) announcementFilterAudience.value = 'all';
+            if (announcementFilterDate) announcementFilterDate.value = 'all';
+            applyAnnouncementFiltersAndRender();
+        }
+
+        function applyAnnouncementFiltersAndRender() {
+            const list = document.getElementById('announceList');
+            const emptyMsg = document.getElementById('emptyMsg');
+            if (!list) return;
+
+            if (!allAnnouncements || allAnnouncements.length === 0) {
+                filteredAnnouncements = [];
+                list.innerHTML = '';
+                if (emptyMsg) emptyMsg.classList.remove('d-none');
+                if (announcementResultsCounter) announcementResultsCounter.textContent = 'Showing 0 announcements';
+                if (announcementActiveFiltersBadges) announcementActiveFiltersBadges.innerHTML = '';
+                return;
+            }
+
+            if (emptyMsg) emptyMsg.classList.add('d-none');
+
+            const search = (announcementSearchInput ? announcementSearchInput.value : '').trim().toLowerCase();
+            const typeFilter = announcementFilterType ? announcementFilterType.value : 'all';
+            const audienceFilter = announcementFilterAudience ? announcementFilterAudience.value : 'all';
+            const dateFilter = announcementFilterDate ? announcementFilterDate.value : 'all';
+
+            if (btnAnnouncementSearchClear) {
+                if (search.length > 0) btnAnnouncementSearchClear.classList.remove('d-none');
+                else btnAnnouncementSearchClear.classList.add('d-none');
+            }
+
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10);
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+
+            filteredAnnouncements = allAnnouncements.filter(a => {
+                if (typeFilter !== 'all') {
+                    const aType = (a.type || '').toLowerCase();
+                    if (aType !== typeFilter.toLowerCase()) return false;
+                }
+
+                if (audienceFilter !== 'all') {
+                    const aAud = (a.audience || '').toLowerCase();
+                    if (audienceFilter === 'all-users') {
+                        if (aAud !== 'all' && aAud !== 'all users') return false;
+                    } else if (aAud !== audienceFilter.toLowerCase()) {
+                        return false;
+                    }
+                }
+
+                if (dateFilter !== 'all') {
+                    const eventDateStr = (a.event_date || '').slice(0, 10);
+                    if (dateFilter === 'upcoming') {
+                        if (eventDateStr < todayStr) return false;
+                    } else if (dateFilter === 'past') {
+                        if (eventDateStr >= todayStr) return false;
+                    } else if (dateFilter === 'this-month') {
+                        if (!eventDateStr) return false;
+                        const d = new Date(eventDateStr + 'T00:00:00');
+                        if (d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) return false;
+                    }
+                }
+
+                if (search) {
+                    const title = (a.title || '').toLowerCase();
+                    const desc = (a.description || '').toLowerCase();
+                    const aud = (a.audience || '').toLowerCase();
+                    const type = (a.type || '').toLowerCase();
+                    if (!title.includes(search) && !desc.includes(search) && !aud.includes(search) && !type.includes(search)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            const totalCount = allAnnouncements.length;
+            const filteredCount = filteredAnnouncements.length;
+            const hasActiveFilters = Boolean(search || typeFilter !== 'all' || audienceFilter !== 'all' || dateFilter !== 'all');
+
+            if (announcementResultsCounter) {
+                if (hasActiveFilters) {
+                    announcementResultsCounter.innerHTML = `Showing <strong>${filteredCount}</strong> of <strong>${totalCount}</strong> announcements <span class="badge bg-success-subtle text-success ms-1">Filtered</span>`;
+                } else {
+                    announcementResultsCounter.innerHTML = `Showing all <strong>${totalCount}</strong> announcements`;
+                }
+            }
+
+            if (announcementActiveFiltersBadges) {
+                const badges = [];
+                if (search) {
+                    badges.push(`
+                        <span class="announcement-active-chip">
+                            Search: "${escapeHtml(search)}"
+                            <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="search"></i>
+                        </span>
+                    `);
+                }
+                if (typeFilter !== 'all') {
+                    const typeLabels = { academic: 'Academic', seminar: 'Seminar', event: 'General Event' };
+                    badges.push(`
+                        <span class="announcement-active-chip">
+                            Type: ${typeLabels[typeFilter] || typeFilter}
+                            <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="type"></i>
+                        </span>
+                    `);
+                }
+                if (audienceFilter !== 'all') {
+                    const audLabels = { 'all-users': 'All Users', student: 'Students', teacher: 'Teachers', parent: 'Parents' };
+                    badges.push(`
+                        <span class="announcement-active-chip">
+                            Audience: ${audLabels[audienceFilter] || audienceFilter}
+                            <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="audience"></i>
+                        </span>
+                    `);
+                }
+                if (dateFilter !== 'all') {
+                    const dateLabels = { upcoming: 'Upcoming', past: 'Past', 'this-month': 'This Month' };
+                    badges.push(`
+                        <span class="announcement-active-chip">
+                            Timeline: ${dateLabels[dateFilter] || dateFilter}
+                            <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="date"></i>
+                        </span>
+                    `);
+                }
+                announcementActiveFiltersBadges.innerHTML = badges.join('');
+
+                announcementActiveFiltersBadges.querySelectorAll('.btn-remove-chip').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const f = btn.getAttribute('data-filter');
+                        if (f === 'search' && announcementSearchInput) announcementSearchInput.value = '';
+                        if (f === 'type' && announcementFilterType) announcementFilterType.value = 'all';
+                        if (f === 'audience' && announcementFilterAudience) announcementFilterAudience.value = 'all';
+                        if (f === 'date' && announcementFilterDate) announcementFilterDate.value = 'all';
+                        applyAnnouncementFiltersAndRender();
+                    });
+                });
+            }
+
+            if (filteredAnnouncements.length === 0) {
+                list.innerHTML = `
+                    <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
+                        <i class="bi bi-search fs-2 d-block mb-2 text-warning opacity-75"></i>
+                        <p class="m-0 fw-semibold">No announcements match your search or filter criteria.</p>
+                        <span class="micro-text text-muted">Try clearing your search term or adjusting the filter dropdowns.</span>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" id="btnEmptyResetAnnouncements">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                            </button>
+                        </div>
+                    </div>
+                `;
+                const btnEmptyReset = document.getElementById('btnEmptyResetAnnouncements');
+                if (btnEmptyReset) {
+                    btnEmptyReset.addEventListener('click', resetAnnouncementFilters);
+                }
+                return;
+            }
+
+            list.innerHTML = '';
+            for (const a of filteredAnnouncements) {
+                const div = document.createElement('div');
+                div.className = 'announce-card';
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+                        <h5 class="fw-bold m-0 text-dark">${escapeHtml(a.title)}</h5>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="announce-type type-${a.type}">${escapeHtml(a.type)}</span>
+                            <span class="badge bg-light text-secondary border micro-text">${a.audience === 'all' ? 'All Users' : (a.audience ? a.audience.charAt(0).toUpperCase() + a.audience.slice(1) : 'All Users')}</span>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2"><i class="bi bi-calendar-event me-1 text-success"></i> ${formatDate(a.event_date)}</p>
+                    <p class="mb-0 text-secondary">${escapeHtml(a.description)}</p>
+                `;
+                list.appendChild(div);
+            }
         }
 
         async function load() {
@@ -58,11 +333,14 @@
             const list = document.getElementById('announceList');
             list.innerHTML = '';
             if (!data.success || !data.announcements.length) {
+                allAnnouncements = [];
+                filteredAnnouncements = [];
                 document.getElementById('emptyMsg').classList.remove('d-none');
                 return;
             }
 
-            // Mark announcements as seen because user is viewing them
+            allAnnouncements = data.announcements;
+
             if (typeof markAnnouncementsAsSeen === 'function') {
                 markAnnouncementsAsSeen(data.announcements, user);
             } else {
@@ -73,20 +351,31 @@
                 }
             }
 
-            for (const a of data.announcements) {
-                const div = document.createElement('div');
-                div.className = 'announce-card';
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="fw-bold m-0">${a.title}</h5>
-                        <span class="announce-type type-${a.type}">${a.type}</span>
-                    </div>
-                    <p class="text-muted small mb-2"><i class="bi bi-calendar-event"></i> ${formatDate(a.event_date)}</p>
-                    <p class="mb-0">${a.description}</p>
-                `;
-                list.appendChild(div);
-            }
+            applyAnnouncementFiltersAndRender();
         }
+
+        if (announcementSearchInput) {
+            announcementSearchInput.addEventListener('input', applyAnnouncementFiltersAndRender);
+        }
+        if (btnAnnouncementSearchClear) {
+            btnAnnouncementSearchClear.addEventListener('click', () => {
+                if (announcementSearchInput) announcementSearchInput.value = '';
+                applyAnnouncementFiltersAndRender();
+            });
+        }
+        if (announcementFilterType) {
+            announcementFilterType.addEventListener('change', applyAnnouncementFiltersAndRender);
+        }
+        if (announcementFilterAudience) {
+            announcementFilterAudience.addEventListener('change', applyAnnouncementFiltersAndRender);
+        }
+        if (announcementFilterDate) {
+            announcementFilterDate.addEventListener('change', applyAnnouncementFiltersAndRender);
+        }
+        if (btnAnnouncementResetFilters) {
+            btnAnnouncementResetFilters.addEventListener('click', resetAnnouncementFilters);
+        }
+
         load();
     </script>
 </body>
