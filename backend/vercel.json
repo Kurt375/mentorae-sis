@@ -6,6 +6,11 @@
       "schedule": "0 23 * * 0-4"
     }
   ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
