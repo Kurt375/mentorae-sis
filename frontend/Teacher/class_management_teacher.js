@@ -3734,12 +3734,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
                                 </tr>
 
-                                <!-- General Average Row matching Card_SF9.xlsx (B44:H44 merged) -->
+                                <!-- General Average Row matching official card format -->
                                 <tr class="general-average-row">
-                                    <td colspan="4" class="text-center genavg-label font-bold font-italic" contenteditable="true">General Average</td>
+                                    <td class="text-center genavg-label font-bold font-italic" contenteditable="true">General Average</td>
+                                    <td class="td-grade text-center" contenteditable="true">${genAvg.t1 !== null && genAvg.t1 !== undefined ? genAvg.t1 : ''}</td>
+                                    <td class="td-grade text-center" contenteditable="true">${genAvg.t2 !== null && genAvg.t2 !== undefined ? genAvg.t2 : ''}</td>
+                                    <td class="td-grade text-center" contenteditable="true">${genAvg.t3 !== null && genAvg.t3 !== undefined ? genAvg.t3 : ''}</td>
                                     <td class="td-units text-center" contenteditable="true"></td>
-                                    <td class="text-center genavg-val font-bold font-italic" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
+                                    <td class="td-final text-center font-bold font-italic" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
+                                    <td class="td-remarks text-center font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -3896,7 +3899,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         /* DepEd Standard A5 Portrait Format: 148mm x 210mm */
                         @page {
                             size: A5 portrait;
-                            margin: 5mm 7mm 5mm 7mm;
+                            margin: 0;
                         }
 
                         * {
@@ -3935,28 +3938,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                         }
 
-                        /* Official A5 Page Sheet matching card-sf9 with outer black rectangular border */
+                        /* Official A5 Page Sheet - Clean White, NO Page Border */
                         .sf9-a5-page {
                             width: 148mm;
-                            height: 204mm;
-                            max-height: 204mm;
+                            height: 210mm;
+                            max-height: 210mm;
                             margin: 16px auto;
                             background: #ffffff;
-                            border: 1.2px solid #000000;
-                            padding: 5mm 6mm 4.5mm 6mm;
-                            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+                            border: none !important;
+                            padding: 6mm 7.5mm 6mm 7.5mm;
+                            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+                            box-sizing: border-box;
                             position: relative;
                             display: flex;
                             flex-direction: column;
                             justify-content: space-between;
+                            page-break-inside: avoid;
+                            break-inside: avoid;
                             page-break-after: always;
                             break-after: page;
                             overflow: hidden;
                         }
 
                         .sf9-a5-page:last-child {
-                            page-break-after: auto;
-                            break-after: auto;
+                            page-break-after: avoid !important;
+                            break-after: avoid !important;
                         }
 
                         /* Typography */
@@ -4394,22 +4400,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                             margin-top: 1px;
                         }
 
-                        /* Print Rules */
+                        /* Print Rules - Strictly 2 Pages Per Student, NO Borders, NO Spilling Over */
                         @media print {
-                            body {
+                            html, body {
+                                margin: 0 !important;
+                                padding: 0 !important;
                                 background-color: #ffffff !important;
+                                width: 148mm !important;
+                                height: auto !important;
                             }
                             .no-print-toolbar {
                                 display: none !important;
                             }
                             .sf9-a5-page {
+                                width: 148mm !important;
+                                height: 210mm !important;
+                                min-height: 210mm !important;
+                                max-height: 210mm !important;
                                 margin: 0 !important;
+                                padding: 6mm 7.5mm 6mm 7.5mm !important;
+                                border: none !important;
                                 box-shadow: none !important;
-                                width: 100% !important;
-                                height: 100% !important;
-                                max-height: none !important;
+                                box-sizing: border-box !important;
+                                page-break-inside: avoid !important;
+                                break-inside: avoid !important;
                                 page-break-after: always !important;
                                 break-after: page !important;
+                                overflow: hidden !important;
+                            }
+                            .sf9-a5-page:last-child {
+                                page-break-after: avoid !important;
+                                break-after: avoid !important;
                             }
                             [contenteditable="true"] {
                                 outline: none !important;
