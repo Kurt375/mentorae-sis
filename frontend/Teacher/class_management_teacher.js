@@ -3407,141 +3407,413 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const sec = res.section;
-            const term = res.term || '1st Term';
-            const gradeSecText = `Grade ${sec.gradeLevel} - ${sec.name} (${sec.strandCode || ''})`;
-            const trackStrandText = `${sec.track || 'Academic Track'} - ${sec.strandName || sec.strandCode || ''}`;
-            const adviserName = sec.adviserName || 'Class Adviser';
+            const schoolHeadName = (sec.schoolHead || 'JAENA N. DELA CERNA').toUpperCase();
+            const adviserName = (sec.adviserName || 'NIÑO M. LUNA').toUpperCase();
+            const schoolYear = sec.schoolYear || '2026-2027';
+            const gradeLevel = sec.gradeLevel || '11';
+            const sectionName = (sec.name || '').toUpperCase();
+            const trackName = sec.track || 'Academic';
 
-            // Compile the multi-page printable HTML document
+            const depedLogoSrc = (typeof DEPED_LOGO_B64 !== 'undefined' && DEPED_LOGO_B64) ? DEPED_LOGO_B64 : 'deped_seal.png';
+            const tshsLogoSrc = (typeof TSHS_LOGO_B64 !== 'undefined' && TSHS_LOGO_B64) ? TSHS_LOGO_B64 : 'tshs_seal.jpg';
+
+            // Compile the two-page A5 document for each student
             const pagesHtml = cards.map((st, index) => {
-                const studentName = st.formattedName || st.fullName;
+                const studentName = st.formattedName || st.fullName || 'Student Name';
                 const lrn = st.idNumber || '—';
-                const overallGrade = st.overallGrade !== null ? st.overallGrade : '--';
-                const overallRemarks = st.overallRemarks || 'Pending';
+                const age = st.age || 15;
+                const sex = st.sex || '';
 
-                let rowsHtml = '';
-                if (!st.grades || st.grades.length === 0) {
-                    rowsHtml = `
-                        <tr>
-                            <td colspan="6" class="text-center py-4 text-muted fst-italic">
-                                No subject grades recorded for this grading period.
-                            </td>
-                        </tr>
-                    `;
-                } else {
-                    st.grades.forEach(g => {
-                        const isPassed = g.average >= 75;
-                        rowsHtml += `
-                            <tr>
-                                <td class="subject-cell">
-                                    <strong>${escapeHtml(g.subjectCode || 'SUBJ')}</strong> - ${escapeHtml(g.subject)}
-                                    <div class="teacher-sub">${escapeHtml(g.teacherName)}</div>
-                                </td>
-                                <td class="text-center">${g.quizPct !== undefined ? g.quizPct + '%' : '—'} <span class="score-sub">(${g.quiz_score}/30)</span></td>
-                                <td class="text-center">${g.activityPct !== undefined ? g.activityPct + '%' : '—'} <span class="score-sub">(${g.activity_score}/20)</span></td>
-                                <td class="text-center">${g.examPct !== undefined ? g.examPct + '%' : '—'} <span class="score-sub">(${g.exam_score}/50)</span></td>
-                                <td class="text-center fw-bold fs-6">${g.average}</td>
-                                <td class="text-center fw-bold ${isPassed ? 'text-success' : 'text-danger'}">${escapeHtml(g.remarks || (isPassed ? 'Passed' : 'Failed'))}</td>
-                            </tr>
-                        `;
-                    });
+                // Core Subjects Rows
+                let coreRowsHtml = '';
+                const coreList = (st.coreSubjects && st.coreSubjects.length) ? st.coreSubjects : [];
 
-                    // Summary GWA Row
-                    const gwaNum = parseFloat(overallGrade) || 0;
-                    const isGwaPassed = gwaNum >= 75;
-                    rowsHtml += `
-                        <tr class="gwa-row">
-                            <td class="text-end fw-bold">GENERAL WEIGHTED AVERAGE (GWA):</td>
-                            <td class="text-center fw-bold">${st.writtenWorkAvg !== null ? st.writtenWorkAvg + '%' : '--'}</td>
-                            <td class="text-center fw-bold">${st.performanceTaskAvg !== null ? st.performanceTaskAvg + '%' : '--'}</td>
-                            <td class="text-center fw-bold">${st.quarterlyExamAvg !== null ? st.quarterlyExamAvg + '%' : '--'}</td>
-                            <td class="text-center fw-bold fs-5 text-success">${overallGrade}</td>
-                            <td class="text-center fw-bold ${isGwaPassed ? 'text-success' : 'text-danger'}">${isGwaPassed ? 'Passed' : 'For Intervention'}</td>
+                const hasEffCom = coreList.some(s => s.subjectName && s.subjectName.toLowerCase().includes('effective communication'));
+                const hasMabKom = coreList.some(s => s.subjectName && s.subjectName.toLowerCase().includes('mabisang komunikasyon'));
+
+                if (hasEffCom && hasMabKom) {
+                    // Grouped header row
+                    coreRowsHtml += `
+                        <tr class="grade-row-group">
+                            <td class="td-learning-area font-bold" contenteditable="true">Effective Communication / Mabisang Komunikasyon</td>
+                            <td class="td-grade"></td>
+                            <td class="td-grade"></td>
+                            <td class="td-grade"></td>
+                            <td class="td-units"></td>
+                            <td class="td-final"></td>
+                            <td class="td-remarks"></td>
                         </tr>
                     `;
                 }
 
+                if (!coreList.length) {
+                    // Default baseline subjects for Talisay SHS if none recorded yet
+                    const defaultCore = [
+                        'Effective Communication',
+                        'Mabisang Komunikasyon',
+                        'General Mathematics',
+                        'General Science',
+                        'Life and Career Skills',
+                        'Pag-Aaral ng Kasaysayan at Lipunang Pilipino'
+                    ];
+                    defaultCore.forEach(name => {
+                        coreRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area ${(name.includes('Communication') || name.includes('Komunikasyon')) ? 'sub-subject-indent' : ''}" contenteditable="true">${escapeHtml(name)}</td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-units text-center" contenteditable="true">1</td>
+                                <td class="td-final text-center" contenteditable="true"></td>
+                                <td class="td-remarks text-center" contenteditable="true"></td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    coreList.forEach(sub => {
+                        const isSubIndent = (sub.subjectName.toLowerCase().includes('effective communication') || sub.subjectName.toLowerCase().includes('mabisang komunikasyon')) && hasEffCom && hasMabKom;
+                        coreRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area ${isSubIndent ? 'sub-subject-indent' : ''}" contenteditable="true">${escapeHtml(sub.subjectName)}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
+                                <td class="td-units text-center" contenteditable="true">${sub.units !== null && sub.units !== undefined ? sub.units : 1}</td>
+                                <td class="td-final text-center" contenteditable="true">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(sub.remarks || '')}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                // Elective Subjects Rows
+                let electiveRowsHtml = '';
+                const electiveList = (st.electiveSubjects && st.electiveSubjects.length) ? st.electiveSubjects : [];
+                if (!electiveList.length) {
+                    const defaultElective = ['Biology 1'];
+                    defaultElective.forEach(name => {
+                        electiveRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area" contenteditable="true">${escapeHtml(name)}</td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-units text-center" contenteditable="true">1</td>
+                                <td class="td-final text-center" contenteditable="true"></td>
+                                <td class="td-remarks text-center" contenteditable="true"></td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    electiveList.forEach(sub => {
+                        electiveRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area" contenteditable="true">${escapeHtml(sub.subjectName)}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
+                                <td class="td-units text-center" contenteditable="true">${sub.units !== null && sub.units !== undefined ? sub.units : 1}</td>
+                                <td class="td-final text-center" contenteditable="true">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(sub.remarks || '')}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                // General Average Row
+                const genAvg = st.generalAverage || {};
+
+                // Monthly Attendance Breakdown (Page 2)
+                const attMonths = st.attendanceSummary?.months || [
+                    { month: 'Jun', classDays: 0, present: 0, absent: 0 },
+                    { month: 'Jul', classDays: 0, present: 0, absent: 0 },
+                    { month: 'Aug', classDays: 20, present: 20, absent: 0 },
+                    { month: 'Sep', classDays: 20, present: 20, absent: 0 },
+                    { month: 'Oct', classDays: 20, present: 18, absent: 2 },
+                    { month: 'Nov', classDays: 20, present: 20, absent: 0 },
+                    { month: 'Dec', classDays: 18, present: 18, absent: 0 },
+                    { month: 'Jan', classDays: 20, present: 20, absent: 0 },
+                    { month: 'Feb', classDays: 18, present: 18, absent: 0 },
+                    { month: 'Mar', classDays: 20, present: 20, absent: 0 },
+                    { month: 'Apr', classDays: 5, present: 5, absent: 0 }
+                ];
+                const attTotal = st.attendanceSummary?.total || { classDays: 161, present: 159, absent: 2 };
+
+                let attHeaderCells = '';
+                let attDaysCells = '';
+                let attPresentCells = '';
+                let attAbsentCells = '';
+
+                attMonths.forEach(m => {
+                    attHeaderCells += `<th class="text-center">${escapeHtml(m.month)}</th>`;
+                    attDaysCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.classDays : ''}</td>`;
+                    attPresentCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.present : ''}</td>`;
+                    attAbsentCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.absent : ''}</td>`;
+                });
+
+                attHeaderCells += `<th class="text-center font-bold">Total</th>`;
+                attDaysCells += `<td class="text-center font-bold" contenteditable="true">${attTotal.classDays || ''}</td>`;
+                attPresentCells += `<td class="text-center font-bold" contenteditable="true">${attTotal.present || ''}</td>`;
+                attAbsentCells += `<td class="text-center font-bold" contenteditable="true">${attTotal.absent || 0}</td>`;
+
                 return `
-                    <div class="report-card-page">
-                        <div>
-                            <!-- DepEd Header -->
-                            <div class="header-box">
-                                <div class="deped-sub">REPUBLIC OF THE PHILIPPINES &bull; DEPARTMENT OF EDUCATION</div>
-                                <div class="deped-sub">REGION IV-A CALABARZON &bull; DIVISION OF BATANGAS PROVINCE</div>
-                                <h1 class="school-title">TALISAY SENIOR HIGH SCHOOL</h1>
-                                <div class="school-id-sub">School ID: 342218 &bull; Talisay, Batangas</div>
-                                <div class="report-card-title">Senior High School Student Progress Report Card (SF9-SHS)</div>
-                                <div class="school-year-sub">School Year 2026-2027 &bull; ${escapeHtml(term)}</div>
+                    <!-- ==================== STUDENT ${index + 1} PAGE 1: FRONT (A5) ==================== -->
+                    <div class="sf9-a5-page sf9-page-1">
+                        <!-- Header with DepEd and TSHS Seals -->
+                        <div class="sf9-header-container">
+                            <div class="header-seal-col seal-left">
+                                <img src="${depedLogoSrc}" alt="DepEd Seal" class="seal-img" />
                             </div>
+                            <div class="header-text-col">
+                                <div class="txt-republic">Republic of the Philippines</div>
+                                <div class="txt-region">REGION IV - A (CALABARZON)</div>
+                                <div class="txt-division">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
+                                <div class="txt-district">TALISAY DISTRICT</div>
+                                <div class="txt-muni">TALISAY, BATANGAS</div>
+                                <div class="txt-school">TALISAY SENIOR HIGH SCHOOL</div>
+                                <div class="txt-doc-title">LEARNER'S PERFORMANCE REPORT</div>
+                                <div class="txt-sy">School Year <span contenteditable="true">${escapeHtml(schoolYear)}</span></div>
+                            </div>
+                            <div class="header-seal-col seal-right">
+                                <img src="${tshsLogoSrc}" alt="TSHS Seal" class="seal-img" />
+                            </div>
+                        </div>
 
-                            <!-- Student Info Table -->
-                            <table class="meta-table">
-                                <tr>
-                                    <td class="meta-label">Learner Name:</td>
-                                    <td class="meta-val"><strong>${escapeHtml(studentName)}</strong></td>
-                                    <td class="meta-label">LRN:</td>
-                                    <td class="meta-val font-monospace"><strong>${escapeHtml(lrn)}</strong></td>
-                                </tr>
-                                <tr>
-                                    <td class="meta-label">Grade & Section:</td>
-                                    <td class="meta-val">${escapeHtml(gradeSecText)}</td>
-                                    <td class="meta-label">Track & Cluster:</td>
-                                    <td class="meta-val">${escapeHtml(trackStrandText)}</td>
-                                </tr>
-                                <tr>
-                                    <td class="meta-label">General Average (GWA):</td>
-                                    <td class="meta-val" style="color: #0a5c2c; font-weight: 800; font-size: 1rem;">
-                                        ${overallGrade} ${overallGrade !== '--' ? `(${overallRemarks})` : ''}
-                                    </td>
-                                    <td class="meta-label">Attendance Rate:</td>
-                                    <td class="meta-val">${st.attendanceRate}</td>
-                                </tr>
-                            </table>
+                        <!-- Student Information Lines -->
+                        <div class="learner-meta-table">
+                            <div class="meta-row">
+                                <div class="meta-cell cell-name">
+                                    <span class="meta-lbl">Name:</span>
+                                    <span class="meta-fill underline-text" contenteditable="true">${escapeHtml(studentName)}</span>
+                                </div>
+                                <div class="meta-cell cell-age">
+                                    <span class="meta-lbl">Age:</span>
+                                    <span class="meta-fill underline-text text-center" contenteditable="true">${escapeHtml(age)}</span>
+                                </div>
+                                <div class="meta-cell cell-sex">
+                                    <span class="meta-lbl">Sex:</span>
+                                    <span class="meta-fill underline-text text-center" contenteditable="true">${escapeHtml(sex)}</span>
+                                </div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-cell cell-lrn">
+                                    <span class="meta-lbl">LRN:</span>
+                                    <span class="meta-fill underline-text text-center font-mono" contenteditable="true">${escapeHtml(lrn)}</span>
+                                </div>
+                                <div class="meta-cell cell-grade">
+                                    <span class="meta-lbl">Grade:</span>
+                                    <span class="meta-fill underline-text text-center" contenteditable="true">${escapeHtml(gradeLevel)}</span>
+                                </div>
+                                <div class="meta-cell cell-section">
+                                    <span class="meta-lbl">Section:</span>
+                                    <span class="meta-fill underline-text text-center font-bold text-uppercase" contenteditable="true">${escapeHtml(sectionName)}</span>
+                                </div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-cell cell-track">
+                                    <span class="meta-lbl">Track (SHS only):</span>
+                                    <span class="meta-fill underline-text font-bold" contenteditable="true">${escapeHtml(trackName)}</span>
+                                </div>
+                            </div>
+                        </div>
 
-                            <!-- Grades Table -->
-                            <table class="grade-table">
+                        <!-- Dear Parents Note -->
+                        <div class="dear-parents-box">
+                            <div class="dp-greeting">Dear Parents,</div>
+                            <div class="dp-body">
+                                <p class="dp-p">This Performance Report presents your child's progress and achievement in the different learning areas.</p>
+                                <p class="dp-p">The school welcomes you to reach out should you wish to know more about your child's learning and performance.</p>
+                            </div>
+                            <div class="dp-signatures-grid">
+                                <div class="sig-block sig-left">
+                                    <div class="sig-name underline-text font-bold" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                    <div class="sig-title">School Head</div>
+                                </div>
+                                <div class="sig-block sig-right">
+                                    <div class="sig-name underline-text font-bold" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                    <div class="sig-title">Adviser</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Learning Progress and Achievement Table -->
+                        <table class="sf9-main-grades-table">
+                            <thead>
+                                <tr class="tr-super-header">
+                                    <th colspan="7" class="text-center font-bold super-header-title">LEARNING PROGRESS AND ACHIEVEMENT</th>
+                                </tr>
+                                <tr class="tr-main-cols">
+                                    <th rowspan="2" class="th-learning-areas">Learning Areas</th>
+                                    <th colspan="3" class="th-term text-center">TERM</th>
+                                    <th rowspan="2" class="th-units text-center">Units</th>
+                                    <th rowspan="2" class="th-final text-center">Final<br>Grade</th>
+                                    <th rowspan="2" class="th-remarks text-center">Remarks</th>
+                                </tr>
+                                <tr class="tr-sub-terms">
+                                    <th class="th-subterm text-center">T1</th>
+                                    <th class="th-subterm text-center">T2</th>
+                                    <th class="th-subterm text-center">T3</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Core Subjects Header -->
+                                <tr class="category-header-row">
+                                    <td colspan="7" class="font-bold category-title-cell">Core Subjects</td>
+                                </tr>
+                                ${coreRowsHtml}
+
+                                <!-- Elective Subjects Header -->
+                                <tr class="category-header-row">
+                                    <td colspan="7" class="font-bold category-title-cell">Elective Subjects</td>
+                                </tr>
+                                ${electiveRowsHtml}
+
+                                <!-- General Average Row -->
+                                <tr class="general-average-row font-bold">
+                                    <td class="text-center genavg-label font-bold">General Average</td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.t1 !== null && genAvg.t1 !== undefined ? genAvg.t1 : ''}</td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.t2 !== null && genAvg.t2 !== undefined ? genAvg.t2 : ''}</td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.t3 !== null && genAvg.t3 !== undefined ? genAvg.t3 : ''}</td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true"></td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Performance Descriptors Table (Page 1 Bottom) -->
+                        <div class="sf9-descriptors-section">
+                            <div class="desc-heading font-bold">PERFORMANCE DESCRIPTORS</div>
+                            <table class="desc-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 44%; text-align: left;">Learning Areas (Subject Code & Description)</th>
-                                        <th style="width: 13%;">Written Works</th>
-                                        <th style="width: 13%;">Performance Tasks</th>
-                                        <th style="width: 13%;">Quarterly Assessment</th>
-                                        <th style="width: 9%;">Final Grade</th>
-                                        <th style="width: 8%;">Remarks</th>
+                                        <th class="text-center desc-th">Grading Scale</th>
+                                        <th class="text-center desc-th">Descriptors</th>
+                                        <th class="text-center desc-th">Remarks</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${rowsHtml}
+                                    <tr><td class="text-center">90-100</td><td class="text-center">Advancing</td><td class="text-center">Passed</td></tr>
+                                    <tr><td class="text-center">80-89</td><td class="text-center">Benchmarking</td><td class="text-center">Passed</td></tr>
+                                    <tr><td class="text-center">75-79</td><td class="text-center">Connecting</td><td class="text-center">Passed</td></tr>
+                                    <tr><td class="text-center">65-74</td><td class="text-center">Developing</td><td class="text-center">Failed</td></tr>
+                                    <tr><td class="text-center">0-64</td><td class="text-center">Emerging</td><td class="text-center">Failed</td></tr>
                                 </tbody>
                             </table>
                         </div>
+                    </div>
 
-                        <!-- Footer: Grading Scale & Signatures -->
-                        <div class="footer-box">
-                            <div class="row align-items-center g-3">
-                                <div class="col-6">
-                                    <div class="grading-scale-box">
-                                        <span class="fw-bold d-block mb-1 text-dark">DepEd Grading Scale (DepEd Order No. 8, s. 2015):</span>
-                                        <table class="w-100 scale-table">
-                                            <tr><td><strong>90 - 100:</strong> Outstanding</td><td><strong>80 - 84:</strong> Satisfactory</td><td><strong>Below 75:</strong> Did Not Meet Expectations</td></tr>
-                                            <tr><td><strong>85 - 89:</strong> Very Satisfactory</td><td><strong>75 - 79:</strong> Fairly Satisfactory</td><td><strong>Passing Grade:</strong> 75</td></tr>
-                                        </table>
-                                    </div>
+                    <!-- ==================== STUDENT ${index + 1} PAGE 2: BACK (A5) ==================== -->
+                    <div class="sf9-a5-page sf9-page-2">
+                        <!-- Monthly Attendance Record Table -->
+                        <table class="sf9-attendance-table">
+                            <thead>
+                                <tr>
+                                    <th class="th-month-label text-center">Month</th>
+                                    ${attHeaderCells}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="td-att-row-title font-bold">No. of Class Days</td>
+                                    ${attDaysCells}
+                                </tr>
+                                <tr>
+                                    <td class="td-att-row-title font-bold">No. of Days Present</td>
+                                    ${attPresentCells}
+                                </tr>
+                                <tr>
+                                    <td class="td-att-row-title font-bold">No. of Days Absent</td>
+                                    ${attAbsentCells}
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Teacher's Comments / Remarks -->
+                        <div class="sf9-comments-container">
+                            <div class="box-title text-center font-bold">TEACHER'S COMMENTS / REMARKS</div>
+                            <div class="comments-box">
+                                <div class="comment-term-row">
+                                    <span class="comment-term-lbl font-bold">Term 1</span>
+                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term1 || 'Needs more practice to improve understanding.')}</span>
                                 </div>
-                                <div class="col-3 text-center">
-                                    <div class="signature-line"></div>
-                                    <span class="fw-bold d-block text-dark small">${escapeHtml(adviserName)}</span>
-                                    <span class="text-muted text-xs">Class Adviser</span>
+                                <div class="comment-term-row">
+                                    <span class="comment-term-lbl font-bold">Term 2</span>
+                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
                                 </div>
-                                <div class="col-3 text-center">
-                                    <div class="signature-line"></div>
-                                    <span class="fw-bold d-block text-dark small">School Administration</span>
-                                    <span class="text-muted text-xs">Senior High School Principal</span>
+                                <div class="comment-term-row">
+                                    <span class="comment-term-lbl font-bold">Term 3</span>
+                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
                                 </div>
                             </div>
-                            <div class="page-footer-notice d-flex justify-content-between mt-2 pt-1 border-top">
-                                <span>Mentorae SIS Official DepEd SF9-SHS Report Card</span>
-                                <span>Student ${index + 1} of ${cards.length} &bull; ${escapeHtml(sec.name)}</span>
+                        </div>
+
+                        <!-- Parent's / Guardian's Signature -->
+                        <div class="sf9-signatures-box">
+                            <div class="box-title text-center font-bold">PARENT/S GUARDIAN'S SIGNATURE</div>
+                            <div class="signature-line-row">
+                                <span class="sig-term-lbl font-bold">Term 1</span>
+                                <span class="sig-line-fill"></span>
+                            </div>
+                            <div class="signature-line-row">
+                                <span class="sig-term-lbl font-bold">Term 2</span>
+                                <span class="sig-line-fill"></span>
+                            </div>
+                            <div class="signature-line-row">
+                                <span class="sig-term-lbl font-bold">Term 3</span>
+                                <span class="sig-line-fill"></span>
+                            </div>
+                        </div>
+
+                        <!-- Certificate of Transfer -->
+                        <div class="sf9-certificate-box">
+                            <div class="box-title text-center font-bold">CERTIFICATE OF TRANSFER</div>
+                            <p class="cert-intro">
+                                This is to certify that the above-named learner has satisfactorily completed the requirements for the grade level indicated.
+                            </p>
+                            <div class="cert-fields">
+                                <div class="cert-line">
+                                    <span class="cert-lbl">Admitted to Grade:</span>
+                                    <span class="cert-fill underline-text" contenteditable="true" style="min-width: 90px; display: inline-block;"></span>
+                                </div>
+                                <div class="cert-line">
+                                    <span class="cert-lbl">Eligible for Admission to Grade:</span>
+                                    <span class="cert-fill underline-text" contenteditable="true" style="min-width: 170px; display: inline-block;"></span>
+                                </div>
+                            </div>
+
+                            <!-- Adviser Signature (Right Aligned) -->
+                            <div class="cert-adviser-signature">
+                                <div class="sig-name underline-text font-bold" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                <div class="sig-title">Adviser</div>
+                            </div>
+
+                            <!-- School Head Approval -->
+                            <div class="cert-approval-container">
+                                <div class="approved-tag">Approved:</div>
+                                <div class="principal-sig-wrap text-center">
+                                    <div class="sig-name underline-text font-bold" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                    <div class="sig-title">School Head</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cancellation of Eligibility to Transfer -->
+                        <div class="sf9-cancellation-box">
+                            <div class="box-title text-center font-bold">CANCELLATION OF ELIGIBILITY TO TRANSFER</div>
+                            <div class="cancellation-fields">
+                                <div class="canc-line">
+                                    <span class="canc-lbl">Admitted in:</span>
+                                    <span class="canc-fill underline-text" contenteditable="true" style="min-width: 170px; display: inline-block;"></span>
+                                </div>
+                                <div class="canc-line">
+                                    <span class="canc-lbl">Date:</span>
+                                    <span class="canc-fill underline-text" contenteditable="true" style="min-width: 140px; display: inline-block;"></span>
+                                </div>
+                            </div>
+                            <div class="cancellation-principal-sign text-center">
+                                <div class="sig-name underline-text font-bold" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                <div class="sig-title">School Head</div>
                             </div>
                         </div>
                     </div>
@@ -3553,178 +3825,553 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <html lang="en">
                 <head>
                     <meta charset="UTF-8">
-                    <title>${cards.length === 1 ? `SF9 Report Card - ${escapeHtml(cards[0].fullName)}` : `Official SF9 Report Cards (Bulk) - ${escapeHtml(sec.name)}`}</title>
-                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <title>${cards.length === 1 ? `SF9 Report Card - ${escapeHtml(cards[0].fullName)}` : `Official SF9 Report Cards (A5 Batch) - ${escapeHtml(sec.name)}`}</title>
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
                     <style>
+                        /* DepEd Standard A5 Portrait Format: 148mm x 210mm */
                         @page {
-                            size: landscape;
-                            margin: 0.8cm 1cm;
+                            size: A5 portrait;
+                            margin: 6mm 8mm 6mm 8mm;
                         }
-                        * { box-sizing: border-box; }
+
+                        * {
+                            box-sizing: border-box;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+
                         body {
                             margin: 0;
                             padding: 0;
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-                            color: #0f172a;
-                            background-color: #f1f5f9;
+                            background-color: #475569;
+                            font-family: "Bookman Old Style", Georgia, "Times New Roman", serif;
+                            color: #000000;
+                            font-size: 8pt;
+                            line-height: 1.18;
                         }
-                        .no-print-bar {
-                            background: linear-gradient(135deg, #0a5c2c, #06401e);
-                            color: white;
-                            padding: 12px 24px;
+
+                        /* Sticky Tool Bar for Teachers */
+                        .no-print-toolbar {
                             position: sticky;
                             top: 0;
-                            z-index: 1000;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            z-index: 9999;
+                            background: #1e293b;
+                            color: #ffffff;
+                            padding: 10px 20px;
                             display: flex;
                             align-items: center;
                             justify-content: space-between;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                            font-size: 13px;
                         }
-                        .report-card-page {
+
+                        .no-print-toolbar button {
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        }
+
+                        /* A5 Page Sheet Container */
+                        .sf9-a5-page {
+                            width: 148mm;
+                            height: 202mm;
+                            max-height: 202mm;
+                            margin: 18px auto;
                             background: #ffffff;
-                            width: 100%;
-                            max-width: 1120px;
-                            margin: 20px auto;
-                            padding: 1.8rem 2.4rem;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
-                            border-radius: 6px;
-                            min-height: 720px;
+                            padding: 4.5mm 5.5mm;
+                            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+                            position: relative;
                             display: flex;
                             flex-direction: column;
                             justify-content: space-between;
                             page-break-after: always;
                             break-after: page;
+                            overflow: hidden;
                         }
-                        .header-box {
-                            border-bottom: 2.5px solid #0a5c2c;
-                            padding-bottom: 0.6rem;
-                            margin-bottom: 0.9rem;
+
+                        .sf9-a5-page:last-child {
+                            page-break-after: auto;
+                            break-after: auto;
+                        }
+
+                        /* Typography Utilities */
+                        .font-bold { font-weight: bold; }
+                        .text-center { text-align: center; }
+                        .text-uppercase { text-transform: uppercase; }
+                        .font-mono { font-family: "Courier New", Courier, monospace; }
+
+                        .underline-text {
+                            border-bottom: 1px solid #000000;
+                            display: inline-block;
+                            padding: 0 4px 1px 4px;
+                        }
+
+                        /* Interactive Inline Editing Highlighting */
+                        [contenteditable="true"] {
+                            outline: none;
+                            transition: background-color 0.15s ease;
+                        }
+                        [contenteditable="true"]:hover {
+                            background-color: #f0fdf4;
+                            cursor: text;
+                        }
+                        [contenteditable="true"]:focus {
+                            background-color: #dcfce7;
+                            box-shadow: 0 0 0 1px #16a34a;
+                        }
+
+                        /* Header Layout */
+                        .sf9-header-container {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            margin-bottom: 4px;
+                        }
+
+                        .header-seal-col {
+                            width: 48px;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            flex-shrink: 0;
+                        }
+
+                        .seal-img {
+                            width: 46px;
+                            height: 46px;
+                            object-fit: contain;
+                        }
+
+                        .header-text-col {
                             text-align: center;
+                            flex-grow: 1;
+                            padding: 0 4px;
                         }
-                        .school-title {
-                            color: #0a5c2c;
-                            font-weight: 800;
-                            font-size: 1.35rem;
-                            margin: 0.15rem 0;
-                            letter-spacing: 0.5px;
+
+                        .txt-republic { font-size: 7.5pt; font-weight: normal; margin-bottom: 0.5px; }
+                        .txt-region { font-size: 7.5pt; font-weight: bold; letter-spacing: 0.2px; }
+                        .txt-division { font-size: 7.5pt; font-weight: bold; letter-spacing: 0.2px; }
+                        .txt-district { font-size: 7.5pt; font-weight: bold; }
+                        .txt-muni { font-size: 7.5pt; font-weight: bold; margin-bottom: 1px; }
+                        .txt-school { font-size: 8.5pt; font-weight: bold; letter-spacing: 0.3px; }
+                        .txt-doc-title { font-size: 8.5pt; font-weight: bold; margin-top: 1px; }
+                        .txt-sy { font-size: 7.5pt; margin-top: 0.5px; }
+
+                        /* Learner Meta Information */
+                        .learner-meta-table {
+                            margin: 4px 0 3px 0;
+                            font-size: 7.5pt;
                         }
-                        .deped-sub {
-                            font-size: 0.76rem;
-                            font-weight: 600;
-                            color: #475569;
-                            margin: 0;
-                            text-transform: uppercase;
-                            letter-spacing: 0.3px;
+
+                        .meta-row {
+                            display: flex;
+                            align-items: center;
+                            margin-bottom: 2.5px;
                         }
-                        .school-id-sub { font-size: 0.74rem; color: #64748b; margin: 0; }
-                        .report-card-title {
-                            font-size: 1.05rem;
-                            font-weight: 800;
-                            text-transform: uppercase;
-                            color: #0f172a;
-                            margin-top: 0.35rem;
-                            letter-spacing: -0.2px;
+
+                        .meta-cell {
+                            display: flex;
+                            align-items: flex-end;
                         }
-                        .school-year-sub { font-size: 0.8rem; font-weight: 600; color: #0a5c2c; margin-top: 0.1rem; }
-                        .meta-table {
-                            width: 100%;
-                            font-size: 0.82rem;
-                            border-collapse: collapse;
-                            margin-bottom: 0.8rem;
+
+                        .meta-lbl {
+                            font-size: 7.5pt;
+                            white-space: nowrap;
+                            margin-right: 4px;
                         }
-                        .meta-table td {
-                            padding: 0.35rem 0.65rem;
-                            border: 1px solid #cbd5e1;
+
+                        .meta-fill {
+                            flex-grow: 1;
+                            font-size: 7.5pt;
+                            min-height: 14px;
                         }
-                        .meta-label {
-                            background-color: #f8fafc;
-                            font-weight: 700;
-                            color: #334155;
-                            width: 16%;
+
+                        .cell-name { width: 56%; }
+                        .cell-age { width: 22%; padding-left: 6px; }
+                        .cell-sex { width: 22%; padding-left: 6px; }
+
+                        .cell-lrn { width: 44%; }
+                        .cell-grade { width: 20%; padding-left: 6px; }
+                        .cell-section { width: 36%; padding-left: 6px; }
+
+                        .cell-track { width: 100%; }
+
+                        /* Dear Parents Box */
+                        .dear-parents-box {
+                            font-size: 7pt;
+                            margin: 3px 0 4px 0;
+                            line-height: 1.16;
                         }
-                        .meta-val {
-                            color: #0f172a;
-                            width: 34%;
+
+                        .dp-greeting {
+                            margin-bottom: 1px;
+                            font-weight: normal;
                         }
-                        .grade-table {
-                            width: 100%;
-                            font-size: 0.82rem;
-                            border-collapse: collapse;
-                            margin-bottom: 0.8rem;
+
+                        .dp-body .dp-p {
+                            margin: 0 0 1px 0;
+                            text-indent: 18px;
+                            text-align: justify;
                         }
-                        .grade-table th {
-                            background-color: #0a5c2c !important;
-                            color: #ffffff !important;
+
+                        .dp-signatures-grid {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-top: 5px;
+                            padding: 0 12px;
+                        }
+
+                        .sig-block {
                             text-align: center;
-                            padding: 0.45rem 0.6rem;
-                            font-weight: 700;
-                            border: 1px solid #0a5c2c;
+                            width: 155px;
                         }
-                        .grade-table td {
-                            padding: 0.38rem 0.6rem;
-                            border: 1px solid #cbd5e1;
+
+                        .sig-block .sig-name {
+                            font-size: 7.5pt;
+                            width: 100%;
+                            display: block;
+                            min-height: 14px;
+                        }
+
+                        .sig-block .sig-title {
+                            font-size: 7pt;
+                            margin-top: 1px;
+                        }
+
+                        /* Grades Table */
+                        .sf9-main-grades-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 7pt;
+                            margin-top: 2px;
+                            border: 1px solid #000;
+                        }
+
+                        .sf9-main-grades-table th,
+                        .sf9-main-grades-table td {
+                            border: 1px solid #000;
+                            padding: 1.8px 3px;
                             vertical-align: middle;
                         }
-                        .subject-cell { color: #0f172a; }
-                        .teacher-sub { font-size: 0.72rem; color: #64748b; }
-                        .score-sub { font-size: 0.74rem; color: #64748b; }
-                        .gwa-row { background-color: #f1f5f9; }
-                        .grading-scale-box {
-                            font-size: 0.72rem;
-                            border: 1px solid #cbd5e1;
-                            padding: 0.45rem 0.65rem;
-                            border-radius: 4px;
-                            background-color: #f8fafc;
-                        }
-                        .scale-table td { padding: 0.1rem 0.3rem; }
-                        .signature-line {
-                            border-bottom: 1px solid #0f172a;
-                            width: 170px;
-                            margin: 1.2rem auto 0.25rem;
-                        }
-                        .text-xs { font-size: 0.72rem; }
-                        .page-footer-notice { font-size: 0.68rem; color: #94a3b8; }
 
+                        .super-header-title {
+                            font-size: 7.5pt;
+                            padding: 2px !important;
+                            letter-spacing: 0.3px;
+                        }
+
+                        .th-learning-areas { width: 45%; text-align: center; font-weight: bold; }
+                        .th-term { width: 24%; font-weight: bold; }
+                        .th-subterm { width: 8%; font-weight: bold; }
+                        .th-units { width: 9%; font-weight: bold; }
+                        .th-final { width: 10%; font-weight: bold; }
+                        .th-remarks { width: 12%; font-weight: bold; }
+
+                        .category-header-row td {
+                            background-color: #ffffff;
+                            font-style: normal;
+                            font-size: 7pt;
+                            padding: 1.5px 3px;
+                        }
+
+                        .grade-row td {
+                            height: 14px;
+                            font-size: 7pt;
+                        }
+
+                        .sub-subject-indent {
+                            padding-left: 18px !important;
+                        }
+
+                        .general-average-row td {
+                            height: 16px;
+                            font-size: 7.5pt;
+                        }
+
+                        /* Descriptors Box */
+                        .sf9-descriptors-section {
+                            margin-top: 3px;
+                            font-size: 6.8pt;
+                        }
+
+                        .desc-heading {
+                            font-size: 7pt;
+                            margin-bottom: 1.5px;
+                            letter-spacing: 0.2px;
+                        }
+
+                        .desc-table {
+                            border-collapse: collapse;
+                            width: 320px;
+                            border: none;
+                            font-size: 6.8pt;
+                        }
+
+                        .desc-table th,
+                        .desc-table td {
+                            padding: 1px 8px;
+                            border: none;
+                            line-height: 1.15;
+                        }
+
+                        .desc-table th {
+                            font-weight: bold;
+                        }
+
+                        /* Page 2 Attendance Table */
+                        .sf9-attendance-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 6.8pt;
+                            border: 1px solid #000;
+                            margin-top: 1px;
+                            margin-bottom: 6px;
+                        }
+
+                        .sf9-attendance-table th,
+                        .sf9-attendance-table td {
+                            border: 1px solid #000;
+                            padding: 2.2px 1.5px;
+                            height: 14px;
+                        }
+
+                        .th-month-label { width: 22%; font-weight: bold; }
+                        .td-att-row-title { width: 22%; font-size: 6.8pt; padding-left: 4px; }
+
+                        /* Comments Box */
+                        .sf9-comments-container {
+                            margin-bottom: 6px;
+                        }
+
+                        .box-title {
+                            font-size: 7.2pt;
+                            margin-bottom: 2px;
+                            letter-spacing: 0.3px;
+                        }
+
+                        .comments-box {
+                            border: 1px solid #000;
+                            padding: 3px 6px;
+                            min-height: 72px;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-around;
+                        }
+
+                        .comment-term-row {
+                            display: flex;
+                            align-items: flex-start;
+                            font-size: 7pt;
+                            min-height: 20px;
+                            margin-bottom: 2px;
+                        }
+
+                        .comment-term-lbl {
+                            width: 60px;
+                            flex-shrink: 0;
+                            margin-right: 6px;
+                        }
+
+                        .comment-term-text {
+                            flex-grow: 1;
+                            font-size: 7pt;
+                        }
+
+                        /* Signatures Box */
+                        .sf9-signatures-box {
+                            margin-bottom: 6px;
+                        }
+
+                        .signature-line-row {
+                            display: flex;
+                            align-items: center;
+                            margin-bottom: 4px;
+                            font-size: 7pt;
+                        }
+
+                        .sig-term-lbl {
+                            width: 55px;
+                            flex-shrink: 0;
+                        }
+
+                        .sig-line-fill {
+                            flex-grow: 1;
+                            border-bottom: 1px solid #000;
+                            height: 12px;
+                        }
+
+                        /* Certificate of Transfer */
+                        .sf9-certificate-box {
+                            font-size: 7pt;
+                            margin-bottom: 6px;
+                            line-height: 1.15;
+                        }
+
+                        .cert-intro {
+                            margin: 2px 0 4px 0;
+                            text-align: justify;
+                        }
+
+                        .cert-fields {
+                            margin-bottom: 4px;
+                        }
+
+                        .cert-line {
+                            display: flex;
+                            align-items: flex-end;
+                            margin-bottom: 3px;
+                        }
+
+                        .cert-lbl {
+                            margin-right: 4px;
+                        }
+
+                        .cert-fill {
+                            min-height: 13px;
+                        }
+
+                        .cert-adviser-signature {
+                            width: 170px;
+                            margin-left: auto;
+                            text-align: center;
+                            margin-top: 4px;
+                            margin-bottom: 4px;
+                        }
+
+                        .cert-adviser-signature .sig-name {
+                            min-height: 14px;
+                            display: block;
+                        }
+
+                        .cert-adviser-signature .sig-title {
+                            font-size: 6.8pt;
+                            margin-top: 1px;
+                        }
+
+                        .cert-approval-container {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: flex-start;
+                            margin-top: 2px;
+                        }
+
+                        .approved-tag {
+                            font-size: 7pt;
+                            margin-bottom: 2px;
+                        }
+
+                        .principal-sig-wrap {
+                            width: 170px;
+                            margin-left: 20px;
+                        }
+
+                        .principal-sig-wrap .sig-name {
+                            min-height: 14px;
+                            display: block;
+                        }
+
+                        .principal-sig-wrap .sig-title {
+                            font-size: 6.8pt;
+                            margin-top: 1px;
+                        }
+
+                        /* Cancellation Box */
+                        .sf9-cancellation-box {
+                            font-size: 7pt;
+                            line-height: 1.15;
+                            margin-top: 2px;
+                        }
+
+                        .cancellation-fields {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 4px;
+                        }
+
+                        .canc-line {
+                            display: flex;
+                            align-items: flex-end;
+                        }
+
+                        .canc-lbl {
+                            margin-right: 4px;
+                        }
+
+                        .canc-fill {
+                            min-height: 13px;
+                        }
+
+                        .cancellation-principal-sign {
+                            width: 170px;
+                            margin: 4px auto 0 auto;
+                        }
+
+                        .cancellation-principal-sign .sig-name {
+                            min-height: 14px;
+                            display: block;
+                        }
+
+                        .cancellation-principal-sign .sig-title {
+                            font-size: 6.8pt;
+                            margin-top: 1px;
+                        }
+
+                        /* Print Rules */
                         @media print {
                             body {
                                 background: #ffffff !important;
-                                -webkit-print-color-adjust: exact !important;
-                                print-color-adjust: exact !important;
                                 padding: 0 !important;
                                 margin: 0 !important;
                             }
+
                             .no-print {
                                 display: none !important;
                             }
-                            .report-card-page {
+
+                            .sf9-a5-page {
+                                width: 148mm !important;
+                                max-width: 148mm !important;
+                                height: 202mm !important;
+                                max-height: 202mm !important;
                                 margin: 0 !important;
-                                padding: 0.6cm 0.8cm !important;
+                                padding: 0 !important;
                                 box-shadow: none !important;
-                                border-radius: 0 !important;
-                                min-height: 100vh !important;
+                                border: none !important;
                                 page-break-after: always !important;
                                 break-after: page !important;
                             }
-                            .report-card-page:last-child {
+
+                            .sf9-a5-page:last-child {
                                 page-break-after: auto !important;
                                 break-after: auto !important;
+                            }
+
+                            [contenteditable="true"] {
+                                background-color: transparent !important;
+                                outline: none !important;
+                                box-shadow: none !important;
                             }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="no-print no-print-bar">
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="fs-5 fw-bold"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Official SF9 Report Cards Batch</span>
-                            <span class="badge bg-light text-dark px-2.5 py-1.5">${cards.length} Student(s)</span>
-                            <span class="badge bg-success-subtle text-white border border-light px-2.5 py-1.5">${escapeHtml(sec.name)}</span>
+                    <div class="no-print no-print-toolbar">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-weight: 700; font-size: 14px;">
+                                <i class="bi bi-file-earmark-pdf-fill" style="color: #22c55e; margin-right: 6px;"></i>
+                                Official SF9 Report Cards (A5 Duplex Batch)
+                            </span>
+                            <span style="background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+                                ${cards.length} Student(s) &bull; ${escapeHtml(sec.name)}
+                            </span>
+                            <span style="background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); padding: 3px 8px; border-radius: 9999px; font-size: 11px;">
+                                <i class="bi bi-pencil-fill me-1"></i> Interactive Editing Enabled: Click any text, grade, or attendance box to edit before printing
+                            </span>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <button type="button" class="btn btn-warning fw-bold px-4 py-2 shadow-sm d-inline-flex align-items-center gap-2" onclick="window.print()">
-                                <i class="bi bi-printer-fill fs-6"></i> Save as PDF / Print All
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" onclick="window.print()" style="background: #eab308; color: #000; border: none; font-weight: 700; padding: 6px 18px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="bi bi-printer-fill"></i> Save as PDF / Print All
                             </button>
-                            <button type="button" class="btn btn-outline-light px-3 py-2" onclick="window.close()">
+                            <button type="button" onclick="window.close()" style="background: transparent; color: #cbd5e1; border: 1px solid #64748b; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
                                 Close
                             </button>
                         </div>
@@ -3747,7 +4394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             setTimeout(() => {
                 printWindow.print();
-            }, 650);
+            }, 750);
 
         } catch (err) {
             console.error('generateBulkReportCards error:', err);

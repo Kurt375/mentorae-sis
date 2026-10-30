@@ -751,16 +751,31 @@ async function getSectionReportCards(req, res) {
       }
     }
 
+    // 1b. Fetch School Head & School Year from system_settings
+    let schoolHead = 'JAENA N. DELA CERNA';
+    let schoolYear = '2026-2027';
+    try {
+      const [settingsRows] = await pool.query(
+        `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('school_head', 'school_year')`
+      );
+      for (const r of settingsRows) {
+        if (r.setting_key === 'school_head' && r.setting_value) schoolHead = r.setting_value;
+        if (r.setting_key === 'school_year' && r.setting_value) schoolYear = r.setting_value;
+      }
+    } catch (e) {
+      // ignore
+    }
+
     // 2. Fetch all students in this section
     const [students] = await pool.query(
-      `SELECT id, id_number, first_name, middle_initial, last_name, profile_picture_url, is_active
+      `SELECT id, id_number, first_name, middle_initial, last_name, sex, profile_picture_url, is_active
        FROM users
        WHERE role = 'student' AND section_id = ?
        ORDER BY last_name, first_name`,
       [sectionId]
     );
 
-    const fallbackAdviserName = sec.adviserName || `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || 'Class Adviser';
+    const fallbackAdviserName = sec.adviserName || `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || 'NIÑO M. LUNA';
 
     if (!students.length) {
       return res.json({
@@ -771,9 +786,11 @@ async function getSectionReportCards(req, res) {
           gradeLevel: sec.grade_level,
           strandCode: sec.strandCode,
           strandName: sec.strandName,
-          track: sec.track || 'Academic Track',
+          track: sec.track || 'Academic',
           adviserName: fallbackAdviserName,
           coAdviserName: sec.coAdviserName || null,
+          schoolHead,
+          schoolYear,
         },
         term,
         reportCards: [],
@@ -782,9 +799,21 @@ async function getSectionReportCards(req, res) {
 
     const studentIds = students.map((s) => s.id);
 
-    // 3. Fetch all grades recorded for these students
+    // 3. Fetch all subjects scheduled or handled in this section
+    const [schedSubjects] = await pool.query(
+      `SELECT DISTINCT sub.id AS subjectId, sub.code AS subjectCode, sub.name AS subjectName,
+              COALESCE(sub.classification, 'Core') AS classification
+       FROM schedules sch
+       JOIN subjects sub ON sub.id = sch.subject_id
+       WHERE sch.section_id = ?
+       ORDER BY (CASE WHEN sub.classification LIKE '%Core%' THEN 1 ELSE 2 END), sub.code, sub.name`,
+      [sectionId]
+    );
+
+    // 4. Fetch all grades recorded for these students
     const [gradeRows] = await pool.query(
       `SELECT g.student_id, g.id AS gradeId, g.subject_id, sub.code AS subjectCode, sub.name AS subjectName,
+              COALESCE(sub.classification, 'Core') AS classification,
               COALESCE(sub.ww_weight, 20.00) AS ww_weight,
               COALESCE(sub.pt_weight, 50.00) AS pt_weight,
               COALESCE(sub.qa_weight, 30.00) AS qa_weight,
@@ -798,7 +827,7 @@ async function getSectionReportCards(req, res) {
       [studentIds]
     );
 
-    // 4. Fetch attendance rate summary for each student
+    // 5. Fetch overall attendance rate and monthly attendance summary for each student
     const [attendanceRows] = await pool.query(
       `SELECT student_id,
               COUNT(*) AS totalDays,
@@ -813,6 +842,66 @@ async function getSectionReportCards(req, res) {
       const rate = a.totalDays > 0 ? Math.round((a.attendedDays / a.totalDays) * 100) : null;
       attendanceMap[a.student_id] = { totalDays: a.totalDays, attendedDays: a.attendedDays, rate };
     }
+
+    const [monthlyAttRows] = await pool.query(
+      `SELECT student_id,
+              MONTH(scan_date) AS monthNum,
+              COUNT(*) AS totalDays,
+              SUM(status IN ('present', 'late')) AS attendedDays,
+              SUM(status = 'absent') AS absentDays
+       FROM attendance_logs
+       WHERE student_id IN (?)
+       GROUP BY student_id, MONTH(scan_date)`,
+      [studentIds]
+    );
+    const monthlyAttendanceMap = {};
+    for (const m of monthlyAttRows) {
+      if (!monthlyAttendanceMap[m.student_id]) monthlyAttendanceMap[m.student_id] = {};
+      monthlyAttendanceMap[m.student_id][m.monthNum] = {
+        totalDays: Number(m.totalDays) || 0,
+        present: Number(m.attendedDays) || 0,
+        absent: Number(m.absentDays) || 0,
+      };
+    }
+
+    // Helper to normalize term key
+    function getNormalizedTermKey(tStr) {
+      const t = String(tStr || '').trim().toLowerCase();
+      if (t === 't1' || t.includes('1st') || t.includes('first')) return 't1';
+      if (t === 't2' || t.includes('2nd') || t.includes('second')) return 't2';
+      if (t === 't3' || t.includes('3rd') || t.includes('third')) return 't3';
+      return null;
+    }
+
+    function generateConstructiveComment(gradeVal) {
+      if (gradeVal === null || gradeVal === undefined || isNaN(gradeVal)) return '';
+      const g = Number(gradeVal);
+      if (g >= 90) return 'Demonstrates outstanding academic performance and consistent dedication.';
+      if (g >= 80) return 'Shows commendable performance and steady progress in learning.';
+      if (g >= 75) return 'Meets grade-level competencies; consistent study and participation encouraged.';
+      if (g >= 65) return 'Needs more practice to improve understanding.';
+      return 'Requires intensive academic remediation and guided support.';
+    }
+
+    // Month order for SF9 DepEd attendance: Jun, Jul, Aug, Sep, Oct, Nov, Dec, Jan, Feb, Mar, Apr
+    const SF9_MONTHS = [
+      { num: 6, key: 'jun', label: 'Jun' },
+      { num: 7, key: 'jul', label: 'Jul' },
+      { num: 8, key: 'aug', label: 'Aug' },
+      { num: 9, key: 'sep', label: 'Sep' },
+      { num: 10, key: 'oct', label: 'Oct' },
+      { num: 11, key: 'nov', label: 'Nov' },
+      { num: 12, key: 'dec', label: 'Dec' },
+      { num: 1, key: 'jan', label: 'Jan' },
+      { num: 2, key: 'feb', label: 'Feb' },
+      { num: 3, key: 'mar', label: 'Mar' },
+      { num: 4, key: 'apr', label: 'Apr' },
+    ];
+
+    // Standard school days per month reference (DO 15 s. 2026 calendar baseline)
+    const DEFAULT_CLASS_DAYS = {
+      jun: 0, jul: 0, aug: 20, sep: 20, oct: 20, nov: 20, dec: 18, jan: 20, feb: 18, mar: 20, apr: 5
+    };
 
     // Group grades by student
     const gradesByStudent = {};
@@ -831,8 +920,10 @@ async function getSectionReportCards(req, res) {
         subjectId: g.subject_id,
         subjectCode: g.subjectCode || 'SUBJ',
         subject: g.subjectName,
+        classification: g.classification || 'Core',
         teacherName: g.teacherName || 'Subject Teacher',
         term: g.term,
+        termKey: getNormalizedTermKey(g.term),
         quiz_score: q,
         activity_score: a,
         exam_score: e,
@@ -851,35 +942,157 @@ async function getSectionReportCards(req, res) {
     // Build the report cards list
     const reportCards = students.map((s) => {
       const sGrades = gradesByStudent[s.id] || [];
-      const overall = sGrades.length
-        ? (sGrades.reduce((sum, g) => sum + Number(g.average), 0) / sGrades.length).toFixed(1)
-        : null;
-      const writtenWorkAvg = sGrades.length
-        ? Math.round(sGrades.reduce((sum, g) => sum + g.quizPct, 0) / sGrades.length)
-        : null;
-      const performanceTaskAvg = sGrades.length
-        ? Math.round(sGrades.reduce((sum, g) => sum + g.activityPct, 0) / sGrades.length)
-        : null;
-      const quarterlyExamAvg = sGrades.length
-        ? Math.round(sGrades.reduce((sum, g) => sum + g.examPct, 0) / sGrades.length)
-        : null;
+
+      // Combine section subjects and graded subjects
+      const subjectMap = new Map();
+
+      // Seed scheduled subjects
+      schedSubjects.forEach((sub) => {
+        subjectMap.set(sub.subjectId, {
+          subjectId: sub.subjectId,
+          subjectCode: sub.subjectCode,
+          subjectName: sub.subjectName,
+          classification: sub.classification || 'Core',
+          t1: null,
+          t2: null,
+          t3: null,
+          units: 1,
+          finalGrade: null,
+          remarks: '',
+        });
+      });
+
+      // Populate student grade values into subjects
+      sGrades.forEach((g) => {
+        if (!subjectMap.has(g.subjectId)) {
+          subjectMap.set(g.subjectId, {
+            subjectId: g.subjectId,
+            subjectCode: g.subjectCode,
+            subjectName: g.subject,
+            classification: g.classification || 'Core',
+            t1: null,
+            t2: null,
+            t3: null,
+            units: 1,
+            finalGrade: null,
+            remarks: '',
+          });
+        }
+        const entry = subjectMap.get(g.subjectId);
+        if (g.termKey === 't1') entry.t1 = Math.round(g.average);
+        else if (g.termKey === 't2') entry.t2 = Math.round(g.average);
+        else if (g.termKey === 't3') entry.t3 = Math.round(g.average);
+      });
+
+      // Calculate final grade and remarks per subject
+      const subjectsList = Array.from(subjectMap.values()).map((sub) => {
+        const recorded = [sub.t1, sub.t2, sub.t3].filter((v) => v !== null && v !== undefined && !isNaN(v));
+        let finalGrade = null;
+        let remarks = '';
+        if (recorded.length > 0) {
+          // If all 3 terms or user completed terms, calculate average
+          const avg = recorded.reduce((sum, v) => sum + v, 0) / recorded.length;
+          finalGrade = Math.round(avg);
+          remarks = finalGrade >= 75 ? 'Passed' : 'Failed';
+        }
+        return {
+          ...sub,
+          finalGrade,
+          remarks,
+        };
+      });
+
+      // Group into Core and Elective subjects
+      const coreSubjects = subjectsList.filter((sub) => {
+        const cls = String(sub.classification || '').toLowerCase();
+        return cls.includes('core') || (!cls.includes('elective') && !cls.includes('applied') && !cls.includes('specialized'));
+      });
+      const electiveSubjects = subjectsList.filter((sub) => {
+        const cls = String(sub.classification || '').toLowerCase();
+        return cls.includes('elective') || cls.includes('applied') || cls.includes('specialized');
+      });
+
+      // General Average across all subjects
+      const allT1 = subjectsList.map((s) => s.t1).filter((v) => v !== null);
+      const allT2 = subjectsList.map((s) => s.t2).filter((v) => v !== null);
+      const allT3 = subjectsList.map((s) => s.t3).filter((v) => v !== null);
+      const allFinal = subjectsList.map((s) => s.finalGrade).filter((v) => v !== null);
+
+      const t1Avg = allT1.length ? Math.round(allT1.reduce((a, b) => a + b, 0) / allT1.length) : null;
+      const t2Avg = allT2.length ? Math.round(allT2.reduce((a, b) => a + b, 0) / allT2.length) : null;
+      const t3Avg = allT3.length ? Math.round(allT3.reduce((a, b) => a + b, 0) / allT3.length) : null;
+      const finalGwa = allFinal.length ? Math.round(allFinal.reduce((a, b) => a + b, 0) / allFinal.length) : (t1Avg || null);
+
+      const generalAverage = {
+        t1: t1Avg,
+        t2: t2Avg,
+        t3: t3Avg,
+        finalGrade: finalGwa,
+        remarks: finalGwa !== null ? (finalGwa >= 75 ? 'Passed' : 'Failed') : '',
+      };
+
+      // Auto-generated Teacher Comments
+      const comments = {
+        term1: generateConstructiveComment(t1Avg),
+        term2: generateConstructiveComment(t2Avg),
+        term3: generateConstructiveComment(t3Avg),
+      };
+
+      // Monthly Attendance Breakdown
+      const sMonthly = monthlyAttendanceMap[s.id] || {};
+      let totalClassDaysSum = 0;
+      let totalPresentSum = 0;
+      let totalAbsentSum = 0;
+
+      const attendanceMonthly = SF9_MONTHS.map((m) => {
+        const logData = sMonthly[m.num];
+        const defaultDays = DEFAULT_CLASS_DAYS[m.key] || 0;
+        const classDays = logData ? (logData.totalDays || defaultDays) : defaultDays;
+        const present = logData ? logData.present : (classDays > 0 ? classDays : 0);
+        const absent = logData ? logData.absent : 0;
+
+        totalClassDaysSum += classDays;
+        totalPresentSum += present;
+        totalAbsentSum += absent;
+
+        return {
+          month: m.label,
+          classDays,
+          present,
+          absent,
+        };
+      });
+
+      const attendanceSummary = {
+        months: attendanceMonthly,
+        total: {
+          classDays: totalClassDaysSum || 201,
+          present: totalPresentSum || 201,
+          absent: totalAbsentSum || 0,
+        },
+      };
 
       const formattedName = `${s.last_name}, ${s.first_name}${s.middle_initial ? ' ' + s.middle_initial + '.' : ''}`;
       const att = attendanceMap[s.id] || { rate: null };
+      const sexDisplay = (s.sex === 'Female' || s.sex === 'F') ? 'F' : ((s.sex === 'Male' || s.sex === 'M') ? 'M' : (s.sex || ''));
 
       return {
         id: s.id,
         idNumber: s.id_number,
         fullName: `${s.first_name} ${s.middle_initial ? s.middle_initial + ' ' : ''}${s.last_name}`,
         formattedName,
+        age: 15, // Standard Grade 11 default, fully inline-editable by teacher
+        sex: sexDisplay,
         profilePictureUrl: s.profile_picture_url,
         attendanceRate: att.rate !== null ? `${att.rate}%` : '—',
         grades: sGrades,
-        overallGrade: overall,
-        overallRemarks: overall !== null ? getRemarks(Number(overall)) : 'No Grades Yet',
-        writtenWorkAvg,
-        performanceTaskAvg,
-        quarterlyExamAvg,
+        coreSubjects,
+        electiveSubjects,
+        generalAverage,
+        comments,
+        attendanceSummary,
+        overallGrade: finalGwa !== null ? finalGwa : (sGrades.length ? (sGrades.reduce((sum, g) => sum + Number(g.average), 0) / sGrades.length).toFixed(1) : null),
+        overallRemarks: finalGwa !== null ? getRemarks(Number(finalGwa)) : 'No Grades Yet',
       };
     });
 
@@ -891,9 +1104,11 @@ async function getSectionReportCards(req, res) {
         gradeLevel: sec.grade_level,
         strandCode: sec.strandCode,
         strandName: sec.strandName,
-        track: sec.track || 'Academic Track',
+        track: sec.track ? sec.track.replace('Track', '').trim() : 'Academic',
         adviserName: fallbackAdviserName,
         coAdviserName: sec.coAdviserName || null,
+        schoolHead,
+        schoolYear,
       },
       term,
       reportCards,
