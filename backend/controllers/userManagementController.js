@@ -476,43 +476,138 @@ async function exportUsers(req, res) {
           sectionOrAdvisory = 'Unassigned';
         }
       }
+      let formattedDate = '—';
+      if (u.created_at) {
+        try {
+          formattedDate = new Date(u.created_at).toISOString().slice(0, 10);
+        } catch {
+          formattedDate = String(u.created_at).slice(0, 10);
+        }
+      }
       return [
         u.role.charAt(0).toUpperCase() + u.role.slice(1),
-        u.id_number,
-        u.first_name,
+        String(u.id_number || ''),
+        u.first_name || '',
         u.middle_initial || '',
-        u.last_name,
+        u.last_name || '',
         sectionOrAdvisory,
         u.contact_number || '',
-        u.email,
+        u.email || '',
         u.temp_password || 'Private (Changed)',
         u.is_active ? 'Active' : 'Inactive',
-        new Date(u.created_at).toISOString().slice(0, 10),
+        formattedDate,
       ];
     });
 
-    const format = (req.query.format || 'csv').toLowerCase();
+    const format = (req.query.format || (req.path?.endsWith('.csv') ? 'csv' : 'xlsx')).toLowerCase();
 
-    if (format === 'xlsx' || format === 'excel') {
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Users');
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="users-directory.xlsx"');
-      return res.send(buffer);
+    // CSV export fallback if explicitly requested
+    if (format === 'csv') {
+      const escapeCsv = (val) => `"${String(val).replace(/"/g, '""')}"`;
+      let csv = headers.map(escapeCsv).join(',') + '\n';
+      for (const row of dataRows) {
+        csv += row.map(escapeCsv).join(',') + '\n';
+      }
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="users-directory.csv"');
+      return res.send(csv);
     }
 
-    // Default: CSV. Values are quoted and internal quotes escaped so names/emails
-    // with commas or quotes in them don't corrupt the column layout.
-    const escapeCsv = (val) => `"${String(val).replace(/"/g, '""')}"`;
-    let csv = headers.map(escapeCsv).join(',') + '\n';
-    for (const row of dataRows) {
-      csv += row.map(escapeCsv).join(',') + '\n';
-    }
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="users-directory.csv"');
-    return res.send(csv);
+    // Default: High-visibility Excel (.xlsx) workbook using ExcelJS
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Mentorae SIS';
+    wb.lastModifiedBy = 'Mentorae SIS Admin';
+    wb.created = new Date();
+    wb.modified = new Date();
+
+    const ws = wb.addWorksheet('User Accounts', {
+      views: [{ state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }],
+      properties: { defaultRowHeight: 22 }
+    });
+
+    ws.columns = [
+      { header: 'Role', key: 'role', width: 14 },
+      { header: 'LRN / ID Number', key: 'idNumber', width: 22 },
+      { header: 'First Name', key: 'firstName', width: 22 },
+      { header: 'M.I.', key: 'middleInitial', width: 8 },
+      { header: 'Last Name', key: 'lastName', width: 22 },
+      { header: 'Section / Advisory', key: 'sectionOrAdvisory', width: 36 },
+      { header: 'Contact Number', key: 'contactNumber', width: 20 },
+      { header: 'Email', key: 'email', width: 35 },
+      { header: 'Initial / Generated Password', key: 'tempPassword', width: 30 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: 'Date Added', key: 'dateAdded', width: 16 },
+    ];
+
+    const headerRow = ws.getRow(1);
+    headerRow.height = 30;
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0A5C2C' },
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        size: 11,
+        bold: true,
+        color: { argb: 'FFFFFFFF' },
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF07421F' } },
+        bottom: { style: 'medium', color: { argb: 'FF07421F' } },
+        left: { style: 'thin', color: { argb: 'FF15803D' } },
+        right: { style: 'thin', color: { argb: 'FF15803D' } },
+      };
+    });
+
+    dataRows.forEach((rowValues, idx) => {
+      const row = ws.addRow(rowValues);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF1F2937' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF9FAFB' },
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        };
+
+        if ([1, 2, 4, 7, 9, 10, 11].includes(colNum)) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else {
+          cell.alignment = { vertical: 'middle', horizontal: 'left' };
+        }
+
+        // Keep ID / LRN Number formatted as text to preserve leading zeros
+        if (colNum === 2) {
+          cell.numFmt = '@';
+        }
+
+        // Highlight Active / Inactive status for quick visibility
+        if (colNum === 10) {
+          if (cell.value === 'Active') {
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF15803D' } };
+          } else {
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFDC2626' } };
+          }
+        }
+      });
+    });
+
+    ws.autoFilter = 'A1:K1';
+
+    const buffer = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="users-directory.xlsx"');
+    return res.send(buffer);
   } catch (err) {
     console.error('exportUsers error:', err);
     return res.status(500).json({ success: false, message: 'Could not export users.' });

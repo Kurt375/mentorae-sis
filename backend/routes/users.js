@@ -39,6 +39,8 @@ router.get('/generate-id', generateId);
 router.get('/generate-email', generateEmail);
 router.post('/generate-scanner-key', generateScannerKey);
 router.get('/export', exportUsers);
+router.get('/export.xlsx', exportUsers);
+router.get('/export.csv', exportUsers);
 router.get('/bulk-import/template', downloadImportTemplate);
 router.post('/bulk-import', upload.single('importFile'), bulkImportStudents);
 router.get('/parent-links', listParentLinks);

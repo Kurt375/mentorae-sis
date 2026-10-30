@@ -2014,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnDownloadTable').addEventListener('click', () => {
         const role = document.getElementById('roleFilterDropdown')?.value || 'All';
         const search = document.getElementById('tableSearchField')?.value.trim() || '';
-        const params = new URLSearchParams({ token });
+        const params = new URLSearchParams({ token, format: 'xlsx' });
         if (role && role !== 'All') params.set('role', role);
         if (search) params.set('search', search);
         window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/users/export?${params.toString()}`, '_blank');
