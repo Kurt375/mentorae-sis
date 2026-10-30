@@ -286,10 +286,10 @@ async function checkScheduleConflict({
 }) {
   const qFilter = (quarter === 'All Terms')
     ? ''
-    : "AND (quarter = ? OR quarter = 'All Terms')";
+    : "AND (sch.quarter = ? OR sch.quarter = 'All Terms')";
   const qParams = (quarter === 'All Terms') ? [] : [quarter];
 
-  const excludeFilter = excludeScheduleId ? 'AND id != ?' : '';
+  const excludeFilter = excludeScheduleId ? 'AND sch.id != ?' : '';
   const excludeParams = excludeScheduleId ? [excludeScheduleId] : [];
 
   // 1. Database Teacher Overlap Check
