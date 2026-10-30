@@ -652,21 +652,16 @@ async function downloadScheduleTemplate(req, res) {
       return res.send(buffer);
     }
 
-    // 3. Official TSHS Teacher Program Timetable Template (Default)
-    const tshsTemplatePath = path.resolve(__dirname, '../templates/tshs_schedule_template.xlsx');
-    if (fs.existsSync(tshsTemplatePath)) {
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="TSHS_Teacher_Program_Schedule_Template.xlsx"');
-      return fs.createReadStream(tshsTemplatePath).pipe(res);
-    }
-
-    // Fallback: If template file not yet written to disk, send full workbook
+    // 3. Official TSHS Real Teacher Program Timetable Workbook (Default)
     const masterPath = fs.existsSync(path.resolve(__dirname, '../templates/tshs_master_real_schedule.xlsx'))
       ? path.resolve(__dirname, '../templates/tshs_master_real_schedule.xlsx')
-      : path.resolve(__dirname, '../../frontend/Teacher\'s Real Sched.xlsx');
+      : (fs.existsSync(path.resolve(__dirname, '../../frontend/Teacher\'s Real Sched.xlsx'))
+          ? path.resolve(__dirname, '../../frontend/Teacher\'s Real Sched.xlsx')
+          : path.resolve(__dirname, '../templates/tshs_schedule_template.xlsx'));
+
     if (fs.existsSync(masterPath)) {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="TSHS_Teacher_Program_Schedule_Template.xlsx"');
+      res.setHeader('Content-Disposition', 'attachment; filename="Teacher\'s Real Sched.xlsx"');
       return fs.createReadStream(masterPath).pipe(res);
     }
 
