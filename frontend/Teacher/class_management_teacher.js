@@ -3734,15 +3734,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
                                 </tr>
 
-                                <!-- General Average Row -->
+                                <!-- General Average Row matching Card_SF9.xlsx (B44:H44 merged) -->
                                 <tr class="general-average-row">
-                                    <td class="text-center genavg-label font-bold font-italic">General Average</td>
-                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.t1 !== null && genAvg.t1 !== undefined ? genAvg.t1 : ''}</td>
-                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.t2 !== null && genAvg.t2 !== undefined ? genAvg.t2 : ''}</td>
-                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.t3 !== null && genAvg.t3 !== undefined ? genAvg.t3 : ''}</td>
-                                    <td class="text-center genavg-val" contenteditable="true"></td>
-                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
-                                    <td class="text-center genavg-val" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
+                                    <td colspan="4" class="text-center genavg-label font-bold font-italic" contenteditable="true">General Average</td>
+                                    <td class="td-units text-center" contenteditable="true"></td>
+                                    <td class="text-center genavg-val font-bold font-italic" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
+                                    <td class="text-center genavg-val font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -4438,6 +4435,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <span style="font-size: 11px; opacity: 0.85; margin-right: 10px;">
                                 <i class="bi bi-pencil me-1"></i> All cells & text are directly editable before printing
                             </span>
+                            <a href="Card_SF9.xlsx" download="Official_TSHS_Card_SF9.xlsx" style="background: #0284c7; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                <i class="bi bi-file-earmark-excel"></i> Download Excel
+                            </a>
                             <button type="button" onclick="window.print()" style="background: #16a34a; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
                                 <i class="bi bi-printer"></i> Print / Save as PDF (A5)
                             </button>
