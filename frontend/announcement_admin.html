@@ -82,8 +82,9 @@
 
             <!-- Search and Filters Bar for Announcements -->
             <div class="card border-0 shadow-sm p-3 rounded-4 bg-white mb-3 announcement-filter-toolbar">
-                <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md-4">
+                <!-- Search Bar Row (Full Width) -->
+                <div class="row g-2 align-items-center mb-2">
+                    <div class="col-12">
                         <div class="input-group input-group-sm announcement-search-group">
                             <span class="input-group-text bg-white border-end-0 text-muted ps-2.5 pe-1.5"><i class="bi bi-search"></i></span>
                             <input type="text" class="form-control border-start-0 border-end-0 ps-1" id="announcementSearchInput" placeholder="Search announcements by title, keyword, or audience...">
@@ -92,7 +93,10 @@
                             </button>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                </div>
+                <!-- Dropdown Filters and Reset Row -->
+                <div class="row g-2 align-items-center">
+                    <div class="col-6 col-md-4">
                         <select class="form-select form-select-sm announcement-filter-select" id="announcementFilterType" aria-label="Filter Type">
                             <option value="all" selected>All Types</option>
                             <option value="academic">Academic</option>
@@ -100,7 +104,7 @@
                             <option value="event">General Event</option>
                         </select>
                     </div>
-                    <div class="col-6 col-md-2">
+                    <div class="col-6 col-md-3">
                         <select class="form-select form-select-sm announcement-filter-select" id="announcementFilterAudience" aria-label="Filter Target Audience">
                             <option value="all" selected>All Audiences</option>
                             <option value="all-users">All Users</option>
@@ -109,7 +113,7 @@
                             <option value="parent">Parents</option>
                         </select>
                     </div>
-                    <div class="col-8 col-md-2">
+                    <div class="col-8 col-md-3">
                         <select class="form-select form-select-sm announcement-filter-select" id="announcementFilterDate" aria-label="Filter Event Timeline">
                             <option value="all" selected>All Dates</option>
                             <option value="upcoming">Upcoming Events</option>
@@ -117,9 +121,9 @@
                             <option value="this-month">This Month</option>
                         </select>
                     </div>
-                    <div class="col-4 col-md-1 text-end">
+                    <div class="col-4 col-md-2 text-end">
                         <button type="button" class="btn btn-sm btn-outline-secondary w-100 fw-semibold d-inline-flex align-items-center justify-content-center gap-1" id="btnAnnouncementResetFilters" title="Reset Filters">
-                            <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-md-inline">Reset</span>
+                            <i class="bi bi-arrow-counterclockwise"></i> <span>Reset</span>
                         </button>
                     </div>
                 </div>
