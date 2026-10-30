@@ -3417,7 +3417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const depedLogoSrc = (typeof DEPED_LOGO_B64 !== 'undefined' && DEPED_LOGO_B64) ? DEPED_LOGO_B64 : 'deped_seal.png';
             const tshsLogoSrc = (typeof TSHS_LOGO_B64 !== 'undefined' && TSHS_LOGO_B64) ? TSHS_LOGO_B64 : 'tshs_seal.jpg';
 
-            // Compile the two-page A5 document for each student matching card-sf9.pdf
+            // Compile the two-page A5 document for each student matching official card-sf9 of Talisay Senior High School
             const pagesHtml = cards.map((st, index) => {
                 const studentName = st.formattedName || st.fullName || 'Student Name';
                 const lrn = st.idNumber || '—';
@@ -3431,50 +3431,107 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const hasEffCom = coreList.some(s => s.subjectName && s.subjectName.toLowerCase().includes('effective communication'));
                 const hasMabKom = coreList.some(s => s.subjectName && s.subjectName.toLowerCase().includes('mabisang komunikasyon'));
 
-                if (hasEffCom && hasMabKom) {
-                    // Grouped header row matching card-sf9.pdf
-                    coreRowsHtml += `
-                        <tr class="grade-row-group">
-                            <td class="td-learning-area group-title-cell font-bold" contenteditable="true">Effective Communication / Mabisang Komunikasyon</td>
-                            <td class="td-grade"></td>
-                            <td class="td-grade"></td>
-                            <td class="td-grade"></td>
-                            <td class="td-units"></td>
-                            <td class="td-final"></td>
-                            <td class="td-remarks"></td>
-                        </tr>
-                    `;
-                }
+                // Header group row for Effective Communication / Mabisang Komunikasyon
+                coreRowsHtml += `
+                    <tr class="grade-row-group">
+                        <td class="td-learning-area group-title-cell font-bold" contenteditable="true">Effective Communication<br>/ Mabisang Komunikasyon</td>
+                        <td class="td-grade"></td>
+                        <td class="td-grade"></td>
+                        <td class="td-grade"></td>
+                        <td class="td-units"></td>
+                        <td class="td-final"></td>
+                        <td class="td-remarks"></td>
+                    </tr>
+                `;
 
                 if (!coreList.length) {
                     const defaultCore = [
-                        'Effective Communication',
-                        'Mabisang Komunikasyon',
-                        'General Mathematics',
-                        'General Science',
-                        'Life and Career Skills',
-                        'Pag-Aaral ng Kasaysayan at Lipunang Pilipino'
+                        { name: 'Effective Communication', isSub: true, t1: '' },
+                        { name: 'Mabisang Komunikasyon', isSub: true, t1: '' },
+                        { name: 'General Mathematics', isSub: false, t1: '' },
+                        { name: 'General Science', isSub: false, t1: '' },
+                        { name: 'Life and Career Skills', isSub: false, t1: '' },
+                        { name: 'Pag-Aaral ng Kasaysayan at Lipunang Pilipino', isSub: false, t1: '', wrap: true }
                     ];
-                    defaultCore.forEach(name => {
-                        const isSubIndent = name.includes('Communication') || name.includes('Komunikasyon');
+                    defaultCore.forEach(sub => {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area ${isSubIndent ? 'sub-subject-indent' : ''}" contenteditable="true">${escapeHtml(name)}</td>
+                                <td class="td-learning-area ${sub.isSub ? 'sub-subject-indent font-italic' : ''}" contenteditable="true">${escapeHtml(sub.name)}</td>
+                                <td class="td-grade text-center" contenteditable="true">${sub.t1}</td>
                                 <td class="td-grade text-center" contenteditable="true"></td>
                                 <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true">1</td>
+                                <td class="td-units text-center" contenteditable="true">${sub.isSub ? '' : '1'}</td>
                                 <td class="td-final text-center" contenteditable="true"></td>
                                 <td class="td-remarks text-center" contenteditable="true"></td>
                             </tr>
                         `;
                     });
                 } else {
-                    coreList.forEach(sub => {
-                        const isSubIndent = (sub.subjectName.toLowerCase().includes('effective communication') || sub.subjectName.toLowerCase().includes('mabisang komunikasyon')) && hasEffCom && hasMabKom;
+                    // Check if sub subjects exist
+                    let effSub = coreList.find(s => s.subjectName.toLowerCase().includes('effective communication'));
+                    let mabSub = coreList.find(s => s.subjectName.toLowerCase().includes('mabisang komunikasyon'));
+
+                    if (effSub) {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area ${isSubIndent ? 'sub-subject-indent' : ''}" contenteditable="true">${escapeHtml(sub.subjectName)}</td>
+                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Effective Communication</td>
+                                <td class="td-grade text-center" contenteditable="true">${effSub.t1 !== null && effSub.t1 !== undefined ? effSub.t1 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${effSub.t2 !== null && effSub.t2 !== undefined ? effSub.t2 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${effSub.t3 !== null && effSub.t3 !== undefined ? effSub.t3 : ''}</td>
+                                <td class="td-units text-center" contenteditable="true"></td>
+                                <td class="td-final text-center" contenteditable="true">${effSub.finalGrade !== null && effSub.finalGrade !== undefined ? effSub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(effSub.remarks || '')}</td>
+                            </tr>
+                        `;
+                    } else {
+                        coreRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Effective Communication</td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-units text-center" contenteditable="true"></td>
+                                <td class="td-final text-center" contenteditable="true"></td>
+                                <td class="td-remarks text-center" contenteditable="true"></td>
+                            </tr>
+                        `;
+                    }
+
+                    if (mabSub) {
+                        coreRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Mabisang Komunikasyon</td>
+                                <td class="td-grade text-center" contenteditable="true">${mabSub.t1 !== null && mabSub.t1 !== undefined ? mabSub.t1 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${mabSub.t2 !== null && mabSub.t2 !== undefined ? mabSub.t2 : ''}</td>
+                                <td class="td-grade text-center" contenteditable="true">${mabSub.t3 !== null && mabSub.t3 !== undefined ? mabSub.t3 : ''}</td>
+                                <td class="td-units text-center" contenteditable="true"></td>
+                                <td class="td-final text-center" contenteditable="true">${mabSub.finalGrade !== null && mabSub.finalGrade !== undefined ? mabSub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(mabSub.remarks || '')}</td>
+                            </tr>
+                        `;
+                    } else {
+                        coreRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Mabisang Komunikasyon</td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-grade text-center" contenteditable="true"></td>
+                                <td class="td-units text-center" contenteditable="true"></td>
+                                <td class="td-final text-center" contenteditable="true"></td>
+                                <td class="td-remarks text-center" contenteditable="true"></td>
+                            </tr>
+                        `;
+                    }
+
+                    // Remaining core subjects
+                    coreList.forEach(sub => {
+                        const nameLower = sub.subjectName.toLowerCase();
+                        if (nameLower.includes('effective communication') || nameLower.includes('mabisang komunikasyon')) {
+                            return; // already rendered
+                        }
+                        coreRowsHtml += `
+                            <tr class="grade-row">
+                                <td class="td-learning-area" contenteditable="true">${escapeHtml(sub.subjectName)}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
@@ -3545,7 +3602,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let attAbsentCells = '';
 
                 attMonths.forEach(m => {
-                    attHeaderCells += `<th class="text-center">${escapeHtml(m.month)}</th>`;
+                    attHeaderCells += `<th class="text-center font-bold">${escapeHtml(m.month)}</th>`;
                     attDaysCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.classDays : ''}</td>`;
                     attPresentCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.present : ''}</td>`;
                     attAbsentCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.absent : ''}</td>`;
@@ -3559,70 +3616,66 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return `
                     <!-- ==================== STUDENT ${index + 1} PAGE 1: FRONT (A5) ==================== -->
                     <div class="sf9-a5-page sf9-page-1">
-                        <!-- Top Header matching card-sf9.pdf -->
+                        <!-- Top Header with Logos flanking the centered text block -->
                         <div class="sf9-header-container">
-                            <div class="header-top-flank">
-                                <div class="header-seal-wrap seal-left">
-                                    <img src="${depedLogoSrc}" alt="DepEd Seal" class="seal-img" />
-                                </div>
-                                <div class="header-top-text text-center">
-                                    <div class="txt-republic">Republic of the Philippines</div>
-                                    <div class="txt-header-spacer"></div>
-                                    <div class="txt-region font-bold">REGION IV - A (CALABARZON)</div>
-                                    <div class="txt-division font-bold">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
-                                    <div class="txt-district font-bold">TALISAY DISTRICT</div>
-                                </div>
-                                <div class="header-seal-wrap seal-right">
-                                    <img src="${tshsLogoSrc}" alt="TSHS Seal" class="seal-img" />
-                                </div>
+                            <div class="header-logo-wrap seal-left">
+                                <img src="${depedLogoSrc}" alt="DepEd Seal" class="seal-img" />
                             </div>
-                            <div class="header-bottom-text text-center">
+                            <div class="header-center-text text-center">
+                                <div class="txt-republic">Republic of the Philippines</div>
+                                <div class="txt-header-spacer"></div>
+                                <div class="txt-region font-bold">REGION IV - A (CALABARZON)</div>
+                                <div class="txt-division font-bold">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
+                                <div class="txt-district font-bold">TALISAY DISTRICT</div>
                                 <div class="txt-muni font-bold">TALISAY, BATANGAS</div>
                                 <div class="txt-school font-bold">TALISAY SENIOR HIGH SCHOOL</div>
                                 <div class="txt-doc-title font-bold">LEARNER'S PERFORMANCE REPORT</div>
                                 <div class="txt-sy">School Year <span contenteditable="true">${escapeHtml(schoolYear)}</span></div>
                             </div>
+                            <div class="header-logo-wrap seal-right">
+                                <img src="${tshsLogoSrc}" alt="TSHS Seal" class="seal-img" />
+                            </div>
                         </div>
 
-                        <!-- Learner Information Lines matching card-sf9.pdf -->
+                        <!-- Learner Information Lines matching official format -->
                         <div class="learner-meta-table">
                             <div class="meta-row">
-                                <div class="meta-cell cell-name">
+                                <div class="meta-item item-name">
                                     <span class="meta-lbl">Name:</span>
-                                    <span class="meta-fill underline-line font-bold" contenteditable="true">${escapeHtml(studentName)}</span>
+                                    <span class="meta-val underline-line font-bold" contenteditable="true">${escapeHtml(studentName)}</span>
                                 </div>
-                                <div class="meta-cell cell-age">
+                                <div class="meta-item item-age">
                                     <span class="meta-lbl">Age:</span>
-                                    <span class="meta-fill underline-line text-center" contenteditable="true">${escapeHtml(age)}</span>
+                                    <span class="meta-val underline-line text-center" contenteditable="true">${escapeHtml(age)}</span>
                                 </div>
-                                <div class="meta-cell cell-sex">
+                                <div class="meta-item item-sex">
                                     <span class="meta-lbl">Sex:</span>
-                                    <span class="meta-fill underline-line text-center font-bold" contenteditable="true">${escapeHtml(sex)}</span>
+                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(sex)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
-                                <div class="meta-cell cell-lrn">
+                                <div class="meta-item item-lrn">
                                     <span class="meta-lbl">LRN:</span>
-                                    <span class="meta-fill underline-line text-center font-mono font-bold" contenteditable="true">${escapeHtml(lrn)}</span>
+                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(lrn)}</span>
                                 </div>
-                                <div class="meta-cell cell-grade">
+                                <div class="meta-item item-grade">
                                     <span class="meta-lbl">Grade:</span>
-                                    <span class="meta-fill underline-line text-center" contenteditable="true">${escapeHtml(gradeLevel)}</span>
+                                    <span class="meta-val underline-line text-center" contenteditable="true">${escapeHtml(gradeLevel)}</span>
                                 </div>
-                                <div class="meta-cell cell-section">
+                                <div class="meta-item item-section">
                                     <span class="meta-lbl">Section:</span>
-                                    <span class="meta-fill underline-line text-center font-bold text-uppercase" contenteditable="true">${escapeHtml(sectionName)}</span>
+                                    <span class="meta-val underline-line text-center text-uppercase" contenteditable="true">${escapeHtml(sectionName)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
-                                <div class="meta-cell cell-track">
+                                <div class="meta-item item-track">
                                     <span class="meta-lbl">Track (SHS only):</span>
-                                    <span class="meta-fill underline-line font-bold" contenteditable="true">${escapeHtml(trackName)}</span>
+                                    <span class="meta-val underline-line font-bold" contenteditable="true">${escapeHtml(trackName)}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Dear Parents Note matching card-sf9.pdf -->
+                        <!-- Dear Parents Note and Signatures -->
                         <div class="dear-parents-box">
                             <div class="dp-greeting">Dear Parents,</div>
                             <div class="dp-body">
@@ -3630,18 +3683,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <p class="dp-p">The school welcomes you to reach out should you wish to know more about your child's learning and performance.</p>
                             </div>
                             <div class="dp-signatures-grid">
-                                <div class="sig-block sig-left">
-                                    <div class="sig-name font-bold underline-line" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                    <div class="sig-title">School Head</div>
+                                <div class="sig-col sig-left">
+                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                    <div class="sig-title text-center">School Head</div>
                                 </div>
-                                <div class="sig-block sig-right">
-                                    <div class="sig-name font-bold underline-line" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                    <div class="sig-title">Adviser</div>
+                                <div class="sig-col sig-right">
+                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                    <div class="sig-title text-center">Adviser</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Main Grades Table matching card-sf9.pdf geometry -->
+                        <!-- Main Learning Progress and Achievement Table -->
                         <table class="sf9-main-grades-table">
                             <thead>
                                 <tr class="tr-super-header">
@@ -3663,17 +3716,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <tbody>
                                 <!-- Core Subjects Header Row -->
                                 <tr class="category-header-row">
-                                    <td colspan="7" class="font-bold category-title-cell">Core Subjects</td>
+                                    <td colspan="7" class="category-title-cell font-bold font-italic">Core Subjects</td>
                                 </tr>
                                 ${coreRowsHtml}
 
                                 <!-- Elective Subjects Header Row -->
                                 <tr class="category-header-row">
-                                    <td colspan="7" class="font-bold category-title-cell">Elective Subjects</td>
+                                    <td colspan="7" class="category-title-cell font-bold font-italic">Elective Subjects</td>
                                 </tr>
                                 ${electiveRowsHtml}
 
-                                <!-- 2 Exact Blank Placeholder Rows as in card-sf9.pdf -->
+                                <!-- 2 Exact Blank Placeholder Rows as in official card -->
                                 <tr class="grade-row empty-row">
                                     <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
                                 </tr>
@@ -3682,21 +3735,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </tr>
 
                                 <!-- General Average Row -->
-                                <tr class="general-average-row font-bold">
-                                    <td class="text-center genavg-label font-bold">General Average</td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.t1 !== null && genAvg.t1 !== undefined ? genAvg.t1 : ''}</td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.t2 !== null && genAvg.t2 !== undefined ? genAvg.t2 : ''}</td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.t3 !== null && genAvg.t3 !== undefined ? genAvg.t3 : ''}</td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true"></td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
-                                    <td class="text-center genavg-val font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
+                                <tr class="general-average-row">
+                                    <td class="text-center genavg-label font-bold font-italic">General Average</td>
+                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.t1 !== null && genAvg.t1 !== undefined ? genAvg.t1 : ''}</td>
+                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.t2 !== null && genAvg.t2 !== undefined ? genAvg.t2 : ''}</td>
+                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.t3 !== null && genAvg.t3 !== undefined ? genAvg.t3 : ''}</td>
+                                    <td class="text-center genavg-val" contenteditable="true"></td>
+                                    <td class="text-center genavg-val" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
+                                    <td class="text-center genavg-val" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
                                 </tr>
                             </tbody>
                         </table>
 
                         <!-- Performance Descriptors Table (Page 1 Bottom, borderless) -->
                         <div class="sf9-descriptors-section">
-                            <div class="desc-heading font-bold">PERFORMANCE DESCRIPTORS</div>
+                            <div class="desc-heading font-bold text-center">PERFORMANCE DESCRIPTORS</div>
                             <table class="desc-table">
                                 <thead>
                                     <tr>
@@ -3718,7 +3771,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     <!-- ==================== STUDENT ${index + 1} PAGE 2: BACK (A5) ==================== -->
                     <div class="sf9-a5-page sf9-page-2">
-                        <!-- Monthly Attendance Record Table matching card-sf9.pdf -->
+                        <!-- Monthly Attendance Record Table -->
                         <table class="sf9-attendance-table">
                             <thead>
                                 <tr>
@@ -3728,105 +3781,107 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td class="td-att-row-title font-bold">No. of Class<br>Days</td>
+                                    <td class="td-att-row-title text-center font-bold">No. of Class<br>Days</td>
                                     ${attDaysCells}
                                 </tr>
                                 <tr>
-                                    <td class="td-att-row-title font-bold">No. of Days<br>Present</td>
+                                    <td class="td-att-row-title text-center font-bold">No. of Days<br>Present</td>
                                     ${attPresentCells}
                                 </tr>
                                 <tr>
-                                    <td class="td-att-row-title font-bold">No. of Days<br>Absent</td>
+                                    <td class="td-att-row-title text-center font-bold">No. of Days<br>Absent</td>
                                     ${attAbsentCells}
                                 </tr>
                             </tbody>
                         </table>
 
-                        <!-- Teacher's Comments / Remarks Box matching card-sf9.pdf -->
+                        <!-- Teacher's Comments / Remarks Box -->
                         <div class="sf9-comments-container">
                             <div class="box-title text-center font-bold">TEACHER'S COMMENTS / REMARKS</div>
-                            <div class="comments-box">
-                                <div class="comment-term-row">
+                            <div class="comments-bordered-box">
+                                <div class="comment-term-row term-1-row">
                                     <span class="comment-term-lbl font-bold">Term 1</span>
                                     <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term1 || 'Needs more practice to improve understanding.')}</span>
                                 </div>
-                                <div class="comment-term-row">
+                                <div class="comment-term-row term-2-row">
                                     <span class="comment-term-lbl font-bold">Term 2</span>
                                     <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
                                 </div>
-                                <div class="comment-term-row">
+                                <div class="comment-term-row term-3-row">
                                     <span class="comment-term-lbl font-bold">Term 3</span>
                                     <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Parent's / Guardian's Signature matching card-sf9.pdf -->
+                        <!-- Parent's / Guardian's Signature Lines -->
                         <div class="sf9-signatures-box">
                             <div class="box-title text-center font-bold">PARENT/S GUARDIAN'S SIGNATURE</div>
-                            <div class="signature-line-row">
-                                <span class="sig-term-lbl font-bold">Term 1</span>
-                                <span class="sig-line-fill"></span>
-                            </div>
-                            <div class="signature-line-row">
-                                <span class="sig-term-lbl font-bold">Term 2</span>
-                                <span class="sig-line-fill"></span>
-                            </div>
-                            <div class="signature-line-row">
-                                <span class="sig-term-lbl font-bold">Term 3</span>
-                                <span class="sig-line-fill"></span>
+                            <div class="parent-signatures-list">
+                                <div class="sig-parent-row">
+                                    <span class="sig-term-lbl font-bold">Term 1</span>
+                                    <span class="sig-underline-line"></span>
+                                </div>
+                                <div class="sig-parent-row">
+                                    <span class="sig-term-lbl font-bold">Term 2</span>
+                                    <span class="sig-underline-line"></span>
+                                </div>
+                                <div class="sig-parent-row">
+                                    <span class="sig-term-lbl font-bold">Term 3</span>
+                                    <span class="sig-underline-line"></span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Certificate of Transfer matching card-sf9.pdf -->
+                        <!-- Certificate of Transfer -->
                         <div class="sf9-certificate-box">
                             <div class="box-title text-center font-bold">CERTIFICATE OF TRANSFER</div>
                             <p class="cert-intro">
                                 This is to certify that the above-named learner has satisfactorily completed the requirements for the grade level indicated.
                             </p>
-                            <div class="cert-fields">
-                                <div class="cert-line">
+                            <div class="cert-fields-grid">
+                                <div class="cert-field-line">
                                     <span class="cert-lbl">Admitted to Grade:</span>
-                                    <span class="cert-fill underline-line" contenteditable="true" style="min-width: 80px; display: inline-block;"></span>
+                                    <span class="cert-val underline-line" contenteditable="true" style="width: 70px; display: inline-block;"></span>
                                 </div>
-                                <div class="cert-line">
+                                <div class="cert-field-line">
                                     <span class="cert-lbl">Eligible for Admission to Grade:</span>
-                                    <span class="cert-fill underline-line" contenteditable="true" style="min-width: 175px; display: inline-block;"></span>
+                                    <span class="cert-val underline-line" contenteditable="true" style="width: 145px; display: inline-block;"></span>
                                 </div>
                             </div>
 
-                            <!-- Adviser Signature (Right Aligned) -->
-                            <div class="cert-adviser-signature">
-                                <div class="sig-name underline-line font-bold" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                <div class="sig-title">Adviser</div>
-                            </div>
-
-                            <!-- School Head Approval (Left Aligned) -->
-                            <div class="cert-approval-container">
-                                <div class="approved-tag">Approved:</div>
-                                <div class="principal-sig-wrap text-center">
-                                    <div class="sig-name underline-line font-bold" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                    <div class="sig-title">School Head</div>
+                            <!-- Signatures inside Certificate of Transfer -->
+                            <div class="cert-signatures-layout">
+                                <div class="cert-sig-right">
+                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                    <div class="sig-title text-center">Adviser</div>
+                                </div>
+                                <div class="cert-sig-left">
+                                    <div class="approved-tag">Approved:</div>
+                                    <div class="principal-sig-block">
+                                        <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                        <div class="sig-title text-center">School Head</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Cancellation of Eligibility to Transfer matching card-sf9.pdf -->
+                        <!-- Cancellation of Eligibility to Transfer -->
                         <div class="sf9-cancellation-box">
                             <div class="box-title text-center font-bold">CANCELLATION OF ELIGIBILITY TO TRANSFER</div>
-                            <div class="cancellation-fields">
-                                <div class="canc-line">
+                            <div class="cancellation-fields-row">
+                                <div class="canc-field">
                                     <span class="canc-lbl">Admitted in:</span>
-                                    <span class="canc-fill underline-line" contenteditable="true" style="min-width: 170px; display: inline-block;"></span>
+                                    <span class="canc-val underline-line" contenteditable="true" style="width: 175px; display: inline-block;"></span>
                                 </div>
-                                <div class="canc-line">
+                                <div class="canc-field">
                                     <span class="canc-lbl">Date:</span>
-                                    <span class="canc-fill underline-line" contenteditable="true" style="min-width: 140px; display: inline-block;"></span>
+                                    <span class="canc-val underline-line" contenteditable="true" style="width: 145px; display: inline-block;"></span>
                                 </div>
                             </div>
-                            <div class="cancellation-principal-sign text-center">
-                                <div class="sig-name underline-line font-bold" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                <div class="sig-title">School Head</div>
+                            <div class="cancellation-principal-center">
+                                <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                <div class="sig-title text-center">School Head</div>
                             </div>
                         </div>
                     </div>
@@ -3844,7 +3899,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         /* DepEd Standard A5 Portrait Format: 148mm x 210mm */
                         @page {
                             size: A5 portrait;
-                            margin: 7mm 9mm 7mm 9mm;
+                            margin: 5mm 7mm 5mm 7mm;
                         }
 
                         * {
@@ -3859,8 +3914,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             background-color: #475569;
                             font-family: "Bookman Old Style", Georgia, "Times New Roman", serif;
                             color: #000000;
-                            font-size: 7.5pt;
-                            line-height: 1.18;
+                            font-size: 7.2pt;
+                            line-height: 1.15;
                         }
 
                         /* Interactive Toolbar */
@@ -3883,14 +3938,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                         }
 
-                        /* A5 Page Sheet matching card-sf9.pdf */
+                        /* Official A5 Page Sheet matching card-sf9 with outer black rectangular border */
                         .sf9-a5-page {
                             width: 148mm;
-                            height: 202mm;
-                            max-height: 202mm;
-                            margin: 18px auto;
+                            height: 204mm;
+                            max-height: 204mm;
+                            margin: 16px auto;
                             background: #ffffff;
-                            padding: 4.5mm 5.5mm;
+                            border: 1.2px solid #000000;
+                            padding: 5mm 6mm 4.5mm 6mm;
                             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
                             position: relative;
                             display: flex;
@@ -3908,9 +3964,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Typography */
                         .font-bold { font-weight: bold; }
+                        .font-italic { font-style: italic; }
                         .text-center { text-align: center; }
                         .text-uppercase { text-transform: uppercase; }
-                        .font-mono { font-family: "Courier New", Courier, monospace; }
 
                         .underline-line {
                             border-bottom: 1px solid #000000;
@@ -3932,421 +3988,411 @@ document.addEventListener('DOMContentLoaded', async () => {
                             box-shadow: 0 0 0 1px #16a34a;
                         }
 
-                        /* Header Layout matching card-sf9.pdf */
+                        /* Header Layout matching official TSHS card */
                         .sf9-header-container {
-                            margin-bottom: 3px;
-                        }
-
-                        .header-top-flank {
                             display: flex;
                             align-items: center;
                             justify-content: space-between;
-                            position: relative;
+                            margin-bottom: 2px;
                         }
 
-                        .header-seal-wrap {
-                            width: 46px;
+                        .header-logo-wrap {
+                            width: 52px;
+                            height: 52px;
                             display: flex;
-                            justify-content: center;
                             align-items: center;
+                            justify-content: center;
                             flex-shrink: 0;
                         }
 
                         .seal-img {
-                            width: 44px;
-                            height: 44px;
+                            width: 100%;
+                            height: 100%;
                             object-fit: contain;
+                            display: block;
                         }
 
-                        .header-top-text {
-                            flex-grow: 1;
-                            padding: 0 6px;
+                        .header-center-text {
+                            flex: 1;
+                            margin: 0 6px;
+                            line-height: 1.18;
                         }
 
-                        .txt-republic { font-size: 7.2pt; font-weight: normal; margin-bottom: 1.5px; }
-                        .txt-header-spacer { height: 1px; }
-                        .txt-region { font-size: 7.2pt; letter-spacing: 0.2px; }
-                        .txt-division { font-size: 7.2pt; letter-spacing: 0.2px; }
-                        .txt-district { font-size: 7.2pt; margin-bottom: 1px; }
-
-                        .header-bottom-text {
-                            margin-top: 1px;
+                        .txt-republic {
+                            font-size: 8.2pt;
+                            font-weight: normal;
                         }
 
-                        .txt-muni { font-size: 7.2pt; }
-                        .txt-school { font-size: 8.5pt; letter-spacing: 0.3px; margin-top: 0.5px; }
-                        .txt-doc-title { font-size: 8.5pt; letter-spacing: 0.2px; margin-top: 0.5px; }
-                        .txt-sy { font-size: 7.2pt; margin-top: 0.5px; }
+                        .txt-header-spacer {
+                            height: 3px;
+                        }
 
-                        /* Learner Meta Information */
+                        .txt-region { font-size: 7.8pt; }
+                        .txt-division { font-size: 7.8pt; }
+                        .txt-district { font-size: 7.8pt; }
+                        .txt-muni { font-size: 7.8pt; }
+                        .txt-school { font-size: 8.8pt; }
+                        .txt-doc-title { font-size: 9.2pt; margin-top: 1px; }
+                        .txt-sy { font-size: 8pt; margin-top: 1px; }
+
+                        /* Learner Metadata Lines */
                         .learner-meta-table {
-                            margin: 3.5px 0 2.5px 0;
                             font-size: 7.2pt;
+                            line-height: 1.25;
+                            margin: 2px 0 3px 0;
                         }
 
                         .meta-row {
                             display: flex;
-                            align-items: center;
+                            align-items: baseline;
                             margin-bottom: 2px;
                         }
 
-                        .meta-cell {
+                        .meta-item {
                             display: flex;
-                            align-items: flex-end;
+                            align-items: baseline;
                         }
 
                         .meta-lbl {
-                            font-size: 7.2pt;
                             white-space: nowrap;
                             margin-right: 4px;
+                            font-weight: normal;
                         }
 
-                        .meta-fill {
-                            flex-grow: 1;
-                            font-size: 7.2pt;
+                        .meta-val {
                             min-height: 13px;
+                            line-height: 13px;
                         }
 
-                        .cell-name { width: 56%; }
-                        .cell-age { width: 22%; padding-left: 6px; }
-                        .cell-sex { width: 22%; padding-left: 6px; }
+                        .item-name { width: 56%; }
+                        .item-name .meta-val { flex: 1; }
 
-                        .cell-lrn { width: 44%; }
-                        .cell-grade { width: 20%; padding-left: 6px; }
-                        .cell-section { width: 36%; padding-left: 6px; }
+                        .item-age { width: 18%; margin-left: 12px; }
+                        .item-age .meta-val { width: 34px; }
 
-                        .cell-track { width: 100%; }
+                        .item-sex { width: 18%; margin-left: 8px; }
+                        .item-sex .meta-val { width: 34px; }
+
+                        .item-lrn { width: 56%; }
+                        .item-lrn .meta-val { flex: 1; }
+
+                        .item-grade { width: 18%; margin-left: 12px; }
+                        .item-grade .meta-val { width: 34px; }
+
+                        .item-section { width: 22%; margin-left: 8px; }
+                        .item-section .meta-val { flex: 1; }
+
+                        .item-track { width: 100%; }
+                        .item-track .meta-val { width: 140px; }
 
                         /* Dear Parents Box */
                         .dear-parents-box {
                             font-size: 6.8pt;
-                            margin: 2.5px 0 3.5px 0;
-                            line-height: 1.15;
+                            line-height: 1.2;
+                            margin-bottom: 2px;
                         }
 
                         .dp-greeting {
+                            font-weight: normal;
                             margin-bottom: 1px;
                         }
 
-                        .dp-body .dp-p {
-                            margin: 0 0 1px 0;
-                            text-indent: 18px;
-                            text-align: justify;
+                        .dp-p {
+                            margin: 0;
+                            text-indent: 20px;
                         }
 
                         .dp-signatures-grid {
                             display: flex;
                             justify-content: space-between;
-                            margin-top: 4px;
-                            padding: 0 14px;
+                            margin-top: 8px;
+                            margin-bottom: 3px;
                         }
 
-                        .sig-block {
-                            text-align: center;
+                        .sig-col {
                             width: 175px;
                         }
 
-                        .sig-block .sig-name {
-                            font-size: 7.2pt;
-                            width: 100%;
-                            display: block;
+                        .sig-col .sig-name {
                             min-height: 13px;
+                            display: block;
                         }
 
-                        .sig-block .sig-title {
-                            font-size: 6.8pt;
+                        .sig-col .sig-title {
+                            font-size: 6.6pt;
                             margin-top: 1px;
                         }
 
-                        /* Main Grades Table matching card-sf9.pdf geometry */
+                        /* Main Grades Table */
                         .sf9-main-grades-table {
                             width: 100%;
                             border-collapse: collapse;
                             font-size: 6.8pt;
-                            margin-top: 2px;
-                            border: 1px solid #000;
+                            line-height: 1.15;
+                            border: 1px solid #000000;
+                            table-layout: fixed;
                         }
 
                         .sf9-main-grades-table th,
                         .sf9-main-grades-table td {
-                            border: 1px solid #000;
-                            padding: 1.6px 2.8px;
+                            border: 1px solid #000000;
+                            padding: 1.5px 3px;
                             vertical-align: middle;
                         }
 
                         .super-header-title {
                             font-size: 7.2pt;
-                            padding: 1.8px !important;
-                            letter-spacing: 0.3px;
+                            letter-spacing: 0.2px;
+                            padding: 2px;
                         }
 
                         .th-learning-areas { width: 38%; }
-                        .th-term { width: 27.3%; }
-                        .th-subterm { width: 9.1%; }
+                        .th-term { width: 27.2%; }
+                        .th-subterm { width: 9.06%; }
                         .th-units { width: 9.3%; }
                         .th-final { width: 10.2%; }
-                        .th-remarks { width: 15.2%; }
+                        .th-remarks { width: 15.3%; }
+
+                        .td-grade, .td-units, .td-final, .td-remarks {
+                            font-size: 6.8pt;
+                        }
 
                         .category-header-row td {
                             background-color: #ffffff;
-                            font-size: 6.8pt;
-                            padding: 1.4px 2.8px;
+                            padding-left: 6px;
+                            font-size: 7pt;
                         }
 
-                        .group-title-cell {
+                        .grade-row-group td {
                             font-size: 6.8pt;
-                        }
-
-                        .grade-row td {
-                            height: 13.5px;
-                            font-size: 6.8pt;
-                        }
-
-                        .empty-row td {
-                            height: 13.5px;
                         }
 
                         .sub-subject-indent {
-                            padding-left: 14px !important;
+                            padding-left: 18px !important;
+                        }
+
+                        .empty-row td {
+                            height: 12px;
                         }
 
                         .general-average-row td {
-                            height: 15px;
-                            font-size: 7.2pt;
+                            font-size: 7pt;
+                            height: 14px;
                         }
 
-                        /* Descriptors Box */
+                        .genavg-label {
+                            text-align: center;
+                        }
+
+                        /* Performance Descriptors Section */
                         .sf9-descriptors-section {
-                            margin-top: 2.5px;
-                            font-size: 6.6pt;
+                            font-size: 6.8pt;
+                            line-height: 1.18;
+                            margin-top: 2px;
                         }
 
                         .desc-heading {
-                            font-size: 6.8pt;
-                            margin-bottom: 1px;
-                            letter-spacing: 0.2px;
+                            font-size: 7.2pt;
+                            margin-bottom: 2px;
                         }
 
                         .desc-table {
+                            width: 82%;
+                            margin: 0 auto;
                             border-collapse: collapse;
-                            width: 320px;
-                            border: none;
-                            font-size: 6.6pt;
                         }
 
-                        .desc-table th,
-                        .desc-table td {
-                            padding: 0.8px 8px;
+                        .desc-table th, .desc-table td {
                             border: none;
-                            line-height: 1.14;
+                            padding: 0.5px 4px;
                         }
 
-                        .desc-col-scale { width: 95px; }
-                        .desc-col-desc { width: 110px; }
-                        .desc-col-rem { width: 90px; }
+                        .desc-col-scale { width: 33%; }
+                        .desc-col-desc { width: 34%; }
+                        .desc-col-rem { width: 33%; }
 
-                        /* Page 2 Attendance Table */
+                        /* Page 2: Attendance Table */
                         .sf9-attendance-table {
                             width: 100%;
                             border-collapse: collapse;
-                            font-size: 6.6pt;
-                            border: 1px solid #000;
-                            margin-top: 1px;
-                            margin-bottom: 5px;
+                            font-size: 6.8pt;
+                            line-height: 1.15;
+                            border: 1px solid #000000;
+                            table-layout: fixed;
                         }
 
                         .sf9-attendance-table th,
                         .sf9-attendance-table td {
-                            border: 1px solid #000;
-                            padding: 1.8px 1px;
-                            height: 13.5px;
+                            border: 1px solid #000000;
+                            padding: 2px 1px;
+                            vertical-align: middle;
                         }
 
-                        .th-month-label { width: 15%; }
-                        .td-att-row-title { width: 15%; font-size: 6.4pt; padding-left: 3px; line-height: 1.1; }
+                        .th-month-label { width: 15.0%; }
+                        .td-att-row-title { font-size: 6.4pt; line-height: 1.1; }
 
                         /* Comments Box */
                         .sf9-comments-container {
-                            margin-bottom: 5px;
+                            margin-top: 4px;
                         }
 
                         .box-title {
-                            font-size: 7pt;
-                            margin-bottom: 1.5px;
-                            letter-spacing: 0.25px;
+                            font-size: 7.2pt;
+                            margin-bottom: 2px;
                         }
 
-                        .comments-box {
-                            border: 1px solid #000;
-                            padding: 2px 5px;
-                            min-height: 68px;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: space-around;
+                        .comments-bordered-box {
+                            border: 1px solid #000000;
+                            font-size: 6.8pt;
                         }
 
                         .comment-term-row {
                             display: flex;
                             align-items: flex-start;
-                            font-size: 6.8pt;
-                            min-height: 19px;
-                            margin-bottom: 1px;
-                            border-bottom: 1px solid #e2e8f0;
-                            padding-bottom: 2px;
+                            padding: 4px 6px;
+                            line-height: 1.2;
                         }
 
-                        .comment-term-row:last-child {
-                            border-bottom: none;
-                            margin-bottom: 0;
-                            padding-bottom: 0;
+                        .term-1-row {
+                            min-height: 60px;
+                            border-bottom: 1px solid #000000;
+                        }
+
+                        .term-2-row {
+                            min-height: 34px;
+                            border-bottom: 1px solid #000000;
+                        }
+
+                        .term-3-row {
+                            min-height: 34px;
                         }
 
                         .comment-term-lbl {
                             width: 55px;
                             flex-shrink: 0;
-                            margin-right: 6px;
                         }
 
                         .comment-term-text {
-                            flex-grow: 1;
-                            font-size: 6.8pt;
+                            flex: 1;
                         }
 
-                        /* Signatures Box */
+                        /* Parent Signature Section */
                         .sf9-signatures-box {
-                            margin-bottom: 5px;
+                            margin-top: 4px;
                         }
 
-                        .signature-line-row {
+                        .parent-signatures-list {
                             display: flex;
+                            flex-direction: column;
+                            gap: 5px;
                             align-items: center;
-                            margin-bottom: 3.5px;
-                            font-size: 6.8pt;
+                            margin-top: 4px;
+                        }
+
+                        .sig-parent-row {
+                            display: flex;
+                            align-items: baseline;
+                            width: 320px;
                         }
 
                         .sig-term-lbl {
-                            width: 50px;
-                            flex-shrink: 0;
+                            width: 52px;
+                            font-size: 6.8pt;
                         }
 
-                        .sig-line-fill {
-                            flex-grow: 1;
-                            border-bottom: 1px solid #000;
-                            height: 11px;
+                        .sig-underline-line {
+                            border-bottom: 1px solid #000000;
+                            flex: 1;
+                            height: 10px;
                         }
 
                         /* Certificate of Transfer */
                         .sf9-certificate-box {
+                            margin-top: 4px;
                             font-size: 6.8pt;
-                            margin-bottom: 5px;
-                            line-height: 1.14;
+                            line-height: 1.2;
                         }
 
                         .cert-intro {
-                            margin: 1.5px 0 3px 0;
+                            margin: 2px 0 4px 0;
                             text-align: justify;
                         }
 
-                        .cert-fields {
-                            margin-bottom: 3px;
+                        .cert-fields-grid {
+                            margin-bottom: 6px;
                         }
 
-                        .cert-line {
+                        .cert-field-line {
+                            margin-bottom: 2px;
+                        }
+
+                        .cert-signatures-layout {
                             display: flex;
-                            align-items: flex-end;
-                            margin-bottom: 2.5px;
+                            justify-content: space-between;
+                            align-items: flex-start;
                         }
 
-                        .cert-lbl {
-                            margin-right: 4px;
+                        .cert-sig-left {
+                            width: 175px;
                         }
 
-                        .cert-fill {
-                            min-height: 12px;
-                        }
-
-                        .cert-adviser-signature {
+                        .cert-sig-right {
                             width: 175px;
                             margin-left: auto;
-                            text-align: center;
-                            margin-top: 3px;
-                            margin-bottom: 3px;
-                        }
-
-                        .cert-adviser-signature .sig-name {
-                            min-height: 13px;
-                            display: block;
-                        }
-
-                        .cert-adviser-signature .sig-title {
-                            font-size: 6.6pt;
-                            margin-top: 1px;
-                        }
-
-                        .cert-approval-container {
-                            display: flex;
-                            flex-direction: column;
-                            align-items: flex-start;
-                            margin-top: 1px;
                         }
 
                         .approved-tag {
                             font-size: 6.8pt;
-                            margin-bottom: 1.5px;
+                            margin-bottom: 2px;
                         }
 
-                        .principal-sig-wrap {
-                            width: 175px;
-                            margin-left: 15px;
+                        .principal-sig-block {
+                            margin-left: 12px;
                         }
 
-                        .principal-sig-wrap .sig-name {
+                        .cert-signatures-layout .sig-name {
                             min-height: 13px;
                             display: block;
                         }
 
-                        .principal-sig-wrap .sig-title {
+                        .cert-signatures-layout .sig-title {
                             font-size: 6.6pt;
                             margin-top: 1px;
                         }
 
                         /* Cancellation Box */
                         .sf9-cancellation-box {
+                            margin-top: 4px;
                             font-size: 6.8pt;
-                            line-height: 1.14;
-                            margin-top: 1px;
+                            line-height: 1.2;
                         }
 
-                        .cancellation-fields {
+                        .cancellation-fields-row {
                             display: flex;
                             justify-content: space-between;
-                            margin-bottom: 3px;
+                            margin-bottom: 4px;
                         }
 
-                        .canc-line {
+                        .canc-field {
                             display: flex;
-                            align-items: flex-end;
+                            align-items: baseline;
                         }
 
                         .canc-lbl {
                             margin-right: 4px;
                         }
 
-                        .canc-fill {
-                            min-height: 12px;
-                        }
-
-                        .cancellation-principal-sign {
+                        .cancellation-principal-center {
                             width: 175px;
-                            margin: 3px auto 0 auto;
+                            margin: 4px auto 0 auto;
                         }
 
-                        .cancellation-principal-sign .sig-name {
+                        .cancellation-principal-center .sig-name {
                             min-height: 13px;
                             display: block;
                         }
 
-                        .cancellation-principal-sign .sig-title {
+                        .cancellation-principal-center .sig-title {
                             font-size: 6.6pt;
                             margin-top: 1px;
                         }
@@ -4354,43 +4400,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                         /* Print Rules */
                         @media print {
                             body {
-                                background: #ffffff !important;
-                                padding: 0 !important;
-                                margin: 0 !important;
+                                background-color: #ffffff !important;
                             }
-
-                            .no-print {
+                            .no-print-toolbar {
                                 display: none !important;
                             }
-
                             .sf9-a5-page {
-                                width: 148mm !important;
-                                max-width: 148mm !important;
-                                height: 202mm !important;
-                                max-height: 202mm !important;
                                 margin: 0 !important;
-                                padding: 0 !important;
                                 box-shadow: none !important;
-                                border: none !important;
+                                width: 100% !important;
+                                height: 100% !important;
+                                max-height: none !important;
                                 page-break-after: always !important;
                                 break-after: page !important;
                             }
-
-                            .sf9-a5-page:last-child {
-                                page-break-after: auto !important;
-                                break-after: auto !important;
-                            }
-
                             [contenteditable="true"] {
-                                background-color: transparent !important;
                                 outline: none !important;
+                                background-color: transparent !important;
                                 box-shadow: none !important;
                             }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="no-print no-print-toolbar">
+                    <!-- Interactive Teacher Print & Customization Toolbar -->
+                    <div class="no-print-toolbar">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span style="font-weight: 700; font-size: 14px;">
                                 <i class="bi bi-file-earmark-pdf-fill" style="color: #22c55e; margin-right: 6px;"></i>
@@ -4399,38 +4433,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <span style="background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 4px; font-size: 11px;">
                                 ${cards.length} Student(s) &bull; ${escapeHtml(sec.name)}
                             </span>
-                            <span style="background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); padding: 3px 8px; border-radius: 9999px; font-size: 11px;">
-                                <i class="bi bi-pencil-fill me-1"></i> Interactive Editing Enabled: Click any text, grade, or attendance box to edit before printing
-                            </span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <button type="button" onclick="window.print()" style="background: #eab308; color: #000; border: none; font-weight: 700; padding: 6px 18px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-                                <i class="bi bi-printer-fill"></i> Save as PDF / Print All
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span style="font-size: 11px; opacity: 0.85; margin-right: 10px;">
+                                <i class="bi bi-pencil me-1"></i> All cells & text are directly editable before printing
+                            </span>
+                            <button type="button" onclick="window.print()" style="background: #16a34a; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <i class="bi bi-printer"></i> Print / Save as PDF (A5)
                             </button>
-                            <button type="button" onclick="window.close()" style="background: transparent; color: #cbd5e1; border: 1px solid #64748b; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
+                            <button type="button" onclick="window.close()" style="background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
                                 Close
                             </button>
                         </div>
                     </div>
+
+                    <!-- Render All Student Pages -->
                     ${pagesHtml}
                 </body>
                 </html>
             `;
 
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) {
-                alert('Pop-up was blocked. Please allow pop-ups for Mentorae to view and print the report cards.');
+            const printWin = window.open('', '_blank');
+            if (!printWin) {
+                alert('Pop-up was blocked. Please allow pop-ups for this website to generate and print report cards.');
                 return;
             }
 
-            printWindow.document.open();
-            printWindow.document.write(fullHtml);
-            printWindow.document.close();
-            printWindow.focus();
-
-            setTimeout(() => {
-                printWindow.print();
-            }, 750);
+            printWin.document.open();
+            printWin.document.write(fullHtml);
+            printWin.document.close();
 
         } catch (err) {
             console.error('generateBulkReportCards error:', err);
