@@ -1,0 +1,24 @@
+# Frontend Vercel Ignore Rules
+# Excludes unused 9MB test spreadsheets and office decks
+# Preserves active Teacher templates: Sample_Template.xlsm, Sample_Template.xlsx, Teacher/ASSH 11 - 2-e-CLASS-RECORD.xlsm
+
+# Office decks and test docs
+*.pptx
+*.docx
+
+# Unreferenced 9MB test templates & duplicates
+*DO15_s2026*
+/ASSH 11 - 2-e-CLASS-RECORD.xlsm
+/ASSH 11 - 2-e-CLASS-RECORD.xlsx
+/ASSH 11 - 2-e-CLASS-RECORD (1).xlsm
+/Teacher's Real Sched.xlsx
+Teacher/DepEd_ECR_Template_DO15_s2026*
+Teacher/ASSH 11 - 2-e-CLASS-RECORD.xlsx
+Teacher/Sample_ECR_Template*
+Teacher/DepEd_ECR_Blank_Template*
+
+# System & editor files
+.vscode/
+*.bat
+.DS_Store
+Thumbs.db

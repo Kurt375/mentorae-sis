@@ -1,0 +1,21 @@
+# Backend Vercel Ignore Rules
+# Excludes local developer uploads and migrations from production serverless bundle
+# Preserves backend/templates/ (tshs_master_real_schedule.xlsx, tshs_schedule_template.xlsx)
+
+# Local test uploads (Vercel serverless uses /tmp/lesson-files at runtime)
+uploads/
+
+# Local database setup and migrations
+db/
+scripts/
+*.sql
+
+# Office decks and test docs
+*.pptx
+*.docx
+
+# System & editor files
+.vscode/
+*.bat
+.DS_Store
+Thumbs.db

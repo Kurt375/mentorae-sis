@@ -1,20 +1,32 @@
 # Vercel Deployment Ignore Rules
-# Keep deployments lightweight to stay well within the 10 GB limit
-
+# Excludes unused 9MB duplicate test spreadsheets, local uploads, and developer scripts
+# Preserves active Teacher templates and backend schedule templates
 
 # Documentation, scratch, and Office presentation/word files
 scratch/
 *.pptx
 *.docx
 
-# Duplicate / large Excel test files (>9 MB each) not used by live site
-*.xlsx
-*DO15_s2026.xlsm
-*DO15_s2026.xlsx
+# Unreferenced duplicate / large Excel test files (>9 MB each) not used by live site
+*DO15_s2026*
 frontend/ASSH 11 - 2-e-CLASS-RECORD.xlsm
+frontend/ASSH 11 - 2-e-CLASS-RECORD.xlsx
 frontend/ASSH 11 - 2-e-CLASS-RECORD (1).xlsm
+frontend/Teacher/DepEd_ECR_Template_DO15_s2026*
+frontend/Teacher/ASSH 11 - 2-e-CLASS-RECORD.xlsx
+frontend/Teacher/Sample_ECR_Template*
+frontend/Teacher/DepEd_ECR_Blank_Template*
+frontend/Teacher's Real Sched.xlsx
+
+# Local server uploads & developer scripts
+backend/uploads/
+backend/scripts/
+backend/db/
+*.sql
 
 # Local dev and scripts
 node_modules/
 .vscode/
 *.bat
+.DS_Store
+Thumbs.db
