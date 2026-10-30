@@ -751,22 +751,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const btnDownloadTableTemplate = document.getElementById('btnDownloadTableTemplate');
-    if (btnDownloadTableTemplate) {
-        btnDownloadTableTemplate.addEventListener('click', (e) => {
-            e.preventDefault();
-            triggerDownloadTemplate('table');
-        });
-    }
-
-    const btnDownloadMasterSchedule = document.getElementById('btnDownloadMasterSchedule');
-    if (btnDownloadMasterSchedule) {
-        btnDownloadMasterSchedule.addEventListener('click', (e) => {
-            e.preventDefault();
-            triggerDownloadTemplate('master');
-        });
-    }
-
     const btnDownloadScheduleTemplate = document.getElementById('btnDownloadScheduleTemplate');
     if (btnDownloadScheduleTemplate) {
         btnDownloadScheduleTemplate.addEventListener('click', (e) => {
