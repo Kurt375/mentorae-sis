@@ -244,3 +244,54 @@
 #predictiveRiskDirectory::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* =========================================================================
+   Risk Filter & Search Toolbar (Matching Teacher Analytics)
+   ========================================================================= */
+.risk-filter-toolbar {
+    border: 1px solid #e2e8f0 !important;
+}
+
+.risk-search-group .form-control:focus {
+    box-shadow: none;
+    border-color: #cbd5e1;
+}
+
+.risk-search-group .input-group-text {
+    border-color: #dee2e6;
+}
+
+.risk-filter-select {
+    font-size: 0.78rem;
+    border-color: #cbd5e1;
+    color: #334155;
+    font-weight: 500;
+}
+
+.risk-filter-select:focus {
+    border-color: var(--mentorae-green);
+    box-shadow: 0 0 0 0.15rem rgba(10, 92, 44, 0.15);
+}
+
+.risk-active-chip {
+    font-size: 0.7rem;
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 0.15rem 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.risk-active-chip .btn-remove-chip {
+    cursor: pointer;
+    font-size: 0.65rem;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+}
+
+.risk-active-chip .btn-remove-chip:hover {
+    color: #dc3545;
+}
