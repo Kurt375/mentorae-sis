@@ -982,6 +982,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       return best;
     }
 
+    const inMemoryStagedList = [];
     const schedulesToInsert = [];
     const sheetResults = [];
     let newTeachersCount = 0;
@@ -1238,6 +1239,7 @@ async function importTabularSchedules(workbook, req, res) {
     return val !== null && val !== undefined ? String(val).trim() : '';
   }
 
+  const inMemoryStagedList = [];
   const results = [];
   let totalEntriesCreated = 0;
 
