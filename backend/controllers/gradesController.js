@@ -799,69 +799,90 @@ async function getSectionReportCards(req, res) {
 
     const studentIds = students.map((s) => s.id);
 
-    // 3. Fetch all subjects scheduled or handled in this section
-    const [schedSubjects] = await pool.query(
-      `SELECT DISTINCT sub.id AS subjectId, sub.code AS subjectCode, sub.name AS subjectName,
-              COALESCE(sub.classification, 'Core') AS classification
-       FROM schedules sch
-       JOIN subjects sub ON sub.id = sch.subject_id
-       WHERE sch.section_id = ?
-       ORDER BY (CASE WHEN sub.classification LIKE '%Core%' THEN 1 ELSE 2 END), sub.code, sub.name`,
-      [sectionId]
-    );
-
-    // 4. Fetch all grades recorded for these students
-    const [gradeRows] = await pool.query(
-      `SELECT g.student_id, g.id AS gradeId, g.subject_id, sub.code AS subjectCode, sub.name AS subjectName,
-              COALESCE(sub.classification, 'Core') AS classification,
-              COALESCE(sub.ww_weight, 20.00) AS ww_weight,
-              COALESCE(sub.pt_weight, 50.00) AS pt_weight,
-              COALESCE(sub.qa_weight, 30.00) AS qa_weight,
-              g.term, g.quiz_score, g.activity_score, g.exam_score, g.average,
-              CONCAT(t.first_name, ' ', t.last_name) AS teacherName
-       FROM grades g
-       JOIN subjects sub ON sub.id = g.subject_id
-       LEFT JOIN users t ON t.id = g.recorded_by
-       WHERE g.student_id IN (?)
-       ORDER BY sub.code, sub.name`,
-      [studentIds]
-    );
-
-    // 5. Fetch overall attendance rate and monthly attendance summary for each student
-    const [attendanceRows] = await pool.query(
-      `SELECT student_id,
-              COUNT(*) AS totalDays,
-              SUM(status IN ('present', 'late')) AS attendedDays
-       FROM attendance_logs
-       WHERE student_id IN (?)
-       GROUP BY student_id`,
-      [studentIds]
-    );
-    const attendanceMap = {};
-    for (const a of attendanceRows) {
-      const rate = a.totalDays > 0 ? Math.round((a.attendedDays / a.totalDays) * 100) : null;
-      attendanceMap[a.student_id] = { totalDays: a.totalDays, attendedDays: a.attendedDays, rate };
+    // 3. Fetch all subjects scheduled or handled in this section (robust group by)
+    let schedSubjects = [];
+    try {
+      const [rows] = await pool.query(
+        `SELECT sub.id AS subjectId, sub.code AS subjectCode, sub.name AS subjectName,
+                COALESCE(sub.classification, 'Core') AS classification
+         FROM schedules sch
+         JOIN subjects sub ON sub.id = sch.subject_id
+         WHERE sch.section_id = ?
+         GROUP BY sub.id, sub.code, sub.name, sub.classification
+         ORDER BY sub.name`,
+        [sectionId]
+      );
+      schedSubjects = rows || [];
+    } catch (schedErr) {
+      console.warn('Could not load section schedules for report cards:', schedErr.message);
     }
 
-    const [monthlyAttRows] = await pool.query(
-      `SELECT student_id,
-              MONTH(scan_date) AS monthNum,
-              COUNT(*) AS totalDays,
-              SUM(status IN ('present', 'late')) AS attendedDays,
-              SUM(status = 'absent') AS absentDays
-       FROM attendance_logs
-       WHERE student_id IN (?)
-       GROUP BY student_id, MONTH(scan_date)`,
-      [studentIds]
-    );
+    // 4. Fetch all grades recorded for these students
+    let gradeRows = [];
+    try {
+      const [rows] = await pool.query(
+        `SELECT g.student_id, g.id AS gradeId, g.subject_id, sub.code AS subjectCode, sub.name AS subjectName,
+                COALESCE(sub.classification, 'Core') AS classification,
+                20.00 AS ww_weight,
+                50.00 AS pt_weight,
+                30.00 AS qa_weight,
+                g.term, g.quiz_score, g.activity_score, g.exam_score, g.average,
+                CONCAT(t.first_name, ' ', t.last_name) AS teacherName
+         FROM grades g
+         JOIN subjects sub ON sub.id = g.subject_id
+         LEFT JOIN users t ON t.id = g.recorded_by
+         WHERE g.student_id IN (?)
+         ORDER BY sub.code, sub.name`,
+        [studentIds]
+      );
+      gradeRows = rows || [];
+    } catch (gradeErr) {
+      console.warn('Could not load grades for report cards:', gradeErr.message);
+    }
+
+    // 5. Fetch overall attendance rate and monthly attendance summary for each student
+    const attendanceMap = {};
+    try {
+      const [attendanceRows] = await pool.query(
+        `SELECT student_id,
+                COUNT(*) AS totalDays,
+                SUM(status IN ('present', 'late')) AS attendedDays
+         FROM attendance_logs
+         WHERE student_id IN (?)
+         GROUP BY student_id`,
+        [studentIds]
+      );
+      for (const a of (attendanceRows || [])) {
+        const rate = a.totalDays > 0 ? Math.round((a.attendedDays / a.totalDays) * 100) : null;
+        attendanceMap[a.student_id] = { totalDays: a.totalDays, attendedDays: a.attendedDays, rate };
+      }
+    } catch (attErr) {
+      console.warn('Could not load attendance summary:', attErr.message);
+    }
+
     const monthlyAttendanceMap = {};
-    for (const m of monthlyAttRows) {
-      if (!monthlyAttendanceMap[m.student_id]) monthlyAttendanceMap[m.student_id] = {};
-      monthlyAttendanceMap[m.student_id][m.monthNum] = {
-        totalDays: Number(m.totalDays) || 0,
-        present: Number(m.attendedDays) || 0,
-        absent: Number(m.absentDays) || 0,
-      };
+    try {
+      const [monthlyAttRows] = await pool.query(
+        `SELECT student_id,
+                MONTH(scan_date) AS monthNum,
+                COUNT(*) AS totalDays,
+                SUM(status IN ('present', 'late')) AS attendedDays,
+                SUM(status = 'absent') AS absentDays
+         FROM attendance_logs
+         WHERE student_id IN (?)
+         GROUP BY student_id, MONTH(scan_date)`,
+        [studentIds]
+      );
+      for (const m of (monthlyAttRows || [])) {
+        if (!monthlyAttendanceMap[m.student_id]) monthlyAttendanceMap[m.student_id] = {};
+        monthlyAttendanceMap[m.student_id][m.monthNum] = {
+          totalDays: Number(m.totalDays) || 0,
+          present: Number(m.attendedDays) || 0,
+          absent: Number(m.absentDays) || 0,
+        };
+      }
+    } catch (mAttErr) {
+      console.warn('Could not load monthly attendance summary:', mAttErr.message);
     }
 
     // Helper to normalize term key
@@ -1115,7 +1136,7 @@ async function getSectionReportCards(req, res) {
     });
   } catch (err) {
     console.error('getSectionReportCards error:', err);
-    return res.status(500).json({ success: false, message: 'Could not load section report cards.' });
+    return res.status(500).json({ success: false, message: err.message || 'Could not load section report cards.' });
   }
 }
 
