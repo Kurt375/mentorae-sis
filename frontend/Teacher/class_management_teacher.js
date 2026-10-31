@@ -3798,15 +3798,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <div class="comments-bordered-box">
                                 <div class="comment-term-row term-1-row">
                                     <span class="comment-term-lbl font-bold">Term 1</span>
-                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
+                                    <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
                                 </div>
                                 <div class="comment-term-row term-2-row">
                                     <span class="comment-term-lbl font-bold">Term 2</span>
-                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
+                                    <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
                                 </div>
                                 <div class="comment-term-row term-3-row">
                                     <span class="comment-term-lbl font-bold">Term 3</span>
-                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
+                                    <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
                                 </div>
                             </div>
                         </div>
@@ -4368,6 +4368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             flex: 1;
                             text-align: center;
                             padding: 0 4px;
+                            font-weight: bold;
                         }
 
                         /* Parent Signature Section */
