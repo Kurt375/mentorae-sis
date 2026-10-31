@@ -3602,16 +3602,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let attAbsentCells = '';
 
                 attMonths.forEach(m => {
-                    attHeaderCells += `<th class="text-center font-bold">${escapeHtml(m.month)}</th>`;
-                    attDaysCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.classDays : ''}</td>`;
-                    attPresentCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.present : ''}</td>`;
-                    attAbsentCells += `<td class="text-center" contenteditable="true">${m.classDays > 0 ? m.absent : ''}</td>`;
+                    attHeaderCells += `<th class="text-center font-bold th-att-month">${escapeHtml(m.month)}</th>`;
+                    attDaysCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.classDays : ''}</td>`;
+                    attPresentCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.present : ''}</td>`;
+                    attAbsentCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.absent : ''}</td>`;
                 });
 
-                attHeaderCells += `<th class="text-center font-bold">Total</th>`;
-                attDaysCells += `<td class="text-center font-bold" contenteditable="true">${attTotal.classDays || ''}</td>`;
-                attPresentCells += `<td class="text-center font-bold" contenteditable="true">${attTotal.present || ''}</td>`;
-                attAbsentCells += `<td class="text-center font-bold" contenteditable="true">${attTotal.absent || 0}</td>`;
+                attHeaderCells += `<th class="text-center font-bold th-att-total">Total</th>`;
+                attDaysCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.classDays || ''}</td>`;
+                attPresentCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.present || ''}</td>`;
+                attAbsentCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.absent || 0}</td>`;
 
                 return `
                     <!-- ==================== STUDENT ${index + 1} PAGE 1: FRONT (A5) ==================== -->
@@ -3771,21 +3771,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <!-- Monthly Attendance Record Table -->
                         <table class="sf9-attendance-table">
                             <thead>
-                                <tr>
+                                <tr class="tr-att-header">
                                     <th class="th-month-label text-center font-bold">Month</th>
                                     ${attHeaderCells}
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
+                                <tr class="tr-att-row">
                                     <td class="td-att-row-title text-center font-bold">No. of Class<br>Days</td>
                                     ${attDaysCells}
                                 </tr>
-                                <tr>
+                                <tr class="tr-att-row">
                                     <td class="td-att-row-title text-center font-bold">No. of Days<br>Present</td>
                                     ${attPresentCells}
                                 </tr>
-                                <tr>
+                                <tr class="tr-att-row">
                                     <td class="td-att-row-title text-center font-bold">No. of Days<br>Absent</td>
                                     ${attAbsentCells}
                                 </tr>
@@ -4292,21 +4292,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .sf9-attendance-table th,
                         .sf9-attendance-table td {
                             border: 1px solid #000000;
-                            padding: 2px 1px;
+                            padding: 1px 0.5px;
                             vertical-align: middle;
                         }
 
+                        .tr-att-header th {
+                            height: 16px;
+                            font-size: 6.8pt;
+                        }
+
+                        .tr-att-row td {
+                            height: 23px;
+                            font-size: 6.8pt;
+                        }
+
                         .th-month-label { width: 15.0%; }
-                        .td-att-row-title { font-size: 6.4pt; line-height: 1.1; }
+                        .th-att-month { width: 6.55%; }
+                        .th-att-total { width: 12.95%; }
+
+                        .td-att-row-title {
+                            font-size: 6.0pt;
+                            line-height: 1.05;
+                            padding: 1px 2px !important;
+                        }
 
                         /* Comments Box */
                         .sf9-comments-container {
-                            margin-top: 4px;
+                            margin-top: 18px;
                         }
 
                         .box-title {
                             font-size: 7.2pt;
-                            margin-bottom: 2px;
+                            letter-spacing: 0.3px;
+                            margin-bottom: 3.5px;
                         }
 
                         .comments-bordered-box {
@@ -4317,22 +4335,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .comment-term-row {
                             display: flex;
                             align-items: flex-start;
-                            padding: 4px 6px;
+                            padding: 3px 6px;
                             line-height: 1.2;
                         }
 
                         .term-1-row {
-                            min-height: 60px;
+                            min-height: 52px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-2-row {
-                            min-height: 34px;
+                            min-height: 38px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-3-row {
-                            min-height: 34px;
+                            min-height: 38px;
                         }
 
                         .comment-term-lbl {
@@ -4346,25 +4364,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Parent Signature Section */
                         .sf9-signatures-box {
-                            margin-top: 4px;
+                            margin-top: 16px;
                         }
 
                         .parent-signatures-list {
                             display: flex;
                             flex-direction: column;
-                            gap: 5px;
+                            gap: 6px;
                             align-items: center;
-                            margin-top: 4px;
+                            margin-top: 5px;
                         }
 
                         .sig-parent-row {
                             display: flex;
                             align-items: baseline;
-                            width: 320px;
+                            width: 330px;
                         }
 
                         .sig-term-lbl {
-                            width: 52px;
+                            width: 55px;
                             font-size: 6.8pt;
                         }
 
@@ -4376,22 +4394,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Certificate of Transfer */
                         .sf9-certificate-box {
-                            margin-top: 4px;
+                            margin-top: 22px;
                             font-size: 6.8pt;
-                            line-height: 1.2;
+                            line-height: 1.25;
                         }
 
                         .cert-intro {
-                            margin: 2px 0 4px 0;
+                            margin: 4px 0 6px 0;
                             text-align: justify;
                         }
 
                         .cert-fields-grid {
-                            margin-bottom: 6px;
+                            margin-bottom: 8px;
                         }
 
                         .cert-field-line {
-                            margin-bottom: 2px;
+                            margin-bottom: 3px;
                         }
 
                         .cert-signatures-layout {
@@ -4430,15 +4448,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Cancellation Box */
                         .sf9-cancellation-box {
-                            margin-top: 4px;
+                            margin-top: 24px;
                             font-size: 6.8pt;
-                            line-height: 1.2;
+                            line-height: 1.25;
                         }
 
                         .cancellation-fields-row {
                             display: flex;
                             justify-content: space-between;
-                            margin-bottom: 4px;
+                            margin-bottom: 8px;
                         }
 
                         .canc-field {
@@ -4452,7 +4470,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         .cancellation-principal-center {
                             width: 175px;
-                            margin: 4px auto 0 auto;
+                            margin: 8px 0 0 0;
                         }
 
                         .cancellation-principal-center .sig-name {
