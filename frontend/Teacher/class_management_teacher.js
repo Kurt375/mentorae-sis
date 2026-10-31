@@ -3798,7 +3798,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <div class="comments-bordered-box">
                                 <div class="comment-term-row term-1-row">
                                     <span class="comment-term-lbl font-bold">Term 1</span>
-                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term1 || 'Needs more practice to improve understanding.')}</span>
+                                    <span class="comment-term-text" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
                                 </div>
                                 <div class="comment-term-row term-2-row">
                                     <span class="comment-term-lbl font-bold">Term 2</span>
@@ -4342,20 +4342,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                             align-items: flex-start;
                             padding: 4px 6px;
                             line-height: 1.25;
+                            min-height: 48px;
+                            height: 48px;
+                            box-sizing: border-box;
                         }
 
                         .term-1-row {
-                            min-height: 85px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-2-row {
-                            min-height: 32px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-3-row {
-                            min-height: 32px;
                         }
 
                         .comment-term-lbl {
