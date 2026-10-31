@@ -3849,16 +3849,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                             <!-- Signatures inside Certificate of Transfer -->
                             <div class="cert-signatures-layout">
-                                <div class="cert-sig-right">
-                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                    <div class="sig-title text-center">Adviser</div>
-                                </div>
                                 <div class="cert-sig-left">
                                     <div class="approved-tag">Approved:</div>
                                     <div class="principal-sig-block">
                                         <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
                                         <div class="sig-title text-center">School Head</div>
                                     </div>
+                                </div>
+                                <div class="cert-sig-right">
+                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                    <div class="sig-title text-center">Adviser</div>
                                 </div>
                             </div>
                         </div>
@@ -4297,12 +4297,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .tr-att-header th {
-                            height: 16px;
+                            height: 14px;
                             font-size: 6.8pt;
                         }
 
                         .tr-att-row td {
-                            height: 23px;
+                            height: 25px;
                             font-size: 6.8pt;
                         }
 
@@ -4312,23 +4312,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         .td-att-row-title {
                             font-size: 6.0pt;
-                            line-height: 1.05;
+                            line-height: 1.1;
                             padding: 1px 2px !important;
                         }
 
                         .sf9-page-2 {
                             justify-content: flex-start !important;
+                            padding: 10mm 12mm 10mm 12mm !important;
                         }
 
                         /* Comments Box */
                         .sf9-comments-container {
-                            margin-top: 14px;
+                            margin-top: 20px;
                         }
 
                         .box-title {
                             font-size: 7.2pt;
                             letter-spacing: 0.3px;
-                            margin-bottom: 3px;
+                            margin-bottom: 4px;
                         }
 
                         .comments-bordered-box {
@@ -4339,22 +4340,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .comment-term-row {
                             display: flex;
                             align-items: flex-start;
-                            padding: 3px 6px;
-                            line-height: 1.2;
+                            padding: 4px 6px;
+                            line-height: 1.25;
                         }
 
                         .term-1-row {
-                            min-height: 48px;
+                            min-height: 85px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-2-row {
-                            min-height: 36px;
+                            min-height: 32px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-3-row {
-                            min-height: 36px;
+                            min-height: 32px;
                         }
 
                         .comment-term-lbl {
@@ -4368,15 +4369,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Parent Signature Section */
                         .sf9-signatures-box {
-                            margin-top: 12px;
+                            margin-top: 16px;
                         }
 
                         .parent-signatures-list {
                             display: flex;
                             flex-direction: column;
-                            gap: 4px;
+                            gap: 8px;
                             align-items: center;
-                            margin-top: 4px;
+                            margin-top: 6px;
                         }
 
                         .sig-parent-row {
@@ -4393,75 +4394,76 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .sig-underline-line {
                             border-bottom: 1px solid #000000;
                             flex: 1;
-                            height: 10px;
+                            height: 12px;
                         }
 
                         /* Certificate of Transfer */
                         .sf9-certificate-box {
-                            margin-top: 14px;
+                            margin-top: 26px;
                             font-size: 6.8pt;
-                            line-height: 1.22;
+                            line-height: 1.35;
                         }
 
                         .cert-intro {
-                            margin: 3px 0 5px 0;
+                            margin: 0 0 20px 0;
                             text-align: justify;
                         }
 
                         .cert-fields-grid {
-                            margin-bottom: 6px;
+                            margin-bottom: 16px;
                         }
 
                         .cert-field-line {
-                            margin-bottom: 2px;
+                            margin-bottom: 10px;
                         }
 
                         .cert-signatures-layout {
                             display: flex;
                             justify-content: space-between;
                             align-items: flex-start;
-                            margin-top: 3px;
+                            margin-top: 8px;
                         }
 
                         .cert-sig-left {
-                            width: 175px;
+                            width: 185px;
                         }
 
                         .cert-sig-right {
-                            width: 175px;
+                            width: 185px;
                             margin-left: auto;
                         }
 
                         .approved-tag {
                             font-size: 6.8pt;
-                            margin-bottom: 2px;
+                            margin-top: 10px;
+                            margin-bottom: 22px;
                         }
 
                         .principal-sig-block {
-                            margin-left: 12px;
+                            margin-left: 0;
                         }
 
                         .cert-signatures-layout .sig-name {
-                            min-height: 13px;
+                            min-height: 14px;
                             display: block;
                         }
 
                         .cert-signatures-layout .sig-title {
                             font-size: 6.6pt;
-                            margin-top: 1px;
+                            margin-top: 2px;
                         }
 
                         /* Cancellation Box */
                         .sf9-cancellation-box {
-                            margin-top: 16px;
+                            margin-top: 24px;
                             font-size: 6.8pt;
-                            line-height: 1.22;
+                            line-height: 1.25;
                         }
 
                         .cancellation-fields-row {
                             display: flex;
                             justify-content: space-between;
-                            margin-bottom: 6px;
+                            margin-bottom: 18px;
                         }
 
                         .canc-field {
@@ -4474,18 +4476,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .cancellation-principal-center {
-                            width: 175px;
-                            margin: 8px 0 0 0;
+                            width: 185px;
+                            margin: 0;
                         }
 
                         .cancellation-principal-center .sig-name {
-                            min-height: 13px;
+                            min-height: 14px;
                             display: block;
                         }
 
                         .cancellation-principal-center .sig-title {
                             font-size: 6.6pt;
-                            margin-top: 1px;
+                            margin-top: 2px;
                         }
 
                         /* Print Rules - Strictly 2 Pages Per Student, NO Borders, NO Spilling Over */
