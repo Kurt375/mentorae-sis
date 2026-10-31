@@ -4153,7 +4153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             display: flex;
                             justify-content: space-between;
                             margin-top: 8px;
-                            margin-bottom: 3px;
+                            margin-bottom: 2px;
                         }
 
                         .sig-col {
@@ -4174,9 +4174,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .learning-progress-heading {
                             font-size: 7.8pt;
                             letter-spacing: 0.3px;
-                            margin: 5px 0 0 0;
-                            padding-bottom: 0;
-                            line-height: 1.15;
+                            margin: 12px 0 3.5px 0;
+                            line-height: 1.18;
                         }
 
                         .sf9-main-grades-table {
