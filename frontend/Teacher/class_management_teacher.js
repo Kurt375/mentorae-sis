@@ -4053,7 +4053,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             display: flex;
                             align-items: baseline;
                             margin-bottom: 2px;
-                            flex-wrap: nowrap;
+                            flex-wrap: nowrap !important;
                             width: 100%;
                         }
 
@@ -4085,6 +4085,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .item-name .meta-val, .item-lrn .meta-val {
                             flex: 1;
                             min-width: 0;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
                         }
 
                         /* Column 2: Age & Grade */
@@ -4098,15 +4100,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                             min-width: 0;
                         }
 
-                        /* Column 3: Sex & Section (Ensures Section never wraps) */
+                        /* Column 3: Sex & Section (Ensures Section never wraps onto another row) */
                         .item-sex, .item-section {
                             flex: 1;
                             margin-left: 8px;
                             min-width: 0;
+                            overflow: hidden;
                         }
-                        .item-sex .meta-val, .item-section .meta-val {
+                        .item-sex .meta-val {
                             flex: 1;
                             min-width: 0;
+                        }
+                        .item-section .meta-val {
+                            flex: 1;
+                            min-width: 0;
+                            font-size: 6.8pt;
+                            letter-spacing: -0.1px;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
                         }
 
                         /* Row 3: Track directly underneath */
@@ -4507,6 +4519,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     <!-- Render All Student Pages -->
                     ${pagesHtml}
+
+                    <script>
+                        // Auto-fit long text inputs so they strictly never wrap or overflow
+                        function fitTextToWidth(el) {
+                            if (!el) return;
+                            let currentSize = parseFloat(window.getComputedStyle(el).fontSize);
+                            while (el.scrollWidth > el.clientWidth && currentSize > 5) {
+                                currentSize -= 0.3;
+                                el.style.fontSize = currentSize + 'px';
+                            }
+                        }
+                        window.addEventListener('DOMContentLoaded', () => {
+                            document.querySelectorAll('.meta-item .meta-val').forEach(fitTextToWidth);
+                        });
+                        document.addEventListener('input', (e) => {
+                            if (e.target && e.target.classList && e.target.classList.contains('meta-val')) {
+                                fitTextToWidth(e.target);
+                            }
+                        });
+                    </script>
                 </body>
                 </html>
             `;
