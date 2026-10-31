@@ -3949,7 +3949,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             position: relative;
                             display: flex;
                             flex-direction: column;
-                            justify-content: space-between;
+                            justify-content: flex-start;
                             page-break-inside: avoid;
                             break-inside: avoid;
                             page-break-after: always;
@@ -4316,15 +4316,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                             padding: 1px 2px !important;
                         }
 
+                        .sf9-page-2 {
+                            justify-content: flex-start !important;
+                        }
+
                         /* Comments Box */
                         .sf9-comments-container {
-                            margin-top: 18px;
+                            margin-top: 14px;
                         }
 
                         .box-title {
                             font-size: 7.2pt;
                             letter-spacing: 0.3px;
-                            margin-bottom: 3.5px;
+                            margin-bottom: 3px;
                         }
 
                         .comments-bordered-box {
@@ -4340,17 +4344,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .term-1-row {
-                            min-height: 52px;
+                            min-height: 48px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-2-row {
-                            min-height: 38px;
+                            min-height: 36px;
                             border-bottom: 1px solid #000000;
                         }
 
                         .term-3-row {
-                            min-height: 38px;
+                            min-height: 36px;
                         }
 
                         .comment-term-lbl {
@@ -4364,15 +4368,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Parent Signature Section */
                         .sf9-signatures-box {
-                            margin-top: 16px;
+                            margin-top: 12px;
                         }
 
                         .parent-signatures-list {
                             display: flex;
                             flex-direction: column;
-                            gap: 6px;
+                            gap: 4px;
                             align-items: center;
-                            margin-top: 5px;
+                            margin-top: 4px;
                         }
 
                         .sig-parent-row {
@@ -4394,28 +4398,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Certificate of Transfer */
                         .sf9-certificate-box {
-                            margin-top: 22px;
+                            margin-top: 14px;
                             font-size: 6.8pt;
-                            line-height: 1.25;
+                            line-height: 1.22;
                         }
 
                         .cert-intro {
-                            margin: 4px 0 6px 0;
+                            margin: 3px 0 5px 0;
                             text-align: justify;
                         }
 
                         .cert-fields-grid {
-                            margin-bottom: 8px;
+                            margin-bottom: 6px;
                         }
 
                         .cert-field-line {
-                            margin-bottom: 3px;
+                            margin-bottom: 2px;
                         }
 
                         .cert-signatures-layout {
                             display: flex;
                             justify-content: space-between;
                             align-items: flex-start;
+                            margin-top: 3px;
                         }
 
                         .cert-sig-left {
@@ -4448,15 +4453,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         /* Cancellation Box */
                         .sf9-cancellation-box {
-                            margin-top: 24px;
+                            margin-top: 16px;
                             font-size: 6.8pt;
-                            line-height: 1.25;
+                            line-height: 1.22;
                         }
 
                         .cancellation-fields-row {
                             display: flex;
                             justify-content: space-between;
-                            margin-bottom: 8px;
+                            margin-bottom: 6px;
                         }
 
                         .canc-field {
