@@ -3994,18 +3994,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         /* Header Layout matching official TSHS card */
                         .sf9-header-container {
                             display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            margin-bottom: 2px;
+                            align-items: flex-start;
+                            justify-content: center;
+                            gap: 10px;
+                            margin: 0 auto 3px auto;
                         }
 
                         .header-logo-wrap {
-                            width: 52px;
-                            height: 52px;
+                            width: 78px;
+                            height: 78px;
+                            min-width: 78px;
+                            min-height: 78px;
                             display: flex;
                             align-items: center;
                             justify-content: center;
                             flex-shrink: 0;
+                            margin-top: 1px;
                         }
 
                         .seal-img {
@@ -4016,26 +4020,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .header-center-text {
-                            flex: 1;
-                            margin: 0 6px;
+                            flex: 0 1 auto;
+                            text-align: center;
                             line-height: 1.18;
+                            white-space: nowrap;
                         }
 
                         .txt-republic {
-                            font-size: 8.2pt;
+                            font-size: 8.5pt;
                             font-weight: normal;
+                            letter-spacing: 0.1px;
                         }
 
                         .txt-header-spacer {
-                            height: 3px;
+                            height: 12px;
                         }
 
                         .txt-region { font-size: 7.8pt; }
                         .txt-division { font-size: 7.8pt; }
                         .txt-district { font-size: 7.8pt; }
                         .txt-muni { font-size: 7.8pt; }
-                        .txt-school { font-size: 8.8pt; }
-                        .txt-doc-title { font-size: 9.2pt; margin-top: 1px; }
+                        .txt-school { font-size: 8.8pt; margin-top: 2px; }
+                        .txt-doc-title { font-size: 9.2pt; margin-top: 2px; }
                         .txt-sy { font-size: 8pt; margin-top: 1px; }
 
                         /* Learner Metadata Lines */
