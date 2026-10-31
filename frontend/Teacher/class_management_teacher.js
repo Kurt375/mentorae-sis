@@ -3746,7 +3746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Performance Descriptors Table (Page 1 Bottom, borderless) -->
                         <div class="sf9-descriptors-section">
-                            <div class="desc-heading font-bold text-center">PERFORMANCE DESCRIPTORS</div>
+                            <div class="desc-heading font-bold text-left">PERFORMANCE DESCRIPTORS</div>
                             <table class="desc-table">
                                 <thead>
                                     <tr>
@@ -4174,7 +4174,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .learning-progress-heading {
                             font-size: 7.8pt;
                             letter-spacing: 0.3px;
-                            margin: 6px 0 2px 0;
+                            margin: 5px 0 0 0;
+                            padding-bottom: 0;
+                            line-height: 1.15;
                         }
 
                         .sf9-main-grades-table {
@@ -4184,6 +4186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             line-height: 1.15;
                             border: 1px solid #000000;
                             table-layout: fixed;
+                            margin-top: 0 !important;
                         }
 
                         .sf9-main-grades-table th,
@@ -4241,16 +4244,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                             font-size: 6.8pt;
                             line-height: 1.18;
                             margin-top: 2px;
+                            width: 100%;
                         }
 
                         .desc-heading {
                             font-size: 7.2pt;
                             margin-bottom: 2px;
+                            text-align: left !important;
                         }
 
                         .desc-table {
-                            width: 82%;
-                            margin: 0 auto;
+                            width: 88%;
+                            margin-left: 11%;
                             border-collapse: collapse;
                         }
 
