@@ -3434,7 +3434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Header group row for Effective Communication / Mabisang Komunikasyon
                 coreRowsHtml += `
                     <tr class="grade-row-group">
-                        <td class="td-learning-area group-title-cell font-bold" contenteditable="true">Effective Communication<br>/ Mabisang Komunikasyon</td>
+                        <td class="td-learning-area group-title-cell" contenteditable="true">Effective Communication<br>/Mabisang Komunikasyon</td>
                         <td class="td-grade"></td>
                         <td class="td-grade"></td>
                         <td class="td-grade"></td>
@@ -3460,7 +3460,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <td class="td-grade text-center" contenteditable="true">${sub.t1}</td>
                                 <td class="td-grade text-center" contenteditable="true"></td>
                                 <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true">${sub.isSub ? '' : '1'}</td>
+                                <td class="td-units text-center" contenteditable="true"></td>
                                 <td class="td-final text-center" contenteditable="true"></td>
                                 <td class="td-remarks text-center" contenteditable="true"></td>
                             </tr>
@@ -3478,7 +3478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <td class="td-grade text-center" contenteditable="true">${effSub.t1 !== null && effSub.t1 !== undefined ? effSub.t1 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${effSub.t2 !== null && effSub.t2 !== undefined ? effSub.t2 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${effSub.t3 !== null && effSub.t3 !== undefined ? effSub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true"></td>
+                                <td class="td-units text-center" contenteditable="true">${effSub.units ? escapeHtml(effSub.units) : ''}</td>
                                 <td class="td-final text-center" contenteditable="true">${effSub.finalGrade !== null && effSub.finalGrade !== undefined ? effSub.finalGrade : ''}</td>
                                 <td class="td-remarks text-center" contenteditable="true">${escapeHtml(effSub.remarks || '')}</td>
                             </tr>
@@ -3504,7 +3504,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <td class="td-grade text-center" contenteditable="true">${mabSub.t1 !== null && mabSub.t1 !== undefined ? mabSub.t1 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${mabSub.t2 !== null && mabSub.t2 !== undefined ? mabSub.t2 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${mabSub.t3 !== null && mabSub.t3 !== undefined ? mabSub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true"></td>
+                                <td class="td-units text-center" contenteditable="true">${mabSub.units ? escapeHtml(mabSub.units) : ''}</td>
                                 <td class="td-final text-center" contenteditable="true">${mabSub.finalGrade !== null && mabSub.finalGrade !== undefined ? mabSub.finalGrade : ''}</td>
                                 <td class="td-remarks text-center" contenteditable="true">${escapeHtml(mabSub.remarks || '')}</td>
                             </tr>
@@ -3535,7 +3535,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true">${sub.units !== null && sub.units !== undefined ? sub.units : 1}</td>
+                                <td class="td-units text-center" contenteditable="true">${sub.units ? escapeHtml(sub.units) : ''}</td>
                                 <td class="td-final text-center" contenteditable="true">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
                                 <td class="td-remarks text-center" contenteditable="true">${escapeHtml(sub.remarks || '')}</td>
                             </tr>
@@ -3555,7 +3555,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <td class="td-grade text-center" contenteditable="true"></td>
                                 <td class="td-grade text-center" contenteditable="true"></td>
                                 <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true">1</td>
+                                <td class="td-units text-center" contenteditable="true"></td>
                                 <td class="td-final text-center" contenteditable="true"></td>
                                 <td class="td-remarks text-center" contenteditable="true"></td>
                             </tr>
@@ -3569,7 +3569,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
                                 <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true">${sub.units !== null && sub.units !== undefined ? sub.units : 1}</td>
+                                <td class="td-units text-center" contenteditable="true">${sub.units ? escapeHtml(sub.units) : ''}</td>
                                 <td class="td-final text-center" contenteditable="true">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
                                 <td class="td-remarks text-center" contenteditable="true">${escapeHtml(sub.remarks || '')}</td>
                             </tr>
@@ -3646,7 +3646,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>
                                 <div class="meta-item item-age">
                                     <span class="meta-lbl">Age:</span>
-                                    <span class="meta-val underline-line text-center" contenteditable="true">${escapeHtml(age)}</span>
+                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(age)}</span>
                                 </div>
                                 <div class="meta-item item-sex">
                                     <span class="meta-lbl">Sex:</span>
@@ -3660,11 +3660,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>
                                 <div class="meta-item item-grade">
                                     <span class="meta-lbl">Grade:</span>
-                                    <span class="meta-val underline-line text-center" contenteditable="true">${escapeHtml(gradeLevel)}</span>
+                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(gradeLevel)}</span>
                                 </div>
                                 <div class="meta-item item-section">
                                     <span class="meta-lbl">Section:</span>
-                                    <span class="meta-val underline-line text-center text-uppercase" contenteditable="true">${escapeHtml(sectionName)}</span>
+                                    <span class="meta-val underline-line text-center text-uppercase font-bold" contenteditable="true">${escapeHtml(sectionName)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
@@ -3694,12 +3694,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </div>
                         </div>
 
+                        <!-- Section Heading Outside Table -->
+                        <div class="learning-progress-heading font-bold text-center">LEARNING PROGRESS AND ACHIEVEMENT</div>
+
                         <!-- Main Learning Progress and Achievement Table -->
                         <table class="sf9-main-grades-table">
                             <thead>
-                                <tr class="tr-super-header">
-                                    <th colspan="7" class="text-center font-bold super-header-title">LEARNING PROGRESS AND ACHIEVEMENT</th>
-                                </tr>
                                 <tr class="tr-main-cols">
                                     <th rowspan="2" class="th-learning-areas text-center font-bold">Learning Areas</th>
                                     <th colspan="3" class="th-term text-center font-bold">TERM</th>
@@ -3734,12 +3734,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
                                 </tr>
 
-                                <!-- General Average Row matching official card format -->
+                                <!-- General Average Row matching official card format (Merged Columns B-H: Colspan 4) -->
                                 <tr class="general-average-row">
-                                    <td class="text-center genavg-label font-bold font-italic" contenteditable="true">General Average</td>
-                                    <td class="td-grade text-center" contenteditable="true">${genAvg.t1 !== null && genAvg.t1 !== undefined ? genAvg.t1 : ''}</td>
-                                    <td class="td-grade text-center" contenteditable="true">${genAvg.t2 !== null && genAvg.t2 !== undefined ? genAvg.t2 : ''}</td>
-                                    <td class="td-grade text-center" contenteditable="true">${genAvg.t3 !== null && genAvg.t3 !== undefined ? genAvg.t3 : ''}</td>
+                                    <td colspan="4" class="text-center genavg-label font-bold font-italic" contenteditable="true">General Average</td>
                                     <td class="td-units text-center" contenteditable="true"></td>
                                     <td class="td-final text-center font-bold font-italic" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
                                     <td class="td-remarks text-center font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
@@ -4133,6 +4130,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         /* Main Grades Table */
+                        .learning-progress-heading {
+                            font-size: 7.8pt;
+                            letter-spacing: 0.3px;
+                            margin: 6px 0 2px 0;
+                        }
+
                         .sf9-main-grades-table {
                             width: 100%;
                             border-collapse: collapse;
@@ -4145,14 +4148,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .sf9-main-grades-table th,
                         .sf9-main-grades-table td {
                             border: 1px solid #000000;
-                            padding: 1.5px 3px;
+                            padding: 2.8px 3px;
                             vertical-align: middle;
-                        }
-
-                        .super-header-title {
-                            font-size: 7.2pt;
-                            letter-spacing: 0.2px;
-                            padding: 2px;
                         }
 
                         .th-learning-areas { width: 38%; }
@@ -4168,12 +4165,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         .category-header-row td {
                             background-color: #ffffff;
-                            padding-left: 6px;
-                            font-size: 7pt;
+                            padding: 2.5px 6px;
+                            font-size: 7.2pt;
+                            height: 20px;
                         }
 
-                        .grade-row-group td {
-                            font-size: 6.8pt;
+                        .grade-row td, .grade-row-group td {
+                            height: 20px;
+                        }
+
+                        .group-title-cell {
+                            font-weight: normal;
                         }
 
                         .sub-subject-indent {
@@ -4181,12 +4183,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .empty-row td {
-                            height: 12px;
+                            height: 20px;
                         }
 
                         .general-average-row td {
-                            font-size: 7pt;
-                            height: 14px;
+                            font-size: 7.2pt;
+                            height: 21px;
                         }
 
                         .genavg-label {
