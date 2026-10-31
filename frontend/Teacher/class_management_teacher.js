@@ -4335,7 +4335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .sf9-descriptors-section {
                             font-size: 6.8pt;
                             line-height: 1.18;
-                            margin-top: 2px;
+                            margin-top: 18px;
                             width: 100%;
                         }
 
