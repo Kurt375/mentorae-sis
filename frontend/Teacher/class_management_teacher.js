@@ -3488,12 +3488,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 coreRowsHtml += `
                     <tr class="grade-row-group">
                         <td class="td-learning-area group-title-cell" contenteditable="true">Effective Communication<br>/Mabisang Komunikasyon</td>
-                        <td class="td-grade"></td>
-                        <td class="td-grade"></td>
-                        <td class="td-grade"></td>
-                        <td class="td-units"></td>
-                        <td class="td-final"></td>
-                        <td class="td-remarks"></td>
+                        <td class="td-grade text-center" contenteditable="true"></td>
+                        <td class="td-grade text-center" contenteditable="true"></td>
+                        <td class="td-grade text-center" contenteditable="true"></td>
+                        <td class="td-units text-center" contenteditable="true"></td>
+                        <td class="td-final text-center" contenteditable="true"></td>
+                        <td class="td-remarks text-center" contenteditable="true"></td>
                     </tr>
                 `;
 
@@ -3655,13 +3655,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let attAbsentCells = '';
 
                 attMonths.forEach(m => {
-                    attHeaderCells += `<th class="text-center font-bold th-att-month">${escapeHtml(m.month)}</th>`;
+                    attHeaderCells += `<th class="text-center font-bold th-att-month" contenteditable="true">${escapeHtml(m.month)}</th>`;
                     attDaysCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.classDays : ''}</td>`;
                     attPresentCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.present : ''}</td>`;
                     attAbsentCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.absent : ''}</td>`;
                 });
 
-                attHeaderCells += `<th class="text-center font-bold th-att-total">Total</th>`;
+                attHeaderCells += `<th class="text-center font-bold th-att-total" contenteditable="true">Total</th>`;
                 attDaysCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.classDays || ''}</td>`;
                 attPresentCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.present || ''}</td>`;
                 attAbsentCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.absent || 0}</td>`;
@@ -3675,14 +3675,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <img src="${depedLogoSrc}" alt="DepEd Seal" class="seal-img" />
                             </div>
                             <div class="header-center-text text-center">
-                                <div class="txt-republic">Republic of the Philippines</div>
+                                <div class="txt-republic" contenteditable="true">Republic of the Philippines</div>
                                 <div class="txt-header-spacer"></div>
-                                <div class="txt-region font-bold">REGION IV - A (CALABARZON)</div>
-                                <div class="txt-division font-bold">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
-                                <div class="txt-district font-bold">TALISAY DISTRICT</div>
-                                <div class="txt-muni font-bold">TALISAY, BATANGAS</div>
-                                <div class="txt-school font-bold">TALISAY SENIOR HIGH SCHOOL</div>
-                                <div class="txt-doc-title font-bold">LEARNER'S PERFORMANCE REPORT</div>
+                                <div class="txt-region font-bold" contenteditable="true">REGION IV - A (CALABARZON)</div>
+                                <div class="txt-division font-bold" contenteditable="true">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
+                                <div class="txt-district font-bold" contenteditable="true">TALISAY DISTRICT</div>
+                                <div class="txt-muni font-bold" contenteditable="true">TALISAY, BATANGAS</div>
+                                <div class="txt-school font-bold" contenteditable="true">TALISAY SENIOR HIGH SCHOOL</div>
+                                <div class="txt-doc-title font-bold" contenteditable="true">LEARNER'S PERFORMANCE REPORT</div>
                                 <div class="txt-sy">School Year <span contenteditable="true">${escapeHtml(schoolYear)}</span></div>
                             </div>
                             <div class="header-logo-wrap seal-right">
@@ -3694,35 +3694,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="learner-meta-table">
                             <div class="meta-row">
                                 <div class="meta-item item-name">
-                                    <span class="meta-lbl">Name:</span>
+                                    <span class="meta-lbl" contenteditable="true">Name:</span>
                                     <span class="meta-val underline-line font-bold" contenteditable="true">${escapeHtml(studentName)}</span>
                                 </div>
                                 <div class="meta-item item-age">
-                                    <span class="meta-lbl">Age:</span>
+                                    <span class="meta-lbl" contenteditable="true">Age:</span>
                                     <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(age)}</span>
                                 </div>
                                 <div class="meta-item item-sex">
-                                    <span class="meta-lbl">Sex:</span>
+                                    <span class="meta-lbl" contenteditable="true">Sex:</span>
                                     <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(sex)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
                                 <div class="meta-item item-lrn">
-                                    <span class="meta-lbl">LRN:</span>
+                                    <span class="meta-lbl" contenteditable="true">LRN:</span>
                                     <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(lrn)}</span>
                                 </div>
                                 <div class="meta-item item-grade">
-                                    <span class="meta-lbl">Grade:</span>
+                                    <span class="meta-lbl" contenteditable="true">Grade:</span>
                                     <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(gradeLevel)}</span>
                                 </div>
                                 <div class="meta-item item-section">
-                                    <span class="meta-lbl">Section:</span>
+                                    <span class="meta-lbl" contenteditable="true">Section:</span>
                                     <span class="meta-val underline-line text-center text-uppercase font-bold" contenteditable="true">${escapeHtml(sectionName)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
                                 <div class="meta-item item-track">
-                                    <span class="meta-lbl">Track (SHS only):</span>
+                                    <span class="meta-lbl" contenteditable="true">Track (SHS only):</span>
                                     <span class="meta-val underline-line font-bold" contenteditable="true">${escapeHtml(trackName)}</span>
                                 </div>
                             </div>
@@ -3730,61 +3730,73 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Dear Parents Note and Signatures -->
                         <div class="dear-parents-box">
-                            <div class="dp-greeting">Dear Parents,</div>
+                            <div class="dp-greeting" contenteditable="true">Dear Parents,</div>
                             <div class="dp-body">
-                                <p class="dp-p">This Performance Report presents your child's progress and achievement in the different learning areas.</p>
-                                <p class="dp-p">The school welcomes you to reach out should you wish to know more about your child's learning and performance.</p>
+                                <p class="dp-p" contenteditable="true">This Performance Report presents your child's progress and achievement in the different learning areas.</p>
+                                <p class="dp-p" contenteditable="true">The school welcomes you to reach out should you wish to know more about your child's learning and performance.</p>
                             </div>
                             <div class="dp-signatures-grid">
                                 <div class="sig-col sig-left">
                                     <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                    <div class="sig-title text-center">School Head</div>
+                                    <div class="sig-title text-center" contenteditable="true">School Head</div>
                                 </div>
                                 <div class="sig-col sig-right">
                                     <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                    <div class="sig-title text-center">Adviser</div>
+                                    <div class="sig-title text-center" contenteditable="true">Adviser</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Section Heading Outside Table -->
-                        <div class="learning-progress-heading font-bold text-center">LEARNING PROGRESS AND ACHIEVEMENT</div>
+                        <div class="learning-progress-heading font-bold text-center" contenteditable="true">LEARNING PROGRESS AND ACHIEVEMENT</div>
 
                         <!-- Main Learning Progress and Achievement Table -->
                         <table class="sf9-main-grades-table">
                             <thead>
                                 <tr class="tr-main-cols">
-                                    <th rowspan="2" class="th-learning-areas text-center font-bold">Learning Areas</th>
-                                    <th colspan="3" class="th-term text-center font-bold">TERM</th>
-                                    <th rowspan="2" class="th-units text-center font-bold">Units</th>
-                                    <th rowspan="2" class="th-final text-center font-bold">Final<br>Grade</th>
-                                    <th rowspan="2" class="th-remarks text-center font-bold">Remarks</th>
+                                    <th rowspan="2" class="th-learning-areas text-center font-bold" contenteditable="true">Learning Areas</th>
+                                    <th colspan="3" class="th-term text-center font-bold" contenteditable="true">TERM</th>
+                                    <th rowspan="2" class="th-units text-center font-bold" contenteditable="true">Units</th>
+                                    <th rowspan="2" class="th-final text-center font-bold" contenteditable="true">Final<br>Grade</th>
+                                    <th rowspan="2" class="th-remarks text-center font-bold" contenteditable="true">Remarks</th>
                                 </tr>
                                 <tr class="tr-sub-terms">
-                                    <th class="th-subterm text-center font-bold">T1</th>
-                                    <th class="th-subterm text-center font-bold">T2</th>
-                                    <th class="th-subterm text-center font-bold">T3</th>
+                                    <th class="th-subterm text-center font-bold" contenteditable="true">T1</th>
+                                    <th class="th-subterm text-center font-bold" contenteditable="true">T2</th>
+                                    <th class="th-subterm text-center font-bold" contenteditable="true">T3</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- Core Subjects Header Row -->
                                 <tr class="category-header-row">
-                                    <td colspan="7" class="category-title-cell font-bold font-italic">Core Subjects</td>
+                                    <td colspan="7" class="category-title-cell font-bold font-italic" contenteditable="true">Core Subjects</td>
                                 </tr>
                                 ${coreRowsHtml}
 
                                 <!-- Elective Subjects Header Row -->
                                 <tr class="category-header-row">
-                                    <td colspan="7" class="category-title-cell font-bold font-italic">Elective Subjects</td>
+                                    <td colspan="7" class="category-title-cell font-bold font-italic" contenteditable="true">Elective Subjects</td>
                                 </tr>
                                 ${electiveRowsHtml}
 
                                 <!-- 2 Exact Blank Placeholder Rows as in official card -->
                                 <tr class="grade-row empty-row">
-                                    <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
+                                    <td class="td-learning-area" contenteditable="true">&nbsp;</td>
+                                    <td class="td-grade text-center" contenteditable="true"></td>
+                                    <td class="td-grade text-center" contenteditable="true"></td>
+                                    <td class="td-grade text-center" contenteditable="true"></td>
+                                    <td class="td-units text-center" contenteditable="true"></td>
+                                    <td class="td-final text-center" contenteditable="true"></td>
+                                    <td class="td-remarks text-center" contenteditable="true"></td>
                                 </tr>
                                 <tr class="grade-row empty-row">
-                                    <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td>
+                                    <td class="td-learning-area" contenteditable="true">&nbsp;</td>
+                                    <td class="td-grade text-center" contenteditable="true"></td>
+                                    <td class="td-grade text-center" contenteditable="true"></td>
+                                    <td class="td-grade text-center" contenteditable="true"></td>
+                                    <td class="td-units text-center" contenteditable="true"></td>
+                                    <td class="td-final text-center" contenteditable="true"></td>
+                                    <td class="td-remarks text-center" contenteditable="true"></td>
                                 </tr>
 
                                 <!-- General Average Row matching official card format (Merged Columns B-H: Colspan 4) -->
@@ -3799,21 +3811,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Performance Descriptors Table (Page 1 Bottom, borderless) -->
                         <div class="sf9-descriptors-section">
-                            <div class="desc-heading font-bold text-left">PERFORMANCE DESCRIPTORS</div>
+                            <div class="desc-heading font-bold text-left" contenteditable="true">PERFORMANCE DESCRIPTORS</div>
                             <table class="desc-table">
                                 <thead>
                                     <tr>
-                                        <th class="desc-col-scale text-center font-bold">Grading Scale</th>
-                                        <th class="desc-col-desc text-center font-bold">Descriptors</th>
-                                        <th class="desc-col-rem text-center font-bold">Remarks</th>
+                                        <th class="desc-col-scale text-center font-bold" contenteditable="true">Grading Scale</th>
+                                        <th class="desc-col-desc text-center font-bold" contenteditable="true">Descriptors</th>
+                                        <th class="desc-col-rem text-center font-bold" contenteditable="true">Remarks</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td class="text-center">90-100</td><td class="text-center">Advancing</td><td class="text-center">Passed</td></tr>
-                                    <tr><td class="text-center">80-89</td><td class="text-center">Benchmarking</td><td class="text-center">Passed</td></tr>
-                                    <tr><td class="text-center">75-79</td><td class="text-center">Connecting</td><td class="text-center">Passed</td></tr>
-                                    <tr><td class="text-center">65-74</td><td class="text-center">Developing</td><td class="text-center">Failed</td></tr>
-                                    <tr><td class="text-center">0-64</td><td class="text-center">Emerging</td><td class="text-center">Failed</td></tr>
+                                    <tr><td class="text-center" contenteditable="true">90-100</td><td class="text-center" contenteditable="true">Advancing</td><td class="text-center" contenteditable="true">Passed</td></tr>
+                                    <tr><td class="text-center" contenteditable="true">80-89</td><td class="text-center" contenteditable="true">Benchmarking</td><td class="text-center" contenteditable="true">Passed</td></tr>
+                                    <tr><td class="text-center" contenteditable="true">75-79</td><td class="text-center" contenteditable="true">Connecting</td><td class="text-center" contenteditable="true">Passed</td></tr>
+                                    <tr><td class="text-center" contenteditable="true">65-74</td><td class="text-center" contenteditable="true">Developing</td><td class="text-center" contenteditable="true">Failed</td></tr>
+                                    <tr><td class="text-center" contenteditable="true">0-64</td><td class="text-center" contenteditable="true">Emerging</td><td class="text-center" contenteditable="true">Failed</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -3825,21 +3837,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <table class="sf9-attendance-table">
                             <thead>
                                 <tr class="tr-att-header">
-                                    <th class="th-month-label text-center font-bold">Month</th>
+                                    <th class="th-month-label text-center font-bold" contenteditable="true">Month</th>
                                     ${attHeaderCells}
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr class="tr-att-row">
-                                    <td class="td-att-row-title text-center font-bold">No. of Class<br>Days</td>
+                                    <td class="td-att-row-title text-center font-bold" contenteditable="true">No. of Class<br>Days</td>
                                     ${attDaysCells}
                                 </tr>
                                 <tr class="tr-att-row">
-                                    <td class="td-att-row-title text-center font-bold">No. of Days<br>Present</td>
+                                    <td class="td-att-row-title text-center font-bold" contenteditable="true">No. of Days<br>Present</td>
                                     ${attPresentCells}
                                 </tr>
                                 <tr class="tr-att-row">
-                                    <td class="td-att-row-title text-center font-bold">No. of Days<br>Absent</td>
+                                    <td class="td-att-row-title text-center font-bold" contenteditable="true">No. of Days<br>Absent</td>
                                     ${attAbsentCells}
                                 </tr>
                             </tbody>
@@ -3847,10 +3859,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Teacher's Comments / Remarks Box -->
                         <div class="sf9-comments-container">
-                            <div class="box-title text-center font-bold">TEACHER'S COMMENTS / REMARKS</div>
+                            <div class="box-title text-center font-bold" contenteditable="true">TEACHER'S COMMENTS / REMARKS</div>
                             <div class="comments-bordered-box">
                                 <div class="comment-term-row term-1-row">
-                                    <span class="comment-term-lbl font-bold">Term 1</span>
+                                    <span class="comment-term-lbl font-bold" contenteditable="true">Term 1</span>
                                     <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
                                     <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
                                         <option value="" ${!st.comments?.term1 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
@@ -3858,7 +3870,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     </select>
                                 </div>
                                 <div class="comment-term-row term-2-row">
-                                    <span class="comment-term-lbl font-bold">Term 2</span>
+                                    <span class="comment-term-lbl font-bold" contenteditable="true">Term 2</span>
                                     <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
                                     <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
                                         <option value="" ${!st.comments?.term2 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
@@ -3866,7 +3878,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     </select>
                                 </div>
                                 <div class="comment-term-row term-3-row">
-                                    <span class="comment-term-lbl font-bold">Term 3</span>
+                                    <span class="comment-term-lbl font-bold" contenteditable="true">Term 3</span>
                                     <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
                                     <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
                                         <option value="" ${!st.comments?.term3 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
@@ -3878,72 +3890,72 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Parent's / Guardian's Signature Lines -->
                         <div class="sf9-signatures-box">
-                            <div class="box-title text-center font-bold">PARENT/S GUARDIAN'S SIGNATURE</div>
+                            <div class="box-title text-center font-bold" contenteditable="true">PARENT/S GUARDIAN'S SIGNATURE</div>
                             <div class="parent-signatures-list">
                                 <div class="sig-parent-row">
-                                    <span class="sig-term-lbl font-bold">Term 1</span>
-                                    <span class="sig-underline-line"></span>
+                                    <span class="sig-term-lbl font-bold" contenteditable="true">Term 1</span>
+                                    <span class="sig-underline-line" contenteditable="true"></span>
                                 </div>
                                 <div class="sig-parent-row">
-                                    <span class="sig-term-lbl font-bold">Term 2</span>
-                                    <span class="sig-underline-line"></span>
+                                    <span class="sig-term-lbl font-bold" contenteditable="true">Term 2</span>
+                                    <span class="sig-underline-line" contenteditable="true"></span>
                                 </div>
                                 <div class="sig-parent-row">
-                                    <span class="sig-term-lbl font-bold">Term 3</span>
-                                    <span class="sig-underline-line"></span>
+                                    <span class="sig-term-lbl font-bold" contenteditable="true">Term 3</span>
+                                    <span class="sig-underline-line" contenteditable="true"></span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Certificate of Transfer -->
                         <div class="sf9-certificate-box">
-                            <div class="box-title text-center font-bold">CERTIFICATE OF TRANSFER</div>
-                            <p class="cert-intro">
+                            <div class="box-title text-center font-bold" contenteditable="true">CERTIFICATE OF TRANSFER</div>
+                            <p class="cert-intro" contenteditable="true">
                                 This is to certify that the above-named learner has satisfactorily completed the requirements for the grade level indicated.
                             </p>
                             <div class="cert-fields-grid">
                                 <div class="cert-field-line">
-                                    <span class="cert-lbl">Admitted to Grade:</span>
-                                    <span class="cert-val underline-line" contenteditable="true" style="width: 70px; display: inline-block;"></span>
+                                    <span class="cert-lbl" contenteditable="true">Admitted to Grade:</span>
+                                    <span class="cert-val underline-line" contenteditable="true" style="min-width: 70px; display: inline-block;"></span>
                                 </div>
                                 <div class="cert-field-line">
-                                    <span class="cert-lbl">Eligible for Admission to Grade:</span>
-                                    <span class="cert-val underline-line" contenteditable="true" style="width: 145px; display: inline-block;"></span>
+                                    <span class="cert-lbl" contenteditable="true">Eligible for Admission to Grade:</span>
+                                    <span class="cert-val underline-line" contenteditable="true" style="min-width: 145px; display: inline-block;"></span>
                                 </div>
                             </div>
 
                             <!-- Signatures inside Certificate of Transfer -->
                             <div class="cert-signatures-layout">
                                 <div class="cert-sig-left">
-                                    <div class="approved-tag">Approved:</div>
+                                    <div class="approved-tag" contenteditable="true">Approved:</div>
                                     <div class="principal-sig-block">
                                         <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                        <div class="sig-title text-center">School Head</div>
+                                        <div class="sig-title text-center" contenteditable="true">School Head</div>
                                     </div>
                                 </div>
                                 <div class="cert-sig-right">
                                     <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                    <div class="sig-title text-center">Adviser</div>
+                                    <div class="sig-title text-center" contenteditable="true">Adviser</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Cancellation of Eligibility to Transfer -->
                         <div class="sf9-cancellation-box">
-                            <div class="box-title text-center font-bold">CANCELLATION OF ELIGIBILITY TO TRANSFER</div>
+                            <div class="box-title text-center font-bold" contenteditable="true">CANCELLATION OF ELIGIBILITY TO TRANSFER</div>
                             <div class="cancellation-fields-row">
                                 <div class="canc-field">
-                                    <span class="canc-lbl">Admitted in:</span>
-                                    <span class="canc-val underline-line" contenteditable="true" style="width: 175px; display: inline-block;"></span>
+                                    <span class="canc-lbl" contenteditable="true">Admitted in:</span>
+                                    <span class="canc-val underline-line" contenteditable="true" style="min-width: 175px; display: inline-block;"></span>
                                 </div>
                                 <div class="canc-field">
-                                    <span class="canc-lbl">Date:</span>
-                                    <span class="canc-val underline-line" contenteditable="true" style="width: 145px; display: inline-block;"></span>
+                                    <span class="canc-lbl" contenteditable="true">Date:</span>
+                                    <span class="canc-val underline-line" contenteditable="true" style="min-width: 145px; display: inline-block;"></span>
                                 </div>
                             </div>
                             <div class="cancellation-principal-center">
                                 <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                <div class="sig-title text-center">School Head</div>
+                                <div class="sig-title text-center" contenteditable="true">School Head</div>
                             </div>
                         </div>
                     </div>
@@ -4038,6 +4050,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             border-bottom: 1px solid #000000;
                             display: inline-block;
                             padding: 0 4px 0.5px 4px;
+                            min-height: 12px;
+                            vertical-align: bottom;
+                            box-sizing: border-box;
                         }
 
                         /* Interactive Inline Editing Highlighting */
@@ -4498,7 +4513,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .sig-underline-line {
                             border-bottom: 1px solid #000000;
                             flex: 1;
-                            height: 12px;
+                            min-height: 12px;
+                            height: auto;
+                            line-height: 12px;
+                            padding: 0 4px;
+                            display: inline-block;
+                            box-sizing: border-box;
+                            font-size: 7pt;
                         }
 
                         /* Certificate of Transfer */
@@ -4676,7 +4697,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
                             <span style="font-size: 11px; opacity: 0.85; margin-right: 10px;">
-                                <i class="bi bi-pencil me-1"></i> Click cells to edit &bull; Select teacher remarks from dropdowns
+                                <i class="bi bi-pencil me-1"></i> Click any text, cell, or line to edit &bull; Select teacher remarks from dropdowns
                             </span>
                             <a href="Card_SF9.xlsx" download="Official_TSHS_Card_SF9.xlsx" style="background: #0284c7; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 13px;">
                                 <i class="bi bi-file-earmark-excel"></i> Download Excel
