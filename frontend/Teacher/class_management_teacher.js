@@ -4339,8 +4339,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         .comment-term-row {
                             display: flex;
-                            align-items: flex-start;
-                            padding: 4px 6px;
+                            align-items: center;
+                            padding: 4px 8px;
                             line-height: 1.25;
                             min-height: 48px;
                             height: 48px;
@@ -4361,10 +4361,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .comment-term-lbl {
                             width: 55px;
                             flex-shrink: 0;
+                            text-align: left;
                         }
 
                         .comment-term-text {
                             flex: 1;
+                            text-align: center;
+                            padding: 0 4px;
                         }
 
                         /* Parent Signature Section */
