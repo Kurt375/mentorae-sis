@@ -4046,50 +4046,79 @@ document.addEventListener('DOMContentLoaded', async () => {
                             font-size: 7.2pt;
                             line-height: 1.25;
                             margin: 2px 0 3px 0;
+                            width: 100%;
                         }
 
                         .meta-row {
                             display: flex;
                             align-items: baseline;
                             margin-bottom: 2px;
+                            flex-wrap: nowrap;
+                            width: 100%;
                         }
 
                         .meta-item {
                             display: flex;
                             align-items: baseline;
+                            flex-shrink: 0;
+                            white-space: nowrap;
                         }
 
                         .meta-lbl {
                             white-space: nowrap;
                             margin-right: 4px;
                             font-weight: normal;
+                            flex-shrink: 0;
                         }
 
                         .meta-val {
                             min-height: 13px;
                             line-height: 13px;
+                            white-space: nowrap;
                         }
 
-                        .item-name { width: 56%; }
-                        .item-name .meta-val { flex: 1; }
+                        /* Column 1: Name & LRN */
+                        .item-name, .item-lrn {
+                            width: 47%;
+                            flex-shrink: 0;
+                        }
+                        .item-name .meta-val, .item-lrn .meta-val {
+                            flex: 1;
+                            min-width: 0;
+                        }
 
-                        .item-age { width: 18%; margin-left: 12px; }
-                        .item-age .meta-val { width: 34px; }
+                        /* Column 2: Age & Grade */
+                        .item-age, .item-grade {
+                            width: 17%;
+                            margin-left: 8px;
+                            flex-shrink: 0;
+                        }
+                        .item-age .meta-val, .item-grade .meta-val {
+                            flex: 1;
+                            min-width: 0;
+                        }
 
-                        .item-sex { width: 18%; margin-left: 8px; }
-                        .item-sex .meta-val { width: 34px; }
+                        /* Column 3: Sex & Section (Ensures Section never wraps) */
+                        .item-sex, .item-section {
+                            flex: 1;
+                            margin-left: 8px;
+                            min-width: 0;
+                        }
+                        .item-sex .meta-val, .item-section .meta-val {
+                            flex: 1;
+                            min-width: 0;
+                        }
 
-                        .item-lrn { width: 56%; }
-                        .item-lrn .meta-val { flex: 1; }
-
-                        .item-grade { width: 18%; margin-left: 12px; }
-                        .item-grade .meta-val { width: 34px; }
-
-                        .item-section { width: 22%; margin-left: 8px; }
-                        .item-section .meta-val { flex: 1; }
-
-                        .item-track { width: 100%; }
-                        .item-track .meta-val { width: 140px; }
+                        /* Row 3: Track directly underneath */
+                        .item-track {
+                            width: 100%;
+                            margin-top: 1px;
+                        }
+                        .item-track .meta-val {
+                            width: 150px;
+                            flex: none;
+                            text-align: center;
+                        }
 
                         /* Dear Parents Box */
                         .dear-parents-box {
