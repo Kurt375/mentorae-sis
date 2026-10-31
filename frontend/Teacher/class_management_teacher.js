@@ -4207,9 +4207,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                             font-size: 6.8pt;
                         }
 
+                        .td-learning-area {
+                            text-align: left !important;
+                            padding-left: 6px !important;
+                            padding-right: 4px;
+                            vertical-align: middle;
+                        }
+
                         .category-header-row td {
                             background-color: #ffffff;
-                            padding: 2.5px 6px;
+                            padding: 2.5px 4px 2.5px 6px !important;
+                            text-align: left !important;
                             font-size: 7.2pt;
                             height: 20px;
                         }
@@ -4220,10 +4228,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         .group-title-cell {
                             font-weight: normal;
+                            text-align: left !important;
+                            padding-left: 6px !important;
                         }
 
                         .sub-subject-indent {
                             padding-left: 18px !important;
+                            text-align: left !important;
                         }
 
                         .empty-row td {
