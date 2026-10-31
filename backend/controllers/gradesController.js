@@ -745,9 +745,11 @@ async function getSectionReportCards(req, res) {
 
     if (req.user.role === 'teacher') {
       const isAdviser = Boolean(sec.adviser_id === req.user.id || sec.co_adviser_id === req.user.id);
-      const teaches = await teacherTeachesSection(req.user.id, sectionId);
-      if (!isAdviser && !teaches) {
-        return res.status(403).json({ success: false, message: 'You are not authorized to view report cards for this section.' });
+      if (!isAdviser) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access Restricted: Only the official Class Adviser or Co-Adviser of this section can view, edit, print, or download SF9 report cards.'
+        });
       }
     }
 

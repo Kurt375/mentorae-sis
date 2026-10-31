@@ -360,8 +360,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!rosterTableBody) return;
         rosterTableBody.innerHTML = '';
 
+        const activeSec = mySections.find(s => String(s.id) === String(currentSectionId));
+        const isAdviserOrCoAdviser = Boolean(
+            (activeSec && (activeSec.isAdvisory === 1 || activeSec.isAdvisory === true)) ||
+            (user && user.role === 'admin')
+        );
+
+        const thAction = document.getElementById('thRosterAction');
+        if (thAction) {
+            thAction.style.display = isAdviserOrCoAdviser ? '' : 'none';
+        }
+
+        const colCount = isAdviserOrCoAdviser ? 6 : 5;
+
         if (!records || records.length === 0) {
-            rosterTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No student records found in this section.</td></tr>`;
+            rosterTableBody.innerHTML = `<tr><td colspan="${colCount}" class="text-center text-muted py-4">No student records found in this section.</td></tr>`;
             return;
         }
 
@@ -406,10 +419,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td class="px-4 py-3 text-center">
                     <span class="attendance-status-badge ${statusVal}">${statusDisplay}</span>
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td class="px-4 py-3 text-center" style="${isAdviserOrCoAdviser ? '' : 'display: none;'}">
+                    ${isAdviserOrCoAdviser ? `
                     <button type="button" class="btn btn-sm btn-outline-dark-green print-single-sf9-btn d-inline-flex align-items-center gap-1 shadow-sm px-2.5 py-1" data-id="${student.id}" data-name="${student.name}" title="Preview / Print SF9 Report Card">
                         <i class="bi bi-file-earmark-pdf"></i> SF9 Card
                     </button>
+                    ` : ''}
                 </td>
             `;
 
@@ -425,12 +440,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        rosterTableBody.querySelectorAll('.print-single-sf9-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                generateBulkReportCards(currentSectionId, btn.dataset.id);
+        if (isAdviserOrCoAdviser) {
+            rosterTableBody.querySelectorAll('.print-single-sf9-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    generateBulkReportCards(currentSectionId, btn.dataset.id);
+                });
             });
-        });
+        }
     }
 
     const studentProfileModalEl = document.getElementById('studentRosterProfileModal');
@@ -3374,6 +3391,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function generateBulkReportCards(sectionId, singleStudentId = null) {
         if (!sectionId) {
             alert('Please select a section first.');
+            return;
+        }
+
+        const activeSec = mySections.find(s => String(s.id) === String(sectionId));
+        const isAdviserOrCoAdviser = Boolean(
+            (activeSec && (activeSec.isAdvisory === 1 || activeSec.isAdvisory === true)) ||
+            (user && user.role === 'admin')
+        );
+        if (!isAdviserOrCoAdviser) {
+            alert('Access Denied: Only the official Class Adviser or Co-Adviser of this section can view, edit, print, or download SF9 report cards.');
             return;
         }
 
