@@ -4022,6 +4022,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             overflow: hidden;
                         }
 
+                        .sf9-a5-page:last-of-type,
                         .sf9-a5-page:last-child {
                             page-break-after: avoid !important;
                             break-after: avoid !important;
@@ -4601,26 +4602,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 background-color: #ffffff !important;
                                 width: 148mm !important;
                                 height: auto !important;
+                                font-size: 0 !important;
+                                line-height: 0 !important;
                             }
                             .no-print, .no-print-toolbar, .comment-quick-select {
                                 display: none !important;
                             }
                             .sf9-a5-page {
                                 width: 148mm !important;
-                                height: 210mm !important;
-                                min-height: 210mm !important;
-                                max-height: 210mm !important;
+                                height: 209mm !important;
+                                min-height: 209mm !important;
+                                max-height: 209mm !important;
                                 margin: 0 !important;
                                 padding: 6mm 7.5mm 6mm 7.5mm !important;
                                 border: none !important;
                                 box-shadow: none !important;
                                 box-sizing: border-box !important;
+                                font-size: 7.2pt !important;
+                                line-height: 1.15 !important;
                                 page-break-inside: avoid !important;
                                 break-inside: avoid !important;
                                 page-break-after: always !important;
                                 break-after: page !important;
                                 overflow: hidden !important;
                             }
+                            .sf9-page-2 {
+                                padding: 10mm 12mm 10mm 12mm !important;
+                            }
+                            .sf9-a5-page:last-of-type,
+                            .sf9-page-2:last-of-type,
                             .sf9-a5-page:last-child {
                                 page-break-after: avoid !important;
                                 break-after: avoid !important;
@@ -4632,6 +4642,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         }
                     </style>
+                    <script>
+                        // Auto-fit long text inputs so they strictly never wrap or overflow
+                        function fitTextToWidth(el) {
+                            if (!el) return;
+                            let currentSize = parseFloat(window.getComputedStyle(el).fontSize);
+                            while (el.scrollWidth > el.clientWidth && currentSize > 5) {
+                                currentSize -= 0.3;
+                                el.style.fontSize = currentSize + 'px';
+                            }
+                        }
+                        window.addEventListener('DOMContentLoaded', () => {
+                            document.querySelectorAll('.meta-item .meta-val').forEach(fitTextToWidth);
+                        });
+                        document.addEventListener('input', (e) => {
+                            if (e.target && e.target.classList && e.target.classList.contains('meta-val')) {
+                                fitTextToWidth(e.target);
+                            }
+                        });
+                    </script>
                 </head>
                 <body>
                     <!-- Interactive Teacher Print & Customization Toolbar -->
@@ -4659,31 +4688,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 Close
                             </button>
                         </div>
-                    </div>
-
-                    <!-- Render All Student Pages -->
-                    ${pagesHtml}
-
-                    <script>
-                        // Auto-fit long text inputs so they strictly never wrap or overflow
-                        function fitTextToWidth(el) {
-                            if (!el) return;
-                            let currentSize = parseFloat(window.getComputedStyle(el).fontSize);
-                            while (el.scrollWidth > el.clientWidth && currentSize > 5) {
-                                currentSize -= 0.3;
-                                el.style.fontSize = currentSize + 'px';
-                            }
-                        }
-                        window.addEventListener('DOMContentLoaded', () => {
-                            document.querySelectorAll('.meta-item .meta-val').forEach(fitTextToWidth);
-                        });
-                        document.addEventListener('input', (e) => {
-                            if (e.target && e.target.classList && e.target.classList.contains('meta-val')) {
-                                fitTextToWidth(e.target);
-                            }
-                        });
-                    </script>
-                </body>
+                    </div><!-- Render All Student Pages -->${pagesHtml.trim()}</body>
                 </html>
             `;
 
