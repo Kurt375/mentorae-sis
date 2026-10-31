@@ -894,14 +894,59 @@ async function getSectionReportCards(req, res) {
       return null;
     }
 
+    // Official DepEd SF9 Teacher's Comments / Remarks choices
+    const OFFICIAL_SF9_COMMENTS = [
+      "Needs more practice to improve understanding.",
+      "Needs to work harder on difficult lessons.",
+      "Shows effort but needs more guidance.",
+      "Can improve with more focus and effort.",
+      "Needs to participate more in class.",
+      "Shows potential but needs more practice.",
+      "Needs to improve study habits.",
+      "Needs closer attention during discussions.",
+      "Needs to stay focused during activities.",
+      "Needs to develop better study habits.",
+      "Shows satisfactory progress in class.",
+      "Continues to improve in different areas.",
+      "Performs well with regular guidance.",
+      "Shows good effort in completing tasks.",
+      "Participates in class activities.",
+      "Understands most of the lessons.",
+      "Shows steady progress this term.",
+      "Does well when given proper guidance.",
+      "Completes most tasks on time.",
+      "Shows willingness to learn.",
+      "Has shown good improvement.",
+      "Participates well during discussions.",
+      "Can improve further with more effort.",
+      "Shows a positive attitude toward learning.",
+      "Works well during classroom activities.",
+      "Continues to develop good study habits.",
+      "Performs better when focused.",
+      "Shows consistent effort in class.",
+      "Completes assigned activities responsibly.",
+      "Can achieve more with continued effort.",
+      "Shows excellent understanding of the lessons.",
+      "Consistently performs well in class.",
+      "Shows strong interest in learning.",
+      "Completes tasks with confidence.",
+      "Actively participates in discussions.",
+      "Demonstrates excellent study habits.",
+      "Shows initiative in classroom activities.",
+      "Shows excellent progress this term.",
+      "Works independently and responsibly.",
+      "Demonstrates strong skills and understanding.",
+      "Shows leadership during group activities.",
+      "Continues to maintain excellent performance."
+    ];
+
     function generateConstructiveComment(gradeVal) {
       if (gradeVal === null || gradeVal === undefined || isNaN(gradeVal)) return '';
       const g = Number(gradeVal);
-      if (g >= 90) return 'Demonstrates outstanding academic performance and consistent dedication.';
-      if (g >= 80) return 'Shows commendable performance and steady progress in learning.';
-      if (g >= 75) return 'Meets grade-level competencies; consistent study and participation encouraged.';
-      if (g >= 65) return 'Needs more practice to improve understanding.';
-      return 'Requires intensive academic remediation and guided support.';
+      if (g >= 90) return 'Shows excellent understanding of the lessons.';
+      if (g >= 80) return 'Shows consistent effort in class.';
+      if (g >= 75) return 'Shows satisfactory progress in class.';
+      return 'Needs more practice to improve understanding.';
     }
 
     // Month order for SF9 DepEd attendance: Jun, Jul, Aug, Sep, Oct, Nov, Dec, Jan, Feb, Mar, Apr
@@ -1132,6 +1177,7 @@ async function getSectionReportCards(req, res) {
         schoolYear,
       },
       term,
+      officialComments: OFFICIAL_SF9_COMMENTS,
       reportCards,
     });
   } catch (err) {

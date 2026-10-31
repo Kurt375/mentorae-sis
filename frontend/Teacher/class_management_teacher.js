@@ -3417,6 +3417,59 @@ document.addEventListener('DOMContentLoaded', async () => {
             const depedLogoSrc = (typeof DEPED_LOGO_B64 !== 'undefined' && DEPED_LOGO_B64) ? DEPED_LOGO_B64 : 'deped_seal.png';
             const tshsLogoSrc = (typeof TSHS_LOGO_B64 !== 'undefined' && TSHS_LOGO_B64) ? TSHS_LOGO_B64 : 'tshs_seal.jpg';
 
+            // Official DepEd SF9 Teacher's Comments / Remarks choices
+            const OFFICIAL_SF9_COMMENTS = [
+                "Needs more practice to improve understanding.",
+                "Needs to work harder on difficult lessons.",
+                "Shows effort but needs more guidance.",
+                "Can improve with more focus and effort.",
+                "Needs to participate more in class.",
+                "Shows potential but needs more practice.",
+                "Needs to improve study habits.",
+                "Needs closer attention during discussions.",
+                "Needs to stay focused during activities.",
+                "Needs to develop better study habits.",
+                "Shows satisfactory progress in class.",
+                "Continues to improve in different areas.",
+                "Performs well with regular guidance.",
+                "Shows good effort in completing tasks.",
+                "Participates in class activities.",
+                "Understands most of the lessons.",
+                "Shows steady progress this term.",
+                "Does well when given proper guidance.",
+                "Completes most tasks on time.",
+                "Shows willingness to learn.",
+                "Has shown good improvement.",
+                "Participates well during discussions.",
+                "Can improve further with more effort.",
+                "Shows a positive attitude toward learning.",
+                "Works well during classroom activities.",
+                "Continues to develop good study habits.",
+                "Performs better when focused.",
+                "Shows consistent effort in class.",
+                "Completes assigned activities responsibly.",
+                "Can achieve more with continued effort.",
+                "Shows excellent understanding of the lessons.",
+                "Consistently performs well in class.",
+                "Shows strong interest in learning.",
+                "Completes tasks with confidence.",
+                "Actively participates in discussions.",
+                "Demonstrates excellent study habits.",
+                "Shows initiative in classroom activities.",
+                "Shows excellent progress this term.",
+                "Works independently and responsibly.",
+                "Demonstrates strong skills and understanding.",
+                "Shows leadership during group activities.",
+                "Continues to maintain excellent performance."
+            ];
+
+            const commentOptionsHtml = (selectedVal) => {
+                return OFFICIAL_SF9_COMMENTS.map(c => {
+                    const isSel = (selectedVal && selectedVal.trim() === c.trim()) ? 'selected' : '';
+                    return `<option value="${escapeHtml(c)}" ${isSel}>${escapeHtml(c)}</option>`;
+                }).join('');
+            };
+
             // Compile the two-page A5 document for each student matching official card-sf9 of Talisay Senior High School
             const pagesHtml = cards.map((st, index) => {
                 const studentName = st.formattedName || st.fullName || 'Student Name';
@@ -3799,14 +3852,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <div class="comment-term-row term-1-row">
                                     <span class="comment-term-lbl font-bold">Term 1</span>
                                     <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
+                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
+                                        <option value="" ${!st.comments?.term1 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
+                                        ${commentOptionsHtml(st.comments?.term1)}
+                                    </select>
                                 </div>
                                 <div class="comment-term-row term-2-row">
                                     <span class="comment-term-lbl font-bold">Term 2</span>
                                     <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
+                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
+                                        <option value="" ${!st.comments?.term2 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
+                                        ${commentOptionsHtml(st.comments?.term2)}
+                                    </select>
                                 </div>
                                 <div class="comment-term-row term-3-row">
                                     <span class="comment-term-lbl font-bold">Term 3</span>
                                     <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
+                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
+                                        <option value="" ${!st.comments?.term3 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
+                                        ${commentOptionsHtml(st.comments?.term3)}
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -4338,6 +4403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .comment-term-row {
+                            position: relative;
                             display: flex;
                             align-items: center;
                             padding: 4px 8px;
@@ -4369,6 +4435,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                             text-align: center;
                             padding: 0 4px;
                             font-weight: bold;
+                        }
+
+                        .comment-quick-select {
+                            position: absolute;
+                            right: 4px;
+                            top: 4px;
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                            font-size: 6.5pt;
+                            font-weight: 500;
+                            padding: 1px 4px;
+                            border-radius: 4px;
+                            border: 1px solid #cbd5e1;
+                            background-color: #f8fafc;
+                            color: #334155;
+                            max-width: 125px;
+                            cursor: pointer;
+                            outline: none;
+                            opacity: 0.85;
+                            transition: opacity 0.15s, border-color 0.15s;
+                        }
+
+                        .comment-quick-select:hover {
+                            opacity: 1;
+                            background-color: #e2e8f0;
+                            border-color: #64748b;
+                            color: #0f172a;
+                        }
+
+                        .comment-quick-select option {
+                            font-size: 8.5pt;
+                            color: #000000;
+                            background: #ffffff;
+                            padding: 4px 6px;
                         }
 
                         /* Parent Signature Section */
@@ -4503,7 +4602,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 width: 148mm !important;
                                 height: auto !important;
                             }
-                            .no-print-toolbar {
+                            .no-print, .no-print-toolbar, .comment-quick-select {
                                 display: none !important;
                             }
                             .sf9-a5-page {
@@ -4548,7 +4647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
                             <span style="font-size: 11px; opacity: 0.85; margin-right: 10px;">
-                                <i class="bi bi-pencil me-1"></i> All cells & text are directly editable before printing
+                                <i class="bi bi-pencil me-1"></i> Click cells to edit &bull; Select teacher remarks from dropdowns
                             </span>
                             <a href="Card_SF9.xlsx" download="Official_TSHS_Card_SF9.xlsx" style="background: #0284c7; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 13px;">
                                 <i class="bi bi-file-earmark-excel"></i> Download Excel
