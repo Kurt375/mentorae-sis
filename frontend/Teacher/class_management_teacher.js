@@ -4174,8 +4174,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         .learning-progress-heading {
                             font-size: 7.8pt;
                             letter-spacing: 0.3px;
-                            margin: 12px 0 3.5px 0;
-                            line-height: 1.18;
+                            margin: 8px 0 0 0;
+                            padding: 0;
+                            line-height: 1.05;
                         }
 
                         .sf9-main-grades-table {
