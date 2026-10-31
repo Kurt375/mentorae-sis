@@ -4232,7 +4232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         .sub-subject-indent {
-                            padding-left: 18px !important;
+                            padding-left: 6px !important;
                             text-align: left !important;
                         }
 
