@@ -323,6 +323,79 @@ async function resetBadges(req, res) {
   }
 }
 
-module.exports = { getCatalog, awardBadges, getStudentBadges, getLeaderboard, resetBadges };
+/**
+ * GET /api/badges/recent?sectionId=&limit=
+ * Returns recent badge activity awarded to students across the class or by the teacher.
+ */
+async function getRecentBadgeActivity(req, res) {
+  try {
+    const { sectionId } = req.query;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+
+    let whereClause = '';
+    const params = [];
+
+    if (req.user.role === 'teacher') {
+      if (sectionId && sectionId !== 'all') {
+        whereClause = `WHERE s.section_id = ? AND (sb.awarded_by = ? OR s.section_id IN (
+          SELECT section_id FROM schedules WHERE teacher_id = ?
+          UNION
+          SELECT id AS section_id FROM sections WHERE adviser_id = ? OR co_adviser_id = ?
+        ))`;
+        params.push(sectionId, req.user.id, req.user.id, req.user.id, req.user.id);
+      } else {
+        whereClause = `WHERE (sb.awarded_by = ? OR s.section_id IN (
+          SELECT section_id FROM schedules WHERE teacher_id = ?
+          UNION
+          SELECT id AS section_id FROM sections WHERE adviser_id = ? OR co_adviser_id = ?
+        ))`;
+        params.push(req.user.id, req.user.id, req.user.id, req.user.id);
+      }
+    } else if (req.user.role === 'admin') {
+      if (sectionId && sectionId !== 'all') {
+        whereClause = 'WHERE s.section_id = ?';
+        params.push(sectionId);
+      }
+    } else if (req.user.role === 'student') {
+      whereClause = 'WHERE sb.student_id = ?';
+      params.push(req.user.id);
+    } else {
+      return res.status(403).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    params.push(limit);
+
+    const [rows] = await pool.query(
+      `SELECT sb.id, sb.student_id, sb.badge_id, sb.earned_at,
+              CONCAT(s.first_name, ' ', s.last_name) AS student_name,
+              s.id_number AS student_id_number,
+              s.profile_picture_url AS student_avatar,
+              sec.name AS section_name,
+              bc.name AS badge_name,
+              bc.icon,
+              bc.symbol,
+              bc.bg,
+              bc.color,
+              bc.points,
+              CONCAT(u.first_name, ' ', u.last_name) AS awarded_by_name
+       FROM student_badges sb
+       JOIN users s ON s.id = sb.student_id
+       LEFT JOIN sections sec ON sec.id = s.section_id
+       JOIN badge_catalog bc ON bc.id = sb.badge_id
+       LEFT JOIN users u ON u.id = sb.awarded_by
+       ${whereClause}
+       ORDER BY sb.earned_at DESC
+       LIMIT ?`,
+      params
+    );
+
+    return res.json({ success: true, activity: rows });
+  } catch (err) {
+    console.error('getRecentBadgeActivity error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load recent badge activity.' });
+  }
+}
+
+module.exports = { getCatalog, awardBadges, getStudentBadges, getLeaderboard, resetBadges, getRecentBadgeActivity };
 
 
