@@ -4026,17 +4026,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                             z-index: 9999;
                             background: #1e293b;
                             color: #ffffff;
-                            padding: 10px 20px;
+                            padding: 6px 14px;
                             display: flex;
                             align-items: center;
                             justify-content: space-between;
                             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                            font-size: 13px;
+                            font-size: 11.5px;
+                            white-space: nowrap !important;
+                            flex-wrap: nowrap !important;
+                            gap: 8px;
+                            min-height: 42px;
+                            box-sizing: border-box;
                         }
 
-                        .no-print-toolbar button {
+                        .no-print-toolbar button, .no-print-toolbar a {
                             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                            white-space: nowrap !important;
+                            text-decoration: none;
+                        }
+
+                        @media (max-width: 900px) {
+                            .sf9-hint-text {
+                                display: none !important;
+                            }
                         }
 
                         /* Official A5 Page Sheet - Clean White, NO Page Border */
@@ -4716,7 +4729,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             if (btn && !btn.dataset.dirty) {
                                 btn.dataset.dirty = '1';
                                 btn.style.background = '#d97706';
-                                btn.innerHTML = '<i class="bi bi-floppy-fill"></i> Save Changes &bull;';
+                                btn.innerHTML = '<i class="bi bi-floppy-fill" style="font-size: 11px;"></i> Save Changes &bull;';
                             }
                         }
 
@@ -4835,10 +4848,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         btn.disabled = false;
                                         delete btn.dataset.dirty;
                                         btn.style.background = '#15803d';
-                                        btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Saved!';
+                                        btn.innerHTML = '<i class="bi bi-check-circle-fill" style="font-size: 11px;"></i> Saved!';
                                         setTimeout(() => {
                                             btn.style.background = '#2563eb';
-                                            btn.innerHTML = '<i class="bi bi-floppy-fill"></i> Save Changes';
+                                            btn.innerHTML = '<i class="bi bi-floppy-fill" style="font-size: 11px;"></i> Save Changes';
                                         }, 3000);
                                     }
                                     showToast(data.message || 'Report cards saved successfully!');
@@ -4850,7 +4863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (btn) {
                                     btn.disabled = false;
                                     btn.style.background = '#dc2626';
-                                    btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Retry Save';
+                                    btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill" style="font-size: 11px;"></i> Retry Save';
                                 }
                                 showToast('Save failed: ' + err.message, false);
                             }
@@ -4860,29 +4873,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <body>
                     <!-- Interactive Teacher Print & Customization Toolbar -->
                     <div class="no-print-toolbar">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-weight: 700; font-size: 14px;">
-                                <i class="bi bi-file-earmark-pdf-fill" style="color: #22c55e; margin-right: 6px;"></i>
-                                Official SF9 Report Cards (A5 Batch)
+                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap;">
+                            <span style="font-weight: 700; font-size: 12.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="bi bi-file-earmark-pdf-fill" style="color: #22c55e;"></i>
+                                Official SF9 (A5)
                             </span>
-                            <span style="background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+                            <span style="background: rgba(255,255,255,0.15); padding: 2px 7px; border-radius: 4px; font-size: 10.5px; white-space: nowrap;">
                                 ${cards.length} Student(s) &bull; ${escapeHtml(sec.name)}
                             </span>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <span style="font-size: 11px; opacity: 0.85; margin-right: 8px;">
-                                <i class="bi bi-pencil me-1"></i> Edit remarks, certificate & age &bull; Grades synced from ECR
+                        <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0; white-space: nowrap;">
+                            <span class="sf9-hint-text" style="font-size: 10.5px; opacity: 0.8; margin-right: 4px; white-space: nowrap;">
+                                <i class="bi bi-pencil me-1"></i> Edit remarks &bull; Grades locked
                             </span>
-                            <button type="button" id="btnSaveReportCards" onclick="saveReportCards()" style="background: #2563eb; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; transition: background 0.2s;">
-                                <i class="bi bi-floppy-fill"></i> Save Changes
+                            <button type="button" id="btnSaveReportCards" onclick="saveReportCards()" style="background: #2563eb; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; white-space: nowrap; transition: background 0.15s; line-height: 1.4;">
+                                <i class="bi bi-floppy-fill" style="font-size: 11px;"></i> Save Changes
                             </button>
-                            <a href="Card_SF9.xlsx" download="Official_TSHS_Card_SF9.xlsx" style="background: #0284c7; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 13px;">
-                                <i class="bi bi-file-earmark-excel"></i> Download Excel
+                            <a href="Card_SF9.xlsx" download="Official_TSHS_Card_SF9.xlsx" style="background: #0284c7; color: #fff; text-decoration: none; padding: 4px 10px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; white-space: nowrap; line-height: 1.4;">
+                                <i class="bi bi-file-earmark-excel" style="font-size: 11px;"></i> Download Excel
                             </a>
-                            <button type="button" onclick="window.print()" style="background: #16a34a; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                                <i class="bi bi-printer"></i> Print / Save as PDF (A5)
+                            <button type="button" onclick="window.print()" style="background: #16a34a; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; white-space: nowrap; line-height: 1.4;">
+                                <i class="bi bi-printer" style="font-size: 11px;"></i> Print / Save as PDF (A5)
                             </button>
-                            <button type="button" onclick="window.close()" style="background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+                            <button type="button" onclick="window.close()" style="background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11.5px; white-space: nowrap; line-height: 1.4;">
                                 Close
                             </button>
                         </div>
