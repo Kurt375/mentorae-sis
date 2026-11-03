@@ -422,6 +422,24 @@
     box-shadow: 0 0 0 0.15rem rgba(10, 92, 44, 0.12);
 }
 
+.computed-ws-cell-box {
+    min-width: 52px;
+    padding: 4px 6px;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    font-weight: 600;
+    color: #334155;
+    display: inline-block;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+.computed-ws-cell-box:hover {
+    background-color: #e2e8f0;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
 .computed-avg-cell-box {
     width: 48px;
     padding: 4px 0;

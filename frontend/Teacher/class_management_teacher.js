@@ -1398,12 +1398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         st.wwTotal = hasWwScore ? Math.round(wwSum * 100) / 100 : '';
         st.wwPs = hasWwScore && wwHpsTotal > 0 ? Math.round(((wwSum / wwHpsTotal) * 100) * 100) / 100 : '';
-        if (st.wwWsManual !== undefined && st.wwWsManual !== '') {
-            st.wwWs = parseFloat(st.wwWsManual);
-            st.wwPs = weights.ww > 0 ? Math.round(((st.wwWs / weights.ww) * 100) * 100) / 100 : '';
-        } else {
-            st.wwWs = hasWwScore && wwHpsTotal > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : '';
-        }
+        st.wwWs = hasWwScore && wwHpsTotal > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : '';
 
         // 2. Performance Tasks (calculated against active columns only)
         const ptHpsTotal = getComponentEffectiveHpsTotal('pt');
@@ -1417,12 +1412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         st.ptTotal = hasPtScore ? Math.round(ptSum * 100) / 100 : '';
         st.ptPs = hasPtScore && ptHpsTotal > 0 ? Math.round(((ptSum / ptHpsTotal) * 100) * 100) / 100 : '';
-        if (st.ptWsManual !== undefined && st.ptWsManual !== '') {
-            st.ptWs = parseFloat(st.ptWsManual);
-            st.ptPs = weights.pt > 0 ? Math.round(((st.ptWs / weights.pt) * 100) * 100) / 100 : '';
-        } else {
-            st.ptWs = hasPtScore && ptHpsTotal > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : '';
-        }
+        st.ptWs = hasPtScore && ptHpsTotal > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : '';
 
         // 3. Summative Tests & Term Exam (calculated against active columns only)
         const qaHpsTotal = getComponentEffectiveHpsTotal('qa');
@@ -1436,18 +1426,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         st.qaTotal = hasQaScore ? Math.round(qaSum * 100) / 100 : '';
         st.qaPs = hasQaScore && qaHpsTotal > 0 ? Math.round(((qaSum / qaHpsTotal) * 100) * 100) / 100 : '';
-        if (st.qaWsManual !== undefined && st.qaWsManual !== '') {
-            st.qaWs = parseFloat(st.qaWsManual);
-            st.qaPs = weights.qa > 0 ? Math.round(((st.qaWs / weights.qa) * 100) * 100) / 100 : '';
-        } else {
-            st.qaWs = hasQaScore && qaHpsTotal > 0 ? Math.round(((st.qaPs / 100) * weights.qa) * 100) / 100 : '';
-        }
+        st.qaWs = hasQaScore && qaHpsTotal > 0 ? Math.round(((st.qaPs / 100) * weights.qa) * 100) / 100 : '';
 
         // 4. Initial & Transmuted Final Grade
         const wWw = st.wwWs !== '' && st.wwWs !== undefined ? parseFloat(st.wwWs) : 0;
         const wPt = st.ptWs !== '' && st.ptWs !== undefined ? parseFloat(st.ptWs) : 0;
         const wQa = st.qaWs !== '' && st.qaWs !== undefined ? parseFloat(st.qaWs) : 0;
-        const anyScoreEntered = hasWwScore || hasPtScore || hasQaScore || (st.wwWs !== '' && st.wwWs !== undefined) || (st.ptWs !== '' && st.ptWs !== undefined) || (st.qaWs !== '' && st.qaWs !== undefined);
+        const anyScoreEntered = hasWwScore || hasPtScore || hasQaScore;
 
         if (anyScoreEntered) {
             const initial = Math.min(100, Math.max(0, wWw + wPt + wQa));
@@ -1491,15 +1476,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 2. Synchronize Summary Row
         const sumRow = document.querySelector(`#gradeEncodingEntriesBody tr[data-student-id="${studentId}"]`);
         if (sumRow) {
-            const qInput = sumRow.querySelector('.quiz-grade');
-            const aInput = sumRow.querySelector('.activity-grade');
-            const eInput = sumRow.querySelector('.exam-grade');
+            const qEl = sumRow.querySelector('.quiz-grade');
+            const aEl = sumRow.querySelector('.activity-grade');
+            const eEl = sumRow.querySelector('.exam-grade');
             const avgEl = sumRow.querySelector('.average-grade');
             const remEl = sumRow.querySelector('.remarks-text');
 
-            if (qInput && document.activeElement !== qInput) qInput.value = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : '';
-            if (aInput && document.activeElement !== aInput) aInput.value = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : '';
-            if (eInput && document.activeElement !== eInput) eInput.value = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : '';
+            if (qEl) qEl.textContent = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : '—';
+            if (aEl) aEl.textContent = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : '—';
+            if (eEl) eEl.textContent = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : '—';
 
             if (avgEl) {
                 avgEl.textContent = st.transmuted;
@@ -1516,13 +1501,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const st = activeGradeBreakdown.students[studentId];
         if (!st) return;
 
+        const hasWw = (st.wwScores || []).some(v => v !== '' && v !== null && v !== undefined);
+        const hasPt = (st.ptScores || []).some(v => v !== '' && v !== null && v !== undefined);
+        const hasQa = (st.qaScores || []).some(v => v !== '' && v !== null && v !== undefined);
+
+        if (!hasWw && !hasPt && !hasQa) {
+            alert(`⚠️ Cannot save grade for ${st.name}: No scores have been recorded in Written Works, Performance Tasks, or Summative & Exams yet.`);
+            return;
+        }
+
         const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
         const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
         const term = encodeTermFilter ? encodeTermFilter.value : '1st';
 
-        const quizVal = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : '';
-        const actVal = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : '';
-        const examVal = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : '';
+        const quizVal = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : 0;
+        const actVal = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : 0;
+        const examVal = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : 0;
 
         const rawData = {
             wwCols: activeGradeBreakdown.wwCols,
@@ -1532,11 +1526,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ww: st.wwScores || [],
                 pt: st.ptScores || [],
                 qa: st.qaScores || []
-            },
-            manual: {
-                ww: st.wwWsManual !== undefined ? st.wwWsManual : '',
-                pt: st.ptWsManual !== undefined ? st.ptWsManual : '',
-                qa: st.qaWsManual !== undefined ? st.qaWsManual : ''
             }
         };
 
@@ -1628,13 +1617,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ${gwaNum !== null && gwaNum > 0 ? `<div class="micro-text text-muted" style="font-size:0.75rem;">GWA: <span class="fw-bold ${gwaNum >= 75 ? 'text-success' : 'text-danger'}">${gwaText}</span></div>` : ''}
                 </td>
                 <td class="px-2 py-2.5 text-center">
-                    <input type="number" class="form-control grade-input-cell quiz-grade" value="${st.wwWs !== undefined && st.wwWs !== '' ? st.wwWs : ''}" min="0" max="${weights.ww}" step="0.01" placeholder="0">
+                    <div class="computed-ws-cell-box quiz-grade" data-jump-tab="tab-ww-btn" title="Auto-calculated from Written Works tab (Click to view/edit)">${(st.wwWs !== undefined && st.wwWs !== '') ? st.wwWs : '—'}</div>
                 </td>
                 <td class="px-2 py-2.5 text-center">
-                    <input type="number" class="form-control grade-input-cell activity-grade" value="${st.ptWs !== undefined && st.ptWs !== '' ? st.ptWs : ''}" min="0" max="${weights.pt}" step="0.01" placeholder="0">
+                    <div class="computed-ws-cell-box activity-grade" data-jump-tab="tab-pt-btn" title="Auto-calculated from Performance Tasks tab (Click to view/edit)">${(st.ptWs !== undefined && st.ptWs !== '') ? st.ptWs : '—'}</div>
                 </td>
                 <td class="px-2 py-2.5 text-center">
-                    <input type="number" class="form-control grade-input-cell exam-grade" value="${st.qaWs !== undefined && st.qaWs !== '' ? st.qaWs : ''}" min="0" max="${weights.qa}" step="0.01" placeholder="0">
+                    <div class="computed-ws-cell-box exam-grade" data-jump-tab="tab-qa-btn" title="Auto-calculated from Summative & Exams tab (Click to view/edit)">${(st.qaWs !== undefined && st.qaWs !== '') ? st.qaWs : '—'}</div>
                 </td>
                 <td class="px-2 py-2.5 text-center">
                     <div class="computed-avg-cell-box average-grade fw-bold ${avgClass}">${st.transmuted}</div>
@@ -1650,34 +1639,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </td>
             `;
 
-            // Live score input in summary table with constraint checking
-            tr.querySelectorAll('.grade-input-cell').forEach(inp => {
-                inp.addEventListener('input', (e) => {
-                    const row = e.target.closest('tr');
-                    const studentId = row.getAttribute('data-student-id');
-                    const curSt = activeGradeBreakdown.students[studentId];
-                    if (!curSt) return;
-
-                    const maxLimit = parseFloat(e.target.getAttribute('max')) || 100;
-                    let val = e.target.value.trim();
-                    if (val !== '') {
-                        let num = parseFloat(val);
-                        if (num > maxLimit) {
-                            num = maxLimit;
-                            e.target.value = maxLimit;
-                            showScoreConstraintNotice(e.target, maxLimit);
-                        } else if (num < 0) {
-                            num = 0;
-                            e.target.value = 0;
-                        }
-                    }
-
-                    curSt.wwWsManual = row.querySelector('.quiz-grade').value.trim();
-                    curSt.ptWsManual = row.querySelector('.activity-grade').value.trim();
-                    curSt.qaWsManual = row.querySelector('.exam-grade').value.trim();
-
-                    recomputeStudentBreakdown(studentId, weights);
-                    updateStudentDomAcrossAllTables(studentId, null, weights);
+            // Jump to breakdown tab when clicking on a computed score box
+            tr.querySelectorAll('[data-jump-tab]').forEach(box => {
+                box.addEventListener('click', () => {
+                    const tabId = box.getAttribute('data-jump-tab');
+                    const tabBtn = document.getElementById(tabId);
+                    if (tabBtn) tabBtn.click();
                 });
             });
 
@@ -2153,15 +2120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const ptScores = (raw && raw.scores && Array.isArray(raw.scores.pt)) ? raw.scores.pt : [];
                 const qaScores = (raw && raw.scores && Array.isArray(raw.scores.qa)) ? raw.scores.qa : [];
 
-                const qVal = s.quiz_score !== undefined && s.quiz_score !== null ? s.quiz_score : (s.quiz !== undefined && s.quiz !== null ? s.quiz : null);
-                const aVal = s.activity_score !== undefined && s.activity_score !== null ? s.activity_score : (s.activity !== undefined && s.activity !== null ? s.activity : null);
-                const eVal = s.exam_score !== undefined && s.exam_score !== null ? s.exam_score : (s.exam !== undefined && s.exam !== null ? s.exam : null);
-
-                const manual = raw && raw.manual ? raw.manual : {};
-                const wwWsManual = (manual.ww !== undefined && manual.ww !== '') ? manual.ww : ((qVal !== null && qVal !== '') ? qVal : undefined);
-                const ptWsManual = (manual.pt !== undefined && manual.pt !== '') ? manual.pt : ((aVal !== null && aVal !== '') ? aVal : undefined);
-                const qaWsManual = (manual.qa !== undefined && manual.qa !== '') ? manual.qa : ((eVal !== null && eVal !== '') ? eVal : undefined);
-
                 const stObj = {
                     studentId: s.studentId || s.id,
                     idNumber: s.idNumber || s.id_number || s.id || s.studentId,
@@ -2169,9 +2127,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     wwScores,
                     ptScores,
                     qaScores,
-                    wwWsManual,
-                    ptWsManual,
-                    qaWsManual,
                     gwa: s.gwa !== undefined && s.gwa !== null ? Number(s.gwa) : null,
                     termGwa: s.termGwa !== undefined && s.termGwa !== null ? Number(s.termGwa) : null,
                     overallGwa: s.overallGwa !== undefined && s.overallGwa !== null ? Number(s.overallGwa) : null,
@@ -2452,17 +2407,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const gradesToSave = [];
             for (const st of students) {
+                const hasScore = (st.wwScores && st.wwScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                                 (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                                 (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined));
+
+                if (!hasScore) continue;
+
                 const quiz = st.wwWs !== '' && st.wwWs !== undefined ? Number(st.wwWs) : 0;
                 const activity = st.ptWs !== '' && st.ptWs !== undefined ? Number(st.ptWs) : 0;
                 const exam = st.qaWs !== '' && st.qaWs !== undefined ? Number(st.qaWs) : 0;
                 const transmuted = st.transmuted !== '—' && !isNaN(Number(st.transmuted)) ? Number(st.transmuted) : (quiz + activity + exam);
-
-                const hasScore = (st.wwScores && st.wwScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                                 (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                                 (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                                 (st.wwWs !== '' && st.wwWs !== undefined) || (st.ptWs !== '' && st.ptWs !== undefined) || (st.qaWs !== '' && st.qaWs !== undefined);
-
-                if (!hasScore) continue;
 
                 gradesToSave.push({
                     studentId: st.studentId,
@@ -2478,11 +2432,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                             ww: st.wwScores || [],
                             pt: st.ptScores || [],
                             qa: st.qaScores || []
-                        },
-                        manual: {
-                            ww: st.wwWsManual !== undefined ? st.wwWsManual : '',
-                            pt: st.ptWsManual !== undefined ? st.ptWsManual : '',
-                            qa: st.qaWsManual !== undefined ? st.qaWsManual : ''
                         }
                     }
                 });
@@ -2491,7 +2440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!gradesToSave.length) {
                 btnSaveAllGradesNow.disabled = false;
                 btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
-                alert('No entered grades to save. Please type or import scores first.');
+                alert('No entered assessment scores to save. Please enter student scores in the Written Works, Performance Tasks, or Summative & Exams tabs first.');
                 return;
             }
 
