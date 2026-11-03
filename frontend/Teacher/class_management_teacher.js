@@ -1307,19 +1307,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (badges.length > 0) {
             displayItems = badges.map(b => {
-                const meta = BADGE_METADATA[b.badge_id] || {};
+                let meta = BADGE_METADATA[b.badge_id];
+                if (!meta) {
+                    for (const [k, v] of Object.entries(BADGE_METADATA)) {
+                        if (b.badge_id && b.badge_id.toLowerCase().includes(k.toLowerCase())) {
+                            meta = v;
+                            break;
+                        }
+                        if (b.name && (v.title.toLowerCase().includes(b.name.toLowerCase()) || b.name.toLowerCase().includes(v.title.toLowerCase()))) {
+                            meta = v;
+                            break;
+                        }
+                    }
+                }
+                meta = meta || {};
+
                 const isSys = isSystemBadgeId(b.badge_id, b.name || meta.title);
-                const title = b.name || meta.title || 'Merit Badge';
+                const title = meta.title || b.name || 'Merit Badge';
                 const dateStr = b.earned_at ? new Date(b.earned_at).toLocaleDateString('en-US', {
                     month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 }) : 'Recently';
 
+                let iconDisplay = meta.icon || b.symbol;
+                if (!iconDisplay) {
+                    if (b.icon) {
+                        const ic = String(b.icon).trim();
+                        iconDisplay = ic.startsWith('bi-') ? `<i class="bi ${ic}"></i>` : (ic.startsWith('bi ') ? `<i class="${ic}"></i>` : `<i class="bi bi-${ic}"></i>`);
+                    } else {
+                        iconDisplay = '⭐';
+                    }
+                }
+
                 return {
                     id: b.badge_id,
                     title,
-                    icon: b.icon || meta.icon || '⭐',
-                    bg: b.bg || meta.bg || '#d5ebd5',
-                    color: b.color || meta.color || '#1f6e1f',
+                    icon: iconDisplay,
+                    bg: meta.bg || b.bg || '#d5ebd5',
+                    color: meta.color || b.color || '#1f6e1f',
                     points: b.points || meta.points || 0,
                     isSystem: isSys,
                     dateStr,
@@ -1422,7 +1446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div class="d-flex align-items-start gap-3">
                         <div class="badge-icon-status flex-shrink-0 rounded-circle d-flex align-items-center justify-content-center shadow-xs" 
-                             style="width: 42px; height: 42px; background: ${item.bg}; color: ${item.color}; font-size: 1.3rem; border: 1px solid rgba(0,0,0,0.06);">
+                             style="width: 42px; height: 42px; background: ${item.bg}; color: ${item.color}; font-size: 1.35rem; line-height: 1; border: 1px solid rgba(0,0,0,0.06);">
                             ${item.icon}
                         </div>
                         <div>
