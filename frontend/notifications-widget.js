@@ -365,7 +365,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         // Keep any Announcement Quick Access Card badges on the active dashboard in sync
         const annCardBadge = document.getElementById('announcementsCardBadge') || document.getElementById('announcementsBadge');
         if (annCardBadge) {
-            annCardBadge.textContent = unseenAnnCount > 9 ? '9+' : String(unseenAnnCount);
+            annCardBadge.textContent = String(unseenAnnCount);
             annCardBadge.classList.toggle('d-none', unseenAnnCount === 0);
         }
 
@@ -414,7 +414,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             sessionStorage.setItem('mentorae_shown_toasts', JSON.stringify(Array.from(shownToastIds).slice(-100)));
         } catch (e) {}
 
-        badge.textContent = totalUnread > 9 ? '9+' : String(totalUnread);
+        badge.textContent = String(totalUnread);
         badge.classList.toggle('d-none', totalUnread === 0);
 
         // Update topic requests badge on admin dashboard card if it exists
@@ -741,7 +741,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                 annCardBadge.classList.add('d-none');
             }
             const pendingCount = (userRole === 'admin') ? currentPendingTopicRequests.length : 0;
-            badge.textContent = pendingCount > 9 ? '9+' : String(pendingCount);
+            badge.textContent = String(pendingCount);
             badge.classList.toggle('d-none', pendingCount === 0);
 
             await refresh();

@@ -1576,7 +1576,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update toolbar badge
                 if (excuseNotesPendingBadge) {
                     if (summary.pending > 0) {
-                        excuseNotesPendingBadge.textContent = summary.pending > 9 ? '9+' : summary.pending;
+                        excuseNotesPendingBadge.textContent = String(summary.pending);
                         excuseNotesPendingBadge.classList.remove('d-none');
                     } else {
                         excuseNotesPendingBadge.classList.add('d-none');

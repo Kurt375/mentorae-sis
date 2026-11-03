@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     ? getUnseenAnnouncementsCount(data.announcements, user)
                     : 0;
                 if (unseenCount > 0) {
-                    badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
+                    badge.textContent = String(unseenCount);
                     badge.classList.remove('d-none');
                 } else {
                     badge.classList.add('d-none');
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Badge only displays if there are unconfirmed items AND they occurred after teacher last viewed/confirmed
                 if (badge) {
                     if (data.pendingCount > 0 && latestActivity > lastSeen) {
-                        badge.textContent = data.pendingCount > 9 ? '9+' : String(data.pendingCount);
+                        badge.textContent = String(data.pendingCount);
                         badge.classList.remove('d-none');
                     } else {
                         badge.classList.add('d-none');

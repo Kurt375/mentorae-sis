@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? getUnseenAnnouncementsCount(data.announcements, user)
                     : 0;
                 if (unseenCount > 0) {
-                    badge.textContent = unseenCount > 9 ? '9+' : String(unseenCount);
+                    badge.textContent = String(unseenCount);
                     badge.classList.remove('d-none');
                 } else {
                     badge.classList.add('d-none');

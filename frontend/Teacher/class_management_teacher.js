@@ -5644,7 +5644,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Update advisory banner button badge
                 if (advisoryExcusePendingBadge) {
                     if (summary.pending > 0) {
-                        advisoryExcusePendingBadge.textContent = summary.pending > 9 ? '9+' : summary.pending;
+                        advisoryExcusePendingBadge.textContent = String(summary.pending);
                         advisoryExcusePendingBadge.classList.remove('d-none');
                     } else {
                         advisoryExcusePendingBadge.classList.add('d-none');
