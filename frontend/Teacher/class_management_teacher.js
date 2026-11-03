@@ -1214,7 +1214,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            if (!data.activity.length) {
+            const badgeActivities = (data.activity || []).filter(item => {
+                const desc = (item.description || '').toLowerCase();
+                return desc.includes('badge') || desc.includes('awarded') || desc.includes('re-initialized');
+            });
+
+            if (!badgeActivities.length) {
                 activityTimeline.innerHTML = `
                     <div class="text-center py-3 text-muted">
                         <i class="bi bi-clock-history d-block mb-1 fs-5 opacity-50"></i>
@@ -1224,7 +1229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            activityTimeline.innerHTML = data.activity.map(item => {
+            activityTimeline.innerHTML = badgeActivities.map(item => {
                 const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                 }) : 'Recently';

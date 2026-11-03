@@ -191,7 +191,10 @@ async function getStudentBadges(req, res) {
       [req.params.studentId]
     );
     const [activity] = await pool.query(
-      'SELECT description, created_at FROM activity_log WHERE student_id = ? ORDER BY created_at DESC LIMIT 15',
+      `SELECT description, created_at FROM activity_log 
+       WHERE student_id = ? 
+         AND (description LIKE '%badge%' OR description LIKE 'Awarded %' OR description LIKE '%re-initialized%')
+       ORDER BY created_at DESC LIMIT 20`,
       [req.params.studentId]
     );
     return res.json({ success: true, badges, activity });
