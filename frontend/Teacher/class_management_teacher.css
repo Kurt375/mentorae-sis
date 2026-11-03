@@ -359,10 +359,6 @@
 }
 
 /* Styles for Recent Activity Sidebar */
-.activity-sidebar {
-    height: 100%;
-}
-
 .activity-sidebar .timeline-item {
     padding-left: 1.5rem;
 }
@@ -373,37 +369,13 @@
 }
 
 .timeline-stream {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: 640px;
+    max-height: 520px;
+    /* Set a fixed max height for the activity feed */
+    flex: 1;
+    /* This makes the timeline fill the available vertical space */
     overflow-y: auto;
-    padding-right: 6px;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f8fafc;
-}
-
-.timeline-stream::-webkit-scrollbar {
-    width: 6px;
-}
-
-.timeline-stream::-webkit-scrollbar-track {
-    background: #f8fafc;
-    border-radius: 4px;
-}
-
-.timeline-stream::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-
-.timeline-stream::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-@media (max-width: 767.98px) {
-    .timeline-stream {
-        max-height: 360px;
-    }
+    min-height: 0;
+    /* This is necessary for the flex item to shrink and allow scrolling */
 }
 
 /* Styles for Grade Encoding Section (from view_encode_grade.css) */
