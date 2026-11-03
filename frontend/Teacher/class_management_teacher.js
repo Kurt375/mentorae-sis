@@ -406,8 +406,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="d-flex align-items-center gap-2.5">
                         <div class="rounded-circle bg-light border overflow-hidden d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px;">
                             ${student.profilePictureUrl
-                                ? `<img src="${student.profilePictureUrl}" class="w-100 h-100 object-fit-cover" alt="">`
-                                : `<i class="bi bi-person text-secondary small"></i>`}
+                    ? `<img src="${student.profilePictureUrl}" class="w-100 h-100 object-fit-cover" alt="">`
+                    : `<i class="bi bi-person text-secondary small"></i>`}
                         </div>
                         <button type="button" class="btn btn-link p-0 text-dark fw-semibold text-decoration-none student-roster-name-btn text-start" data-id="${student.id}" title="Click to view student details and update official ID photo">
                             ${student.name} ${student.sectionName && currentSectionId === 'all' ? `<span class="badge bg-light text-secondary border fw-normal micro-text ms-1">${escapeHtml(student.sectionName)}</span>` : ''} <i class="bi bi-info-circle text-muted ms-1 small"></i>
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('modalStudentId').textContent = `ID: ${student.idNumber || student.id}`;
         document.getElementById('modalStudentGrade').textContent = (student.grade !== null && student.grade !== undefined) ? `${student.grade}%` : '—';
         document.getElementById('modalStudentAttendance').textContent = student.attendance || '—';
-        
+
         // Render current avatar or placeholder
         const avatarImg = document.getElementById('modalStudentAvatarImg');
         const avatarIcon = document.getElementById('modalStudentAvatarIcon');
@@ -1201,8 +1201,350 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // =========================================================================
-    // 8. Recent Activity Stream (Live Backend API)
+    // 8. Recent Activity Stream (Live Backend API) & Full History Modal
     // =========================================================================
+    let currentStudentBadgesData = null;
+    let currentActivityStudentId = null;
+
+    function isSystemBadgeId(id, name = '') {
+        const cleanId = String(id || '').trim().toLowerCase();
+        const cleanName = String(name || '').trim().toLowerCase();
+        return (
+            cleanId.includes('completed_grade') ||
+            cleanId.includes('honor_student') ||
+            cleanId.includes('early_bird') ||
+            cleanId.includes('perfect_attendance') ||
+            cleanName.includes('completed grade') ||
+            cleanName.includes('honor student') ||
+            cleanName.includes('early bird') ||
+            cleanName.includes('perfect attendance')
+        );
+    }
+
+    function renderFullActivityList(query = '') {
+        const listEl = document.getElementById('fullActivityTimelineList');
+        const countEl = document.getElementById('fullModalFilteredCount');
+        const badgeCountBadge = document.getElementById('fullModalBadgeCount');
+        const pointsCountBadge = document.getElementById('fullModalPointsCount');
+        if (!listEl) return;
+
+        const q = String(query || '').trim().toLowerCase();
+
+        // If in multiple award mode
+        if (badgeAwardMode === 'multiple') {
+            const selectedStudents = (currentRoster || []).filter(s => selectedMultiStudentIds.has(String(s.id)));
+            if (badgeCountBadge) badgeCountBadge.innerHTML = `<i class="bi bi-people me-1"></i> ${selectedStudents.length} Selected`;
+            if (pointsCountBadge) pointsCountBadge.innerHTML = `<i class="bi bi-check2-all text-success me-1"></i> Ready to Award`;
+
+            const filteredStudents = selectedStudents.filter(s => {
+                if (!q) return true;
+                const name = (s.name || '').toLowerCase();
+                const idNum = String(s.idNumber || s.id || '').toLowerCase();
+                const sec = (s.sectionName || '').toLowerCase();
+                return name.includes(q) || idNum.includes(q) || sec.includes(q);
+            });
+
+            if (countEl) {
+                countEl.textContent = `Showing ${filteredStudents.length} of ${selectedStudents.length} selected recipients`;
+            }
+
+            if (!filteredStudents.length) {
+                listEl.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-people d-block mb-2 fs-3 opacity-50"></i>
+                        <p class="m-0 text-sm fw-semibold">${selectedStudents.length === 0 ? 'No students selected yet' : 'No matching recipients found'}</p>
+                        <p class="m-0 micro-text text-muted">${selectedStudents.length === 0 ? 'Check students on the right to award badges simultaneously.' : 'Try another search term.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = filteredStudents.map(st => `
+                <div class="d-flex align-items-center justify-content-between p-3 mb-2 rounded-3 border bg-white shadow-2xs">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-light border overflow-hidden d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
+                            ${st.profilePictureUrl
+                                ? `<img src="${st.profilePictureUrl}" class="w-100 h-100 object-fit-cover" alt="">`
+                                : `<i class="bi bi-person text-secondary fs-5"></i>`}
+                        </div>
+                        <div>
+                            <div class="text-sm fw-bold text-dark">${escapeHtml(st.name)}</div>
+                            <div class="micro-text text-muted">LRN / ID: ${escapeHtml(String(st.idNumber || st.id))} ${st.sectionName ? `· ${escapeHtml(st.sectionName)}` : ''}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill micro-text fw-semibold">
+                            <i class="bi bi-check-circle-fill me-1"></i> Selected
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+            return;
+        }
+
+        // Single student mode
+        if (!currentStudentBadgesData) {
+            listEl.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-clock-history d-block mb-2 fs-3 opacity-50"></i>
+                    <p class="m-0 text-sm">No activity loaded yet. Please select a student.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const badges = currentStudentBadgesData.badges || [];
+        const activities = (currentStudentBadgesData.activity || []).filter(item => {
+            const desc = (item.description || '').toLowerCase();
+            return desc.includes('badge') || desc.includes('awarded') || desc.includes('re-initialized');
+        });
+
+        const totalPoints = badges.reduce((sum, b) => sum + (Number(b.points) || 0), 0);
+        if (badgeCountBadge) badgeCountBadge.innerHTML = `<i class="bi bi-award me-1"></i> ${badges.length} Badges`;
+        if (pointsCountBadge) pointsCountBadge.innerHTML = `<i class="bi bi-star-fill text-warning me-1"></i> ${totalPoints} Points`;
+
+        let displayItems = [];
+
+        if (badges.length > 0) {
+            displayItems = badges.map(b => {
+                const meta = BADGE_METADATA[b.badge_id] || {};
+                const isSys = isSystemBadgeId(b.badge_id, b.name || meta.title);
+                const title = b.name || meta.title || 'Merit Badge';
+                const dateStr = b.earned_at ? new Date(b.earned_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : 'Recently';
+
+                return {
+                    id: b.badge_id,
+                    title,
+                    icon: b.icon || meta.icon || '⭐',
+                    bg: b.bg || meta.bg || '#d5ebd5',
+                    color: b.color || meta.color || '#1f6e1f',
+                    points: b.points || meta.points || 0,
+                    isSystem: isSys,
+                    dateStr,
+                    rawDate: b.earned_at ? new Date(b.earned_at) : new Date(0),
+                    awardedBy: b.awarded_by_name || (isSys ? 'Mentorae SIS Automated Engine' : 'Teacher'),
+                    description: `Awarded "${title}" badge`
+                };
+            });
+
+            // Add reset log if present
+            activities.forEach(act => {
+                const desc = act.description || '';
+                if (desc.toLowerCase().includes('re-initialized') || desc.toLowerCase().includes('reset')) {
+                    const dateStr = act.created_at ? new Date(act.created_at).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : 'Recently';
+                    displayItems.push({
+                        id: 'term_reset',
+                        title: 'Academic Term Reset',
+                        icon: '🔄',
+                        bg: '#f8d7da',
+                        color: '#842029',
+                        points: 0,
+                        isSystem: true,
+                        dateStr,
+                        rawDate: act.created_at ? new Date(act.created_at) : new Date(0),
+                        awardedBy: 'System Term Transition',
+                        description: desc
+                    });
+                }
+            });
+
+            displayItems.sort((a, b) => b.rawDate - a.rawDate);
+        } else if (activities.length > 0) {
+            displayItems = activities.map(act => {
+                const dateStr = act.created_at ? new Date(act.created_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : 'Recently';
+
+                let iconChar = '⭐';
+                let iconBg = '#d5ebd5';
+                let iconColor = '#1f6e1f';
+                let title = 'Awarded Badge';
+                let points = 10;
+                let isSys = false;
+
+                for (const [key, meta] of Object.entries(BADGE_METADATA)) {
+                    if (act.description && (act.description.toLowerCase().includes(meta.title.toLowerCase()) || act.description.toLowerCase().includes(key.toLowerCase()))) {
+                        iconChar = meta.icon;
+                        iconBg = meta.bg;
+                        iconColor = meta.color;
+                        title = meta.title;
+                        points = meta.points || 10;
+                        isSys = !!meta.systemAwarded || isSystemBadgeId(key, meta.title);
+                        break;
+                    }
+                }
+
+                return {
+                    id: 'act',
+                    title,
+                    icon: iconChar,
+                    bg: iconBg,
+                    color: iconColor,
+                    points,
+                    isSystem: isSys,
+                    dateStr,
+                    rawDate: act.created_at ? new Date(act.created_at) : new Date(0),
+                    awardedBy: isSys ? 'Mentorae SIS Automated Engine' : 'Teacher',
+                    description: act.description
+                };
+            });
+        }
+
+        const filtered = displayItems.filter(item => {
+            if (!q) return true;
+            return (item.title || '').toLowerCase().includes(q) ||
+                   (item.description || '').toLowerCase().includes(q) ||
+                   (item.awardedBy || '').toLowerCase().includes(q) ||
+                   (item.dateStr || '').toLowerCase().includes(q);
+        });
+
+        if (countEl) {
+            countEl.textContent = `Showing ${filtered.length} of ${displayItems.length} records`;
+        }
+
+        if (!filtered.length) {
+            listEl.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-clock-history d-block mb-2 fs-3 opacity-50"></i>
+                    <p class="m-0 text-sm fw-semibold">${displayItems.length === 0 ? 'No badges awarded yet for this student' : 'No matching badge records found'}</p>
+                    <p class="m-0 micro-text text-muted">${displayItems.length === 0 ? 'Award badges to recognize student accomplishments and positive behavior.' : 'Try searching by a different keyword or date.'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(item => `
+            <div class="activity-full-item p-3 mb-2 rounded-3 border bg-white shadow-2xs transition-all">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="badge-icon-status flex-shrink-0 rounded-circle d-flex align-items-center justify-content-center shadow-xs" 
+                             style="width: 42px; height: 42px; background: ${item.bg}; color: ${item.color}; font-size: 1.3rem; border: 1px solid rgba(0,0,0,0.06);">
+                            ${item.icon}
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold text-dark fs-6">${escapeHtml(item.title)}</span>
+                                <span class="badge ${item.isSystem ? 'bg-info-subtle text-info-emphasis border-info-subtle' : 'bg-primary-subtle text-primary border-primary-subtle'} border micro-text rounded-pill px-2 py-0.5 fw-semibold">
+                                    ${item.isSystem ? '<i class="bi bi-robot me-1"></i>System Automated' : '<i class="bi bi-person-badge me-1"></i>Teacher Awarded'}
+                                </span>
+                            </div>
+                            <p class="m-0 text-sm text-secondary mt-1">${escapeHtml(item.description)}</p>
+                            <div class="d-flex align-items-center gap-3 mt-2 micro-text text-muted flex-wrap">
+                                <span><i class="bi bi-calendar3 me-1"></i>${item.dateStr}</span>
+                                ${item.awardedBy ? `<span><i class="bi bi-person-check me-1"></i>${escapeHtml(item.awardedBy)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        ${item.points > 0 ? `
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold px-2.5 py-1 rounded-pill text-xs">
+                                +${item.points} pts
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function openFullActivityModal(studentId = null) {
+        const modalEl = document.getElementById('modalRecentActivityFull');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+
+        const nameEl = document.getElementById('fullModalStudentName');
+        const metaEl = document.getElementById('fullModalStudentMeta');
+        const subtitleEl = document.getElementById('fullModalStudentSubtitle');
+        const avatarImg = document.getElementById('fullModalAvatarImg');
+        const avatarIcon = document.getElementById('fullModalAvatarIcon');
+        const searchInput = document.getElementById('fullModalSearchInput');
+        const listEl = document.getElementById('fullActivityTimelineList');
+
+        if (searchInput) searchInput.value = '';
+
+        if (badgeAwardMode === 'multiple') {
+            if (nameEl) nameEl.textContent = `Multiple Recipients Selected`;
+            if (metaEl) metaEl.textContent = `${selectedMultiStudentIds.size} learner(s) chosen for batch recognition`;
+            if (subtitleEl) subtitleEl.textContent = `Batch award recipient selection`;
+            if (avatarImg) avatarImg.classList.add('d-none');
+            if (avatarIcon) {
+                avatarIcon.className = 'bi bi-people-fill fs-5 text-success';
+                avatarIcon.classList.remove('d-none');
+            }
+            renderFullActivityList('');
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            return;
+        }
+
+        // Single mode
+        const targetStudentId = studentId || (studentSelectBadge ? studentSelectBadge.value : null);
+        if (!targetStudentId) {
+            alert('Please select a student first to view their full badge activity.');
+            return;
+        }
+
+        const student = (currentRoster || []).find(s => String(s.id) === String(targetStudentId));
+        if (student) {
+            if (nameEl) nameEl.textContent = student.name || 'Selected Student';
+            if (metaEl) metaEl.textContent = `LRN / ID: ${student.idNumber || student.id} ${student.sectionName ? `· ${student.sectionName}` : ''}`;
+            if (subtitleEl) subtitleEl.textContent = `Comprehensive recognition history for ${student.name}`;
+            if (student.profilePictureUrl && avatarImg && avatarIcon) {
+                avatarImg.src = student.profilePictureUrl;
+                avatarImg.classList.remove('d-none');
+                avatarIcon.classList.add('d-none');
+            } else if (avatarImg && avatarIcon) {
+                avatarImg.classList.add('d-none');
+                avatarIcon.className = 'bi bi-person-fill fs-5 text-success';
+                avatarIcon.classList.remove('d-none');
+            }
+        } else {
+            if (nameEl) nameEl.textContent = studentSelectBadge && studentSelectBadge.selectedOptions[0] ? studentSelectBadge.selectedOptions[0].textContent : 'Student Activity';
+            if (metaEl) metaEl.textContent = `Student ID: ${targetStudentId}`;
+        }
+
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+        if (!currentStudentBadgesData || String(currentActivityStudentId) !== String(targetStudentId)) {
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm text-success mb-2" role="status"></div>
+                        <p class="m-0 text-sm">Loading full badge and recognition history...</p>
+                    </div>
+                `;
+            }
+            try {
+                const data = await authedFetch(`/api/badges/student/${targetStudentId}`, token);
+                if (data && data.success) {
+                    currentStudentBadgesData = data;
+                    currentActivityStudentId = targetStudentId;
+                }
+            } catch (err) {
+                console.error('Error fetching full badges data:', err);
+            }
+        }
+
+        renderFullActivityList('');
+    }
+
+    const btnExpandRecentActivity = document.getElementById('btnExpandRecentActivity');
+    if (btnExpandRecentActivity) {
+        btnExpandRecentActivity.addEventListener('click', (e) => {
+            e.preventDefault();
+            openFullActivityModal();
+        });
+    }
+
+    const fullModalSearchInput = document.getElementById('fullModalSearchInput');
+    if (fullModalSearchInput) {
+        fullModalSearchInput.addEventListener('input', (e) => {
+            renderFullActivityList(e.target.value);
+        });
+    }
+
     async function loadActivity(studentId) {
         if (!activityTimeline) return;
         activityTimeline.innerHTML = '<p class="text-muted small py-2">Loading activity...</p>';
@@ -1227,6 +1569,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
                 return;
+            }
+
+            currentStudentBadgesData = data;
+            currentActivityStudentId = studentId;
+
+            // If full modal is open, refresh it live
+            const modalEl = document.getElementById('modalRecentActivityFull');
+            if (modalEl && modalEl.classList.contains('show')) {
+                const searchInp = document.getElementById('fullModalSearchInput');
+                renderFullActivityList(searchInp ? searchInp.value : '');
             }
 
             activityTimeline.innerHTML = badgeActivities.map(item => {
@@ -1735,9 +2087,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <th class="px-3 py-2.5 text-start" style="width: 110px;">Student ID</th>
                 <th class="px-3 py-2.5 text-start" style="min-width: 170px;">Learner's Name</th>
                 ${cols.map((col, idx) => {
-                    const active = isColActive(idx);
-                    const isUpcoming = hasAnyScoreInComp && !active;
-                    return `
+            const active = isColActive(idx);
+            const isUpcoming = hasAnyScoreInComp && !active;
+            return `
                     <th class="px-2 py-2 text-center component-col-header ${isUpcoming ? 'opacity-75' : ''}" style="min-width: 95px;" data-comp="${type}" data-col-idx="${idx}">
                         <div class="d-flex flex-column align-items-center justify-content-center">
                             <div class="d-flex align-items-center justify-content-center gap-1 w-100">
@@ -1763,7 +2115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </div>
                         </div>
                     </th>`;
-                }).join('')}
+        }).join('')}
                 <th class="px-2 py-2.5 text-center" style="min-width: 80px;">Total</th>
                 <th class="px-2 py-2.5 text-center" style="min-width: 85px;">PS (%)</th>
                 <th class="px-2 py-2.5 text-center" style="min-width: 90px;">WS (${compWeight}%)</th>
@@ -2446,8 +2798,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const gradesToSave = [];
             for (const st of students) {
                 const hasScore = (st.wwScores && st.wwScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                                 (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                                 (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined));
+                    (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                    (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined));
 
                 if (!hasScore) continue;
 
@@ -2778,7 +3130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (rawRoster.length > 0) {
                 rawRoster.forEach((st, idx) => {
                     const rowNum = st.row;
-                    
+
                     const transmutedCell = termSheet[XLSX.utils.encode_cell({ r: rowNum - 1, c: colTransmuted })] || termSheet[`${XLSX.utils.encode_col(colTransmuted)}${rowNum}`];
                     const letterCell = colLetter !== -1 ? (termSheet[XLSX.utils.encode_cell({ r: rowNum - 1, c: colLetter })] || termSheet[`${XLSX.utils.encode_col(colLetter)}${rowNum}`]) : null;
                     const wwWsCell = wwWsCol !== -1 ? (termSheet[XLSX.utils.encode_cell({ r: rowNum - 1, c: wwWsCol })] || termSheet[`${XLSX.utils.encode_col(wwWsCol)}${rowNum}`]) : null;
@@ -3119,7 +3471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             break;
                         }
                     }
-                } catch (err) {}
+                } catch (err) { }
             }
 
             if (!downloaded && window.MENTORAE_CONFIG && window.MENTORAE_CONFIG.API_BASE_URL) {
@@ -3142,7 +3494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             downloaded = true;
                         }
                     }
-                } catch (err) {}
+                } catch (err) { }
             }
 
             if (!downloaded) {
@@ -5093,9 +5445,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const rawChildren = Array.from(sec.children).filter(c => 
-                c.tagName !== 'HEADER' && 
-                c.tagName !== 'FOOTER' && 
+            const rawChildren = Array.from(sec.children).filter(c =>
+                c.tagName !== 'HEADER' &&
+                c.tagName !== 'FOOTER' &&
                 !c.classList.contains('docx-page-footer-badge')
             );
             if (rawChildren.length <= 1) return;
@@ -5716,7 +6068,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const [y, m, d] = n.absence_date.split('-').map(Number);
                 const dObj = new Date(y, m - 1, d);
                 absDateStr = dObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-            } catch (_) {}
+            } catch (_) { }
 
             // Filed on date
             const filedStr = n.created_at ? new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';

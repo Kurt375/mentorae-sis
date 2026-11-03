@@ -257,8 +257,15 @@
             <div class="row mt-4" id="giveBadgesSection">
                 <section
                     class="activity-sidebar p-4 border-end bg-white col-12 col-md-3 d-flex flex-column shadow-sm rounded-3">
-                    <h2 class="h6 fw-bold text-dark mb-4 text-uppercase tracking-sm border-bottom pb-2">Recent Activity
-                    </h2>
+                    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                        <h2 class="h6 fw-bold text-dark m-0 text-uppercase tracking-sm">Recent Activity</h2>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-2xs"
+                            id="btnExpandRecentActivity" title="Expand Full Activity View"
+                            style="width: 28px; height: 28px; padding: 0;">
+                            <i class="bi bi-arrows-angle-expand" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
 
                     <div class="timeline-stream d-flex flex-column gap-4 position-relative" id="activityTimeline">
                         <div class="timeline-item d-flex gap-3 align-items-start position-relative">
@@ -1059,6 +1066,90 @@
                     <button type="button" class="btn btn-sm btn-danger rounded-pill px-4 fw-bold shadow-sm"
                         id="btnConfirmTeacherResetBadges">
                         <i class="bi bi-arrow-repeat me-1"></i> Confirm & Reset for New Term
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- Full Recent Activity Modal -->
+    <div class="modal fade" id="modalRecentActivityFull" tabindex="-1" aria-labelledby="modalRecentActivityFullLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 rounded-4 shadow overflow-hidden">
+                <div class="modal-header bg-dark text-white py-3 px-4 border-0">
+                    <div class="d-flex align-items-center gap-2.5">
+                        <div class="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                            <i class="bi bi-clock-history text-white fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold fs-6 m-0 text-white" id="modalRecentActivityFullLabel">
+                                Recent Badge Activity & Recognition
+                            </h5>
+                            <span class="micro-text text-white-50" id="fullModalStudentSubtitle">
+                                Detailed recognition timeline for selected learner
+                            </span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4 bg-light">
+                    <!-- Student Header / Summary Card -->
+                    <div class="card border-0 shadow-2xs rounded-3 p-3 mb-3 bg-white">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="rounded-circle bg-success-subtle text-success d-flex align-items-center justify-content-center fw-bold overflow-hidden" style="width: 44px; height: 44px;" id="fullModalAvatar">
+                                    <i class="bi bi-person-fill fs-5" id="fullModalAvatarIcon"></i>
+                                    <img id="fullModalAvatarImg" class="d-none w-100 h-100 object-fit-cover" alt="Student photo">
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark m-0" id="fullModalStudentName">Select a student</h6>
+                                    <div class="text-xs text-muted" id="fullModalStudentMeta">LRN / ID: —</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 rounded-pill text-xs fw-semibold" id="fullModalBadgeCount">
+                                    <i class="bi bi-award me-1"></i> 0 Badges
+                                </span>
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 rounded-pill text-xs fw-semibold" id="fullModalPointsCount">
+                                    <i class="bi bi-star-fill text-warning me-1"></i> 0 Points
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter / Search toolbar -->
+                    <div class="row g-2 mb-3 align-items-center">
+                        <div class="col-12 col-sm-8">
+                            <div class="input-group input-group-sm shadow-2xs rounded-pill">
+                                <span class="input-group-text bg-white border-end-0 text-muted rounded-start-pill ps-3">
+                                    <i class="bi bi-search"></i>
+                                </span>
+                                <input type="text" class="form-control form-control-sm bg-white border-start-0 rounded-end-pill pe-3" id="fullModalSearchInput" placeholder="Search badge title, type, date, or notes...">
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-4 text-sm-end text-muted text-xs" id="fullModalFilteredCount">
+                            Showing all records
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Activity Timeline List -->
+                    <div class="bg-white rounded-3 p-3 border shadow-2xs" style="min-height: 280px; max-height: 480px; overflow-y: auto;" id="fullActivityTimelineList">
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-clock-history d-block mb-2 fs-3 opacity-50"></i>
+                            <p class="m-0 text-sm">Select a student to view full badge history.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white py-2.5 px-4 d-flex justify-content-between border-top">
+                    <span class="micro-text text-muted">
+                        <i class="bi bi-shield-check text-success me-1"></i> Verified DepEd School Merit Records
+                    </span>
+                    <button type="button" class="btn btn-sm btn-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">
+                        Close
                     </button>
                 </div>
             </div>

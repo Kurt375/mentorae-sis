@@ -194,7 +194,7 @@ async function getStudentBadges(req, res) {
       `SELECT description, created_at FROM activity_log 
        WHERE student_id = ? 
          AND (description LIKE '%badge%' OR description LIKE 'Awarded %' OR description LIKE '%re-initialized%')
-       ORDER BY created_at DESC LIMIT 20`,
+       ORDER BY created_at DESC LIMIT 100`,
       [req.params.studentId]
     );
     return res.json({ success: true, badges, activity });

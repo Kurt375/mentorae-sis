@@ -406,6 +406,46 @@
     }
 }
 
+#btnExpandRecentActivity {
+    transition: all 0.2s ease;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+#btnExpandRecentActivity:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+    transform: scale(1.08);
+}
+
+#fullActivityTimelineList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#fullActivityTimelineList::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+#fullActivityTimelineList::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#fullActivityTimelineList::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.activity-full-item {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.activity-full-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
 /* Styles for Grade Encoding Section (from view_encode_grade.css) */
 
 /* Parameters Filtering Controls Toolbar rules */
