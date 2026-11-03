@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const cache = require('../utils/cache');
 const { canViewStudent, teacherTeachesStudent, teacherTeachesSection, getParentIdsForStudent } = require('../utils/authz');
 const { notify, notifyMany } = require('../utils/notifications');
 const { sendBadgeAwardedEmail } = require('../utils/mailer');
@@ -32,6 +33,11 @@ function isSystemAutomatedBadge(id, name = '') {
 /** GET /api/badges/catalog — the fixed set of awardable badges */
 async function getCatalog(req, res) {
   try {
+    const cached = cache.get('badge_catalog');
+    if (cached) {
+      return res.json({ success: true, badges: cached });
+    }
+
     const [rows] = await pool.query('SELECT * FROM badge_catalog');
     const badges = rows.map((b) => ({
       ...b,
@@ -46,6 +52,7 @@ async function getCatalog(req, res) {
       return (a.name || '').localeCompare(b.name || '');
     });
 
+    cache.set('badge_catalog', badges, 3600); // 1 hour cache
     return res.json({ success: true, badges });
   } catch (err) {
     console.error('getCatalog error:', err);

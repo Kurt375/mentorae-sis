@@ -66,7 +66,9 @@ CREATE TABLE IF NOT EXISTS users (
   locked_until     DATETIME NULL,
   created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL
+  FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL,
+  INDEX idx_users_role_active (role, is_active),
+  INDEX idx_users_section_role (section_id, role, is_active)
 );
 
 ALTER TABLE sections ADD CONSTRAINT fk_section_adviser FOREIGN KEY (adviser_id) REFERENCES users(id) ON DELETE SET NULL;
@@ -124,7 +126,9 @@ CREATE TABLE IF NOT EXISTS schedules (
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (teacher_id) REFERENCES users(id)    ON DELETE CASCADE,
   FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
-  FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
+  FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
+  INDEX idx_schedules_section_day (section_id, day_of_week),
+  INDEX idx_schedules_teacher_day (teacher_id, day_of_week)
 );
 
 -- ---------------------------------------------------------
@@ -144,7 +148,9 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
   FOREIGN KEY (student_id)    REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (scanned_by)    REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (overridden_by) REFERENCES users(id) ON DELETE SET NULL,
-  UNIQUE KEY uniq_student_per_day (student_id, scan_date)
+  UNIQUE KEY uniq_student_per_day (student_id, scan_date),
+  INDEX idx_attendance_scan_date_status (scan_date, status),
+  INDEX idx_attendance_date_student (scan_date, student_id)
 );
 
 -- ---------------------------------------------------------
@@ -199,7 +205,8 @@ CREATE TABLE IF NOT EXISTS activity_log (
   student_id  INT NOT NULL,
   description VARCHAR(255) NOT NULL,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_activity_student_date (student_id, created_at DESC)
 );
 
 -- ---------------------------------------------------------
@@ -214,7 +221,9 @@ CREATE TABLE IF NOT EXISTS announcements (
   audience    ENUM('all','student','teacher','parent','admin') NOT NULL DEFAULT 'all',
   created_by  INT NULL,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_announcements_audience_date (audience, event_date),
+  INDEX idx_announcements_created (created_at DESC)
 );
 
 -- ---------------------------------------------------------
@@ -227,7 +236,8 @@ CREATE TABLE IF NOT EXISTS login_audit (
   success     TINYINT(1) NOT NULL,
   ip_address  VARCHAR(45),
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_login_audit_created (created_at DESC)
 );
 
 -- ---------------------------------------------------------
@@ -253,6 +263,31 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
   ('backup_frequency', 'daily'),
   ('attendance_late_cutoff', '07:00:00')
 ON DUPLICATE KEY UPDATE setting_key = setting_key;
+
+-- ---------------------------------------------------------
+-- SF9 REPORT CARDS (Adviser comments, remarks, certificates)
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sf9_report_cards (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  section_id INT NOT NULL,
+  school_year VARCHAR(30) NOT NULL DEFAULT '2026-2027',
+  age INT DEFAULT NULL,
+  comment_term1 TEXT,
+  comment_term2 TEXT,
+  comment_term3 TEXT,
+  cert_admitted_to_grade VARCHAR(50) DEFAULT NULL,
+  cert_eligible_for_admission VARCHAR(100) DEFAULT NULL,
+  canc_admitted_in VARCHAR(150) DEFAULT NULL,
+  canc_date VARCHAR(50) DEFAULT NULL,
+  school_head_name VARCHAR(150) DEFAULT NULL,
+  adviser_name VARCHAR(150) DEFAULT NULL,
+  updated_by INT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_student_sy (student_id, school_year),
+  INDEX idx_sf9_section (section_id, school_year)
+);
 
 -- ---------------------------------------------------------
 -- Seed data: strands, subjects, and the fixed badge catalog

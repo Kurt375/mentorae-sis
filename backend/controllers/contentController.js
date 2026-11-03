@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const pool = require('../config/db');
+const cache = require('../utils/cache');
 const ExcelJS = require('exceljs');
 const { teacherTeachesSection, getParentIdsForStudent } = require('../utils/authz');
 const { sendInterventionEmail, sendTopicRequestUpdateEmail } = require('../utils/mailer');
@@ -405,6 +406,7 @@ async function createTopic(req, res) {
       );
       topicId = result.insertId;
     }
+    cache.del('ref_subjects');
     return res.json({ success: true, topicId, message: isRec ? 'Recommendation saved successfully.' : 'Topic saved successfully.' });
   } catch (err) {
     console.error('createTopic error:', err);
@@ -490,6 +492,7 @@ async function updateTopic(req, res) {
       [cleanTitle, description !== undefined ? description : exRow.description, payloadStr, color || null, comment || null, id]
     );
 
+    cache.del('ref_subjects');
     return res.json({ success: true, message: 'Topic updated successfully.', topicId: Number(id) });
   } catch (err) {
     console.error('updateTopic error:', err);
@@ -519,6 +522,7 @@ async function deleteTopic(req, res) {
     }
 
     await pool.query('DELETE FROM topics WHERE id = ?', [id]);
+    cache.del('ref_subjects');
     return res.json({ success: true, message: topic.is_recommendation ? 'Recommendation deleted successfully.' : 'Topic deleted successfully.' });
   } catch (err) {
     console.error('deleteTopic error:', err);
@@ -1168,6 +1172,8 @@ async function reviewTopicRequest(req, res) {
         'UPDATE topic_requests SET status = \'approved\', reviewed_by = ?, reviewed_at = NOW(), topic_id = ? WHERE id = ?',
         [req.user.id, topicId, id]
       );
+
+      cache.del('ref_subjects');
 
       // Notify the requesting teacher
       await notify({

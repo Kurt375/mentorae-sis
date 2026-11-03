@@ -8,12 +8,14 @@ const {
   getStudentGrades,
   getPrescriptivePath,
   getSectionReportCards,
+  saveSectionReportCards,
   downloadECRTemplate,
 } = require('../controllers/gradesController');
 
 router.get('/template', downloadECRTemplate);
 router.get('/roster', requireAuth, requireRole('teacher'), getRosterGrades);
 router.get('/section-report-cards', requireAuth, requireRole('teacher', 'admin'), getSectionReportCards);
+router.post('/section-report-cards/save', requireAuth, requireRole('teacher', 'admin'), saveSectionReportCards);
 router.post('/', requireAuth, requireRole('teacher'), saveGrade);
 router.get('/mine', requireAuth, requireRole('student'), getMyGrades);
 router.get('/prescriptive-path', requireAuth, requireRole('student', 'parent', 'teacher', 'admin'), getPrescriptivePath);

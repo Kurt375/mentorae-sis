@@ -887,6 +887,28 @@ async function getSectionReportCards(req, res) {
       console.warn('Could not load monthly attendance summary:', mAttErr.message);
     }
 
+    // 5b. Fetch any saved SF9 customizations/comments for these students
+    const sf9SavedMap = {};
+    let savedSchoolHead = null;
+    let savedAdviser = null;
+    try {
+      const [sf9Rows] = await pool.query(
+        `SELECT student_id, age, comment_term1, comment_term2, comment_term3,
+                cert_admitted_to_grade, cert_eligible_for_admission,
+                canc_admitted_in, canc_date, school_head_name, adviser_name
+         FROM sf9_report_cards
+         WHERE student_id IN (?) AND school_year = ?`,
+        [studentIds, schoolYear]
+      );
+      for (const r of (sf9Rows || [])) {
+        sf9SavedMap[r.student_id] = r;
+        if (r.school_head_name && !savedSchoolHead) savedSchoolHead = r.school_head_name;
+        if (r.adviser_name && !savedAdviser) savedAdviser = r.adviser_name;
+      }
+    } catch (sf9Err) {
+      console.warn('Could not load saved sf9 report cards:', sf9Err.message);
+    }
+
     // Helper to normalize term key
     function getNormalizedTermKey(tStr) {
       const t = String(tStr || '').trim().toLowerCase();
@@ -1099,12 +1121,22 @@ async function getSectionReportCards(req, res) {
         remarks: finalGwa !== null ? (finalGwa >= 75 ? 'Passed' : 'Failed') : '',
       };
 
-      // Auto-generated Teacher Comments
+      // Saved or Auto-generated Teacher Comments
+      const savedSf9 = sf9SavedMap[s.id] || {};
       const comments = {
-        term1: generateConstructiveComment(t1Avg),
-        term2: generateConstructiveComment(t2Avg),
-        term3: generateConstructiveComment(t3Avg),
+        term1: (savedSf9.comment_term1 !== null && savedSf9.comment_term1 !== undefined) ? savedSf9.comment_term1 : generateConstructiveComment(t1Avg),
+        term2: (savedSf9.comment_term2 !== null && savedSf9.comment_term2 !== undefined) ? savedSf9.comment_term2 : generateConstructiveComment(t2Avg),
+        term3: (savedSf9.comment_term3 !== null && savedSf9.comment_term3 !== undefined) ? savedSf9.comment_term3 : generateConstructiveComment(t3Avg),
       };
+
+      const certTransfer = {
+        admittedToGrade: savedSf9.cert_admitted_to_grade || '',
+        eligibleForAdmission: savedSf9.cert_eligible_for_admission || '',
+        cancAdmittedIn: savedSf9.canc_admitted_in || '',
+        cancDate: savedSf9.canc_date || '',
+      };
+
+      const studentAge = (savedSf9.age !== null && savedSf9.age !== undefined && savedSf9.age > 0) ? savedSf9.age : 15;
 
       // Monthly Attendance Breakdown
       const sMonthly = monthlyAttendanceMap[s.id] || {};
@@ -1149,7 +1181,7 @@ async function getSectionReportCards(req, res) {
         idNumber: s.id_number,
         fullName: `${s.first_name} ${s.middle_initial ? s.middle_initial + ' ' : ''}${s.last_name}`,
         formattedName,
-        age: 15, // Standard Grade 11 default, fully inline-editable by teacher
+        age: studentAge,
         sex: sexDisplay,
         profilePictureUrl: s.profile_picture_url,
         attendanceRate: att.rate !== null ? `${att.rate}%` : '—',
@@ -1158,6 +1190,7 @@ async function getSectionReportCards(req, res) {
         electiveSubjects,
         generalAverage,
         comments,
+        certTransfer,
         attendanceSummary,
         overallGrade: finalGwa !== null ? finalGwa : (sGrades.length ? (sGrades.reduce((sum, g) => sum + Number(g.average), 0) / sGrades.length).toFixed(1) : null),
         overallRemarks: finalGwa !== null ? getRemarks(Number(finalGwa)) : 'No Grades Yet',
@@ -1173,9 +1206,9 @@ async function getSectionReportCards(req, res) {
         strandCode: sec.strandCode,
         strandName: sec.strandName,
         track: sec.track ? sec.track.replace('Track', '').trim() : 'Academic',
-        adviserName: fallbackAdviserName,
+        adviserName: savedAdviser || fallbackAdviserName,
         coAdviserName: sec.coAdviserName || null,
-        schoolHead,
+        schoolHead: savedSchoolHead || schoolHead,
         schoolYear,
       },
       term,
@@ -1185,6 +1218,123 @@ async function getSectionReportCards(req, res) {
   } catch (err) {
     console.error('getSectionReportCards error:', err);
     return res.status(500).json({ success: false, message: err.message || 'Could not load section report cards.' });
+  }
+}
+
+/** POST /api/grades/section-report-cards/save — Save teacher comments, certificate, and custom metadata */
+async function saveSectionReportCards(req, res) {
+  const { sectionId, schoolYear, cards, schoolHeadName, adviserName } = req.body;
+  if (!sectionId) {
+    return res.status(400).json({ success: false, message: 'sectionId is required.' });
+  }
+
+  try {
+    // 1. Permission check
+    const [[sec]] = await pool.query(
+      `SELECT id, adviser_id, co_adviser_id, name FROM sections WHERE id = ?`,
+      [sectionId]
+    );
+    if (!sec) {
+      return res.status(404).json({ success: false, message: 'Section not found.' });
+    }
+
+    if (req.user.role === 'teacher') {
+      const isAdviser = Boolean(sec.adviser_id === req.user.id || sec.co_adviser_id === req.user.id);
+      if (!isAdviser) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access Restricted: Only the official Class Adviser or Co-Adviser of this section can save SF9 report card remarks.'
+        });
+      }
+    }
+
+    const sy = schoolYear || '2026-2027';
+    const cardList = Array.isArray(cards) ? cards : [];
+
+    if (cardList.length > 0) {
+      for (const c of cardList) {
+        const studentId = Number(c.studentId);
+        if (!studentId) continue;
+
+        const age = c.age ? Number(c.age) : null;
+        const comment1 = c.commentTerm1 !== undefined ? String(c.commentTerm1).trim() : null;
+        const comment2 = c.commentTerm2 !== undefined ? String(c.commentTerm2).trim() : null;
+        const comment3 = c.commentTerm3 !== undefined ? String(c.commentTerm3).trim() : null;
+        const certAdmitted = c.certAdmittedToGrade !== undefined ? String(c.certAdmittedToGrade).trim() : null;
+        const certEligible = c.certEligibleForAdmission !== undefined ? String(c.certEligibleForAdmission).trim() : null;
+        const cancAdmitted = c.cancAdmittedIn !== undefined ? String(c.cancAdmittedIn).trim() : null;
+        const cancDate = c.cancDate !== undefined ? String(c.cancDate).trim() : null;
+        const sHead = schoolHeadName ? String(schoolHeadName).trim() : null;
+        const advName = adviserName ? String(adviserName).trim() : null;
+
+        await pool.query(
+          `INSERT INTO sf9_report_cards (
+             student_id, section_id, school_year, age,
+             comment_term1, comment_term2, comment_term3,
+             cert_admitted_to_grade, cert_eligible_for_admission,
+             canc_admitted_in, canc_date,
+             school_head_name, adviser_name, updated_by
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             section_id = VALUES(section_id),
+             age = VALUES(age),
+             comment_term1 = VALUES(comment_term1),
+             comment_term2 = VALUES(comment_term2),
+             comment_term3 = VALUES(comment_term3),
+             cert_admitted_to_grade = VALUES(cert_admitted_to_grade),
+             cert_eligible_for_admission = VALUES(cert_eligible_for_admission),
+             canc_admitted_in = VALUES(canc_admitted_in),
+             canc_date = VALUES(canc_date),
+             school_head_name = VALUES(school_head_name),
+             adviser_name = VALUES(adviser_name),
+             updated_by = VALUES(updated_by)`,
+          [
+            studentId, sec.id, sy, age,
+            comment1, comment2, comment3,
+            certAdmitted, certEligible,
+            cancAdmitted, cancDate,
+            sHead, advName, req.user.id
+          ]
+        );
+      }
+    }
+
+    // Also update system_settings for school_head if provided
+    if (schoolHeadName && String(schoolHeadName).trim()) {
+      try {
+        await pool.query(
+          `INSERT INTO system_settings (setting_key, setting_value) VALUES ('school_head', ?)
+           ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+          [String(schoolHeadName).trim()]
+        );
+      } catch (headErr) {
+        // non-blocking
+      }
+    }
+
+    // Log in activity_log
+    try {
+      await pool.query(
+        `INSERT INTO activity_log (student_id, description) VALUES (?, ?)`,
+        [
+          cardList[0]?.studentId || 0,
+          `Saved SF9 report card remarks & transfer certificate (${cardList.length} student(s), Section: ${sec.name})`
+        ]
+      );
+    } catch (logErr) {
+      // non-blocking
+    }
+
+    return res.json({
+      success: true,
+      message: `Successfully saved SF9 report card remarks and customizations for ${cardList.length} student(s).`
+    });
+  } catch (err) {
+    console.error('saveSectionReportCards error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save report cards: ' + (err.message || 'Server error.')
+    });
   }
 }
 
@@ -1233,6 +1383,7 @@ module.exports = {
   getStudentGrades,
   getPrescriptivePath,
   getSectionReportCards,
+  saveSectionReportCards,
   downloadECRTemplate,
 };
 

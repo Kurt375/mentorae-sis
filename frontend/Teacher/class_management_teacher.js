@@ -3514,13 +3514,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Header group row for Effective Communication / Mabisang Komunikasyon
                 coreRowsHtml += `
                     <tr class="grade-row-group">
-                        <td class="td-learning-area group-title-cell" contenteditable="true">Effective Communication<br>/Mabisang Komunikasyon</td>
-                        <td class="td-grade text-center" contenteditable="true"></td>
-                        <td class="td-grade text-center" contenteditable="true"></td>
-                        <td class="td-grade text-center" contenteditable="true"></td>
-                        <td class="td-units text-center" contenteditable="true"></td>
-                        <td class="td-final text-center" contenteditable="true"></td>
-                        <td class="td-remarks text-center" contenteditable="true"></td>
+                        <td class="td-learning-area group-title-cell">Effective Communication<br>/Mabisang Komunikasyon</td>
+                        <td class="td-grade text-center"></td>
+                        <td class="td-grade text-center"></td>
+                        <td class="td-grade text-center"></td>
+                        <td class="td-units text-center"></td>
+                        <td class="td-final text-center"></td>
+                        <td class="td-remarks text-center"></td>
                     </tr>
                 `;
 
@@ -3536,13 +3536,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     defaultCore.forEach(sub => {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area ${sub.isSub ? 'sub-subject-indent font-italic' : ''}" contenteditable="true">${escapeHtml(sub.name)}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t1}</td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true"></td>
-                                <td class="td-final text-center" contenteditable="true"></td>
-                                <td class="td-remarks text-center" contenteditable="true"></td>
+                                <td class="td-learning-area ${sub.isSub ? 'sub-subject-indent font-italic' : ''}">${escapeHtml(sub.name)}</td>
+                                <td class="td-grade text-center">${sub.t1}</td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-units text-center"></td>
+                                <td class="td-final text-center"></td>
+                                <td class="td-remarks text-center"></td>
                             </tr>
                         `;
                     });
@@ -3554,25 +3554,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (effSub) {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Effective Communication</td>
-                                <td class="td-grade text-center" contenteditable="true">${effSub.t1 !== null && effSub.t1 !== undefined ? effSub.t1 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${effSub.t2 !== null && effSub.t2 !== undefined ? effSub.t2 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${effSub.t3 !== null && effSub.t3 !== undefined ? effSub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true">${effSub.units ? escapeHtml(effSub.units) : ''}</td>
-                                <td class="td-final text-center" contenteditable="true">${effSub.finalGrade !== null && effSub.finalGrade !== undefined ? effSub.finalGrade : ''}</td>
-                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(effSub.remarks || '')}</td>
+                                <td class="td-learning-area sub-subject-indent font-italic">Effective Communication</td>
+                                <td class="td-grade text-center">${effSub.t1 !== null && effSub.t1 !== undefined ? effSub.t1 : ''}</td>
+                                <td class="td-grade text-center">${effSub.t2 !== null && effSub.t2 !== undefined ? effSub.t2 : ''}</td>
+                                <td class="td-grade text-center">${effSub.t3 !== null && effSub.t3 !== undefined ? effSub.t3 : ''}</td>
+                                <td class="td-units text-center">${effSub.units ? escapeHtml(effSub.units) : ''}</td>
+                                <td class="td-final text-center">${effSub.finalGrade !== null && effSub.finalGrade !== undefined ? effSub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center">${escapeHtml(effSub.remarks || '')}</td>
                             </tr>
                         `;
                     } else {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Effective Communication</td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true"></td>
-                                <td class="td-final text-center" contenteditable="true"></td>
-                                <td class="td-remarks text-center" contenteditable="true"></td>
+                                <td class="td-learning-area sub-subject-indent font-italic">Effective Communication</td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-units text-center"></td>
+                                <td class="td-final text-center"></td>
+                                <td class="td-remarks text-center"></td>
                             </tr>
                         `;
                     }
@@ -3580,25 +3580,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (mabSub) {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Mabisang Komunikasyon</td>
-                                <td class="td-grade text-center" contenteditable="true">${mabSub.t1 !== null && mabSub.t1 !== undefined ? mabSub.t1 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${mabSub.t2 !== null && mabSub.t2 !== undefined ? mabSub.t2 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${mabSub.t3 !== null && mabSub.t3 !== undefined ? mabSub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true">${mabSub.units ? escapeHtml(mabSub.units) : ''}</td>
-                                <td class="td-final text-center" contenteditable="true">${mabSub.finalGrade !== null && mabSub.finalGrade !== undefined ? mabSub.finalGrade : ''}</td>
-                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(mabSub.remarks || '')}</td>
+                                <td class="td-learning-area sub-subject-indent font-italic">Mabisang Komunikasyon</td>
+                                <td class="td-grade text-center">${mabSub.t1 !== null && mabSub.t1 !== undefined ? mabSub.t1 : ''}</td>
+                                <td class="td-grade text-center">${mabSub.t2 !== null && mabSub.t2 !== undefined ? mabSub.t2 : ''}</td>
+                                <td class="td-grade text-center">${mabSub.t3 !== null && mabSub.t3 !== undefined ? mabSub.t3 : ''}</td>
+                                <td class="td-units text-center">${mabSub.units ? escapeHtml(mabSub.units) : ''}</td>
+                                <td class="td-final text-center">${mabSub.finalGrade !== null && mabSub.finalGrade !== undefined ? mabSub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center">${escapeHtml(mabSub.remarks || '')}</td>
                             </tr>
                         `;
                     } else {
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area sub-subject-indent font-italic" contenteditable="true">Mabisang Komunikasyon</td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true"></td>
-                                <td class="td-final text-center" contenteditable="true"></td>
-                                <td class="td-remarks text-center" contenteditable="true"></td>
+                                <td class="td-learning-area sub-subject-indent font-italic">Mabisang Komunikasyon</td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-units text-center"></td>
+                                <td class="td-final text-center"></td>
+                                <td class="td-remarks text-center"></td>
                             </tr>
                         `;
                     }
@@ -3611,13 +3611,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                         coreRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area" contenteditable="true">${escapeHtml(sub.subjectName)}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true">${sub.units ? escapeHtml(sub.units) : ''}</td>
-                                <td class="td-final text-center" contenteditable="true">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
-                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(sub.remarks || '')}</td>
+                                <td class="td-learning-area">${escapeHtml(sub.subjectName)}</td>
+                                <td class="td-grade text-center">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
+                                <td class="td-grade text-center">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
+                                <td class="td-grade text-center">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
+                                <td class="td-units text-center">${sub.units ? escapeHtml(sub.units) : ''}</td>
+                                <td class="td-final text-center">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center">${escapeHtml(sub.remarks || '')}</td>
                             </tr>
                         `;
                     });
@@ -3631,13 +3631,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     defaultElective.forEach(name => {
                         electiveRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area" contenteditable="true">${escapeHtml(name)}</td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-grade text-center" contenteditable="true"></td>
-                                <td class="td-units text-center" contenteditable="true"></td>
-                                <td class="td-final text-center" contenteditable="true"></td>
-                                <td class="td-remarks text-center" contenteditable="true"></td>
+                                <td class="td-learning-area">${escapeHtml(name)}</td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-grade text-center"></td>
+                                <td class="td-units text-center"></td>
+                                <td class="td-final text-center"></td>
+                                <td class="td-remarks text-center"></td>
                             </tr>
                         `;
                     });
@@ -3645,13 +3645,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     electiveList.forEach(sub => {
                         electiveRowsHtml += `
                             <tr class="grade-row">
-                                <td class="td-learning-area" contenteditable="true">${escapeHtml(sub.subjectName)}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
-                                <td class="td-grade text-center" contenteditable="true">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
-                                <td class="td-units text-center" contenteditable="true">${sub.units ? escapeHtml(sub.units) : ''}</td>
-                                <td class="td-final text-center" contenteditable="true">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
-                                <td class="td-remarks text-center" contenteditable="true">${escapeHtml(sub.remarks || '')}</td>
+                                <td class="td-learning-area">${escapeHtml(sub.subjectName)}</td>
+                                <td class="td-grade text-center">${sub.t1 !== null && sub.t1 !== undefined ? sub.t1 : ''}</td>
+                                <td class="td-grade text-center">${sub.t2 !== null && sub.t2 !== undefined ? sub.t2 : ''}</td>
+                                <td class="td-grade text-center">${sub.t3 !== null && sub.t3 !== undefined ? sub.t3 : ''}</td>
+                                <td class="td-units text-center">${sub.units ? escapeHtml(sub.units) : ''}</td>
+                                <td class="td-final text-center">${sub.finalGrade !== null && sub.finalGrade !== undefined ? sub.finalGrade : ''}</td>
+                                <td class="td-remarks text-center">${escapeHtml(sub.remarks || '')}</td>
                             </tr>
                         `;
                     });
@@ -3682,35 +3682,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let attAbsentCells = '';
 
                 attMonths.forEach(m => {
-                    attHeaderCells += `<th class="text-center font-bold th-att-month" contenteditable="true">${escapeHtml(m.month)}</th>`;
-                    attDaysCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.classDays : ''}</td>`;
-                    attPresentCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.present : ''}</td>`;
-                    attAbsentCells += `<td class="text-center td-att-cell" contenteditable="true">${m.classDays > 0 ? m.absent : ''}</td>`;
+                    attHeaderCells += `<th class="text-center font-bold th-att-month">${escapeHtml(m.month)}</th>`;
+                    attDaysCells += `<td class="text-center td-att-cell">${m.classDays > 0 ? m.classDays : ''}</td>`;
+                    attPresentCells += `<td class="text-center td-att-cell">${m.classDays > 0 ? m.present : ''}</td>`;
+                    attAbsentCells += `<td class="text-center td-att-cell">${m.classDays > 0 ? m.absent : ''}</td>`;
                 });
 
-                attHeaderCells += `<th class="text-center font-bold th-att-total" contenteditable="true">Total</th>`;
-                attDaysCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.classDays || ''}</td>`;
-                attPresentCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.present || ''}</td>`;
-                attAbsentCells += `<td class="text-center font-bold td-att-cell" contenteditable="true">${attTotal.absent || 0}</td>`;
+                attHeaderCells += `<th class="text-center font-bold th-att-total">Total</th>`;
+                attDaysCells += `<td class="text-center font-bold td-att-cell">${attTotal.classDays || ''}</td>`;
+                attPresentCells += `<td class="text-center font-bold td-att-cell">${attTotal.present || ''}</td>`;
+                attAbsentCells += `<td class="text-center font-bold td-att-cell">${attTotal.absent || 0}</td>`;
 
                 return `
                     <!-- ==================== STUDENT ${index + 1} PAGE 1: FRONT (A5) ==================== -->
-                    <div class="sf9-a5-page sf9-page-1">
+                    <div class="sf9-a5-page sf9-page-1" data-student-id="${st.id}">
                         <!-- Top Header with Logos flanking the centered text block -->
                         <div class="sf9-header-container">
                             <div class="header-logo-wrap seal-left">
                                 <img src="${depedLogoSrc}" alt="DepEd Seal" class="seal-img" />
                             </div>
                             <div class="header-center-text text-center">
-                                <div class="txt-republic" contenteditable="true">Republic of the Philippines</div>
+                                <div class="txt-republic">Republic of the Philippines</div>
                                 <div class="txt-header-spacer"></div>
-                                <div class="txt-region font-bold" contenteditable="true">REGION IV - A (CALABARZON)</div>
-                                <div class="txt-division font-bold" contenteditable="true">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
-                                <div class="txt-district font-bold" contenteditable="true">TALISAY DISTRICT</div>
-                                <div class="txt-muni font-bold" contenteditable="true">TALISAY, BATANGAS</div>
-                                <div class="txt-school font-bold" contenteditable="true">TALISAY SENIOR HIGH SCHOOL</div>
-                                <div class="txt-doc-title font-bold" contenteditable="true">LEARNER'S PERFORMANCE REPORT</div>
-                                <div class="txt-sy">School Year <span contenteditable="true">${escapeHtml(schoolYear)}</span></div>
+                                <div class="txt-region font-bold">REGION IV - A (CALABARZON)</div>
+                                <div class="txt-division font-bold">SCHOOLS DIVISION OF BATANGAS PROVINCE</div>
+                                <div class="txt-district font-bold">TALISAY DISTRICT</div>
+                                <div class="txt-muni font-bold">TALISAY, BATANGAS</div>
+                                <div class="txt-school font-bold">TALISAY SENIOR HIGH SCHOOL</div>
+                                <div class="txt-doc-title font-bold">LEARNER'S PERFORMANCE REPORT</div>
+                                <div class="txt-sy">School Year <span>${escapeHtml(schoolYear)}</span></div>
                             </div>
                             <div class="header-logo-wrap seal-right">
                                 <img src="${tshsLogoSrc}" alt="TSHS Seal" class="seal-img" />
@@ -3721,164 +3721,164 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="learner-meta-table">
                             <div class="meta-row">
                                 <div class="meta-item item-name">
-                                    <span class="meta-lbl" contenteditable="true">Name:</span>
-                                    <span class="meta-val underline-line font-bold" contenteditable="true">${escapeHtml(studentName)}</span>
+                                    <span class="meta-lbl">Name:</span>
+                                    <span class="meta-val underline-line font-bold">${escapeHtml(studentName)}</span>
                                 </div>
                                 <div class="meta-item item-age">
-                                    <span class="meta-lbl" contenteditable="true">Age:</span>
-                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(age)}</span>
+                                    <span class="meta-lbl">Age:</span>
+                                    <span class="meta-val underline-line text-center font-bold sf9-age-val" data-student-id="${st.id}" contenteditable="true">${escapeHtml(age)}</span>
                                 </div>
                                 <div class="meta-item item-sex">
-                                    <span class="meta-lbl" contenteditable="true">Sex:</span>
-                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(sex)}</span>
+                                    <span class="meta-lbl">Sex:</span>
+                                    <span class="meta-val underline-line text-center font-bold">${escapeHtml(sex)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
                                 <div class="meta-item item-lrn">
-                                    <span class="meta-lbl" contenteditable="true">LRN:</span>
-                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(lrn)}</span>
+                                    <span class="meta-lbl">LRN:</span>
+                                    <span class="meta-val underline-line text-center font-bold">${escapeHtml(lrn)}</span>
                                 </div>
                                 <div class="meta-item item-grade">
-                                    <span class="meta-lbl" contenteditable="true">Grade:</span>
-                                    <span class="meta-val underline-line text-center font-bold" contenteditable="true">${escapeHtml(gradeLevel)}</span>
+                                    <span class="meta-lbl">Grade:</span>
+                                    <span class="meta-val underline-line text-center font-bold">${escapeHtml(gradeLevel)}</span>
                                 </div>
                                 <div class="meta-item item-section">
-                                    <span class="meta-lbl" contenteditable="true">Section:</span>
-                                    <span class="meta-val underline-line text-center text-uppercase font-bold" contenteditable="true">${escapeHtml(sectionName)}</span>
+                                    <span class="meta-lbl">Section:</span>
+                                    <span class="meta-val underline-line text-center text-uppercase font-bold">${escapeHtml(sectionName)}</span>
                                 </div>
                             </div>
                             <div class="meta-row">
                                 <div class="meta-item item-track">
-                                    <span class="meta-lbl" contenteditable="true">Track (SHS only):</span>
-                                    <span class="meta-val underline-line font-bold" contenteditable="true">${escapeHtml(trackName)}</span>
+                                    <span class="meta-lbl">Track (SHS only):</span>
+                                    <span class="meta-val underline-line font-bold">${escapeHtml(trackName)}</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Dear Parents Note and Signatures -->
                         <div class="dear-parents-box">
-                            <div class="dp-greeting" contenteditable="true">Dear Parents,</div>
+                            <div class="dp-greeting">Dear Parents,</div>
                             <div class="dp-body">
-                                <p class="dp-p" contenteditable="true">This Performance Report presents your child's progress and achievement in the different learning areas.</p>
-                                <p class="dp-p" contenteditable="true">The school welcomes you to reach out should you wish to know more about your child's learning and performance.</p>
+                                <p class="dp-p">This Performance Report presents your child's progress and achievement in the different learning areas.</p>
+                                <p class="dp-p">The school welcomes you to reach out should you wish to know more about your child's learning and performance.</p>
                             </div>
                             <div class="dp-signatures-grid">
                                 <div class="sig-col sig-left">
-                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                    <div class="sig-title text-center" contenteditable="true">School Head</div>
+                                    <div class="sig-name underline-line font-bold text-center sf9-school-head-val" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                    <div class="sig-title text-center">School Head</div>
                                 </div>
                                 <div class="sig-col sig-right">
-                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                    <div class="sig-title text-center" contenteditable="true">Adviser</div>
+                                    <div class="sig-name underline-line font-bold text-center sf9-adviser-val" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                    <div class="sig-title text-center">Adviser</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Section Heading Outside Table -->
-                        <div class="learning-progress-heading font-bold text-center" contenteditable="true">LEARNING PROGRESS AND ACHIEVEMENT</div>
+                        <div class="learning-progress-heading font-bold text-center">LEARNING PROGRESS AND ACHIEVEMENT</div>
 
-                        <!-- Main Learning Progress and Achievement Table -->
+                        <!-- Main Learning Progress and Achievement Table (Official & Locked) -->
                         <table class="sf9-main-grades-table">
                             <thead>
                                 <tr class="tr-main-cols">
-                                    <th rowspan="2" class="th-learning-areas text-center font-bold" contenteditable="true">Learning Areas</th>
-                                    <th colspan="3" class="th-term text-center font-bold" contenteditable="true">TERM</th>
-                                    <th rowspan="2" class="th-units text-center font-bold" contenteditable="true">Units</th>
-                                    <th rowspan="2" class="th-final text-center font-bold" contenteditable="true">Final<br>Grade</th>
-                                    <th rowspan="2" class="th-remarks text-center font-bold" contenteditable="true">Remarks</th>
+                                    <th rowspan="2" class="th-learning-areas text-center font-bold">Learning Areas</th>
+                                    <th colspan="3" class="th-term text-center font-bold">TERM</th>
+                                    <th rowspan="2" class="th-units text-center font-bold">Units</th>
+                                    <th rowspan="2" class="th-final text-center font-bold">Final<br>Grade</th>
+                                    <th rowspan="2" class="th-remarks text-center font-bold">Remarks</th>
                                 </tr>
                                 <tr class="tr-sub-terms">
-                                    <th class="th-subterm text-center font-bold" contenteditable="true">T1</th>
-                                    <th class="th-subterm text-center font-bold" contenteditable="true">T2</th>
-                                    <th class="th-subterm text-center font-bold" contenteditable="true">T3</th>
+                                    <th class="th-subterm text-center font-bold">T1</th>
+                                    <th class="th-subterm text-center font-bold">T2</th>
+                                    <th class="th-subterm text-center font-bold">T3</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- Core Subjects Header Row -->
                                 <tr class="category-header-row">
-                                    <td colspan="7" class="category-title-cell font-bold font-italic" contenteditable="true">Core Subjects</td>
+                                    <td colspan="7" class="category-title-cell font-bold font-italic">Core Subjects</td>
                                 </tr>
                                 ${coreRowsHtml}
 
                                 <!-- Elective Subjects Header Row -->
                                 <tr class="category-header-row">
-                                    <td colspan="7" class="category-title-cell font-bold font-italic" contenteditable="true">Elective Subjects</td>
+                                    <td colspan="7" class="category-title-cell font-bold font-italic">Elective Subjects</td>
                                 </tr>
                                 ${electiveRowsHtml}
 
                                 <!-- 2 Exact Blank Placeholder Rows as in official card -->
                                 <tr class="grade-row empty-row">
-                                    <td class="td-learning-area" contenteditable="true">&nbsp;</td>
-                                    <td class="td-grade text-center" contenteditable="true"></td>
-                                    <td class="td-grade text-center" contenteditable="true"></td>
-                                    <td class="td-grade text-center" contenteditable="true"></td>
-                                    <td class="td-units text-center" contenteditable="true"></td>
-                                    <td class="td-final text-center" contenteditable="true"></td>
-                                    <td class="td-remarks text-center" contenteditable="true"></td>
+                                    <td class="td-learning-area">&nbsp;</td>
+                                    <td class="td-grade text-center"></td>
+                                    <td class="td-grade text-center"></td>
+                                    <td class="td-grade text-center"></td>
+                                    <td class="td-units text-center"></td>
+                                    <td class="td-final text-center"></td>
+                                    <td class="td-remarks text-center"></td>
                                 </tr>
                                 <tr class="grade-row empty-row">
-                                    <td class="td-learning-area" contenteditable="true">&nbsp;</td>
-                                    <td class="td-grade text-center" contenteditable="true"></td>
-                                    <td class="td-grade text-center" contenteditable="true"></td>
-                                    <td class="td-grade text-center" contenteditable="true"></td>
-                                    <td class="td-units text-center" contenteditable="true"></td>
-                                    <td class="td-final text-center" contenteditable="true"></td>
-                                    <td class="td-remarks text-center" contenteditable="true"></td>
+                                    <td class="td-learning-area">&nbsp;</td>
+                                    <td class="td-grade text-center"></td>
+                                    <td class="td-grade text-center"></td>
+                                    <td class="td-grade text-center"></td>
+                                    <td class="td-units text-center"></td>
+                                    <td class="td-final text-center"></td>
+                                    <td class="td-remarks text-center"></td>
                                 </tr>
 
                                 <!-- General Average Row matching official card format (Merged Columns B-H: Colspan 4) -->
                                 <tr class="general-average-row">
-                                    <td colspan="4" class="text-center genavg-label font-bold font-italic" contenteditable="true">General Average</td>
-                                    <td class="td-units text-center" contenteditable="true"></td>
-                                    <td class="td-final text-center font-bold font-italic" contenteditable="true">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
-                                    <td class="td-remarks text-center font-bold" contenteditable="true">${escapeHtml(genAvg.remarks || '')}</td>
+                                    <td colspan="4" class="text-center genavg-label font-bold font-italic">General Average</td>
+                                    <td class="td-units text-center"></td>
+                                    <td class="td-final text-center font-bold font-italic">${genAvg.finalGrade !== null && genAvg.finalGrade !== undefined ? genAvg.finalGrade : ''}</td>
+                                    <td class="td-remarks text-center font-bold">${escapeHtml(genAvg.remarks || '')}</td>
                                 </tr>
                             </tbody>
                         </table>
 
                         <!-- Performance Descriptors Table (Page 1 Bottom, borderless) -->
                         <div class="sf9-descriptors-section">
-                            <div class="desc-heading font-bold text-left" contenteditable="true">PERFORMANCE DESCRIPTORS</div>
+                            <div class="desc-heading font-bold text-left">PERFORMANCE DESCRIPTORS</div>
                             <table class="desc-table">
                                 <thead>
                                     <tr>
-                                        <th class="desc-col-scale text-center font-bold" contenteditable="true">Grading Scale</th>
-                                        <th class="desc-col-desc text-center font-bold" contenteditable="true">Descriptors</th>
-                                        <th class="desc-col-rem text-center font-bold" contenteditable="true">Remarks</th>
+                                        <th class="desc-col-scale text-center font-bold">Grading Scale</th>
+                                        <th class="desc-col-desc text-center font-bold">Descriptors</th>
+                                        <th class="desc-col-rem text-center font-bold">Remarks</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td class="text-center" contenteditable="true">90-100</td><td class="text-center" contenteditable="true">Advancing</td><td class="text-center" contenteditable="true">Passed</td></tr>
-                                    <tr><td class="text-center" contenteditable="true">80-89</td><td class="text-center" contenteditable="true">Benchmarking</td><td class="text-center" contenteditable="true">Passed</td></tr>
-                                    <tr><td class="text-center" contenteditable="true">75-79</td><td class="text-center" contenteditable="true">Connecting</td><td class="text-center" contenteditable="true">Passed</td></tr>
-                                    <tr><td class="text-center" contenteditable="true">65-74</td><td class="text-center" contenteditable="true">Developing</td><td class="text-center" contenteditable="true">Failed</td></tr>
-                                    <tr><td class="text-center" contenteditable="true">0-64</td><td class="text-center" contenteditable="true">Emerging</td><td class="text-center" contenteditable="true">Failed</td></tr>
+                                    <tr><td class="text-center">90-100</td><td class="text-center">Advancing</td><td class="text-center">Passed</td></tr>
+                                    <tr><td class="text-center">80-89</td><td class="text-center">Benchmarking</td><td class="text-center">Passed</td></tr>
+                                    <tr><td class="text-center">75-79</td><td class="text-center">Connecting</td><td class="text-center">Passed</td></tr>
+                                    <tr><td class="text-center">65-74</td><td class="text-center">Developing</td><td class="text-center">Failed</td></tr>
+                                    <tr><td class="text-center">0-64</td><td class="text-center">Emerging</td><td class="text-center">Failed</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
                     <!-- ==================== STUDENT ${index + 1} PAGE 2: BACK (A5) ==================== -->
-                    <div class="sf9-a5-page sf9-page-2">
+                    <div class="sf9-a5-page sf9-page-2" data-student-id="${st.id}">
                         <!-- Monthly Attendance Record Table -->
                         <table class="sf9-attendance-table">
                             <thead>
                                 <tr class="tr-att-header">
-                                    <th class="th-month-label text-center font-bold" contenteditable="true">Month</th>
+                                    <th class="th-month-label text-center font-bold">Month</th>
                                     ${attHeaderCells}
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr class="tr-att-row">
-                                    <td class="td-att-row-title text-center font-bold" contenteditable="true">No. of Class<br>Days</td>
+                                    <td class="td-att-row-title text-center font-bold">No. of Class<br>Days</td>
                                     ${attDaysCells}
                                 </tr>
                                 <tr class="tr-att-row">
-                                    <td class="td-att-row-title text-center font-bold" contenteditable="true">No. of Days<br>Present</td>
+                                    <td class="td-att-row-title text-center font-bold">No. of Days<br>Present</td>
                                     ${attPresentCells}
                                 </tr>
                                 <tr class="tr-att-row">
-                                    <td class="td-att-row-title text-center font-bold" contenteditable="true">No. of Days<br>Absent</td>
+                                    <td class="td-att-row-title text-center font-bold">No. of Days<br>Absent</td>
                                     ${attAbsentCells}
                                 </tr>
                             </tbody>
@@ -3886,28 +3886,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Teacher's Comments / Remarks Box -->
                         <div class="sf9-comments-container">
-                            <div class="box-title text-center font-bold" contenteditable="true">TEACHER'S COMMENTS / REMARKS</div>
+                            <div class="box-title text-center font-bold">TEACHER'S COMMENTS / REMARKS</div>
                             <div class="comments-bordered-box">
                                 <div class="comment-term-row term-1-row">
-                                    <span class="comment-term-lbl font-bold" contenteditable="true">Term 1</span>
-                                    <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
-                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
+                                    <span class="comment-term-lbl font-bold">Term 1</span>
+                                    <span class="comment-term-text font-bold sf9-comment-val" data-student-id="${st.id}" data-term="1" contenteditable="true">${escapeHtml(st.comments?.term1 || '')}</span>
+                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value; if(window.markUnsaved) window.markUnsaved();" title="Select from official DepEd comments">
                                         <option value="" ${!st.comments?.term1 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
                                         ${commentOptionsHtml(st.comments?.term1)}
                                     </select>
                                 </div>
                                 <div class="comment-term-row term-2-row">
-                                    <span class="comment-term-lbl font-bold" contenteditable="true">Term 2</span>
-                                    <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
-                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
+                                    <span class="comment-term-lbl font-bold">Term 2</span>
+                                    <span class="comment-term-text font-bold sf9-comment-val" data-student-id="${st.id}" data-term="2" contenteditable="true">${escapeHtml(st.comments?.term2 || '')}</span>
+                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value; if(window.markUnsaved) window.markUnsaved();" title="Select from official DepEd comments">
                                         <option value="" ${!st.comments?.term2 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
                                         ${commentOptionsHtml(st.comments?.term2)}
                                     </select>
                                 </div>
                                 <div class="comment-term-row term-3-row">
-                                    <span class="comment-term-lbl font-bold" contenteditable="true">Term 3</span>
-                                    <span class="comment-term-text font-bold" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
-                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value;" title="Select from official DepEd comments">
+                                    <span class="comment-term-lbl font-bold">Term 3</span>
+                                    <span class="comment-term-text font-bold sf9-comment-val" data-student-id="${st.id}" data-term="3" contenteditable="true">${escapeHtml(st.comments?.term3 || '')}</span>
+                                    <select class="comment-quick-select no-print" onchange="this.previousElementSibling.textContent = this.value; if(window.markUnsaved) window.markUnsaved();" title="Select from official DepEd comments">
                                         <option value="" ${!st.comments?.term3 ? 'selected' : ''} disabled>&#9662; Choose Statement...</option>
                                         ${commentOptionsHtml(st.comments?.term3)}
                                     </select>
@@ -3917,18 +3917,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Parent's / Guardian's Signature Lines -->
                         <div class="sf9-signatures-box">
-                            <div class="box-title text-center font-bold" contenteditable="true">PARENT/S GUARDIAN'S SIGNATURE</div>
+                            <div class="box-title text-center font-bold">PARENT/S GUARDIAN'S SIGNATURE</div>
                             <div class="parent-signatures-list">
                                 <div class="sig-parent-row">
-                                    <span class="sig-term-lbl font-bold" contenteditable="true">Term 1</span>
+                                    <span class="sig-term-lbl font-bold">Term 1</span>
                                     <span class="sig-underline-line" contenteditable="true"></span>
                                 </div>
                                 <div class="sig-parent-row">
-                                    <span class="sig-term-lbl font-bold" contenteditable="true">Term 2</span>
+                                    <span class="sig-term-lbl font-bold">Term 2</span>
                                     <span class="sig-underline-line" contenteditable="true"></span>
                                 </div>
                                 <div class="sig-parent-row">
-                                    <span class="sig-term-lbl font-bold" contenteditable="true">Term 3</span>
+                                    <span class="sig-term-lbl font-bold">Term 3</span>
                                     <span class="sig-underline-line" contenteditable="true"></span>
                                 </div>
                             </div>
@@ -3936,53 +3936,53 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         <!-- Certificate of Transfer -->
                         <div class="sf9-certificate-box">
-                            <div class="box-title text-center font-bold" contenteditable="true">CERTIFICATE OF TRANSFER</div>
-                            <p class="cert-intro" contenteditable="true">
+                            <div class="box-title text-center font-bold">CERTIFICATE OF TRANSFER</div>
+                            <p class="cert-intro">
                                 This is to certify that the above-named learner has satisfactorily completed the requirements for the grade level indicated.
                             </p>
                             <div class="cert-fields-grid">
                                 <div class="cert-field-line">
-                                    <span class="cert-lbl" contenteditable="true">Admitted to Grade:</span>
-                                    <span class="cert-val underline-line" contenteditable="true" style="min-width: 70px; display: inline-block;"></span>
+                                    <span class="cert-lbl">Admitted to Grade:</span>
+                                    <span class="cert-val underline-line sf9-cert-admitted" data-student-id="${st.id}" contenteditable="true" style="min-width: 70px; display: inline-block;">${escapeHtml(st.certTransfer?.admittedToGrade || '')}</span>
                                 </div>
                                 <div class="cert-field-line">
-                                    <span class="cert-lbl" contenteditable="true">Eligible for Admission to Grade:</span>
-                                    <span class="cert-val underline-line" contenteditable="true" style="min-width: 145px; display: inline-block;"></span>
+                                    <span class="cert-lbl">Eligible for Admission to Grade:</span>
+                                    <span class="cert-val underline-line sf9-cert-eligible" data-student-id="${st.id}" contenteditable="true" style="min-width: 145px; display: inline-block;">${escapeHtml(st.certTransfer?.eligibleForAdmission || '')}</span>
                                 </div>
                             </div>
 
                             <!-- Signatures inside Certificate of Transfer -->
                             <div class="cert-signatures-layout">
                                 <div class="cert-sig-left">
-                                    <div class="approved-tag" contenteditable="true">Approved:</div>
+                                    <div class="approved-tag">Approved:</div>
                                     <div class="principal-sig-block">
-                                        <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                        <div class="sig-title text-center" contenteditable="true">School Head</div>
+                                        <div class="sig-name underline-line font-bold text-center sf9-school-head-val" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                        <div class="sig-title text-center">School Head</div>
                                     </div>
                                 </div>
                                 <div class="cert-sig-right">
-                                    <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(adviserName)}</div>
-                                    <div class="sig-title text-center" contenteditable="true">Adviser</div>
+                                    <div class="sig-name underline-line font-bold text-center sf9-adviser-val" contenteditable="true">${escapeHtml(adviserName)}</div>
+                                    <div class="sig-title text-center">Adviser</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Cancellation of Eligibility to Transfer -->
                         <div class="sf9-cancellation-box">
-                            <div class="box-title text-center font-bold" contenteditable="true">CANCELLATION OF ELIGIBILITY TO TRANSFER</div>
+                            <div class="box-title text-center font-bold">CANCELLATION OF ELIGIBILITY TO TRANSFER</div>
                             <div class="cancellation-fields-row">
                                 <div class="canc-field">
-                                    <span class="canc-lbl" contenteditable="true">Admitted in:</span>
-                                    <span class="canc-val underline-line" contenteditable="true" style="min-width: 175px; display: inline-block;"></span>
+                                    <span class="canc-lbl">Admitted in:</span>
+                                    <span class="canc-val underline-line sf9-canc-admitted" data-student-id="${st.id}" contenteditable="true" style="min-width: 175px; display: inline-block;">${escapeHtml(st.certTransfer?.cancAdmittedIn || '')}</span>
                                 </div>
                                 <div class="canc-field">
-                                    <span class="canc-lbl" contenteditable="true">Date:</span>
-                                    <span class="canc-val underline-line" contenteditable="true" style="min-width: 145px; display: inline-block;"></span>
+                                    <span class="canc-lbl">Date:</span>
+                                    <span class="canc-val underline-line sf9-canc-date" data-student-id="${st.id}" contenteditable="true" style="min-width: 145px; display: inline-block;">${escapeHtml(st.certTransfer?.cancDate || '')}</span>
                                 </div>
                             </div>
                             <div class="cancellation-principal-center">
-                                <div class="sig-name underline-line font-bold text-center" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
-                                <div class="sig-title text-center" contenteditable="true">School Head</div>
+                                <div class="sig-name underline-line font-bold text-center sf9-school-head-val" contenteditable="true">${escapeHtml(schoolHeadName)}</div>
+                                <div class="sig-title text-center">School Head</div>
                             </div>
                         </div>
                     </div>
@@ -4689,8 +4689,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 box-shadow: none !important;
                             }
                         }
+                        @keyframes sf9Spin {
+                            to { transform: rotate(360deg); }
+                        }
+                        .sf9-spinner {
+                            display: inline-block;
+                            width: 12px;
+                            height: 12px;
+                            border: 2px solid #ffffff;
+                            border-right-color: transparent;
+                            border-radius: 50%;
+                            vertical-align: middle;
+                            animation: sf9Spin 0.7s linear infinite;
+                            margin-right: 6px;
+                        }
                     </style>
                     <script>
+                        window._SF9_AUTH_TOKEN = ${JSON.stringify(token)};
+                        window._SF9_SECTION_ID = ${JSON.stringify(sectionId)};
+                        window._SF9_SCHOOL_YEAR = ${JSON.stringify(schoolYear)};
+
+                        let hasUnsavedChanges = false;
+                        function markUnsaved() {
+                            hasUnsavedChanges = true;
+                            const btn = document.getElementById('btnSaveReportCards');
+                            if (btn && !btn.dataset.dirty) {
+                                btn.dataset.dirty = '1';
+                                btn.style.background = '#d97706';
+                                btn.innerHTML = '<i class="bi bi-floppy-fill"></i> Save Changes &bull;';
+                            }
+                        }
+
                         // Auto-fit long text inputs so they strictly never wrap or overflow
                         function fitTextToWidth(el) {
                             if (!el) return;
@@ -4704,10 +4733,128 @@ document.addEventListener('DOMContentLoaded', async () => {
                             document.querySelectorAll('.meta-item .meta-val').forEach(fitTextToWidth);
                         });
                         document.addEventListener('input', (e) => {
+                            if (e.target && e.target.isContentEditable) {
+                                markUnsaved();
+                            }
                             if (e.target && e.target.classList && e.target.classList.contains('meta-val')) {
                                 fitTextToWidth(e.target);
                             }
                         });
+                        window.addEventListener('beforeunload', (e) => {
+                            if (hasUnsavedChanges) {
+                                e.preventDefault();
+                                e.returnValue = 'You have unsaved changes on this report card. Are you sure you want to close?';
+                            }
+                        });
+
+                        function showToast(msg, isSuccess = true) {
+                            let t = document.getElementById('sf9ToastNotification');
+                            if (!t) {
+                                t = document.createElement('div');
+                                t.id = 'sf9ToastNotification';
+                                t.className = 'no-print';
+                                t.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 99999; padding: 12px 20px; border-radius: 8px; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.3); transition: opacity 0.3s, transform 0.3s; pointer-events: none;';
+                                document.body.appendChild(t);
+                            }
+                            t.style.background = isSuccess ? '#15803d' : '#dc2626';
+                            t.innerHTML = (isSuccess ? '<i class="bi bi-check-circle-fill" style="margin-right: 6px;"></i> ' : '<i class="bi bi-exclamation-triangle-fill" style="margin-right: 6px;"></i> ') + msg;
+                            t.style.opacity = '1';
+                            t.style.transform = 'translateY(0)';
+                            setTimeout(() => {
+                                t.style.opacity = '0';
+                                t.style.transform = 'translateY(10px)';
+                            }, 3500);
+                        }
+
+                        async function saveReportCards() {
+                            const btn = document.getElementById('btnSaveReportCards');
+                            if (btn) {
+                                btn.disabled = true;
+                                btn.innerHTML = '<span class="sf9-spinner"></span> Saving...';
+                            }
+
+                            const studentPages = document.querySelectorAll('.sf9-a5-page[data-student-id]');
+                            const studentIds = [...new Set([...studentPages].map(p => p.dataset.studentId))];
+
+                            const cardsPayload = studentIds.map(stId => {
+                                const p1 = document.querySelector('.sf9-page-1[data-student-id="' + stId + '"]');
+                                const p2 = document.querySelector('.sf9-page-2[data-student-id="' + stId + '"]');
+
+                                const ageEl = p1 ? p1.querySelector('.sf9-age-val') : null;
+                                const ageVal = ageEl ? parseInt(ageEl.textContent.trim(), 10) : null;
+
+                                const t1El = p2 ? p2.querySelector('.sf9-comment-val[data-term="1"]') : null;
+                                const t2El = p2 ? p2.querySelector('.sf9-comment-val[data-term="2"]') : null;
+                                const t3El = p2 ? p2.querySelector('.sf9-comment-val[data-term="3"]') : null;
+
+                                const certAdmittedEl = p2 ? p2.querySelector('.sf9-cert-admitted') : null;
+                                const certEligibleEl = p2 ? p2.querySelector('.sf9-cert-eligible') : null;
+                                const cancAdmittedEl = p2 ? p2.querySelector('.sf9-canc-admitted') : null;
+                                const cancDateEl = p2 ? p2.querySelector('.sf9-canc-date') : null;
+
+                                return {
+                                    studentId: parseInt(stId, 10),
+                                    age: (!isNaN(ageVal) && ageVal > 0) ? ageVal : null,
+                                    commentTerm1: t1El ? t1El.textContent.trim() : '',
+                                    commentTerm2: t2El ? t2El.textContent.trim() : '',
+                                    commentTerm3: t3El ? t3El.textContent.trim() : '',
+                                    certAdmittedToGrade: certAdmittedEl ? certAdmittedEl.textContent.trim() : '',
+                                    certEligibleForAdmission: certEligibleEl ? certEligibleEl.textContent.trim() : '',
+                                    cancAdmittedIn: cancAdmittedEl ? cancAdmittedEl.textContent.trim() : '',
+                                    cancDate: cancDateEl ? cancDateEl.textContent.trim() : '',
+                                };
+                            });
+
+                            const schoolHeadEl = document.querySelector('.sf9-school-head-val');
+                            const adviserEl = document.querySelector('.sf9-adviser-val');
+                            const schoolHeadName = schoolHeadEl ? schoolHeadEl.textContent.trim() : '';
+                            const adviserName = adviserEl ? adviserEl.textContent.trim() : '';
+
+                            try {
+                                const targetUrl = (window.opener ? window.opener.location.origin : window.location.origin) + '/api/grades/section-report-cards/save';
+                                const res = await fetch(targetUrl, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': 'Bearer ' + window._SF9_AUTH_TOKEN
+                                    },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                        sectionId: window._SF9_SECTION_ID,
+                                        schoolYear: window._SF9_SCHOOL_YEAR,
+                                        schoolHeadName,
+                                        adviserName,
+                                        cards: cardsPayload
+                                    })
+                                });
+
+                                const data = await res.json();
+                                if (data.success) {
+                                    hasUnsavedChanges = false;
+                                    if (btn) {
+                                        btn.disabled = false;
+                                        delete btn.dataset.dirty;
+                                        btn.style.background = '#15803d';
+                                        btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Saved!';
+                                        setTimeout(() => {
+                                            btn.style.background = '#2563eb';
+                                            btn.innerHTML = '<i class="bi bi-floppy-fill"></i> Save Changes';
+                                        }, 3000);
+                                    }
+                                    showToast(data.message || 'Report cards saved successfully!');
+                                } else {
+                                    throw new Error(data.message || 'Server error while saving.');
+                                }
+                            } catch (err) {
+                                console.error('Failed to save SF9 cards:', err);
+                                if (btn) {
+                                    btn.disabled = false;
+                                    btn.style.background = '#dc2626';
+                                    btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Retry Save';
+                                }
+                                showToast('Save failed: ' + err.message, false);
+                            }
+                        }
                     </script>
                 </head>
                 <body>
@@ -4723,9 +4870,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </span>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
-                            <span style="font-size: 11px; opacity: 0.85; margin-right: 10px;">
-                                <i class="bi bi-pencil me-1"></i> Click any text, cell, or line to edit &bull; Select teacher remarks from dropdowns
+                            <span style="font-size: 11px; opacity: 0.85; margin-right: 8px;">
+                                <i class="bi bi-pencil me-1"></i> Edit remarks, certificate & age &bull; Grades synced from ECR
                             </span>
+                            <button type="button" id="btnSaveReportCards" onclick="saveReportCards()" style="background: #2563eb; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; transition: background 0.2s;">
+                                <i class="bi bi-floppy-fill"></i> Save Changes
+                            </button>
                             <a href="Card_SF9.xlsx" download="Official_TSHS_Card_SF9.xlsx" style="background: #0284c7; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 13px;">
                                 <i class="bi bi-file-earmark-excel"></i> Download Excel
                             </a>

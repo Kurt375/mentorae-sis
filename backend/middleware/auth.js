@@ -1,14 +1,22 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
+const cache = require('../utils/cache');
 
-let cachedMaintenance = { value: '0', expiresAt: 0 };
 async function isMaintenanceMode() {
-  const now = Date.now();
-  if (cachedMaintenance.expiresAt > now) return cachedMaintenance.value === '1';
+  // Check if system_settings is in cache first (instant hit)
+  const cachedSettings = cache.get('system_settings');
+  if (cachedSettings && cachedSettings.maintenance_mode !== undefined) {
+    return cachedSettings.maintenance_mode === '1';
+  }
+
+  // Fallback to checking the dedicated maintenance cache or DB
+  const cachedVal = cache.get('setting_maintenance_mode');
+  if (cachedVal !== null) return cachedVal === '1';
+
   try {
     const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'maintenance_mode'");
     const val = rows[0]?.setting_value || '0';
-    cachedMaintenance = { value: val, expiresAt: now + 5000 };
+    cache.set('setting_maintenance_mode', val, 60); // cache for 60 seconds
     return val === '1';
   } catch (err) {
     return false;

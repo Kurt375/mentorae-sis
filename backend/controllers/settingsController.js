@@ -1,11 +1,21 @@
 const pool = require('../config/db');
+const cache = require('../utils/cache');
 
 /** GET /api/settings — all key/value settings */
 async function getSettings(req, res) {
   try {
+    const cached = cache.get('system_settings');
+    if (cached) {
+      return res.json({ success: true, settings: cached });
+    }
+
     const [rows] = await pool.query('SELECT setting_key, setting_value FROM system_settings');
     const settings = {};
     rows.forEach((r) => (settings[r.setting_key] = r.setting_value));
+
+    // Cache settings for 5 minutes (invalidated instantly on updateSettings)
+    cache.set('system_settings', settings, 300);
+
     return res.json({ success: true, settings });
   } catch (err) {
     console.error('getSettings error:', err);
@@ -37,6 +47,8 @@ async function updateSettings(req, res) {
         [key, String(value)]
       );
     }
+    // Instantly invalidate settings cache
+    cache.del('system_settings');
     return res.json({ success: true, message: 'Settings saved.' });
   } catch (err) {
     console.error('updateSettings error:', err);

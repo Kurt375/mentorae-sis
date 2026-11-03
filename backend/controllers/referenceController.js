@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const cache = require('../utils/cache');
 const { convertOfficeToPdf } = require('../utils/documentConverter');
 
 const CURRICULUM_SUBJECTS = [
@@ -229,7 +230,13 @@ async function seedCurriculumSubjects() {
 /** GET /api/reference/strands */
 async function listStrands(req, res) {
   try {
+    const cached = cache.get('ref_strands');
+    if (cached) {
+      return res.json({ success: true, strands: cached });
+    }
+
     const [rows] = await pool.query('SELECT * FROM strands ORDER BY code');
+    cache.set('ref_strands', rows, 600); // 10 minutes
     return res.json({ success: true, strands: rows });
   } catch (err) {
     console.error('listStrands error:', err);
@@ -240,6 +247,12 @@ async function listStrands(req, res) {
 /** GET /api/reference/sections?strandId=&gradeLevel= */
 async function listSections(req, res) {
   try {
+    const cacheKey = `ref_sections_${req.query.strandId || 'all'}_${req.query.gradeLevel || 'all'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, sections: cached });
+    }
+
     const params = [];
     let sql = `
       SELECT s.id, s.name, s.grade_level, s.strand_id, st.code AS strandCode, st.title AS strandTitle,
@@ -257,6 +270,7 @@ async function listSections(req, res) {
     sql += ' ORDER BY st.code, s.grade_level, s.name';
 
     const [rows] = await pool.query(sql, params);
+    cache.set(cacheKey, rows, 300); // 5 minutes
     return res.json({ success: true, sections: rows });
   } catch (err) {
     console.error('listSections error:', err);
@@ -276,6 +290,8 @@ async function createSection(req, res) {
       gradeLevel,
       name,
     ]);
+    // Invalidate cached section lists
+    cache.delByPrefix('ref_sections_');
     return res.json({ success: true, message: 'Section created.' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -288,8 +304,13 @@ async function createSection(req, res) {
 
 /** GET /api/reference/subjects */
 async function listSubjects(req, res) {
-  await ensureSubjectColumns();
   try {
+    const cached = cache.get('ref_subjects');
+    if (cached) {
+      return res.json({ success: true, subjects: cached });
+    }
+
+    await ensureSubjectColumns();
     const [rows] = await pool.query('SELECT * FROM subjects ORDER BY grade_level ASC, name ASC');
 
     // Fetch approved topics for all subjects
@@ -384,6 +405,7 @@ async function listSubjects(req, res) {
       };
     });
 
+    cache.set('ref_subjects', formatted, 600); // 10 minutes cache
     return res.json({ success: true, subjects: formatted });
   } catch (err) {
     console.error('listSubjects error:', err);
@@ -468,6 +490,7 @@ async function createSubject(req, res) {
       }
     }
 
+    cache.del('ref_subjects');
     return res.status(201).json({ success: true, subjectId: newSubjectId, message: 'Subject created successfully.' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -671,6 +694,7 @@ async function updateSubject(req, res) {
       }
     }
 
+    cache.del('ref_subjects');
     return res.json({ success: true, subjectId: actualId, message: 'Subject updated successfully.' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -689,6 +713,7 @@ async function deleteSubject(req, res) {
     if (result.affectedRows === 0 && (req.query.code || req.query.name)) {
       await pool.query('DELETE FROM subjects WHERE code = ? OR name = ?', [req.query.code || '', req.query.name || '']);
     }
+    cache.del('ref_subjects');
     return res.json({ success: true, message: 'Subject deleted successfully.' });
   } catch (err) {
     console.error('deleteSubject error:', err);
@@ -867,6 +892,11 @@ async function getMyEnrolledSubjects(req, res) {
 /** GET /api/reference/grading-weights — returns the current grading category weights policy */
 async function getGradingWeights(req, res) {
   try {
+    const cached = cache.get('ref_grading_weights');
+    if (cached) {
+      return res.json({ success: true, weights: cached });
+    }
+
     const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'grading_category_weights'");
     let weights = {
       'Core Subject': { ww: 20, pt: 50, qa: 30 },
@@ -879,6 +909,7 @@ async function getGradingWeights(req, res) {
         weights = typeof rows[0].setting_value === 'string' ? JSON.parse(rows[0].setting_value) : rows[0].setting_value;
       } catch (e) {}
     }
+    cache.set('ref_grading_weights', weights, 600); // 10 minutes cache
     return res.json({ success: true, weights });
   } catch (err) {
     console.error('getGradingWeights error:', err);
@@ -921,6 +952,10 @@ async function updateGradingWeights(req, res) {
         );
       }
     }
+
+    // Invalidate caches
+    cache.del('ref_grading_weights');
+    cache.del('ref_subjects');
 
     return res.json({ success: true, message: 'Grading weights updated successfully.', weights });
   } catch (err) {
