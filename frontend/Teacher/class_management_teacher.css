@@ -375,7 +375,7 @@
 .timeline-stream {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: none;
+    max-height: 640px;
     overflow-y: auto;
     padding-right: 6px;
     scrollbar-width: thin;
