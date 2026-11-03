@@ -369,13 +369,41 @@
 }
 
 .timeline-stream {
-    max-height: 520px;
-    /* Set a fixed max height for the activity feed */
+    max-height: 720px;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f8fafc;
+
     flex: 1;
-    /* This makes the timeline fill the available vertical space */
+
     overflow-y: auto;
     min-height: 0;
-    /* This is necessary for the flex item to shrink and allow scrolling */
+
+}
+
+.timeline-stream::-webkit-scrollbar {
+    width: 6px;
+}
+
+.timeline-stream::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.timeline-stream::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.timeline-stream::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+@media (max-width: 767.98px) {
+    .timeline-stream {
+        max-height: 360px !important;
+        height: auto !important;
+    }
 }
 
 /* Styles for Grade Encoding Section (from view_encode_grade.css) */

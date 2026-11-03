@@ -1253,10 +1253,43 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
             }).join('');
+            syncRecentActivityHeight();
         } catch (err) {
             console.error('loadActivity error:', err);
             activityTimeline.innerHTML = '<p class="text-muted small py-2">Could not load activity.</p>';
+            syncRecentActivityHeight();
         }
+    }
+
+    function syncRecentActivityHeight() {
+        const timeline = document.getElementById('activityTimeline');
+        const refBtn = document.getElementById('btnAwardBadges') || document.getElementById('btnCancelAction');
+        if (!timeline || !refBtn) return;
+
+        if (window.innerWidth < 768) {
+            timeline.style.maxHeight = '360px';
+            timeline.style.height = 'auto';
+            return;
+        }
+
+        // Measure distance from top of timeline to bottom of the action buttons
+        const btnRect = refBtn.getBoundingClientRect();
+        const timelineRect = timeline.getBoundingClientRect();
+        const exactHeight = Math.round(btnRect.bottom - timelineRect.top);
+
+        if (exactHeight > 250) {
+            timeline.style.maxHeight = `${exactHeight}px`;
+            timeline.style.height = `${exactHeight}px`;
+            timeline.style.overflowY = 'auto';
+        }
+    }
+
+    window.addEventListener('resize', syncRecentActivityHeight);
+    const workspacePanelEl = document.querySelector('.workspace-panel');
+    if (window.ResizeObserver && workspacePanelEl) {
+        new ResizeObserver(() => {
+            syncRecentActivityHeight();
+        }).observe(workspacePanelEl);
     }
 
     if (studentSelectBadge) {
