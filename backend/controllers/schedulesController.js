@@ -549,7 +549,6 @@ async function updateSchedule(req, res) {
     ...(Array.isArray(relatedIds) ? relatedIds.map(Number) : [])
   ])).filter((n) => Number.isInteger(n) && n > 0);
 
-  const connection = await pool.getConnection();
   try {
     // 1. Conflict checks excluding all target IDs
     for (const day of days) {
@@ -564,7 +563,6 @@ async function updateSchedule(req, res) {
       });
 
       if (conflict.hasConflict) {
-        connection.release();
         return res.status(409).json({
           success: false,
           message: conflict.message,
@@ -572,25 +570,25 @@ async function updateSchedule(req, res) {
       }
     }
 
-    // 2. Perform atomic delete of previous entries and insert updated entries
-    await connection.beginTransaction();
+    // 2. Delete previous entries
+    if (allTargetIds.length === 1) {
+      await pool.query('DELETE FROM schedules WHERE id = ?', [allTargetIds[0]]);
+    } else if (allTargetIds.length > 1) {
+      await pool.query(
+        `DELETE FROM schedules WHERE id IN (${allTargetIds.map(() => '?').join(',')})`,
+        allTargetIds
+      );
+    }
 
-    await connection.query(
-      `DELETE FROM schedules WHERE id IN (${allTargetIds.map(() => '?').join(',')})`,
-      allTargetIds
-    );
-
+    // 3. Insert updated entries for the specified days
     const newIds = [];
     for (const day of days) {
-      const [result] = await connection.query(
+      const [result] = await pool.query(
         'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [teacherId, subjectId, sectionId, scheduleQuarter, day, startTime, endTime]
       );
       newIds.push(result.insertId);
     }
-
-    await connection.commit();
-    connection.release();
 
     return res.json({
       success: true,
@@ -598,8 +596,6 @@ async function updateSchedule(req, res) {
       ids: newIds,
     });
   } catch (err) {
-    await connection.rollback().catch(() => {});
-    connection.release();
     console.error('updateSchedule error:', err);
     return res.status(500).json({ success: false, message: 'Could not update schedule.' });
   }

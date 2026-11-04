@@ -979,20 +979,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         populateEditTeachers(teacherId);
 
-        let sectionId = s.sectionId;
         let strandId = s.strandId;
+        if (!strandId && s.strand && allStrands && allStrands.length) {
+            const rawCode = (s.strand.split(' ')[0] || '').trim().toUpperCase();
+            const matchStrand = allStrands.find(st => (st.code || '').toUpperCase() === rawCode);
+            if (matchStrand) strandId = matchStrand.id;
+        }
+
+        let sectionId = s.sectionId;
         if (!sectionId && allSections && allSections.length) {
-            const matchSec = allSections.find(sec => sec.name.trim().toLowerCase() === (s.section || '').trim().toLowerCase());
+            const targetSecName = (s.section || '').trim().toLowerCase();
+            const rawStrandCode = (s.strand || '').split(' ')[0].trim().toUpperCase();
+
+            // First try: match section name AND strand code
+            let matchSec = allSections.find(sec => {
+                const secName = (sec.name || '').trim().toLowerCase();
+                const secStrand = (sec.strandCode || '').trim().toUpperCase();
+                const strandMatch = !rawStrandCode || secStrand === rawStrandCode;
+                return strandMatch && (secName === targetSecName || secName.includes(targetSecName));
+            });
+
+            // Second try: match section name alone
+            if (!matchSec) {
+                matchSec = allSections.find(sec => {
+                    const secName = (sec.name || '').trim().toLowerCase();
+                    return secName === targetSecName;
+                });
+            }
+
             if (matchSec) {
                 sectionId = matchSec.id;
                 if (!strandId) strandId = matchSec.strand_id;
             }
         }
+
         if (!strandId && sectionId && allSections && allSections.length) {
             const secObj = allSections.find(sec => String(sec.id) === String(sectionId));
             if (secObj) strandId = secObj.strand_id;
         }
+
         populateEditStrands(strandId);
+        if (editStrandSelect && strandId) {
+            editStrandSelect.value = String(strandId);
+        }
         renderEditSections(sectionId);
 
         if (editQuarterSelect) {
@@ -1001,7 +1030,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let subjectId = s.subjectId;
         if (!subjectId && allSubjects && allSubjects.length) {
-            const matchSub = allSubjects.find(sub => sub.name.trim().toLowerCase() === (s.subject || '').trim().toLowerCase());
+            const targetSub = (s.subject || '').trim().toLowerCase();
+            const matchSub = allSubjects.find(sub => (sub.name || '').trim().toLowerCase() === targetSub);
             if (matchSub) subjectId = matchSub.id;
         }
         renderEditSubjects(subjectId);
@@ -1107,11 +1137,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadSchedules();
             } catch (err) {
                 console.error('Error updating schedule:', err);
+                const errMsg = (err && err.message) ? err.message : 'Network error. Please try again.';
                 if (editAlert) {
-                    editAlert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Network error. Please try again.';
+                    editAlert.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${errMsg}`;
                     editAlert.classList.remove('d-none');
                 } else {
-                    alert('Network error while updating schedule.');
+                    alert(errMsg);
                 }
             } finally {
                 if (submitBtn) {
