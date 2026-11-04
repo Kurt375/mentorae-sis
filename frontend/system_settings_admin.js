@@ -361,13 +361,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     statements.push(b);
                 }
 
-                // Batch statements by count and byte size (up to 120 stmts or 800KB per batch)
+                // If any individual statement exceeds 3.0 MB (e.g. giant embedded PDF slide deck
+                // exceeding Vercel's 4.5MB request limit), safely replace the oversized base64 payload
+                // so the topic record itself is preserved and Vercel never drops the connection.
+                const SAFE_MAX_STMT_BYTES = 3.0 * 1024 * 1024;
+                for (let i = 0; i < statements.length; i++) {
+                    if (statements[i].length > SAFE_MAX_STMT_BYTES) {
+                        statements[i] = statements[i].replace(/data:[a-zA-Z0-9\/\-\.]+;base64,[a-zA-Z0-9+/=\r\n]+/g, '[Attachment exceeds 3MB serverless payload limit]');
+                    }
+                }
+
+                // Batch statements by count and byte size (up to 100 stmts or 700KB per batch)
                 // to stay well within Vercel's 4.5MB request limit and execute in <1s per batch.
                 const batches = [];
                 let curBatch = [];
                 let curBytes = 0;
-                const MAX_BYTES = 800 * 1024; // 800 KB limit per batch
-                const MAX_STMTS = 120;
+                const MAX_BYTES = 700 * 1024; // 700 KB limit per batch
+                const MAX_STMTS = 100;
 
                 for (const s of statements) {
                     if ((curBatch.length >= MAX_STMTS || curBytes + s.length > MAX_BYTES) && curBatch.length > 0) {
@@ -391,7 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(startData.message || 'Could not initialize database restore.');
                 }
 
-                // 2. Stream and execute batches sequentially with auto-retry
+                // 2. Stream and execute batches sequentially with auto-retry & 20s timeout
                 let processedStmts = 0;
                 for (let b = 0; b < batches.length; b++) {
                     if (isCancelled) throw new Error('Restore cancelled by user.');
@@ -410,11 +420,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     for (let attempt = 1; attempt <= 3; attempt++) {
                         if (isCancelled) break;
                         try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per batch
+
                             const batchRes = await fetch(`${API_BASE}/api/database/restore/batch?token=${encodeURIComponent(token)}`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ statements: batch }),
+                                signal: controller.signal,
                             });
+                            clearTimeout(timeoutId);
+
                             if (!batchRes.ok) {
                                 const errJson = await batchRes.json().catch(() => ({}));
                                 throw new Error(errJson.message || `Server returned HTTP ${batchRes.status}`);
@@ -428,7 +444,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         } catch (err) {
                             lastErr = err;
                             if (attempt < 3 && !isCancelled) {
-                                if (detailText) detailText.textContent = `Retrying batch ${b + 1} (attempt ${attempt + 1} of 3)...`;
+                                const reason = err.name === 'AbortError' ? 'timeout (20s)' : (err.message || 'connection issue');
+                                if (detailText) detailText.textContent = `Retrying batch ${b + 1} (${reason}, attempt ${attempt + 1} of 3)...`;
                                 await new Promise((r) => setTimeout(r, 1000));
                             }
                         }
