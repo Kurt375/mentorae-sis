@@ -2795,10 +2795,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     stObj.qaWs = parseFloat(s.exam_score);
                 }
 
-                if (!hasDetailedWw && !hasDetailedPt && !hasDetailedQa && (s.average !== null && s.average !== undefined && s.average !== '')) {
-                    const avgNum = parseFloat(s.average);
-                    stObj.initial = Math.round(avgNum * 100) / 100;
-                    stObj.transmuted = transmuteDepEdGrade(avgNum);
+                if (stObj.wwWs !== '' && stObj.wwWs !== undefined && weights.ww > 0 && (stObj.wwPs === '' || stObj.wwPs === undefined)) {
+                    stObj.wwPs = Math.round(((parseFloat(stObj.wwWs) / weights.ww) * 100) * 100) / 100;
+                }
+                if (stObj.ptWs !== '' && stObj.ptWs !== undefined && weights.pt > 0 && (stObj.ptPs === '' || stObj.ptPs === undefined)) {
+                    stObj.ptPs = Math.round(((parseFloat(stObj.ptWs) / weights.pt) * 100) * 100) / 100;
+                }
+                if (stObj.qaWs !== '' && stObj.qaWs !== undefined && weights.qa > 0 && (stObj.qaPs === '' || stObj.qaPs === undefined)) {
+                    stObj.qaPs = Math.round(((parseFloat(stObj.qaWs) / weights.qa) * 100) * 100) / 100;
+                }
+
+                const rawAvg = (s.average !== null && s.average !== undefined && s.average !== '')
+                    ? parseFloat(s.average)
+                    : ((parseFloat(stObj.wwWs) || 0) + (parseFloat(stObj.ptWs) || 0) + (parseFloat(stObj.qaWs) || 0));
+
+                if (!hasDetailedWw && !hasDetailedPt && !hasDetailedQa && rawAvg > 0) {
+                    stObj.initial = Math.round(rawAvg * 100) / 100;
+                    stObj.transmuted = transmuteDepEdGrade(rawAvg);
                     const desc = getDepEdDescriptor(stObj.transmuted);
                     stObj.descriptor = desc.text;
                     stObj.descriptorClass = desc.class;
