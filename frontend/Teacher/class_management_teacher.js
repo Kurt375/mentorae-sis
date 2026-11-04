@@ -356,7 +356,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const currentSec = mySections.find(s => String(s.id) === String(currentSectionId)) || mySections[0];
         if (label && currentSec) {
-            label.textContent = `${currentSec.name}${currentSec.isAdvisory ? ' ★ (Advisory Class)' : ''}`;
+            label.textContent = `${currentSec.name}${currentSec.isAdvisory ? ' ★' : ''}`;
+            const btn = document.getElementById('badgeSectionDropdownBtn');
+            if (btn) {
+                btn.title = `Current Section: ${currentSec.name}${currentSec.isAdvisory ? ' (Official Advisory Class)' : ''}`;
+            }
         }
 
         mySections.forEach(s => {

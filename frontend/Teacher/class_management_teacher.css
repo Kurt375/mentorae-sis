@@ -1717,3 +1717,8 @@ section.docx img,
     background-color: #198754 !important;
     color: #ffffff !important;
 }
+
+#badgeSectionCurrentLabel {
+    max-width: 200px;
+    vertical-align: middle;
+}

@@ -37,7 +37,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <!-- SheetJS for Parsing DepEd E-Class Record (.xlsx / .xlsm) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="class_management_teacher.css?v=20261104-02">
+    <link rel="stylesheet" href="class_management_teacher.css?v=20261104-03">
 </head>
 
 <body class="dashboard-bg">
@@ -310,15 +310,15 @@
 
                         <div class="mb-4">
                             <div
-                                class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-2 flex-wrap">
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <label class="form-label text-muted text-sm fw-medium mb-0">Select Recipient(s)</label>
-                                    <div class="dropdown d-inline-block ms-md-2" id="badgeSectionDropdownWrapper">
-                                        <button class="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-semibold text-dark d-inline-flex align-items-center gap-1.5 shadow-2xs dropdown-toggle"
-                                            type="button" id="badgeSectionDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-2 flex-md-nowrap">
+                                <div class="d-flex align-items-center gap-2 flex-nowrap overflow-hidden">
+                                    <label class="form-label text-muted text-sm fw-medium mb-0 text-nowrap">Select Recipient(s)</label>
+                                    <div class="dropdown d-inline-block ms-1" id="badgeSectionDropdownWrapper">
+                                        <button class="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-semibold text-dark d-inline-flex align-items-center gap-1.5 shadow-2xs dropdown-toggle text-nowrap"
+                                            type="button" id="badgeSectionDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch section / class">
                                             <i class="bi bi-mortarboard-fill text-success" style="font-size: 0.85rem;"></i>
                                             <span class="text-xs text-muted fw-bold text-uppercase">Section:</span>
-                                            <span id="badgeSectionCurrentLabel" class="text-dark fw-semibold">Loading...</span>
+                                            <span id="badgeSectionCurrentLabel" class="text-dark fw-semibold text-truncate d-inline-block align-middle" style="max-width: 200px;">Loading...</span>
                                         </button>
                                         <ul class="dropdown-menu shadow-lg border rounded-3 p-1 mt-1" id="badgeSectionDropdownMenu" style="min-width: 260px; z-index: 1055;">
                                             <!-- Dynamically populated sections -->
@@ -329,15 +329,15 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="btn-group btn-group-sm p-1 bg-light rounded-pill border shadow-2xs"
+                                <div class="btn-group btn-group-sm p-1 bg-light rounded-pill border shadow-2xs flex-shrink-0 text-nowrap"
                                     role="group" id="badgeAwardModeGroup">
                                     <button type="button"
-                                        class="btn btn-sm rounded-pill btn-success fw-semibold px-3 py-1 shadow-xs"
+                                        class="btn btn-sm rounded-pill btn-success fw-semibold px-3 py-1 shadow-xs text-nowrap"
                                         id="btnModeSingleStudent" data-mode="single">
                                         <i class="bi bi-person me-1"></i> Single Student
                                     </button>
                                     <button type="button"
-                                        class="btn btn-sm rounded-pill btn-light text-secondary fw-semibold px-3 py-1"
+                                        class="btn btn-sm rounded-pill btn-light text-secondary fw-semibold px-3 py-1 text-nowrap"
                                         id="btnModeMultipleStudents" data-mode="multiple">
                                         <i class="bi bi-people-fill me-1"></i> Multiple Students
                                     </button>
@@ -1539,7 +1539,7 @@
     <script src="../session.js"></script>
     <script src="../avatar_cropper.js"></script>
     <script src="report_card_logos.js"></script>
-    <script src="class_management_teacher.js?v=20261104-02"></script>
+    <script src="class_management_teacher.js?v=20261104-03"></script>
 </body>
 
 </html>
