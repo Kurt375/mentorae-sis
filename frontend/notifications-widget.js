@@ -147,11 +147,11 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
                 <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
                     <div class="modal-header bg-dark text-white py-3 px-4 border-0">
-                        <div class="d-flex align-items-center gap-2.5">
-                            <div class="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                <i class="bi bi-bell-fill text-white fs-5"></i>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm" style="width: 42px; height: 42px;">
+                                <i class="bi bi-bell-fill fs-5 text-white"></i>
                             </div>
-                            <div>
+                            <div class="ms-1">
                                 <div class="d-flex align-items-center gap-2">
                                     <h5 class="modal-title fw-bold fs-6 m-0 text-white" id="mentoraeNotificationsModalLabel">Notification Center</h5>
                                     <span class="badge bg-danger rounded-pill px-2 py-0.5 micro-text" id="modalNotifUnreadBadge" style="display: none;">0 New</span>
