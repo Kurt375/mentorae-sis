@@ -91,6 +91,119 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         document.head.appendChild(style);
     }
 
+    // Inject Notification Center Modal styles
+    if (!document.getElementById('mentorae-notif-modal-styles')) {
+        const modalStyle = document.createElement('style');
+        modalStyle.id = 'mentorae-notif-modal-styles';
+        modalStyle.textContent = `
+            .notif-modal-card {
+                transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+                border-radius: 12px;
+            }
+            .notif-modal-card:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            }
+            .btn-expand-notifications {
+                transition: all 0.2s ease;
+                border-color: #cbd5e1;
+                color: #64748b;
+            }
+            .btn-expand-notifications:hover {
+                background-color: #f1f5f9;
+                color: #0f172a;
+                border-color: #94a3b8;
+                transform: scale(1.08);
+            }
+            #modalNotifList::-webkit-scrollbar {
+                width: 6px;
+            }
+            #modalNotifList::-webkit-scrollbar-track {
+                background: #f8fafc;
+                border-radius: 4px;
+            }
+            #modalNotifList::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 4px;
+            }
+            #modalNotifList::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+        `;
+        document.head.appendChild(modalStyle);
+    }
+
+    // Inject Notification Center Modal into body if not already present
+    let modalEl = document.getElementById('mentoraeNotificationsModal');
+    if (!modalEl) {
+        modalEl = document.createElement('div');
+        modalEl.className = 'modal fade';
+        modalEl.id = 'mentoraeNotificationsModal';
+        modalEl.tabIndex = -1;
+        modalEl.setAttribute('aria-labelledby', 'mentoraeNotificationsModalLabel');
+        modalEl.setAttribute('aria-hidden', 'true');
+        modalEl.style.zIndex = '1095';
+        modalEl.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+                    <div class="modal-header bg-dark text-white py-3 px-4 border-0">
+                        <div class="d-flex align-items-center gap-2.5">
+                            <div class="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                <i class="bi bi-bell-fill text-white fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <h5 class="modal-title fw-bold fs-6 m-0 text-white" id="mentoraeNotificationsModalLabel">Notification Center</h5>
+                                    <span class="badge bg-danger rounded-pill px-2 py-0.5 micro-text" id="modalNotifUnreadBadge" style="display: none;">0 New</span>
+                                </div>
+                                <span class="micro-text text-white-50" id="modalNotifSubtitle">Comprehensive alert logs and school updates</span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 micro-text fw-semibold d-inline-flex align-items-center gap-1 shadow-2xs" id="modalMarkAllReadBtn">
+                                <i class="bi bi-check2-all"></i> Mark all as read
+                            </button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-light border-bottom">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-7">
+                                <div class="nav nav-pills nav-fill bg-white p-1 rounded-pill border shadow-2xs" id="modalNotifTabs" role="tablist">
+                                    <button class="nav-link active py-1 px-3 rounded-pill micro-text fw-bold text-dark" data-filter="all" type="button">All (<span id="modalTabCountAll">0</span>)</button>
+                                    <button class="nav-link py-1 px-3 rounded-pill micro-text fw-semibold text-secondary" data-filter="attendance" type="button">Attendance (<span id="modalTabCountAttendance">0</span>)</button>
+                                    <button class="nav-link py-1 px-3 rounded-pill micro-text fw-semibold text-secondary" data-filter="announcement" type="button">Announcements (<span id="modalTabCountAnnouncements">0</span>)</button>
+                                    <button class="nav-link py-1 px-3 rounded-pill micro-text fw-semibold text-secondary" data-filter="other" id="modalTabOther" type="button">Other (<span id="modalTabCountOther">0</span>)</button>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-5">
+                                <div class="input-group input-group-sm shadow-2xs rounded-pill">
+                                    <span class="input-group-text bg-white border-end-0 text-muted rounded-start-pill ps-3">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm bg-white border-start-0 rounded-end-pill pe-3" id="modalNotifSearchInput" placeholder="Search notifications...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-body p-3 bg-light" style="min-height: 360px; max-height: 520px; overflow-y: auto;" id="modalNotifList">
+                    </div>
+
+                    <div class="modal-footer bg-white py-2.5 px-4 d-flex justify-content-between border-top">
+                        <div class="d-flex align-items-center gap-2 micro-text text-muted" id="modalNotifFooterLinks">
+                            <i class="bi bi-shield-check text-success"></i> Mentorae Student Information System
+                        </div>
+                        <button type="button" class="btn btn-sm btn-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalEl);
+    }
+
+
     let toastContainer = document.getElementById('mentoraeToastContainer');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -276,6 +389,121 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         panel.style.width = `${panelWidth}px`;
     }
 
+    
+    let currentUnifiedList = [];
+    let activeModalFilter = 'all';
+    let modalSearchQuery = '';
+
+    function openNotificationCenterModal() {
+        panel.classList.add('d-none');
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modalInstance.show();
+        } else {
+            modalEl.classList.add('show');
+            modalEl.style.display = 'block';
+        }
+
+        const unreadBadge = document.getElementById('modalNotifUnreadBadge');
+        if (unreadBadge) {
+            unreadBadge.textContent = `${totalUnreadCount} New`;
+            unreadBadge.style.display = totalUnreadCount > 0 ? 'inline-block' : 'none';
+        }
+
+        renderModalNotifications();
+    }
+
+    function renderModalNotifications() {
+        const listEl = document.getElementById('modalNotifList');
+        if (!listEl) return;
+
+        const countAll = document.getElementById('modalTabCountAll');
+        const countAtt = document.getElementById('modalTabCountAttendance');
+        const countAnn = document.getElementById('modalTabCountAnnouncements');
+        const countOth = document.getElementById('modalTabCountOther');
+
+        if (countAll) countAll.textContent = String(currentUnifiedList.length);
+        if (countAtt) countAtt.textContent = String(currentUnifiedList.filter(i => i.category === 'attendance').length);
+        if (countAnn) countAnn.textContent = String(currentUnifiedList.filter(i => i.category === 'announcement').length);
+        if (countOth) countOth.textContent = String(currentUnifiedList.filter(i => i.category === 'other').length);
+
+        const q = String(modalSearchQuery || '').trim().toLowerCase();
+        let filtered = currentUnifiedList;
+
+        if (activeModalFilter !== 'all') {
+            filtered = filtered.filter(i => i.category === activeModalFilter);
+        }
+
+        if (q) {
+            filtered = filtered.filter(i => {
+                const title = (i.title || '').toLowerCase();
+                const msg = (i.message || '').toLowerCase();
+                const type = (i.badgeLabel || '').toLowerCase();
+                return title.includes(q) || msg.includes(q) || type.includes(q);
+            });
+        }
+
+        if (!filtered.length) {
+            listEl.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-bell-slash fs-2 d-block mb-2 text-secondary opacity-50"></i>
+                    <p class="m-0 text-sm fw-semibold">No notifications found</p>
+                    <p class="m-0 micro-text text-muted">Try switching tabs or searching with another keyword.</p>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(item => {
+            const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : 'Recently';
+
+            return `
+                <div class="notif-modal-card p-3 mb-2.5 border bg-white shadow-2xs position-relative ${!item.is_read ? 'border-success-subtle' : ''}" style="${!item.is_read ? 'background-color: #f7fdf9 !important;' : ''}">
+                    <div class="d-flex align-items-start justify-content-between gap-3">
+                        <div class="d-flex align-items-start gap-3 flex-grow-1">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 shadow-2xs" 
+                                 style="width: 44px; height: 44px; background: ${item.iconBg}; color: ${item.iconColor}; font-size: 1.25rem;">
+                                <i class="bi ${item.iconClass}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge ${item.badgeClass} micro-text fw-bold">${item.badgeLabel}</span>
+                                        ${!item.is_read ? '<span class="badge bg-danger rounded-pill micro-text px-1.5 py-0.5">NEW</span>' : ''}
+                                    </div>
+                                    <span class="micro-text text-muted"><i class="bi bi-clock me-1"></i>${dateStr} (${timeAgo(item.created_at)})</span>
+                                </div>
+                                <h6 class="fw-bold text-dark mb-1 fs-6">${item.title}</h6>
+                                <p class="text-secondary small mb-2" style="white-space: pre-line;">${item.message}</p>
+                                ${item.actionUrl ? `
+                                    <a href="${item.actionUrl}" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 micro-text fw-bold text-decoration-none d-inline-flex align-items-center gap-1 modal-notif-action-btn" data-id="${item.id}">
+                                        ${item.actionLabel}
+                                    </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Wire modal action clicks
+        listEl.querySelectorAll('.modal-notif-action-btn').forEach(a => {
+            a.addEventListener('click', async () => {
+                const id = a.dataset.id;
+                if (id && !String(id).startsWith('topic_') && !String(id).startsWith('ann_')) {
+                    try {
+                        await authedFetch(`/api/notifications/${id}/read`, token, { method: 'PATCH' });
+                    } catch (err) {}
+                }
+            });
+        });
+    }
+
+    let totalUnreadCount = 0;
+
     function timeAgo(dateStr) {
         if (!dateStr) return 'recently';
         const diffMin = Math.round((Date.now() - new Date(dateStr)) / 60000);
@@ -387,6 +615,146 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
 
         const effectiveApiUnread = filteredApiNotifications.filter(n => !n.is_read).length;
         const totalUnread = effectiveApiUnread + pendingTopicRequests.length + unseenAnnCount;
+        totalUnreadCount = totalUnread;
+
+        // Build unified list for Modal
+        const unified = [];
+        if (userRole === 'admin' && pendingTopicRequests.length > 0) {
+            pendingTopicRequests.forEach(req => {
+                const title = req.topicData ? req.topicData.title : 'New Topic Request';
+                const subject = req.subjectName || 'Subject';
+                const requester = req.requester || 'Teacher';
+                const reqId = req.id || req.requestedAt || '';
+                unified.push({
+                    id: `topic_${reqId}`,
+                    category: 'other',
+                    type: 'topic_request',
+                    badgeLabel: 'Topic Request',
+                    badgeClass: 'bg-success-subtle text-success border border-success-subtle',
+                    iconClass: 'bi-journal-arrow-up',
+                    iconBg: '#d5ebd5',
+                    iconColor: '#1f6e1f',
+                    title: `Topic Request: ${title}`,
+                    message: `Teacher ${requester} submitted a new topic request for subject: ${subject}.`,
+                    created_at: req.requestedAt || new Date().toISOString(),
+                    is_read: false,
+                    actionUrl: `${topicRequestsUrl}?highlightRequest=${encodeURIComponent(reqId)}`,
+                    actionLabel: 'Review & Confirm Topic →'
+                });
+            });
+        }
+
+        filteredApiNotifications.forEach(n => {
+            const isAttendance = (n.type || '').includes('attendance') || (n.title || '').toLowerCase().includes('attendance');
+            const isTopicApproved = n.type === 'topic_approved';
+            const isTopicRejected = n.type === 'topic_rejected';
+            const isIntervention = (n.type || '').includes('intervention') || (n.title || '').toLowerCase().includes('intervention') || (n.title || '').toLowerCase().includes('lesson assigned');
+            const isBadge = (n.type || '').includes('badge');
+
+            let category = 'other';
+            let badgeLabel = n.type ? n.type.replace('_', ' ') : 'Notice';
+            let badgeClass = 'bg-primary-subtle text-primary border-primary-subtle';
+            let iconClass = 'bi-bell-fill';
+            let iconBg = '#e2f0d9';
+            let iconColor = '#2b7536';
+            let actionUrl = '';
+            let actionLabel = '';
+
+            if (isAttendance) {
+                category = 'attendance';
+                badgeLabel = 'Attendance';
+                badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+                iconClass = 'bi-calendar-check-fill';
+                iconBg = '#d5ebd5';
+                iconColor = '#1f6e1f';
+                if (userRole === 'parent') {
+                    actionUrl = parentAttendanceUrl;
+                    actionLabel = "View Child's Attendance →";
+                } else if (userRole === 'student') {
+                    actionUrl = studentAttendanceUrl;
+                    actionLabel = "View My Attendance →";
+                } else if (userRole === 'teacher') {
+                    actionUrl = teacherAttendanceUrl;
+                    actionLabel = "Open Attendance Confirmation →";
+                }
+            } else if (isIntervention) {
+                category = 'other';
+                badgeLabel = 'Intervention Lesson';
+                badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+                iconClass = 'bi-journal-check';
+                iconBg = '#d5ebd5';
+                iconColor = '#1f6e1f';
+                actionUrl = 'dashboard_student.html#my-recommendations';
+                actionLabel = "View Assigned Lesson →";
+            } else if (isTopicApproved) {
+                category = 'other';
+                badgeLabel = 'Topic Approved';
+                badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+                iconClass = 'bi-check-circle-fill';
+                iconBg = '#d5ebd5';
+                iconColor = '#1f6e1f';
+            } else if (isTopicRejected) {
+                category = 'other';
+                badgeLabel = 'Not Approved';
+                badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
+                iconClass = 'bi-x-circle-fill';
+                iconBg = '#ffe5e5';
+                iconColor = '#dc3545';
+            } else if (isBadge) {
+                category = 'other';
+                badgeLabel = 'Merit Badge';
+                badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                iconClass = 'bi-award-fill';
+                iconBg = '#fef2cb';
+                iconColor = '#b27a00';
+            }
+
+            unified.push({
+                id: n.id,
+                category,
+                type: n.type,
+                badgeLabel,
+                badgeClass,
+                iconClass,
+                iconBg,
+                iconColor,
+                title: n.title,
+                message: n.message,
+                created_at: n.created_at,
+                is_read: !!n.is_read,
+                actionUrl,
+                actionLabel
+            });
+        });
+
+        allAnnouncements.forEach(a => {
+            const isNew = Number(a.id) > lastSeenId;
+            unified.push({
+                id: `ann_${a.id}`,
+                category: 'announcement',
+                type: 'announcement',
+                badgeLabel: a.type || 'Announcement',
+                badgeClass: 'bg-warning-subtle text-dark border border-warning-subtle',
+                iconClass: 'bi-megaphone-fill',
+                iconBg: '#fff2cc',
+                iconColor: '#b27a00',
+                title: a.title,
+                message: a.description,
+                created_at: a.created_at || a.event_date || new Date().toISOString(),
+                is_read: !isNew,
+                actionUrl: announcementsUrl,
+                actionLabel: 'Read Announcement →'
+            });
+        });
+
+        unified.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        currentUnifiedList = unified;
+
+        // If modal is currently open, re-render it live
+        const modalObj = document.getElementById('mentoraeNotificationsModal');
+        if (modalObj && modalObj.classList.contains('show')) {
+            renderModalNotifications();
+        }
 
         // Trigger Floating Pop-up Toast for new unread notifications
         const unreadList = filteredApiNotifications.filter(n => !n.is_read);
@@ -437,6 +805,9 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             panel.innerHTML = `
                 <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light" style="border-radius: 12px 12px 0 0;">
                     <h6 class="m-0 fw-bold text-dark"><i class="bi bi-bell-fill text-success me-2"></i>Notifications</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-2xs btn-expand-notifications" title="Open Full Notification Center" style="width: 26px; height: 26px; padding: 0;">
+                        <i class="bi bi-arrows-angle-expand" style="font-size: 0.72rem;"></i>
+                    </button>
                 </div>
                 <div class="p-4 text-center text-muted small">
                     <i class="bi bi-bell-slash fs-3 d-block mb-2 text-secondary opacity-50"></i>
@@ -452,7 +823,12 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                     <h6 class="m-0 fw-bold text-dark"><i class="bi bi-bell-fill text-success me-1"></i>Notifications</h6>
                     ${totalUnread > 0 ? `<span class="badge bg-danger rounded-pill">${totalUnread} New</span>` : ''}
                 </div>
-                ${(effectiveApiUnread > 0 || unseenAnnCount > 0) ? `<button class="btn btn-link btn-sm p-0 micro-text text-decoration-none text-muted" id="markAllReadBtn"><i class="bi bi-check2-all me-1"></i>Mark all read</button>` : ''}
+                <div class="d-flex align-items-center gap-2">
+                    ${(effectiveApiUnread > 0 || unseenAnnCount > 0) ? `<button class="btn btn-link btn-sm p-0 micro-text text-decoration-none text-muted" id="markAllReadBtn" title="Mark all as read"><i class="bi bi-check2-all"></i> Mark read</button>` : ''}
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-2xs btn-expand-notifications" title="Open Full Notification Center" style="width: 26px; height: 26px; padding: 0;">
+                        <i class="bi bi-arrows-angle-expand" style="font-size: 0.72rem;"></i>
+                    </button>
+                </div>
             </div>
             <div class="notif-list-container">
         `;
@@ -642,7 +1018,23 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             `;
         }
 
+        panelHtml += `
+            <div class="py-2 px-3 bg-white border-top text-center" style="border-radius: 0 0 12px 12px;">
+                <button type="button" class="btn btn-link btn-sm p-0 micro-text text-success fw-bold text-decoration-none d-inline-flex align-items-center gap-1 btn-expand-notifications">
+                    <i class="bi bi-arrows-fullscreen"></i> Open Notification Center (Full View) &rarr;
+                </button>
+            </div>
+        `;
         panel.innerHTML = panelHtml;
+
+        // Wire expand buttons to open the Notification Center Modal
+        panel.querySelectorAll('.btn-expand-notifications').forEach(b => {
+            b.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openNotificationCenterModal();
+            });
+        });
 
         // Wire announcement item clicks to mark seen before navigating
         panel.querySelectorAll('.notif-ann-link').forEach(item => {
@@ -784,5 +1176,55 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
     window.addEventListener('focus', refresh);
 
     refresh();
+    
+    const modalTabsContainer = document.getElementById('modalNotifTabs');
+    if (modalTabsContainer) {
+        modalTabsContainer.querySelectorAll('button').forEach(tabBtn => {
+            tabBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                modalTabsContainer.querySelectorAll('button').forEach(b => {
+                    b.classList.remove('active', 'text-dark', 'fw-bold');
+                    b.classList.add('text-secondary', 'fw-semibold');
+                });
+                tabBtn.classList.add('active', 'text-dark', 'fw-bold');
+                tabBtn.classList.remove('text-secondary', 'fw-semibold');
+                activeModalFilter = tabBtn.dataset.filter || 'all';
+                renderModalNotifications();
+            });
+        });
+    }
+
+    const modalSearchInp = document.getElementById('modalNotifSearchInput');
+    if (modalSearchInp) {
+        modalSearchInp.addEventListener('input', (e) => {
+            modalSearchQuery = e.target.value;
+            renderModalNotifications();
+        });
+    }
+
+    const modalMarkAllReadBtn = document.getElementById('modalMarkAllReadBtn');
+    if (modalMarkAllReadBtn) {
+        modalMarkAllReadBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (typeof markAnnouncementsAsSeen === 'function') {
+                markAnnouncementsAsSeen(latestAnnouncementList.length ? latestAnnouncementList : allAnnouncements);
+            }
+            if (token) {
+                try {
+                    await authedFetch('/api/notifications/read-all', token, { method: 'PATCH' });
+                    currentApiUnread = 0;
+                } catch (err) {
+                    console.error('Error marking all read:', err);
+                }
+            }
+            currentUnifiedList.forEach(item => item.is_read = true);
+            totalUnreadCount = 0;
+            const unreadBadge = document.getElementById('modalNotifUnreadBadge');
+            if (unreadBadge) unreadBadge.style.display = 'none';
+            renderModalNotifications();
+            await refresh();
+        });
+    }
+
     setInterval(refresh, 10000);
 }
