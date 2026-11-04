@@ -2752,6 +2752,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ];
             }
 
+            // Helper function to synthesize sub-activity scores across columns based on component weighted score
+            function synthesizeSubScores(compWs, compWeight, cols) {
+                if (compWs === null || compWs === undefined || compWs === '' || isNaN(compWs) || compWeight <= 0 || !cols || !cols.length) {
+                    return [];
+                }
+                const wsNum = parseFloat(compWs);
+                if (wsNum <= 0) {
+                    return cols.map(() => 0);
+                }
+                const totalHps = cols.reduce((sum, c) => sum + (parseFloat(c.max) || 0), 0);
+                if (totalHps <= 0) return [];
+
+                let targetRawTotal = (wsNum / compWeight) * totalHps;
+                targetRawTotal = Math.min(totalHps, Math.max(0, targetRawTotal));
+
+                const scores = [];
+                let allocated = 0;
+                for (let i = 0; i < cols.length; i++) {
+                    const colMax = parseFloat(cols[i].max) || (totalHps / cols.length);
+                    if (i === cols.length - 1) {
+                        const remainder = Math.min(colMax, Math.max(0, Math.round((targetRawTotal - allocated) * 10) / 10));
+                        scores.push(remainder);
+                    } else {
+                        const share = Math.min(colMax, Math.round(((targetRawTotal * colMax) / totalHps) * 10) / 10);
+                        scores.push(share);
+                        allocated += share;
+                    }
+                }
+                return scores;
+            }
+
             // Populate activeGradeBreakdown.students
             activeGradeBreakdown.students = {};
             data.roster.forEach(s => {
@@ -2760,9 +2791,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     try { raw = JSON.parse(raw); } catch (e) { raw = null; }
                 }
 
-                const wwScores = (raw && raw.scores && Array.isArray(raw.scores.ww)) ? raw.scores.ww : [];
-                const ptScores = (raw && raw.scores && Array.isArray(raw.scores.pt)) ? raw.scores.pt : [];
-                const qaScores = (raw && raw.scores && Array.isArray(raw.scores.qa)) ? raw.scores.qa : [];
+                let wwScores = (raw && raw.scores && Array.isArray(raw.scores.ww)) ? raw.scores.ww : [];
+                let ptScores = (raw && raw.scores && Array.isArray(raw.scores.pt)) ? raw.scores.pt : [];
+                let qaScores = (raw && raw.scores && Array.isArray(raw.scores.qa)) ? raw.scores.qa : [];
+
+                const hasDetailedWw = wwScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
+                const hasDetailedPt = ptScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
+                const hasDetailedQa = qaScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
+
+                if (!hasDetailedWw && s.quiz_score !== null && s.quiz_score !== undefined && s.quiz_score !== '') {
+                    wwScores = synthesizeSubScores(s.quiz_score, weights.ww, activeGradeBreakdown.wwCols);
+                }
+                if (!hasDetailedPt && s.activity_score !== null && s.activity_score !== undefined && s.activity_score !== '') {
+                    ptScores = synthesizeSubScores(s.activity_score, weights.pt, activeGradeBreakdown.ptCols);
+                }
+                if (!hasDetailedQa && s.exam_score !== null && s.exam_score !== undefined && s.exam_score !== '') {
+                    qaScores = synthesizeSubScores(s.exam_score, weights.qa, activeGradeBreakdown.qaCols);
+                }
 
                 const stObj = {
                     studentId: s.studentId || s.id,
