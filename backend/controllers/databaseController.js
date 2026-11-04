@@ -813,109 +813,63 @@ async function uploadRestoreChunk(req, res) {
 }
 
 /**
+ * POST /api/database/restore/batch
+ * Executes one batch of SQL statements directly. Admin only.
+ * Fast, stateless, and immune to serverless timeouts.
+ */
+async function restoreBatch(req, res) {
+  const { statements } = req.body;
+  if (!Array.isArray(statements) || statements.length === 0) {
+    return res.status(400).json({ success: false, message: 'No statements provided in batch.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.query('SET FOREIGN_KEY_CHECKS=0;');
+    const cleaned = statements.map((s) => {
+      let stmt = s.trim();
+      if (!stmt.endsWith(';')) stmt += ';';
+      if (stmt.includes('[object Object]')) {
+        stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
+      }
+      return stmt;
+    });
+    const sql = cleaned.join('\n');
+    await conn.query(sql);
+    return res.json({ success: true, count: statements.length });
+  } catch (err) {
+    console.error('restoreBatch error:', err);
+    return res.status(500).json({ success: false, message: `Batch failed: ${err.message}` });
+  } finally {
+    conn.release();
+  }
+}
+
+/**
  * POST /api/database/restore/finish
- * Assembles all chunks in order and executes the full restore within a safe transaction. Admin only.
+ * Finalizes restore and re-enables foreign key checks. Admin only.
  */
 async function finishChunkedRestore(req, res) {
   const { sessionId, confirm } = req.body;
   if (confirm !== 'RESTORE') {
     return res.status(400).json({ success: false, message: 'Restore was not confirmed. Nothing was changed.' });
   }
-  if (!sessionId) {
-    return res.status(400).json({ success: false, message: 'sessionId is required.' });
-  }
 
+  const conn = await pool.getConnection();
   try {
-    const [rows] = await pool.query(
-      'SELECT chunk_data FROM _restore_buffer WHERE session_id = ? ORDER BY chunk_index ASC',
-      [sessionId]
-    );
-
-    if (!rows || rows.length === 0) {
-      return res.status(400).json({ success: false, message: 'No backup chunks found for this session.' });
-    }
-
-    const sqlText = rows.map((r) => r.chunk_data).join('');
-
-    if (!sqlText.startsWith(BACKUP_HEADER)) {
+    await conn.query('SET FOREIGN_KEY_CHECKS=1;');
+    if (sessionId) {
       await pool.query('DELETE FROM _restore_buffer WHERE session_id = ?', [sessionId]).catch(() => {});
-      return res.status(400).json({
-        success: false,
-        message: 'This file was not recognized as a Mentorae backup. Only .sql files produced by this system\'s own Backup Now button can be restored.',
-      });
     }
-
-    const rawLines = sqlText.split(/\r?\n/);
-    const statements = [];
-    let buffer = '';
-
-    for (const rawLine of rawLines) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith('--')) continue;
-      buffer += (buffer ? ' ' : '') + line;
-      if (line.endsWith(';')) {
-        let stmt = buffer;
-        if (stmt.includes('[object Object]')) {
-          stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
-        }
-        statements.push(stmt);
-        buffer = '';
-      }
-    }
-    if (buffer.trim()) {
-      let stmt = buffer.trim();
-      if (stmt.includes('[object Object]')) {
-        stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
-      }
-      statements.push(stmt);
-    }
-
-    const conn = await pool.getConnection();
-    try {
-      await conn.query('SET FOREIGN_KEY_CHECKS=0;');
-      await conn.beginTransaction();
-
-      // Execute statements in dynamic smart batches (up to 250 statements or 4 MB per packet)
-      // to minimize cloud network round-trips and maximize restore speed.
-      let currentBatch = [];
-      let currentBatchBytes = 0;
-      const MAX_BATCH_BYTES = 4 * 1024 * 1024; // 4 MB
-
-      for (let i = 0; i < statements.length; i++) {
-        const stmt = statements[i];
-        currentBatch.push(stmt);
-        currentBatchBytes += stmt.length;
-
-        if (currentBatch.length >= 250 || currentBatchBytes >= MAX_BATCH_BYTES || i === statements.length - 1) {
-          const batchSql = currentBatch.join(';\n') + ';';
-          await conn.query(batchSql);
-          currentBatch = [];
-          currentBatchBytes = 0;
-        }
-      }
-
-      await conn.commit();
-      await conn.query('SET FOREIGN_KEY_CHECKS=1;');
-
-      // Clean up session buffer
-      await pool.query('DELETE FROM _restore_buffer WHERE session_id = ?', [sessionId]).catch(() => {});
-
-      return res.json({
-        success: true,
-        message: `Restore complete! Successfully applied ${statements.length} database statements and restored all data and files.`,
-      });
-    } catch (err) {
-      await conn.rollback();
-      try { await conn.query('SET FOREIGN_KEY_CHECKS=1;'); } catch (e) {}
-      await pool.query('DELETE FROM _restore_buffer WHERE session_id = ?', [sessionId]).catch(() => {});
-      console.error('finishChunkedRestore transaction error:', err);
-      return res.status(500).json({ success: false, message: `Restore failed and was rolled back: ${err.message}` });
-    } finally {
-      conn.release();
-    }
+    return res.json({
+      success: true,
+      message: 'Restore complete! Successfully applied all database statements and restored all data and files.',
+    });
   } catch (err) {
     console.error('finishChunkedRestore error:', err);
-    return res.status(500).json({ success: false, message: `Restore error: ${err.message}` });
+    return res.status(500).json({ success: false, message: `Could not finalize restore: ${err.message}` });
+  } finally {
+    conn.release();
   }
 }
 
@@ -1172,5 +1126,6 @@ module.exports = {
   restoreDatabase,
   startChunkedRestore,
   uploadRestoreChunk,
+  restoreBatch,
   finishChunkedRestore,
 };

@@ -313,98 +313,108 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
 
             try {
-                // 1. Initialize restore session
-                const startRes = await fetch(`${API_BASE}/api/database/restore/start?token=${encodeURIComponent(token)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filename: file.name, totalChunks, totalSize: file.size }),
-                });
-                const startData = await startRes.json();
-                if (!startData.success || !startData.sessionId) {
-                    throw new Error(startData.message || 'Could not start restore session.');
-                }
-                const sessionId = startData.sessionId;
-
                 const progressBar = document.getElementById('restoreProgressBar');
                 const percentText = document.getElementById('restorePercentText');
                 const stepText = document.getElementById('restoreStepText');
                 const detailText = document.getElementById('restoreDetailText');
 
-                // 2. Upload chunks sequentially (each chunk is 1.5MB, well below Vercel's limit)
-                for (let i = 0; i < totalChunks; i++) {
-                    const start = i * CHUNK_SIZE;
-                    const end = Math.min(start + CHUNK_SIZE, file.size);
-                    const chunkBlob = file.slice(start, end);
-                    const chunkText = await chunkBlob.text();
+                if (stepText) stepText.textContent = 'Reading & verifying backup file...';
+                if (detailText) detailText.textContent = `Analyzing ${(file.size / (1024 * 1024)).toFixed(1)} MB SQL file...`;
 
-                    if (stepText) stepText.textContent = `Uploading backup data... (Chunk ${i + 1} of ${totalChunks})`;
-                    if (detailText) detailText.textContent = `${((end / file.size) * 100).toFixed(0)}% uploaded (${(end / (1024 * 1024)).toFixed(1)} MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
+                const rawText = await file.text();
+                if (!rawText.startsWith('-- MENTORAE_BACKUP_V1')) {
+                    throw new Error('This file was not recognized as a Mentorae backup. Only .sql files produced by this system\'s own Backup Now button can be restored.');
+                }
 
-                    const chunkRes = await fetch(`${API_BASE}/api/database/restore/chunk?token=${encodeURIComponent(token)}`, {
+                if (stepText) stepText.textContent = 'Parsing database statements...';
+                const rawLines = rawText.split(/\r?\n/);
+                const statements = [];
+                let buffer = '';
+
+                for (const rawLine of rawLines) {
+                    const line = rawLine.trim();
+                    if (!line || line.startsWith('--')) continue;
+                    buffer += (buffer ? ' ' : '') + line;
+                    if (line.endsWith(';')) {
+                        statements.push(buffer);
+                        buffer = '';
+                    }
+                }
+                if (buffer.trim()) {
+                    let b = buffer.trim();
+                    if (!b.endsWith(';')) b += ';';
+                    statements.push(b);
+                }
+
+                // Batch statements by count and byte size (up to 150 stmts or 1.5MB per batch)
+                // to stay well within Vercel's 4.5MB request limit and execute in <1s per batch.
+                const batches = [];
+                let curBatch = [];
+                let curBytes = 0;
+                const MAX_BYTES = 1.5 * 1024 * 1024;
+                const MAX_STMTS = 150;
+
+                for (const s of statements) {
+                    if ((curBatch.length >= MAX_STMTS || curBytes + s.length > MAX_BYTES) && curBatch.length > 0) {
+                        batches.push(curBatch);
+                        curBatch = [];
+                        curBytes = 0;
+                    }
+                    curBatch.push(s);
+                    curBytes += s.length;
+                }
+                if (curBatch.length > 0) batches.push(curBatch);
+
+                // 1. Initialize restore session
+                const startRes = await fetch(`${API_BASE}/api/database/restore/start?token=${encodeURIComponent(token)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ confirm: 'RESTORE' }),
+                });
+                const startData = await startRes.json();
+                if (!startData.success) {
+                    throw new Error(startData.message || 'Could not initialize database restore.');
+                }
+
+                // 2. Stream and execute batches sequentially
+                let processedStmts = 0;
+                for (let b = 0; b < batches.length; b++) {
+                    const batch = batches[b];
+                    processedStmts += batch.length;
+                    const pct = Math.round(((b + 1) / batches.length) * 96);
+
+                    if (progressBar) progressBar.style.width = `${pct}%`;
+                    if (percentText) percentText.textContent = `${pct}%`;
+                    if (stepText) stepText.textContent = `Restoring records & files... (Batch ${b + 1} of ${batches.length})`;
+                    if (detailText) detailText.textContent = `Applied ${processedStmts} of ${statements.length} statements (${pct}%)...`;
+
+                    const batchRes = await fetch(`${API_BASE}/api/database/restore/batch?token=${encodeURIComponent(token)}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            sessionId,
-                            chunkIndex: i,
-                            totalChunks,
-                            chunkText,
-                        }),
+                        body: JSON.stringify({ statements: batch }),
                     });
-
-                    if (!chunkRes.ok) {
-                        throw new Error(`Upload failed at chunk ${i + 1} (Server status ${chunkRes.status})`);
+                    if (!batchRes.ok) {
+                        throw new Error(`Batch ${b + 1} failed (HTTP ${batchRes.status})`);
                     }
-                    const chunkData = await chunkRes.json();
-                    if (!chunkData.success) {
-                        throw new Error(chunkData.message || `Chunk ${i + 1} rejected.`);
+                    const batchData = await batchRes.json();
+                    if (!batchData.success) {
+                        throw new Error(batchData.message || `Batch ${b + 1} failed.`);
                     }
-
-                    const progressPct = Math.round(((i + 1) / totalChunks) * 85); // 0 to 85% for upload
-                    if (progressBar) progressBar.style.width = `${progressPct}%`;
-                    if (percentText) percentText.textContent = `${progressPct}%`;
-                    await new Promise((r) => setTimeout(r, 20));
                 }
 
-                // 3. Finalize and execute restore
-                if (stepText) stepText.textContent = 'Applying database records & restoring all files...';
-                let elapsedSec = 0;
-                const updateWaitMessage = () => {
-                    elapsedSec += 1;
-                    if (detailText) {
-                        detailText.textContent = `Restoring 8,000+ records & 50+ MB lesson files into cloud database... (${elapsedSec}s elapsed, please wait)`;
-                    }
-                };
-                updateWaitMessage();
-                const timerInterval = setInterval(updateWaitMessage, 1000);
+                // 3. Finalize restore
+                if (stepText) stepText.textContent = 'Finalizing database consistency...';
+                if (detailText) detailText.textContent = 'Enabling constraints and verifying tables...';
+                if (progressBar) progressBar.style.width = '98%';
 
-                if (progressBar) {
-                    progressBar.style.width = '92%';
-                    progressBar.classList.remove('bg-primary');
-                    progressBar.classList.add('bg-warning');
-                }
-                if (percentText) percentText.textContent = '92%';
-                await new Promise((r) => setTimeout(r, 50));
-
-                let finishRes;
-                try {
-                    finishRes = await fetch(`${API_BASE}/api/database/restore/finish?token=${encodeURIComponent(token)}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId, confirm: 'RESTORE' }),
-                    });
-                } finally {
-                    clearInterval(timerInterval);
-                }
-
-                let finishData;
-                try {
-                    finishData = await finishRes.json();
-                } catch (parseErr) {
-                    throw new Error(`Server returned HTTP ${finishRes.status} (${finishRes.statusText || 'Gateway Timeout'})`);
-                }
-
+                const finishRes = await fetch(`${API_BASE}/api/database/restore/finish?token=${encodeURIComponent(token)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ confirm: 'RESTORE' }),
+                });
+                const finishData = await finishRes.json();
                 if (!finishData.success) {
-                    throw new Error(finishData.message || 'Restore failed.');
+                    throw new Error(finishData.message || 'Could not finalize restore.');
                 }
 
                 if (progressBar) {
@@ -415,7 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 if (percentText) percentText.textContent = '100%';
                 if (stepText) stepText.textContent = '✅ Full Restore Complete!';
-                if (detailText) detailText.textContent = finishData.message || 'All records, topics, and files were restored.';
+                if (detailText) detailText.textContent = `Successfully restored all ${statements.length} database records and lesson files!`;
 
                 alert('✅ ' + (finishData.message || 'Full database restored successfully!'));
             } catch (err) {

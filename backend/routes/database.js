@@ -27,6 +27,7 @@ const {
   restoreDatabase,
   startChunkedRestore,
   uploadRestoreChunk,
+  restoreBatch,
   finishChunkedRestore,
 } = require('../controllers/databaseController');
 
@@ -68,6 +69,7 @@ router.get('/backup', backupDatabase);
 router.post('/restore', upload.single('backupFile'), restoreDatabase);
 router.post('/restore/start', startChunkedRestore);
 router.post('/restore/chunk', uploadRestoreChunk);
+router.post('/restore/batch', restoreBatch);
 router.post('/restore/finish', finishChunkedRestore);
 
 module.exports = router;
