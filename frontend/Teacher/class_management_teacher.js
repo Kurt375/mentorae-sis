@@ -2826,10 +2826,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Fallback: If no sub-activity scores are recorded, but stored component totals exist in the database,
                 // populate the summary component weighted scores and transmuted grade directly from the database record
-                const hasDetailedWw = wwScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
-                const hasDetailedPt = ptScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
-                const hasDetailedQa = qaScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
-
                 if (!hasDetailedWw && s.quiz_score !== null && s.quiz_score !== undefined && s.quiz_score !== '') {
                     stObj.wwWs = parseFloat(s.quiz_score);
                 }
