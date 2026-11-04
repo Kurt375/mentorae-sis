@@ -14,6 +14,7 @@ const BACKUP_TABLES = [
   'topics', 'topic_requests', 'quiz_sets', 'quiz_questions',
   'flashcard_sets', 'flashcards', 'quiz_attempts', 'quiz_attempt_answers',
   'flashcard_progress', 'topic_quiz_attempts',
+  'teacher_subjects', 'student_lesson_assignments', 'excuse_notes', 'sf9_report_cards',
 ];
 
 function csvEscape(val) {
@@ -596,12 +597,47 @@ async function backupDatabase(req, res) {
   try {
     const lines = [BACKUP_HEADER, `-- Generated ${new Date().toISOString()}`, 'SET FOREIGN_KEY_CHECKS=0;', ''];
 
+    // Identify STORED/VIRTUAL GENERATED columns in the database (e.g. grades.average)
+    // which cannot be inserted into on restore.
+    const generatedCols = new Set(['grades.average']);
+    try {
+      const [genRows] = await pool.query(`
+        SELECT table_name, column_name 
+        FROM information_schema.columns 
+        WHERE table_schema = DATABASE() 
+          AND (extra LIKE '%STORED GENERATED%' OR extra LIKE '%VIRTUAL GENERATED%' OR generation_expression != '')
+      `);
+      if (Array.isArray(genRows)) {
+        genRows.forEach((r) => {
+          const t = (r.TABLE_NAME || r.table_name || '').toLowerCase();
+          const c = (r.COLUMN_NAME || r.column_name || '').toLowerCase();
+          if (t && c) generatedCols.add(`${t}.${c}`);
+        });
+      }
+    } catch (colErr) {
+      console.warn('Could not query information_schema for generated columns, using fallback:', colErr.message);
+    }
+
     for (const table of BACKUP_TABLES) {
-      const [rows] = await pool.query(`SELECT * FROM \`${table}\``);
+      let rows;
+      try {
+        const [queryRows] = await pool.query(`SELECT * FROM \`${table}\``);
+        rows = queryRows;
+      } catch (tableErr) {
+        // Gracefully skip optional or unmigrated tables
+        if (tableErr.code === 'ER_NO_SUCH_TABLE') {
+          continue;
+        }
+        throw tableErr;
+      }
+
       lines.push(`-- Table: ${table} (${rows.length} rows)`);
       lines.push(`DELETE FROM \`${table}\`;`);
       if (rows.length) {
-        const columns = Object.keys(rows[0]);
+        // Omit generated columns from INSERT
+        const columns = Object.keys(rows[0]).filter(
+          (c) => !generatedCols.has(`${table.toLowerCase()}.${c.toLowerCase()}`)
+        );
         const colList = columns.map((c) => `\`${c}\``).join(', ');
         for (const row of rows) {
           const values = columns.map((c) => mysql.escape(row[c])).join(', ');
@@ -645,27 +681,38 @@ async function restoreDatabase(req, res) {
     });
   }
 
-  // Split into individual statements. Our own dump never contains semicolons
-  // inside string values in a way that would break this (mysql.escape()
-  // always produces a single-quoted literal), so a plain split on ";\n" is safe.
-  const statements = sqlText
-    .split('\n')
-    .filter((line) => line.trim() && !line.trim().startsWith('--'))
-    .join('\n')
-    .split(';')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // Parse SQL statements safely line-by-line rather than naively splitting by ';'
+  // Semicolons inside escaped text (announcements, notes) must not break statements.
+  const rawLines = sqlText.split(/\r?\n/);
+  const statements = [];
+  let buffer = '';
+
+  for (const rawLine of rawLines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('--')) continue;
+    buffer += (buffer ? ' ' : '') + line;
+    if (line.endsWith(';')) {
+      statements.push(buffer);
+      buffer = '';
+    }
+  }
+  if (buffer.trim()) {
+    statements.push(buffer.trim());
+  }
 
   const conn = await pool.getConnection();
   try {
+    await conn.query('SET FOREIGN_KEY_CHECKS=0;');
     await conn.beginTransaction();
     for (const stmt of statements) {
       await conn.query(stmt);
     }
     await conn.commit();
+    await conn.query('SET FOREIGN_KEY_CHECKS=1;');
     return res.json({ success: true, message: `Restore complete. ${statements.length} statements applied.` });
   } catch (err) {
     await conn.rollback();
+    try { await conn.query('SET FOREIGN_KEY_CHECKS=1;'); } catch (e) {}
     console.error('restoreDatabase error:', err);
     return res.status(500).json({ success: false, message: `Restore failed and was rolled back: ${err.message}` });
   } finally {

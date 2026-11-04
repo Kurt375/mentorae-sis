@@ -114,43 +114,69 @@ async function awardBadges(req, res) {
     const teacherName = req.user ? `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() : 'Teacher';
     const badgeNames = catalogRows.map((b) => b.name).join(', ');
 
+    const badgeValues = [];
+    const activityValues = [];
+
     for (const sId of cleanStudentIds) {
       for (const badge of catalogRows) {
-        await pool.query('INSERT IGNORE INTO student_badges (student_id, badge_id, awarded_by) VALUES (?, ?, ?)', [
-          sId,
-          badge.id,
-          req.user.id,
-        ]);
-        await pool.query('INSERT INTO activity_log (student_id, description) VALUES (?, ?)', [
-          sId,
-          `Awarded "${badge.name}" badge`,
+        badgeValues.push([sId, badge.id, req.user.id]);
+        activityValues.push([sId, `Awarded "${badge.name}" badge`]);
+      }
+    }
+
+    // 1. Bulk insert student badges (single batch query instead of N*M individual queries)
+    if (badgeValues.length > 0) {
+      await pool.query('INSERT IGNORE INTO student_badges (student_id, badge_id, awarded_by) VALUES ?', [badgeValues]);
+    }
+
+    // 2. Bulk insert activity log entries (single batch query instead of N*M queries)
+    if (activityValues.length > 0) {
+      await pool.query('INSERT INTO activity_log (student_id, description) VALUES ?', [activityValues]);
+    }
+
+    // 3. Bulk fetch linked parents for all awarded students in a single query
+    const [parentLinkRows] = await pool.query(
+      'SELECT student_id, parent_id FROM parent_student_links WHERE student_id IN (?)',
+      [cleanStudentIds]
+    );
+
+    // 4. Bulk insert in-app notifications for both students and parents in one batch query
+    const notificationValues = [];
+    for (const sId of cleanStudentIds) {
+      notificationValues.push([
+        sId,
+        'badge_awarded',
+        `🎉 Badge Unlocked: ${badgeNames}`,
+        `Congratulations! Teacher ${teacherName} awarded you the "${badgeNames}" badge(s). Keep up the great work!`,
+        sId,
+      ]);
+    }
+
+    const seenParentStudentPairs = new Set();
+    for (const link of parentLinkRows) {
+      const key = `${link.parent_id}-${link.student_id}`;
+      if (!seenParentStudentPairs.has(key)) {
+        seenParentStudentPairs.add(key);
+        notificationValues.push([
+          link.parent_id,
+          'badge_awarded',
+          'Student Achievement: New Badge Awarded',
+          `Your child has been awarded the "${badgeNames}" badge(s) by Teacher ${teacherName}!`,
+          link.student_id,
         ]);
       }
+    }
 
-      // 1. In-App Notification for Student
-      await notify({
-        recipientId: sId,
-        type: 'badge_awarded',
-        title: `🎉 Badge Unlocked: ${badgeNames}`,
-        message: `Congratulations! Teacher ${teacherName} awarded you the "${badgeNames}" badge(s). Keep up the great work!`,
-        relatedStudentId: sId,
-        skipEmail: true,
-      });
+    if (notificationValues.length > 0) {
+      await pool.query(
+        'INSERT INTO notifications (recipient_id, type, title, message, related_student_id) VALUES ?',
+        [notificationValues]
+      );
+    }
 
-      // 2. In-App Notification for Linked Parent(s)
-      const parentIds = await getParentIdsForStudent(sId);
-      if (parentIds.length > 0) {
-        await notifyMany(parentIds, {
-          type: 'badge_awarded',
-          title: 'Student Achievement: New Badge Awarded',
-          message: `Your child has been awarded the "${badgeNames}" badge(s) by Teacher ${teacherName}!`,
-          relatedStudentId: sId,
-          skipEmail: true,
-        });
-      }
-
-      // 3. Dispatch celebratory email to Student & Linked Parents in background
-      (async () => {
+    // 5. Asynchronously dispatch celebratory emails in background without blocking the HTTP response
+    setImmediate(async () => {
+      for (const sId of cleanStudentIds) {
         try {
           await sendBadgeAwardedEmail({
             studentId: sId,
@@ -158,10 +184,10 @@ async function awardBadges(req, res) {
             badges: catalogRows,
           });
         } catch (e) {
-          console.error('Background badge email error:', e.message);
+          console.error(`Background badge email error for student ${sId}:`, e.message);
         }
-      })();
-    }
+      }
+    });
     const countLabel = cleanStudentIds.length === 1 ? '1 student' : `${cleanStudentIds.length} students`;
     return res.json({
       success: true,
