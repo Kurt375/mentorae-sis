@@ -1698,8 +1698,18 @@ section.docx img,
 }
 
 #badgeSectionDropdownMenu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.35rem;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+    z-index: 1055;
+}
+
+#badgeSectionCurrentLabel {
+    max-width: 200px;
+    vertical-align: middle;
 }
 
 #badgeSectionDropdownMenu .dropdown-item {

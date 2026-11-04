@@ -378,6 +378,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             li.querySelector('button').addEventListener('click', async (e) => {
                 e.preventDefault();
+                menu.style.display = 'none';
+                menu.classList.remove('show');
                 if (String(currentSectionId) === String(s.id)) return;
                 currentSectionId = s.id;
 
@@ -1385,6 +1387,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (emptyMsg) {
             emptyMsg.classList.add('d-none');
         }
+    }
+
+    // Initialize section dropdown toggle
+    const badgeSectionDropdownBtn = document.getElementById('badgeSectionDropdownBtn');
+    const badgeSectionDropdownMenu = document.getElementById('badgeSectionDropdownMenu');
+    if (badgeSectionDropdownBtn && badgeSectionDropdownMenu) {
+        badgeSectionDropdownBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = badgeSectionDropdownMenu.style.display === 'block' || badgeSectionDropdownMenu.classList.contains('show');
+            if (isOpen) {
+                badgeSectionDropdownMenu.style.display = 'none';
+                badgeSectionDropdownMenu.classList.remove('show');
+            } else {
+                badgeSectionDropdownMenu.style.display = 'block';
+                badgeSectionDropdownMenu.classList.add('show');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('badgeSectionDropdownWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                badgeSectionDropdownMenu.style.display = 'none';
+                badgeSectionDropdownMenu.classList.remove('show');
+            }
+        });
     }
 
     // Initialize interactive combobox and category tabs
