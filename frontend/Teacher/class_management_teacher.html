@@ -37,7 +37,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <!-- SheetJS for Parsing DepEd E-Class Record (.xlsx / .xlsm) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="class_management_teacher.css?v=20261031-13">
+    <link rel="stylesheet" href="class_management_teacher.css?v=20261104-01">
 </head>
 
 <body class="dashboard-bg">
@@ -310,8 +310,18 @@
 
                         <div class="mb-4">
                             <div
-                                class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-2">
-                                <label class="form-label text-muted text-sm fw-medium mb-0">Select Recipient(s)</label>
+                                class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-2 flex-wrap">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <label class="form-label text-muted text-sm fw-medium mb-0">Select Recipient(s)</label>
+                                    <div class="d-inline-flex align-items-center gap-1.5 ms-md-2 bg-light border px-2.5 py-1 rounded-pill shadow-2xs">
+                                        <i class="bi bi-mortarboard-fill text-success" style="font-size: 0.85rem;"></i>
+                                        <span class="text-xs text-muted fw-semibold text-uppercase">Section:</span>
+                                        <select class="form-select form-select-sm border-0 bg-transparent fw-semibold text-dark p-0 pe-4 shadow-none cursor-pointer"
+                                            id="badgeSectionFilter" style="font-size: 0.85rem; width: auto; min-width: 150px; background-position: right 0 center;">
+                                            <option value="">Loading sections...</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <div class="btn-group btn-group-sm p-1 bg-light rounded-pill border shadow-2xs"
                                     role="group" id="badgeAwardModeGroup">
                                     <button type="button"
@@ -327,14 +337,50 @@
                                 </div>
                             </div>
 
-                            <!-- Single Student Selector -->
+                            <!-- Single Student Searchable Combobox Selector -->
                             <div id="singleStudentSelectorWrapper">
-                                <select class="form-select shadow-sm rounded-3" id="studentSelectBadge">
+                                <div class="position-relative" id="studentSearchComboboxWrapper">
+                                    <div class="input-group shadow-sm rounded-3">
+                                        <span class="input-group-text bg-white border-end-0 text-muted"><i
+                                                class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control border-start-0 ps-0"
+                                            id="singleStudentSearchInput"
+                                            placeholder="Search or pick student by name or LRN / Student ID..."
+                                            autocomplete="off">
+                                        <button class="btn btn-outline-secondary border-start-0 border-end-0"
+                                            type="button" id="btnClearSingleStudentSearch" title="Clear selection"
+                                            style="display: none;">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                        <button class="btn btn-light border text-secondary px-3"
+                                            type="button" id="btnToggleSingleStudentDropdown"
+                                            title="Browse all students">
+                                            <i class="bi bi-chevron-down"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Dropdown Menu / Suggestions Container -->
+                                    <div class="dropdown-menu w-100 shadow-lg border p-1 mt-1 overflow-y-auto"
+                                        id="singleStudentSearchResults"
+                                        style="max-height: 260px; z-index: 1050; display: none;">
+                                        <!-- Dynamically populated student items -->
+                                    </div>
+                                </div>
+
+                                <!-- Underlying hidden select to ensure 100% backward compatibility -->
+                                <select class="d-none" id="studentSelectBadge">
                                     <option value="" selected>Loading students...</option>
                                 </select>
-                                <div class="form-text text-xs text-muted mt-1.5 d-flex align-items-center gap-1">
-                                    <i class="bi bi-clock-history text-secondary"></i>
-                                    <span>Recent activity on the left shows badges awarded across your class.</span>
+
+                                <div class="form-text text-xs text-muted mt-1.5 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-1.5">
+                                        <i class="bi bi-person-check-fill text-success"></i>
+                                        <span>Recipient: <strong id="selectedStudentBadgeDisplay" class="text-dark">Loading...</strong></span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 text-secondary">
+                                        <i class="bi bi-info-circle"></i>
+                                        <span>Type name or ID to filter, or click dropdown arrow to browse.</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -397,6 +443,26 @@
                                     <i class="bi bi-robot text-primary"></i>
                                     <span>System-Automated Badges (Shown Below)</span>
                                 </div>
+                            </div>
+
+                            <!-- Badge Category Filter Tabs / Pills -->
+                            <div class="d-flex align-items-center gap-2 mb-3 flex-wrap" id="badgeCategoryFilterGroup">
+                                <span class="text-xs text-muted fw-semibold text-uppercase me-1"><i class="bi bi-funnel me-1"></i>Category:</span>
+                                <button type="button" class="btn btn-sm rounded-pill btn-success fw-semibold px-3 py-1 shadow-xs badge-cat-btn active" data-category="all">
+                                    All Badges <span class="badge bg-white text-success ms-1" id="catCountAll">14</span>
+                                </button>
+                                <button type="button" class="btn btn-sm rounded-pill btn-light text-secondary border fw-semibold px-3 py-1 badge-cat-btn" data-category="academic">
+                                    <i class="bi bi-mortarboard me-1 text-primary"></i> Academic &amp; Mastery <span class="badge bg-secondary-subtle text-secondary ms-1" id="catCountAcademic">6</span>
+                                </button>
+                                <button type="button" class="btn btn-sm rounded-pill btn-light text-secondary border fw-semibold px-3 py-1 badge-cat-btn" data-category="character">
+                                    <i class="bi bi-heart me-1 text-danger"></i> Values &amp; Character <span class="badge bg-secondary-subtle text-secondary ms-1" id="catCountCharacter">4</span>
+                                </button>
+                                <button type="button" class="btn btn-sm rounded-pill btn-light text-secondary border fw-semibold px-3 py-1 badge-cat-btn" data-category="leadership">
+                                    <i class="bi bi-star me-1 text-warning"></i> Leadership &amp; Activity <span class="badge bg-secondary-subtle text-secondary ms-1" id="catCountLeadership">3</span>
+                                </button>
+                                <button type="button" class="btn btn-sm rounded-pill btn-light text-secondary border fw-semibold px-3 py-1 badge-cat-btn" data-category="attendance">
+                                    <i class="bi bi-clock-history me-1 text-info"></i> Attendance &amp; Punctuality <span class="badge bg-secondary-subtle text-secondary ms-1" id="catCountAttendance">1</span>
+                                </button>
                             </div>
 
                             <!-- Teacher Awardable Badges Grid (5 per row) -->
@@ -1466,7 +1532,7 @@
     <script src="../session.js"></script>
     <script src="../avatar_cropper.js"></script>
     <script src="report_card_logos.js"></script>
-    <script src="class_management_teacher.js?v=20261031-13"></script>
+    <script src="class_management_teacher.js?v=20261104-01"></script>
 </body>
 
 </html>

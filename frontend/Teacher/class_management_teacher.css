@@ -358,6 +358,47 @@
     line-height: 1.2;
 }
 
+/* Searchable Combobox for Single Student Selection */
+#studentSearchComboboxWrapper .dropdown-menu {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+}
+
+.combobox-student-item {
+    transition: background-color 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+}
+
+.combobox-student-item:hover,
+.combobox-student-item.focused-item {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+}
+
+.combobox-student-item.active {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+.combobox-student-item.active:hover {
+    background-color: #157347 !important;
+}
+
+/* Badge Category Filter Buttons */
+.badge-cat-btn {
+    transition: all 0.18s ease;
+    font-size: 0.82rem;
+}
+
+.badge-cat-btn:hover:not(.active) {
+    background-color: #e2e8f0;
+    color: #1e293b !important;
+}
+
 /* Styles for Recent Activity Sidebar */
 .activity-sidebar .timeline-item {
     padding-left: 1.5rem;

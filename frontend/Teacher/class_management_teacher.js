@@ -129,24 +129,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const BADGE_METADATA = {
-        perfect_attendance: { title: 'Perfect Attendance', icon: '🎯', points: 100, bg: '#d5ebd5', color: '#1f6e1f', systemAwarded: true },
-        honor_student: { title: 'Honor Student', icon: '🏆', points: 150, bg: '#fef2cb', color: '#b27a00', systemAwarded: true },
-        quiz_master: { title: 'Quiz Master', icon: '🧠', points: 120, bg: '#deeaf6', color: '#2f5597' },
-        early_bird: { title: 'Early Bird', icon: '🌅', points: 80, bg: '#fce4d6', color: '#c65911', systemAwarded: true },
-        top_scorer: { title: 'Top Scorer', icon: '🅰️', points: 150, bg: '#e2efda', color: '#385723' },
-        most_active: { title: 'Most Active', icon: '👍', points: 100, bg: '#d5ebd5', color: '#1f6e1f' },
-        innovative_thinker: { title: 'Innovative Thinker', icon: '💡', points: 120, bg: '#fef2cb', color: '#806000' },
-        team_captain: { title: 'Team Captain', icon: '⭐', points: 100, bg: '#ebdcf5', color: '#6f30a0' },
-        resilient_thinker: { title: 'Resilient Thinker', icon: '💎', points: 100, bg: '#d9f1f2', color: '#008080' },
-        completed_grades: { title: 'Completed Grades', icon: '📅', points: 80, bg: '#e4dff2', color: '#5230a0', systemAwarded: true },
-        recitation_master: { title: 'Recitation Master', icon: '💬', points: 90, bg: '#fce4d6', color: '#c65911' },
-        critical_thinker: { title: 'Critical Thinker', icon: '🔍', points: 110, bg: '#dae8fc', color: '#3b6e8c' },
-        coacher: { title: 'Coacher / Peer Tutor', icon: '🤝', points: 120, bg: '#d5e8d4', color: '#274e13' },
-        top_performer: { title: 'Top Performer', icon: '🎖️', points: 150, bg: '#ffe6cc', color: '#d79b00' },
-        most_improved: { title: 'Most Improved', icon: '📈', points: 130, bg: '#ebdcf5', color: '#6f30a0' },
-        deped_values: { title: 'Core Values Award', icon: '🌟', points: 100, bg: '#fff2cc', color: '#b27a00' },
-        punctuality_champ: { title: 'Punctuality Champ', icon: '⏰', points: 90, bg: '#deeaf6', color: '#2f5597' },
-        helping_hand: { title: 'Helping Hand', icon: '❤️', points: 80, bg: '#f8cecc', color: '#b85450' }
+        perfect_attendance: { title: 'Perfect Attendance', icon: '🎯', points: 100, bg: '#d5ebd5', color: '#1f6e1f', systemAwarded: true, category: 'attendance' },
+        honor_student: { title: 'Honor Student', icon: '🏆', points: 150, bg: '#fef2cb', color: '#b27a00', systemAwarded: true, category: 'academic' },
+        quiz_master: { title: 'Quiz Master', icon: '🧠', points: 120, bg: '#deeaf6', color: '#2f5597', category: 'academic' },
+        early_bird: { title: 'Early Bird', icon: '🌅', points: 80, bg: '#fce4d6', color: '#c65911', systemAwarded: true, category: 'attendance' },
+        top_scorer: { title: 'Top Scorer', icon: '🅰️', points: 150, bg: '#e2efda', color: '#385723', category: 'academic' },
+        most_active: { title: 'Most Active', icon: '👍', points: 100, bg: '#d5ebd5', color: '#1f6e1f', category: 'leadership' },
+        innovative_thinker: { title: 'Innovative Thinker', icon: '💡', points: 120, bg: '#fef2cb', color: '#806000', category: 'academic' },
+        team_captain: { title: 'Team Captain', icon: '⭐', points: 100, bg: '#ebdcf5', color: '#6f30a0', category: 'leadership' },
+        resilient_thinker: { title: 'Resilient Thinker', icon: '💎', points: 100, bg: '#d9f1f2', color: '#008080', category: 'character' },
+        completed_grades: { title: 'Completed Grades', icon: '📅', points: 80, bg: '#e4dff2', color: '#5230a0', systemAwarded: true, category: 'academic' },
+        recitation_master: { title: 'Recitation Master', icon: '💬', points: 90, bg: '#fce4d6', color: '#c65911', category: 'academic' },
+        critical_thinker: { title: 'Critical Thinker', icon: '🔍', points: 110, bg: '#dae8fc', color: '#3b6e8c', category: 'academic' },
+        coacher: { title: 'Coacher / Peer Tutor', icon: '🤝', points: 120, bg: '#d5e8d4', color: '#274e13', category: 'character' },
+        top_performer: { title: 'Top Performer', icon: '🎖️', points: 150, bg: '#ffe6cc', color: '#d79b00', category: 'academic' },
+        most_improved: { title: 'Most Improved', icon: '📈', points: 130, bg: '#ebdcf5', color: '#6f30a0', category: 'leadership' },
+        deped_values: { title: 'Core Values Award', icon: '🌟', points: 100, bg: '#fff2cc', color: '#b27a00', category: 'character' },
+        punctuality_champ: { title: 'Punctuality Champ', icon: '⏰', points: 90, bg: '#deeaf6', color: '#2f5597', category: 'attendance' },
+        helping_hand: { title: 'Helping Hand', icon: '❤️', points: 80, bg: '#f8cecc', color: '#b85450', category: 'character' }
     };
 
 
@@ -179,6 +179,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnCancelAction = document.getElementById('btnCancelAction');
     const btnAwardBadges = document.getElementById('btnAwardBadges');
     const studentSelectBadge = document.getElementById('studentSelectBadge');
+    const badgeSectionFilter = document.getElementById('badgeSectionFilter');
+    const singleStudentSearchInput = document.getElementById('singleStudentSearchInput');
+    const btnClearSingleStudentSearch = document.getElementById('btnClearSingleStudentSearch');
+    const btnToggleSingleStudentDropdown = document.getElementById('btnToggleSingleStudentDropdown');
+    const singleStudentSearchResults = document.getElementById('singleStudentSearchResults');
+    const studentSearchComboboxWrapper = document.getElementById('studentSearchComboboxWrapper');
+    const selectedStudentBadgeDisplay = document.getElementById('selectedStudentBadgeDisplay');
+    const badgeCategoryFilterGroup = document.getElementById('badgeCategoryFilterGroup');
+
+    let currentBadgeSectionStudents = [];
+    let currentBadgeCategory = 'all';
+
     const badgesSelectionGrid = document.getElementById('badgesSelectionGrid');
     const systemBadgesWrapper = document.getElementById('systemBadgesWrapper');
     const systemBadgesGrid = document.getElementById('systemBadgesGrid');
@@ -243,6 +255,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!data.success || !data.sections.length) {
                 if (filterSection) filterSection.innerHTML = '<option value="">No sections assigned</option>';
                 if (encodeSectionFilter) encodeSectionFilter.innerHTML = '<option value="">No sections assigned</option>';
+                if (badgeSectionFilter) badgeSectionFilter.innerHTML = '<option value="">No sections assigned</option>';
                 return;
             }
 
@@ -256,15 +269,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             `).join('');
 
             if (filterSection) filterSection.innerHTML = optionsHtml;
-            if (encodeSectionFilter) encodeSectionFilter.innerHTML = mySections.map(s => `
+            const singleSectionsHtml = mySections.map(s => `
                 <option value="${s.id}">${s.name}${s.isAdvisory ? ' ★ (Advisory Class)' : ''}</option>
             `).join('');
+            if (encodeSectionFilter) encodeSectionFilter.innerHTML = singleSectionsHtml;
+            if (badgeSectionFilter) badgeSectionFilter.innerHTML = singleSectionsHtml;
 
             // Prefer advisory section if assigned, otherwise first section
             const advSection = mySections.find(s => s.isAdvisory === 1 || s.isAdvisory === true);
             currentSectionId = advSection ? advSection.id : mySections[0].id;
             if (filterSection) filterSection.value = currentSectionId;
             if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
+            if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
 
             updateAdvisoryBanner();
 
@@ -284,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         filterSection.addEventListener('change', async () => {
             currentSectionId = filterSection.value;
             if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
+            if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
             updateAdvisoryBanner();
             await loadSubjects(currentSectionId);
             await Promise.all([
@@ -297,6 +314,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         encodeSectionFilter.addEventListener('change', async () => {
             currentSectionId = encodeSectionFilter.value;
             if (filterSection) filterSection.value = currentSectionId;
+            if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
+            updateAdvisoryBanner();
+            await loadSubjects(currentSectionId);
+            await Promise.all([
+                loadRoster(currentSectionId, currentSubjectId),
+                loadLeaderboard(currentSectionId)
+            ]);
+        });
+    }
+
+    if (badgeSectionFilter) {
+        badgeSectionFilter.addEventListener('change', async () => {
+            currentSectionId = badgeSectionFilter.value;
+            if (filterSection) filterSection.value = currentSectionId;
+            if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
             updateAdvisoryBanner();
             await loadSubjects(currentSectionId);
             await Promise.all([
@@ -697,13 +729,205 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Selection counter is shown on buttons and counter pills; Recent Activity remains the live award stream
     }
 
+    function renderSingleStudentSearchResults(list) {
+        if (!singleStudentSearchResults) return;
+        singleStudentSearchResults.innerHTML = '';
+
+        if (!list || !list.length) {
+            singleStudentSearchResults.innerHTML = `
+                <div class="p-3 text-center text-muted small">
+                    <i class="bi bi-search me-1"></i> No matching students found
+                </div>
+            `;
+            return;
+        }
+
+        const currentSelectedId = studentSelectBadge ? String(studentSelectBadge.value) : '';
+
+        list.forEach(s => {
+            const isSelected = String(s.id) === currentSelectedId;
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = `dropdown-item py-2 px-3 rounded-2 d-flex justify-content-between align-items-center combobox-student-item ${isSelected ? 'active bg-success text-white' : ''}`;
+            item.dataset.studentId = s.id;
+
+            const nameSafe = escapeHtml(s.name || 'Unnamed');
+            const idSafe = escapeHtml(String(s.idNumber || s.id || ''));
+
+            item.innerHTML = `
+                <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 ${isSelected ? 'bg-white text-success' : 'bg-light text-secondary border'}" style="width: 32px; height: 32px;">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="text-truncate">
+                        <div class="fw-semibold text-truncate ${isSelected ? 'text-white' : 'text-dark'}" style="font-size: 0.875rem;">${nameSafe}</div>
+                        <div class="text-xs ${isSelected ? 'text-white-50' : 'text-muted'}">LRN / ID: ${idSafe}</div>
+                    </div>
+                </div>
+                ${isSelected 
+                    ? '<span class="badge bg-white text-success fw-bold text-xs"><i class="bi bi-check-lg"></i> Selected</span>' 
+                    : '<span class="badge bg-light text-muted border text-xs">Select</span>'}
+            `;
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectStudentInCombobox(s);
+            });
+
+            singleStudentSearchResults.appendChild(item);
+        });
+    }
+
+    function selectStudentInCombobox(student) {
+        if (!student) return;
+        const label = `${student.name} (${student.idNumber || student.id})`;
+        if (studentSelectBadge) {
+            studentSelectBadge.value = student.id;
+            studentSelectBadge.dispatchEvent(new Event('change'));
+        }
+        if (singleStudentSearchInput) {
+            singleStudentSearchInput.value = label;
+        }
+        if (selectedStudentBadgeDisplay) {
+            selectedStudentBadgeDisplay.textContent = label;
+        }
+        if (btnClearSingleStudentSearch) {
+            btnClearSingleStudentSearch.style.display = 'block';
+        }
+        if (singleStudentSearchResults) {
+            singleStudentSearchResults.style.display = 'none';
+        }
+    }
+
+    function initSingleStudentComboboxEvents() {
+        if (!singleStudentSearchInput) return;
+
+        // Typing in search input: filter current students
+        singleStudentSearchInput.addEventListener('input', () => {
+            const query = singleStudentSearchInput.value.toLowerCase().trim();
+            if (btnClearSingleStudentSearch) {
+                btnClearSingleStudentSearch.style.display = singleStudentSearchInput.value ? 'block' : 'none';
+            }
+
+            const filtered = currentBadgeSectionStudents.filter(s => {
+                const name = (s.name || '').toLowerCase();
+                const idNum = String(s.idNumber || s.id || '').toLowerCase();
+                return name.includes(query) || idNum.includes(query);
+            });
+
+            renderSingleStudentSearchResults(filtered);
+            if (singleStudentSearchResults) singleStudentSearchResults.style.display = 'block';
+        });
+
+        // Focus: open dropdown with full roster or filter
+        singleStudentSearchInput.addEventListener('focus', () => {
+            if (currentBadgeSectionStudents.length > 0) {
+                const query = singleStudentSearchInput.value.toLowerCase().trim();
+                const isExactSelected = currentBadgeSectionStudents.some(s => `${s.name} (${s.idNumber || s.id})`.toLowerCase() === query);
+                const listToRender = isExactSelected || !query ? currentBadgeSectionStudents : currentBadgeSectionStudents.filter(s => {
+                    const name = (s.name || '').toLowerCase();
+                    const idNum = String(s.idNumber || s.id || '').toLowerCase();
+                    return name.includes(query) || idNum.includes(query);
+                });
+                renderSingleStudentSearchResults(listToRender);
+                if (singleStudentSearchResults) singleStudentSearchResults.style.display = 'block';
+            }
+        });
+
+        // Clear selection button
+        if (btnClearSingleStudentSearch) {
+            btnClearSingleStudentSearch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                singleStudentSearchInput.value = '';
+                if (studentSelectBadge) {
+                    studentSelectBadge.value = '';
+                    studentSelectBadge.dispatchEvent(new Event('change'));
+                }
+                if (selectedStudentBadgeDisplay) {
+                    selectedStudentBadgeDisplay.textContent = 'None (Please select a student)';
+                }
+                btnClearSingleStudentSearch.style.display = 'none';
+                renderSingleStudentSearchResults(currentBadgeSectionStudents);
+                if (singleStudentSearchResults) singleStudentSearchResults.style.display = 'block';
+                singleStudentSearchInput.focus();
+            });
+        }
+
+        // Toggle dropdown button
+        if (btnToggleSingleStudentDropdown) {
+            btnToggleSingleStudentDropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!singleStudentSearchResults) return;
+                const isOpen = singleStudentSearchResults.style.display === 'block';
+                if (isOpen) {
+                    singleStudentSearchResults.style.display = 'none';
+                } else {
+                    renderSingleStudentSearchResults(currentBadgeSectionStudents);
+                    singleStudentSearchResults.style.display = 'block';
+                    singleStudentSearchInput.focus();
+                }
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('studentSearchComboboxWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                if (singleStudentSearchResults) singleStudentSearchResults.style.display = 'none';
+            }
+        });
+
+        // Keyboard navigation (Arrow keys + Enter + Escape)
+        singleStudentSearchInput.addEventListener('keydown', (e) => {
+            if (!singleStudentSearchResults || singleStudentSearchResults.style.display !== 'block') {
+                if (e.key === 'ArrowDown') {
+                    renderSingleStudentSearchResults(currentBadgeSectionStudents);
+                    singleStudentSearchResults.style.display = 'block';
+                    e.preventDefault();
+                }
+                return;
+            }
+
+            const items = Array.from(singleStudentSearchResults.querySelectorAll('.combobox-student-item'));
+            if (!items.length) return;
+
+            let activeIdx = items.findIndex(el => el.classList.contains('focused-item'));
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (activeIdx >= 0) items[activeIdx].classList.remove('focused-item');
+                activeIdx = (activeIdx + 1) % items.length;
+                items[activeIdx].classList.add('focused-item');
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (activeIdx >= 0) items[activeIdx].classList.remove('focused-item');
+                activeIdx = (activeIdx - 1 + items.length) % items.length;
+                items[activeIdx].classList.add('focused-item');
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIdx >= 0 && items[activeIdx]) {
+                    items[activeIdx].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === 'Escape') {
+                singleStudentSearchResults.style.display = 'none';
+            }
+        });
+    }
+
     function populateBadgeStudentDropdown(students) {
+        currentBadgeSectionStudents = Array.isArray(students) ? students : [];
+
+        // 1. Maintain hidden/fallback select for full backward compatibility
         if (studentSelectBadge) {
             studentSelectBadge.innerHTML = '';
-            if (!students || !students.length) {
+            if (!currentBadgeSectionStudents.length) {
                 studentSelectBadge.innerHTML = '<option value="">No students in section</option>';
             } else {
-                students.forEach(s => {
+                currentBadgeSectionStudents.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.id;
                     opt.textContent = `${s.name} (${s.idNumber || s.id})`;
@@ -711,6 +935,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
         }
+
+        // 2. Update Searchable Combobox display and list
+        if (singleStudentSearchInput) {
+            if (currentBadgeSectionStudents.length > 0) {
+                const firstStudent = currentBadgeSectionStudents[0];
+                if (studentSelectBadge) studentSelectBadge.value = firstStudent.id;
+                const label = `${firstStudent.name} (${firstStudent.idNumber || firstStudent.id})`;
+                singleStudentSearchInput.value = label;
+                singleStudentSearchInput.placeholder = 'Search or pick student by name or LRN / Student ID...';
+                singleStudentSearchInput.disabled = false;
+                if (btnClearSingleStudentSearch) btnClearSingleStudentSearch.style.display = 'block';
+                if (selectedStudentBadgeDisplay) selectedStudentBadgeDisplay.textContent = label;
+            } else {
+                if (studentSelectBadge) studentSelectBadge.value = '';
+                singleStudentSearchInput.value = '';
+                singleStudentSearchInput.placeholder = 'No students in this section';
+                singleStudentSearchInput.disabled = true;
+                if (btnClearSingleStudentSearch) btnClearSingleStudentSearch.style.display = 'none';
+                if (selectedStudentBadgeDisplay) selectedStudentBadgeDisplay.textContent = 'No students in section';
+            }
+        }
+
+        renderSingleStudentSearchResults(currentBadgeSectionStudents);
 
         // Reset multi-select when section students change
         selectedMultiStudentIds.clear();
@@ -908,7 +1155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const iconColor = meta.color || badge.color || '#b27a00';
 
                 const col = document.createElement('div');
-                col.className = 'col';
+                col.className = 'col badge-col-item';
+                col.dataset.category = meta.category || badge.category || 'academic';
                 col.innerHTML = `
                     <div class="card badge-card text-center p-3 h-100 position-relative shadow-xs" data-badge-id="${badge.id}" tabindex="0" role="button">
                         <input type="checkbox" class="form-check-input badge-card-checkbox" id="chk_${badge.id}">
@@ -921,6 +1169,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
                 badgesSelectionGrid.appendChild(col);
             });
+
+            // Update Category Filter Counts & apply active filter
+            updateBadgeCategoryCounts(teacherBadges);
+            applyBadgeCategoryFilter();
 
             // 2. Render System-Automated Badges in dedicated container below
             if (systemBadges.length > 0) {
@@ -992,6 +1244,90 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('loadBadgeCatalog error:', err);
         }
     }
+
+    function updateBadgeCategoryCounts(badges) {
+        const counts = { all: 0, academic: 0, character: 0, leadership: 0, attendance: 0 };
+        (badges || []).forEach(b => {
+            const meta = BADGE_METADATA[b.id] || {};
+            const cat = meta.category || b.category || 'academic';
+            counts.all++;
+            if (counts[cat] !== undefined) counts[cat]++;
+        });
+
+        const elAll = document.getElementById('catCountAll');
+        const elAcad = document.getElementById('catCountAcademic');
+        const elChar = document.getElementById('catCountCharacter');
+        const elLead = document.getElementById('catCountLeadership');
+        const elAtt = document.getElementById('catCountAttendance');
+
+        if (elAll) elAll.textContent = counts.all;
+        if (elAcad) elAcad.textContent = counts.academic;
+        if (elChar) elChar.textContent = counts.character;
+        if (elLead) elLead.textContent = counts.leadership;
+        if (elAtt) elAtt.textContent = counts.attendance;
+    }
+
+    function initBadgeCategoryFilters() {
+        if (!badgeCategoryFilterGroup) return;
+        const buttons = badgeCategoryFilterGroup.querySelectorAll('.badge-cat-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                buttons.forEach(b => {
+                    b.classList.remove('btn-success', 'shadow-xs', 'active');
+                    b.classList.add('btn-light', 'text-secondary', 'border');
+                    const badgePill = b.querySelector('.badge');
+                    if (badgePill) {
+                        badgePill.className = 'badge bg-secondary-subtle text-secondary ms-1';
+                    }
+                });
+
+                btn.classList.add('btn-success', 'shadow-xs', 'active');
+                btn.classList.remove('btn-light', 'text-secondary', 'border');
+                const activePill = btn.querySelector('.badge');
+                if (activePill) {
+                    activePill.className = 'badge bg-white text-success ms-1';
+                }
+
+                currentBadgeCategory = btn.dataset.category || 'all';
+                applyBadgeCategoryFilter();
+            });
+        });
+    }
+
+    function applyBadgeCategoryFilter() {
+        if (!badgesSelectionGrid) return;
+        const badgeCols = badgesSelectionGrid.querySelectorAll('.badge-col-item');
+        let visibleCount = 0;
+
+        badgeCols.forEach(col => {
+            const cat = col.dataset.category || 'academic';
+            if (currentBadgeCategory === 'all' || cat === currentBadgeCategory) {
+                col.classList.remove('d-none');
+                visibleCount++;
+            } else {
+                col.classList.add('d-none');
+            }
+        });
+
+        let emptyMsg = document.getElementById('badgeCategoryEmptyMsg');
+        if (visibleCount === 0) {
+            if (!emptyMsg) {
+                emptyMsg = document.createElement('div');
+                emptyMsg.id = 'badgeCategoryEmptyMsg';
+                emptyMsg.className = 'col-12 text-center text-muted py-4 small';
+                emptyMsg.innerHTML = '<i class="bi bi-info-circle me-1"></i> No badges found in this category.';
+                badgesSelectionGrid.appendChild(emptyMsg);
+            } else {
+                emptyMsg.classList.remove('d-none');
+            }
+        } else if (emptyMsg) {
+            emptyMsg.classList.add('d-none');
+        }
+    }
+
+    // Initialize interactive combobox and category tabs
+    initSingleStudentComboboxEvents();
+    initBadgeCategoryFilters();
 
     // Award Badge Mode Switcher Event Listeners
     if (btnModeSingleStudent) {
