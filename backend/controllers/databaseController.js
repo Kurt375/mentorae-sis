@@ -832,6 +832,9 @@ async function restoreBatch(req, res) {
       if (stmt.includes('[object Object]')) {
         stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
       }
+      if (/^INSERT\s+INTO\s+/i.test(stmt)) {
+        stmt = stmt.replace(/^INSERT\s+INTO\s+/i, 'INSERT IGNORE INTO ');
+      }
       return stmt;
     });
     const sql = cleaned.join('\n');

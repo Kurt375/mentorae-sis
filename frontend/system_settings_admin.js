@@ -308,9 +308,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="progress mb-2" style="height: 14px;">
                         <div id="restoreProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
                     </div>
-                    <div class="text-xs text-muted" id="restoreDetailText">Preparing file (${(file.size / (1024 * 1024)).toFixed(1)} MB)...</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-xs text-muted" id="restoreDetailText">Preparing file (${(file.size / (1024 * 1024)).toFixed(1)} MB)...</div>
+                        <button id="btnCancelRestore" type="button" class="btn btn-xs btn-outline-danger py-0 px-2 text-xs" style="font-size: 11px;">Cancel Restore</button>
+                    </div>
                 </div>
             `;
+
+            let isCancelled = false;
+            const btnCancel = document.getElementById('btnCancelRestore');
+            if (btnCancel) {
+                btnCancel.addEventListener('click', () => {
+                    if (confirm('Cancel the restore process and reset?')) {
+                        isCancelled = true;
+                        btnCancel.disabled = true;
+                        btnCancel.textContent = 'Cancelling...';
+                    }
+                });
+            }
 
             try {
                 const progressBar = document.getElementById('restoreProgressBar');
@@ -346,13 +361,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     statements.push(b);
                 }
 
-                // Batch statements by count and byte size (up to 150 stmts or 1.5MB per batch)
+                // Batch statements by count and byte size (up to 120 stmts or 800KB per batch)
                 // to stay well within Vercel's 4.5MB request limit and execute in <1s per batch.
                 const batches = [];
                 let curBatch = [];
                 let curBytes = 0;
-                const MAX_BYTES = 1.5 * 1024 * 1024;
-                const MAX_STMTS = 150;
+                const MAX_BYTES = 800 * 1024; // 800 KB limit per batch
+                const MAX_STMTS = 120;
 
                 for (const s of statements) {
                     if ((curBatch.length >= MAX_STMTS || curBytes + s.length > MAX_BYTES) && curBatch.length > 0) {
@@ -376,9 +391,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(startData.message || 'Could not initialize database restore.');
                 }
 
-                // 2. Stream and execute batches sequentially
+                // 2. Stream and execute batches sequentially with auto-retry
                 let processedStmts = 0;
                 for (let b = 0; b < batches.length; b++) {
+                    if (isCancelled) throw new Error('Restore cancelled by user.');
+
                     const batch = batches[b];
                     processedStmts += batch.length;
                     const pct = Math.round(((b + 1) / batches.length) * 96);
@@ -388,21 +405,43 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (stepText) stepText.textContent = `Restoring records & files... (Batch ${b + 1} of ${batches.length})`;
                     if (detailText) detailText.textContent = `Applied ${processedStmts} of ${statements.length} statements (${pct}%)...`;
 
-                    const batchRes = await fetch(`${API_BASE}/api/database/restore/batch?token=${encodeURIComponent(token)}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ statements: batch }),
-                    });
-                    if (!batchRes.ok) {
-                        throw new Error(`Batch ${b + 1} failed (HTTP ${batchRes.status})`);
+                    let batchSuccess = false;
+                    let lastErr = null;
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        if (isCancelled) break;
+                        try {
+                            const batchRes = await fetch(`${API_BASE}/api/database/restore/batch?token=${encodeURIComponent(token)}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ statements: batch }),
+                            });
+                            if (!batchRes.ok) {
+                                const errJson = await batchRes.json().catch(() => ({}));
+                                throw new Error(errJson.message || `Server returned HTTP ${batchRes.status}`);
+                            }
+                            const batchData = await batchRes.json();
+                            if (!batchData.success) {
+                                throw new Error(batchData.message || 'Batch rejected');
+                            }
+                            batchSuccess = true;
+                            break;
+                        } catch (err) {
+                            lastErr = err;
+                            if (attempt < 3 && !isCancelled) {
+                                if (detailText) detailText.textContent = `Retrying batch ${b + 1} (attempt ${attempt + 1} of 3)...`;
+                                await new Promise((r) => setTimeout(r, 1000));
+                            }
+                        }
                     }
-                    const batchData = await batchRes.json();
-                    if (!batchData.success) {
-                        throw new Error(batchData.message || `Batch ${b + 1} failed.`);
+
+                    if (isCancelled) throw new Error('Restore cancelled by user.');
+                    if (!batchSuccess) {
+                        throw new Error(`Batch ${b + 1} failed: ${lastErr ? lastErr.message : 'Unknown error'}`);
                     }
                 }
 
                 // 3. Finalize restore
+                if (btnCancel) btnCancel.style.display = 'none';
                 if (stepText) stepText.textContent = 'Finalizing database consistency...';
                 if (detailText) detailText.textContent = 'Enabling constraints and verifying tables...';
                 if (progressBar) progressBar.style.width = '98%';
