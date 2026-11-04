@@ -22,6 +22,7 @@ if (cloudUrl) {
     keepAliveInitialDelay: 10000,
     connectTimeout: 10000,
     ssl: { rejectUnauthorized: false },
+    multipleStatements: true,
   });
 
   cloudPool.on('connection', (conn) => {
@@ -43,6 +44,7 @@ const localPool = mysql.createPool({
   keepAliveInitialDelay: 10000,
   connectTimeout: 5000,
   dateStrings: true,
+  multipleStatements: true,
 });
 
 localPool.on('connection', (conn) => {

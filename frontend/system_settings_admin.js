@@ -304,16 +304,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     method: 'POST',
                     body: formData,
                 });
-                const data = await res.json();
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    throw new Error(`Server returned HTTP ${res.status} (${res.statusText || 'Gateway Timeout / Interrupted'})`);
+                }
                 restoreStatusMsg.textContent = data.message;
                 restoreStatusMsg.className = 'text-sm ' + (data.success ? 'text-success' : 'text-danger');
                 if (!data.success) {
                     alert(data.message || 'Invalid backup file.');
                 }
             } catch (err) {
-                restoreStatusMsg.textContent = 'Restore failed: could not reach the server.';
+                const msg = err.message || 'could not reach the server.';
+                restoreStatusMsg.textContent = `Restore failed: ${msg}`;
                 restoreStatusMsg.className = 'text-sm text-danger';
-                alert('Restore failed: could not reach the server.');
+                alert(`Restore failed: ${msg}`);
             }
         });
     }

@@ -704,9 +704,15 @@ async function restoreDatabase(req, res) {
   try {
     await conn.query('SET FOREIGN_KEY_CHECKS=0;');
     await conn.beginTransaction();
-    for (const stmt of statements) {
-      await conn.query(stmt);
+
+    // Execute in batches of 100 statements to eliminate round-trip network latency
+    // and prevent Vercel serverless function timeouts.
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < statements.length; i += BATCH_SIZE) {
+      const batch = statements.slice(i, i + BATCH_SIZE).join(';\n') + ';';
+      await conn.query(batch);
     }
+
     await conn.commit();
     await conn.query('SET FOREIGN_KEY_CHECKS=1;');
     return res.json({ success: true, message: `Restore complete. ${statements.length} statements applied.` });
