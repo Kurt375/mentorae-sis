@@ -32,16 +32,28 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         else if (path.includes('student')) userRole = 'student';
     }
 
-    const isSubdir = window.location.pathname.includes('/Parent/') || 
-                     window.location.pathname.includes('/Teacher/') || 
-                     window.location.pathname.includes('/Student/');
+    const inTeacherDir = window.location.pathname.includes('/Teacher/') || window.location.pathname.includes('/teacher/');
+    const inParentDir = window.location.pathname.includes('/Parent/') || window.location.pathname.includes('/parent/');
+    const inStudentDir = window.location.pathname.includes('/Student/') || window.location.pathname.includes('/student/');
+    const inAnySubdir = inTeacherDir || inParentDir || inStudentDir;
+
+    const teacherAttendanceUrl = inTeacherDir 
+        ? 'attendance_confirmation_teacher.html' 
+        : (inAnySubdir ? '../Teacher/attendance_confirmation_teacher.html' : 'Teacher/attendance_confirmation_teacher.html');
+
+    const parentAttendanceUrl = inParentDir 
+        ? 'attendance_parent.html' 
+        : (inAnySubdir ? '../Parent/attendance_parent.html' : 'Parent/attendance_parent.html');
+
+    const studentAttendanceUrl = inStudentDir 
+        ? 'attendance_student.html' 
+        : (inAnySubdir ? '../Student/attendance_student.html' : 'Student/attendance_student.html');
+
     const announcementsUrl = userRole === 'admin'
-        ? (isSubdir ? '../announcement_admin.html' : 'announcement_admin.html')
-        : (isSubdir ? '../announcements.html' : 'announcements.html');
-    const parentAttendanceUrl = isSubdir ? 'attendance_parent.html' : 'Parent/attendance_parent.html';
-    const studentAttendanceUrl = isSubdir ? 'attendance_student.html' : 'Student/attendance_student.html';
-    const teacherAttendanceUrl = isSubdir ? 'attendance_confirmation.html' : 'Teacher/attendance_confirmation.html';
-    const topicRequestsUrl = isSubdir ? '../topic_requests_admin.html' : 'topic_requests_admin.html';
+        ? (inAnySubdir ? '../announcement_admin.html' : 'announcement_admin.html')
+        : (inAnySubdir ? '../announcements.html' : 'announcements.html');
+
+    const topicRequestsUrl = inAnySubdir ? '../topic_requests_admin.html' : 'topic_requests_admin.html';
 
     // Inject floating toast styles if not already present
     if (!document.getElementById('mentorae-toast-styles')) {
@@ -218,7 +230,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         if (stored) {
             shownToastIds = new Set(JSON.parse(stored));
         }
-    } catch (e) {}
+    } catch (e) { }
 
     let isInitialLoad = true;
 
@@ -228,10 +240,10 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             if (!AudioContextClass) return;
             const ctx = new AudioContextClass();
             if (ctx.state === 'suspended') {
-                ctx.resume().catch(() => {});
+                ctx.resume().catch(() => { });
             }
             const now = ctx.currentTime;
-            
+
             const osc1 = ctx.createOscillator();
             const gain1 = ctx.createGain();
             osc1.type = 'sine';
@@ -253,7 +265,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
             gain2.connect(ctx.destination);
             osc2.start(now + 0.12);
             osc2.stop(now + 0.40);
-        } catch (e) {}
+        } catch (e) { }
     }
 
     function showNotificationToast(item) {
@@ -370,10 +382,10 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
     function positionPanel() {
         const rect = btn.getBoundingClientRect();
         const panelWidth = Math.min(340, window.innerWidth - 24);
-        
+
         // Position vertically: just below the button with an 8px offset
         const top = rect.bottom + window.scrollY + 8;
-        
+
         // Position horizontally: right-aligned with the button, clamped to screen bounds
         let left = rect.right + window.scrollX - panelWidth;
         if (left < 12) {
@@ -389,7 +401,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         panel.style.width = `${panelWidth}px`;
     }
 
-    
+
     let currentUnifiedList = [];
     let activeModalFilter = 'all';
     let modalSearchQuery = '';
@@ -496,7 +508,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                 if (id && !String(id).startsWith('topic_') && !String(id).startsWith('ann_')) {
                     try {
                         await authedFetch(`/api/notifications/${id}/read`, token, { method: 'PATCH' });
-                    } catch (err) {}
+                    } catch (err) { }
                 }
             });
         });
@@ -575,12 +587,12 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         currentPendingTopicRequests = pendingTopicRequests;
 
         // Retrieve last seen announcement ID across all synchronized keys
-        let lastSeenId = typeof getMaxSeenAnnId === 'function' 
-            ? getMaxSeenAnnId() 
+        let lastSeenId = typeof getMaxSeenAnnId === 'function'
+            ? getMaxSeenAnnId()
             : 0;
         if (lastSeenId === 0) {
-            const seenStorageKey = typeof getSeenAnnKey === 'function' 
-                ? getSeenAnnKey() 
+            const seenStorageKey = typeof getSeenAnnKey === 'function'
+                ? getSeenAnnKey()
                 : `mentorae_seen_ann_id_${userRole || 'user'}`;
             lastSeenId = parseInt(localStorage.getItem(seenStorageKey) || '0', 10);
             if (lastSeenId === 0 && userRole) {
@@ -780,7 +792,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         }
         try {
             sessionStorage.setItem('mentorae_shown_toasts', JSON.stringify(Array.from(shownToastIds).slice(-100)));
-        } catch (e) {}
+        } catch (e) { }
 
         badge.textContent = String(totalUnread);
         badge.classList.toggle('d-none', totalUnread === 0);
@@ -1113,7 +1125,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                             markAnnouncementsAsSeen(latestAnnouncementList);
                         }
                     }
-                }).catch(() => {});
+                }).catch(() => { });
             }
 
             // Immediately mark in-app notifications as read on backend
@@ -1176,7 +1188,7 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
     window.addEventListener('focus', refresh);
 
     refresh();
-    
+
     const modalTabsContainer = document.getElementById('modalNotifTabs');
     if (modalTabsContainer) {
         modalTabsContainer.querySelectorAll('button').forEach(tabBtn => {
