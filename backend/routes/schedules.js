@@ -5,6 +5,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const {
   listSchedules,
   createSchedule,
+  updateSchedule,
   deleteSchedule,
   getMySchedule,
   downloadScheduleTemplate,
@@ -18,6 +19,7 @@ router.get('/bulk-import/template', requireAuth, requireRole('admin'), downloadS
 router.post('/bulk-import', requireAuth, requireRole('admin'), upload.single('importFile'), bulkImportSchedules);
 router.get('/', requireAuth, requireRole('admin'), listSchedules);
 router.post('/', requireAuth, requireRole('admin'), createSchedule);
+router.put('/:id', requireAuth, requireRole('admin'), updateSchedule);
 router.delete('/:id', requireAuth, requireRole('admin'), deleteSchedule);
 
 module.exports = router;

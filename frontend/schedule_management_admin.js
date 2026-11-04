@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('scheduleSearch');
     const tbody = document.getElementById('scheduleTableBody');
 
+    let allTeachers = [];
     let allSections = [];
     let allSchedules = [];
     let allSubjects = [];
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await authedFetch('/api/users?role=teacher&limit=200', token);
             if (data && data.success && Array.isArray(data.users) && data.users.length > 0) {
+                allTeachers = data.users;
                 teacherSelect.innerHTML = '<option value="" disabled selected>Select Teacher</option>' +
                     data.users.map(t =>
                         `<option value="${t.id}">${t.first_name} ${t.last_name}</option>`
@@ -570,6 +572,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!existing) {
                 existing = {
                     key,
+                    teacherId: s.teacherId,
+                    subjectId: s.subjectId,
+                    sectionId: s.sectionId,
+                    strandId: s.strandId,
                     teacher: s.teacher,
                     subject: s.subject,
                     strand: s.strand,
@@ -604,7 +610,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        for (const s of grouped) {
+        for (let idx = 0; idx < grouped.length; idx++) {
+            const s = grouped[idx];
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td class="px-3 py-2 fw-medium text-dark">${s.teacher}</td>
@@ -615,7 +622,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="badge ${getDayBadgeClass(s.displayDay)} px-2.5 py-1 text-xs fw-semibold">${s.displayDay}</span>
                 </td>
                 <td class="px-3 py-2">${formatTime(s.startTime)} - ${formatTime(s.endTime)}</td>
-                <td class="px-3 py-2 text-center">
+                <td class="px-3 py-2 text-center text-nowrap">
+                    <button class="btn btn-link p-0 text-primary fs-5 me-2 btn-edit-schedule" title="Edit Schedule" data-index="${idx}">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
                     <button class="btn btn-link p-0 text-danger fs-5 btn-delete-schedule" title="Delete Schedule" data-ids="${s.ids.join(',')}">
                         <i class="bi bi-trash3-fill"></i>
                     </button>
@@ -623,6 +633,15 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(tr);
         }
+
+        tbody.querySelectorAll('.btn-edit-schedule').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = Number(btn.dataset.index);
+                const s = grouped[idx];
+                if (!s) return;
+                openEditScheduleModal(s);
+            });
+        });
 
         tbody.querySelectorAll('.btn-delete-schedule').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -641,6 +660,465 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadSchedules();
                 }
             });
+        });
+    }
+
+    // --- Edit Schedule Modal Logic ---
+    const editModalEl = document.getElementById('editScheduleModal');
+    const editModal = editModalEl ? new bootstrap.Modal(editModalEl) : null;
+    const editForm = document.getElementById('editScheduleForm');
+    const editPrimaryId = document.getElementById('editSchedulePrimaryId');
+    const editRelatedIds = document.getElementById('editScheduleRelatedIds');
+    const editAlert = document.getElementById('editScheduleAlert');
+    const editTeacherSelect = document.getElementById('editTeacherSelect');
+    const editStrandSelect = document.getElementById('editStrandSelect');
+    const editSectionSelect = document.getElementById('editSectionSelect');
+    const editQuarterSelect = document.getElementById('editQuarterSelect');
+    const editSubjectSelect = document.getElementById('editSubjectSelect');
+    const editDaysDropdownBtn = document.getElementById('editDaysDropdownBtn');
+    const editDaysDropdownLabel = document.getElementById('editDaysDropdownLabel');
+    const editDayCheckboxes = document.querySelectorAll('.edit-day-checkbox');
+    const editDaySelectError = document.getElementById('editDaySelectError');
+    const editPresetAllWeekdaysBtn = document.getElementById('editPresetAllWeekdaysBtn');
+    const editPresetMwfBtn = document.getElementById('editPresetMwfBtn');
+    const editPresetTthBtn = document.getElementById('editPresetTthBtn');
+    const editClearDaysBtn = document.getElementById('editClearDaysBtn');
+    const editStartTime = document.getElementById('editStartTime');
+    const editEndTime = document.getElementById('editEndTime');
+    const editStartTimeError = document.getElementById('editStartTimeError');
+    const editEndTimeError = document.getElementById('editEndTimeError');
+    const btnSaveScheduleEdit = document.getElementById('btnSaveScheduleEdit');
+
+    function populateEditTeachers(selectedTeacherId) {
+        if (!editTeacherSelect) return;
+        if (allTeachers && allTeachers.length) {
+            editTeacherSelect.innerHTML = '<option value="" disabled>Select Teacher</option>' +
+                allTeachers.map(t => `<option value="${t.id}">${t.first_name} ${t.last_name}</option>`).join('');
+            if (selectedTeacherId) editTeacherSelect.value = String(selectedTeacherId);
+        }
+    }
+
+    function populateEditStrands(selectedStrandId) {
+        if (!editStrandSelect) return;
+        if (allStrands && allStrands.length) {
+            editStrandSelect.innerHTML = '<option value="">All Clusters / Select Cluster</option>' +
+                allStrands.map(s => `<option value="${s.id}">${s.code} - ${s.title || s.name || ''}</option>`).join('');
+            if (selectedStrandId) editStrandSelect.value = String(selectedStrandId);
+        }
+    }
+
+    function renderEditSections(selectedSectionId) {
+        if (!editSectionSelect) return;
+        const selectedStrandId = editStrandSelect ? editStrandSelect.value : '';
+        const filtered = selectedStrandId
+            ? allSections.filter(s => String(s.strand_id) === String(selectedStrandId))
+            : allSections;
+
+        if (!filtered.length) {
+            editSectionSelect.innerHTML = '<option value="" disabled selected>No sections found for this cluster</option>';
+            return;
+        }
+
+        const currentVal = selectedSectionId || editSectionSelect.value;
+        editSectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>' +
+            filtered.map(s => `<option value="${s.id}">${s.grade_level ? 'Grade ' + s.grade_level + ' - ' : ''}${s.name} (${s.strandCode || ''})</option>`).join('');
+
+        if (currentVal && filtered.some(s => String(s.id) === String(currentVal))) {
+            editSectionSelect.value = String(currentVal);
+        }
+    }
+
+    function renderEditSubjects(selectedSubjectId) {
+        if (!editSubjectSelect) return;
+        if (!allSubjects.length) {
+            editSubjectSelect.innerHTML = '<option value="" disabled selected>No subjects available</option>';
+            return;
+        }
+
+        const selectedTerm = editQuarterSelect ? editQuarterSelect.value : 'All Terms';
+        const selectedStrand = editStrandSelect && editStrandSelect.value ? allStrands.find(st => String(st.id) === String(editStrandSelect.value)) : null;
+        const selectedSec = editSectionSelect && editSectionSelect.value ? allSections.find(sc => String(sc.id) === String(editSectionSelect.value)) : null;
+        const strandCode = selectedStrand ? selectedStrand.code.toUpperCase() : (selectedSec ? (selectedSec.strandCode || '').toUpperCase() : '');
+        const gradeLevel = selectedSec ? Number(selectedSec.grade_level) : null;
+
+        const currentVal = selectedSubjectId || editSubjectSelect.value;
+
+        const termFiltered = allSubjects.filter(s => matchesTerm(s, selectedTerm));
+        const candidateSubjects = termFiltered.length > 0 ? termFiltered : allSubjects;
+
+        if (!strandCode && !gradeLevel) {
+            editSubjectSelect.innerHTML = '<option value="" disabled selected>Select Subject</option>' +
+                candidateSubjects.map(s => `<option value="${s.id}">${s.name} (${s.strand || 'Core'}${s.term && s.term !== 'All Terms' ? ' - ' + s.term : ''})</option>`).join('');
+            if (currentVal && candidateSubjects.some(s => String(s.id) === String(currentVal))) {
+                editSubjectSelect.value = String(currentVal);
+            }
+            return;
+        }
+
+        const relevant = [];
+        const commonCore = [];
+
+        for (const s of candidateSubjects) {
+            const gradeMatches = matchesGrade(s, gradeLevel);
+            if (gradeLevel && !gradeMatches) continue;
+
+            const sStrand = (s.strand || '').toUpperCase();
+            const isCommon = sStrand === 'COMMON' || sStrand === 'ALL' || sStrand === '' || (s.strandSection && s.strandSection.includes('All Sections'));
+
+            if (strandCode && sStrand === strandCode) {
+                relevant.push(s);
+            } else if (isCommon) {
+                commonCore.push(s);
+            }
+        }
+
+        let html = '<option value="" disabled selected>Select Subject</option>';
+        if (relevant.length) {
+            html += `<optgroup label="${strandCode} Track Subjects (${gradeLevel ? 'Grade ' + gradeLevel : 'Specialized'}${selectedTerm !== 'All Terms' ? ' - ' + selectedTerm : ''})">` +
+                relevant.map(s => `<option value="${s.id}">${s.name}</option>`).join('') +
+                '</optgroup>';
+        }
+        if (commonCore.length) {
+            html += `<optgroup label="Core & Applied Subjects (${gradeLevel ? 'Grade ' + gradeLevel + ' - ' : ''}${selectedTerm !== 'All Terms' ? selectedTerm : 'All Terms'})">` +
+                commonCore.map(s => `<option value="${s.id}">${s.name}</option>`).join('') +
+                '</optgroup>';
+        }
+
+        if (!relevant.length && !commonCore.length) {
+            html += `<optgroup label="${strandCode || 'Selected Track'}"><option value="" disabled>No subjects found for this term</option></optgroup>`;
+        }
+
+        editSubjectSelect.innerHTML = html;
+        if (currentVal && (relevant.some(s => String(s.id) === String(currentVal)) || commonCore.some(s => String(s.id) === String(currentVal)))) {
+            editSubjectSelect.value = String(currentVal);
+        }
+    }
+
+    if (editStrandSelect) {
+        editStrandSelect.addEventListener('change', () => {
+            renderEditSections();
+            renderEditSubjects();
+        });
+    }
+
+    if (editSectionSelect) {
+        editSectionSelect.addEventListener('change', () => {
+            const selectedSec = allSections.find(s => String(s.id) === String(editSectionSelect.value));
+            if (selectedSec && !editStrandSelect.value) {
+                editStrandSelect.value = String(selectedSec.strand_id);
+                renderEditSections();
+                editSectionSelect.value = String(selectedSec.id);
+            }
+            renderEditSubjects();
+        });
+    }
+
+    if (editQuarterSelect) {
+        editQuarterSelect.addEventListener('change', () => {
+            renderEditSubjects();
+        });
+    }
+
+    function updateEditDaysDropdownLabel() {
+        if (!editDaysDropdownLabel) return;
+        const checked = Array.from(editDayCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        if (!checked.length) {
+            editDaysDropdownLabel.textContent = 'Select Days';
+            editDaysDropdownLabel.classList.add('text-muted');
+        } else {
+            editDaysDropdownLabel.textContent = formatDisplayDays(checked);
+            editDaysDropdownLabel.classList.remove('text-muted');
+        }
+    }
+
+    editDayCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            updateEditDaysDropdownLabel();
+            if (editDaySelectError) editDaySelectError.style.display = 'none';
+            if (editDaysDropdownBtn) editDaysDropdownBtn.classList.remove('is-invalid');
+        });
+    });
+
+    if (editPresetAllWeekdaysBtn) {
+        editPresetAllWeekdaysBtn.addEventListener('click', () => {
+            editDayCheckboxes.forEach(cb => { cb.checked = true; });
+            updateEditDaysDropdownLabel();
+            if (editDaySelectError) editDaySelectError.style.display = 'none';
+            if (editDaysDropdownBtn) editDaysDropdownBtn.classList.remove('is-invalid');
+        });
+    }
+
+    if (editPresetMwfBtn) {
+        editPresetMwfBtn.addEventListener('click', () => {
+            editDayCheckboxes.forEach(cb => {
+                cb.checked = (cb.value === 'Monday' || cb.value === 'Wednesday' || cb.value === 'Friday');
+            });
+            updateEditDaysDropdownLabel();
+            if (editDaySelectError) editDaySelectError.style.display = 'none';
+            if (editDaysDropdownBtn) editDaysDropdownBtn.classList.remove('is-invalid');
+        });
+    }
+
+    if (editPresetTthBtn) {
+        editPresetTthBtn.addEventListener('click', () => {
+            editDayCheckboxes.forEach(cb => {
+                cb.checked = (cb.value === 'Tuesday' || cb.value === 'Thursday');
+            });
+            updateEditDaysDropdownLabel();
+            if (editDaySelectError) editDaySelectError.style.display = 'none';
+            if (editDaysDropdownBtn) editDaysDropdownBtn.classList.remove('is-invalid');
+        });
+    }
+
+    if (editClearDaysBtn) {
+        editClearDaysBtn.addEventListener('click', () => {
+            editDayCheckboxes.forEach(cb => { cb.checked = false; });
+            updateEditDaysDropdownLabel();
+        });
+    }
+
+    function validateEditTimeInputs(isSubmitting = false) {
+        const SCHOOL_OPEN = '07:00';
+        const SCHOOL_CLOSE = '15:30';
+        const toMinutes = (t) => {
+            if (!t) return 0;
+            const [h, m] = t.split(':').map(Number);
+            return (h || 0) * 60 + (m || 0);
+        };
+
+        const startVal = (editStartTime ? editStartTime.value : '').trim();
+        const endVal = (editEndTime ? editEndTime.value : '').trim();
+
+        let startValid = true;
+        let endValid = true;
+
+        clearTimeError(editStartTime, editStartTimeError);
+        clearTimeError(editEndTime, editEndTimeError);
+
+        if (isSubmitting) {
+            if (!startVal) {
+                setTimeError(editStartTime, editStartTimeError, 'Please select a start time.');
+                startValid = false;
+            }
+            if (!endVal) {
+                setTimeError(editEndTime, editEndTimeError, 'Please select an end time.');
+                endValid = false;
+            }
+            if (!startValid || !endValid) return false;
+        }
+
+        if (startVal) {
+            if (startVal < SCHOOL_OPEN) {
+                setTimeError(editStartTime, editStartTimeError, 'Cannot start before 7:00 AM.');
+                startValid = false;
+            } else if (startVal > SCHOOL_CLOSE) {
+                setTimeError(editStartTime, editStartTimeError, 'Cannot start after 3:30 PM.');
+                startValid = false;
+            }
+        }
+
+        if (endVal) {
+            if (endVal < SCHOOL_OPEN) {
+                setTimeError(editEndTime, editEndTimeError, 'Cannot end before 7:00 AM.');
+                endValid = false;
+            } else if (endVal > SCHOOL_CLOSE) {
+                setTimeError(editEndTime, editEndTimeError, 'Cannot end after 3:30 PM.');
+                endValid = false;
+            }
+        }
+
+        if (startValid && endValid && startVal && endVal) {
+            const startMin = toMinutes(startVal);
+            const endMin = toMinutes(endVal);
+
+            if (startMin >= endMin) {
+                setTimeError(editEndTime, editEndTimeError, 'End time must be after start time.');
+                endValid = false;
+            } else {
+                const duration = endMin - startMin;
+                if (duration < 30) {
+                    setTimeError(editEndTime, editEndTimeError, 'Duration must be at least 30 minutes.');
+                    endValid = false;
+                } else if (duration > 120) {
+                    setTimeError(editEndTime, editEndTimeError, 'Duration cannot exceed 2 hours.');
+                    endValid = false;
+                } else {
+                    setTimeValid(editStartTime, editStartTimeError);
+                    setTimeValid(editEndTime, editEndTimeError);
+                }
+            }
+        }
+
+        return startValid && endValid;
+    }
+
+    if (editStartTime) {
+        editStartTime.addEventListener('change', () => validateEditTimeInputs(false));
+        editStartTime.addEventListener('input', () => validateEditTimeInputs(false));
+    }
+    if (editEndTime) {
+        editEndTime.addEventListener('change', () => validateEditTimeInputs(false));
+        editEndTime.addEventListener('input', () => validateEditTimeInputs(false));
+    }
+
+    function openEditScheduleModal(s) {
+        if (!editModal) return;
+
+        if (editAlert) {
+            editAlert.classList.add('d-none');
+            editAlert.textContent = '';
+        }
+
+        if (editPrimaryId) editPrimaryId.value = s.ids[0] || '';
+        if (editRelatedIds) editRelatedIds.value = s.ids.slice(1).join(',');
+
+        let teacherId = s.teacherId;
+        if (!teacherId && allTeachers && allTeachers.length) {
+            const match = allTeachers.find(t => `${t.first_name} ${t.last_name}`.trim().toLowerCase() === (s.teacher || '').trim().toLowerCase());
+            if (match) teacherId = match.id;
+        }
+        populateEditTeachers(teacherId);
+
+        let sectionId = s.sectionId;
+        let strandId = s.strandId;
+        if (!sectionId && allSections && allSections.length) {
+            const matchSec = allSections.find(sec => sec.name.trim().toLowerCase() === (s.section || '').trim().toLowerCase());
+            if (matchSec) {
+                sectionId = matchSec.id;
+                if (!strandId) strandId = matchSec.strand_id;
+            }
+        }
+        if (!strandId && sectionId && allSections && allSections.length) {
+            const secObj = allSections.find(sec => String(sec.id) === String(sectionId));
+            if (secObj) strandId = secObj.strand_id;
+        }
+        populateEditStrands(strandId);
+        renderEditSections(sectionId);
+
+        if (editQuarterSelect) {
+            editQuarterSelect.value = s.quarter || '1st Term';
+        }
+
+        let subjectId = s.subjectId;
+        if (!subjectId && allSubjects && allSubjects.length) {
+            const matchSub = allSubjects.find(sub => sub.name.trim().toLowerCase() === (s.subject || '').trim().toLowerCase());
+            if (matchSub) subjectId = matchSub.id;
+        }
+        renderEditSubjects(subjectId);
+
+        editDayCheckboxes.forEach(cb => {
+            cb.checked = Array.isArray(s.days) && s.days.includes(cb.value);
+        });
+        updateEditDaysDropdownLabel();
+        if (editDaySelectError) editDaySelectError.style.display = 'none';
+        if (editDaysDropdownBtn) editDaysDropdownBtn.classList.remove('is-invalid');
+
+        const startStr = (s.startTime || '').slice(0, 5);
+        const endStr = (s.endTime || '').slice(0, 5);
+        if (editStartTime) editStartTime.value = startStr;
+        if (editEndTime) editEndTime.value = endStr;
+        clearTimeError(editStartTime, editStartTimeError);
+        clearTimeError(editEndTime, editEndTimeError);
+
+        editModal.show();
+    }
+
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (editAlert) {
+                editAlert.classList.add('d-none');
+                editAlert.textContent = '';
+            }
+
+            const primaryId = editPrimaryId ? editPrimaryId.value : null;
+            const relatedIds = (editRelatedIds && editRelatedIds.value) ? editRelatedIds.value.split(',').filter(Boolean) : [];
+            const teacherId = editTeacherSelect ? editTeacherSelect.value : '';
+            const sectionId = editSectionSelect ? editSectionSelect.value : '';
+            const quarter = editQuarterSelect ? editQuarterSelect.value : '1st Term';
+            const subjectId = editSubjectSelect ? editSubjectSelect.value : '';
+            const days = Array.from(editDayCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+            if (!teacherId) {
+                editTeacherSelect.focus();
+                return;
+            }
+            if (!sectionId) {
+                editSectionSelect.focus();
+                return;
+            }
+            if (!subjectId) {
+                editSubjectSelect.focus();
+                return;
+            }
+            if (!days.length) {
+                if (editDaySelectError) editDaySelectError.style.display = 'block';
+                if (editDaysDropdownBtn) {
+                    editDaysDropdownBtn.classList.add('is-invalid');
+                    editDaysDropdownBtn.focus();
+                }
+                return;
+            }
+
+            if (!validateEditTimeInputs(true)) {
+                if (editStartTime && editStartTime.classList.contains('is-invalid')) {
+                    editStartTime.focus();
+                } else if (editEndTime && editEndTime.classList.contains('is-invalid')) {
+                    editEndTime.focus();
+                }
+                return;
+            }
+
+            const submitBtn = btnSaveScheduleEdit || editForm.querySelector('button[type="submit"]');
+            const origHtml = submitBtn ? submitBtn.innerHTML : 'Save Changes';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+            }
+
+            try {
+                const data = await authedFetch(`/api/schedules/${primaryId}`, token, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        relatedIds,
+                        teacherId,
+                        subjectId,
+                        sectionId,
+                        quarter,
+                        days,
+                        startTime: editStartTime.value,
+                        endTime: editEndTime.value,
+                    }),
+                });
+
+                if (!data || !data.success) {
+                    const msg = (data && data.message) ? data.message : 'Could not update schedule.';
+                    if (editAlert) {
+                        editAlert.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${msg}`;
+                        editAlert.classList.remove('d-none');
+                    } else {
+                        alert(msg);
+                    }
+                    return;
+                }
+
+                if (editModal) editModal.hide();
+                loadSchedules();
+            } catch (err) {
+                console.error('Error updating schedule:', err);
+                if (editAlert) {
+                    editAlert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Network error. Please try again.';
+                    editAlert.classList.remove('d-none');
+                } else {
+                    alert('Network error while updating schedule.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = origHtml;
+                }
+            }
         });
     }
 

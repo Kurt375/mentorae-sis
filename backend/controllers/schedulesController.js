@@ -282,6 +282,7 @@ async function checkScheduleConflict({
   endTime,
   quarter = 'All Terms',
   excludeScheduleId = null,
+  excludeScheduleIds = [],
   inMemorySchedules = [],
 }) {
   const qFilter = (quarter === 'All Terms')
@@ -289,8 +290,20 @@ async function checkScheduleConflict({
     : "AND (sch.quarter = ? OR sch.quarter = 'All Terms')";
   const qParams = (quarter === 'All Terms') ? [] : [quarter];
 
-  const excludeFilter = excludeScheduleId ? 'AND sch.id != ?' : '';
-  const excludeParams = excludeScheduleId ? [excludeScheduleId] : [];
+  const excludeList = [
+    ...(excludeScheduleId ? [excludeScheduleId] : []),
+    ...(Array.isArray(excludeScheduleIds) ? excludeScheduleIds : []),
+  ].map(Number).filter((n) => Number.isInteger(n) && n > 0);
+
+  let excludeFilter = '';
+  let excludeParams = [];
+  if (excludeList.length === 1) {
+    excludeFilter = 'AND sch.id != ?';
+    excludeParams = [excludeList[0]];
+  } else if (excludeList.length > 1) {
+    excludeFilter = `AND sch.id NOT IN (${excludeList.map(() => '?').join(',')})`;
+    excludeParams = excludeList;
+  }
 
   // 1. Database Teacher Overlap Check
   const [teacherConflicts] = await pool.query(
@@ -383,9 +396,10 @@ async function listSchedules(req, res) {
     const params = [];
     let sql = `
       SELECT sch.id, sch.day_of_week, sch.start_time, sch.end_time, sch.quarter,
+             sch.teacher_id, sch.subject_id, sch.section_id,
              t.first_name AS teacherFirst, t.last_name AS teacherLast,
              sub.name AS subjectName,
-             st.code AS strandCode, sec.grade_level, sec.name AS sectionName
+             st.id AS strandId, st.code AS strandCode, sec.grade_level, sec.name AS sectionName
       FROM schedules sch
       JOIN users t ON t.id = sch.teacher_id
       JOIN subjects sub ON sub.id = sch.subject_id
@@ -402,6 +416,10 @@ async function listSchedules(req, res) {
     const [rows] = await pool.query(sql, params);
     const schedules = rows.map((r) => ({
       id: r.id,
+      teacherId: r.teacher_id,
+      subjectId: r.subject_id,
+      sectionId: r.section_id,
+      strandId: r.strandId,
       teacher: `${r.teacherFirst} ${r.teacherLast}`,
       subject: r.subjectName,
       strand: `${r.strandCode} ${r.grade_level}`,
@@ -493,6 +511,97 @@ async function deleteSchedule(req, res) {
   } catch (err) {
     console.error('deleteSchedule error:', err);
     return res.status(500).json({ success: false, message: 'Could not delete schedule.' });
+  }
+}
+
+/** PUT /api/schedules/:id  { relatedIds: [], teacherId, subjectId, sectionId, days: [], startTime, endTime, quarter } */
+async function updateSchedule(req, res) {
+  const primaryId = Number(req.params.id);
+  const { relatedIds = [], teacherId, subjectId, sectionId, days: rawDays, startTime: rawStart, endTime: rawEnd, quarter } = req.body;
+  const scheduleQuarter = parseTerm(quarter);
+  const startTime = parseTime(rawStart);
+  const endTime = parseTime(rawEnd);
+  const days = Array.isArray(rawDays) ? rawDays : parseDays(rawDays);
+
+  if (!primaryId || !teacherId || !subjectId || !sectionId || !Array.isArray(days) || !days.length || !startTime || !endTime) {
+    return res.status(400).json({ success: false, message: 'All fields are required and time format must be valid (e.g. 07:30 AM or 13:30).' });
+  }
+
+  if (startTime < SCHOOL_OPEN) {
+    return res.status(400).json({ success: false, message: 'Schedule cannot start before 7:00 AM.' });
+  }
+  if (endTime > SCHOOL_CLOSE) {
+    return res.status(400).json({ success: false, message: 'Schedule cannot end after 3:30 PM.' });
+  }
+  if (toMinutes(startTime) >= toMinutes(endTime)) {
+    return res.status(400).json({ success: false, message: 'End time must be after start time.' });
+  }
+  const duration = toMinutes(endTime) - toMinutes(startTime);
+  if (duration < 30) {
+    return res.status(400).json({ success: false, message: 'Duration must be at least 30 minutes.' });
+  }
+  if (duration > 120) {
+    return res.status(400).json({ success: false, message: 'Duration cannot exceed 2 hours.' });
+  }
+
+  const allTargetIds = Array.from(new Set([
+    primaryId,
+    ...(Array.isArray(relatedIds) ? relatedIds.map(Number) : [])
+  ])).filter((n) => Number.isInteger(n) && n > 0);
+
+  const connection = await pool.getConnection();
+  try {
+    // 1. Conflict checks excluding all target IDs
+    for (const day of days) {
+      const conflict = await checkScheduleConflict({
+        teacherId,
+        sectionId,
+        day,
+        startTime,
+        endTime,
+        quarter: scheduleQuarter,
+        excludeScheduleIds: allTargetIds,
+      });
+
+      if (conflict.hasConflict) {
+        connection.release();
+        return res.status(409).json({
+          success: false,
+          message: conflict.message,
+        });
+      }
+    }
+
+    // 2. Perform atomic delete of previous entries and insert updated entries
+    await connection.beginTransaction();
+
+    await connection.query(
+      `DELETE FROM schedules WHERE id IN (${allTargetIds.map(() => '?').join(',')})`,
+      allTargetIds
+    );
+
+    const newIds = [];
+    for (const day of days) {
+      const [result] = await connection.query(
+        'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [teacherId, subjectId, sectionId, scheduleQuarter, day, startTime, endTime]
+      );
+      newIds.push(result.insertId);
+    }
+
+    await connection.commit();
+    connection.release();
+
+    return res.json({
+      success: true,
+      message: `Schedule updated successfully for ${days.join(', ')}.`,
+      ids: newIds,
+    });
+  } catch (err) {
+    await connection.rollback().catch(() => {});
+    connection.release();
+    console.error('updateSchedule error:', err);
+    return res.status(500).json({ success: false, message: 'Could not update schedule.' });
   }
 }
 
@@ -1588,6 +1697,7 @@ async function bulkImportSchedules(req, res) {
 module.exports = {
   listSchedules,
   createSchedule,
+  updateSchedule,
   deleteSchedule,
   getMySchedule,
   downloadScheduleTemplate,
