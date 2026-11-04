@@ -1698,13 +1698,19 @@ section.docx img,
 }
 
 #badgeSectionDropdownMenu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 0.35rem;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
-    z-index: 1055;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    margin-top: 0.35rem !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+    z-index: 9999 !important;
+    background-color: #ffffff !important;
+    display: none;
+}
+
+#badgeSectionDropdownMenu.show {
+    display: block !important;
 }
 
 #badgeSectionCurrentLabel {

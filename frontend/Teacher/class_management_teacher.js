@@ -342,6 +342,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    function toggleBadgeSectionDropdown(show) {
+        const menu = document.getElementById('badgeSectionDropdownMenu');
+        if (!menu) return;
+        const willShow = (typeof show === 'boolean') ? show : (menu.style.display !== 'block');
+        menu.style.display = willShow ? 'block' : 'none';
+        if (willShow) {
+            menu.classList.add('show');
+        } else {
+            menu.classList.remove('show');
+        }
+    }
+
     function renderBadgeSectionDropdownMenu() {
         const menu = document.getElementById('badgeSectionDropdownMenu');
         const label = document.getElementById('badgeSectionCurrentLabel');
@@ -349,7 +361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         menu.innerHTML = '';
         if (!mySections || !mySections.length) {
-            menu.innerHTML = '<li><span class="dropdown-item-text text-muted small py-2 px-3">No sections assigned</span></li>';
+            menu.innerHTML = '<div class="p-2 text-center text-muted small">No sections assigned</div>';
             if (label) label.textContent = 'No sections';
             return;
         }
@@ -365,21 +377,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         mySections.forEach(s => {
             const isCurrent = String(s.id) === String(currentSectionId);
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <button type="button" class="dropdown-item py-2 px-3 rounded-2 d-flex justify-content-between align-items-center ${isCurrent ? 'active bg-success text-white' : ''}" data-section-id="${s.id}">
-                    <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
-                        <i class="bi ${s.isAdvisory ? 'bi-shield-check text-warning' : 'bi-mortarboard'} ${isCurrent ? 'text-white' : 'text-secondary'}"></i>
-                        <span class="fw-semibold text-truncate ${isCurrent ? 'text-white' : 'text-dark'}">${escapeHtml(s.name)}</span>
-                    </div>
-                    ${s.isAdvisory ? `<span class="badge ${isCurrent ? 'bg-white text-success' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'} text-xs">Advisory</span>` : ''}
-                </button>
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `dropdown-item py-2 px-3 rounded-2 d-flex justify-content-between align-items-center ${isCurrent ? 'active bg-success text-white' : ''}`;
+            btn.dataset.sectionId = s.id;
+            btn.innerHTML = `
+                <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                    <i class="bi ${s.isAdvisory ? 'bi-shield-check text-warning' : 'bi-mortarboard'} ${isCurrent ? 'text-white' : 'text-secondary'}"></i>
+                    <span class="fw-semibold text-truncate ${isCurrent ? 'text-white' : 'text-dark'}">${escapeHtml(s.name)}</span>
+                </div>
+                ${s.isAdvisory ? `<span class="badge ${isCurrent ? 'bg-white text-success' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'} text-xs">Advisory</span>` : ''}
             `;
 
-            li.querySelector('button').addEventListener('click', async (e) => {
+            btn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                menu.style.display = 'none';
-                menu.classList.remove('show');
+                e.stopPropagation();
+                toggleBadgeSectionDropdown(false);
                 if (String(currentSectionId) === String(s.id)) return;
                 currentSectionId = s.id;
 
@@ -398,7 +411,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ]);
             });
 
-            menu.appendChild(li);
+            menu.appendChild(btn);
         });
     }
 
@@ -1391,25 +1404,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize section dropdown toggle
     const badgeSectionDropdownBtn = document.getElementById('badgeSectionDropdownBtn');
-    const badgeSectionDropdownMenu = document.getElementById('badgeSectionDropdownMenu');
-    if (badgeSectionDropdownBtn && badgeSectionDropdownMenu) {
+    if (badgeSectionDropdownBtn) {
         badgeSectionDropdownBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
-            const isOpen = badgeSectionDropdownMenu.style.display === 'block' || badgeSectionDropdownMenu.classList.contains('show');
-            if (isOpen) {
-                badgeSectionDropdownMenu.style.display = 'none';
-                badgeSectionDropdownMenu.classList.remove('show');
-            } else {
-                badgeSectionDropdownMenu.style.display = 'block';
-                badgeSectionDropdownMenu.classList.add('show');
-            }
+            toggleBadgeSectionDropdown();
         });
 
         document.addEventListener('click', (e) => {
             const wrapper = document.getElementById('badgeSectionDropdownWrapper');
             if (wrapper && !wrapper.contains(e.target)) {
-                badgeSectionDropdownMenu.style.display = 'none';
-                badgeSectionDropdownMenu.classList.remove('show');
+                toggleBadgeSectionDropdown(false);
             }
         });
     }
