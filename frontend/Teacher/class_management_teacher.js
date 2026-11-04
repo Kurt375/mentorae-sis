@@ -282,6 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
             if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
 
+            renderBadgeSectionDropdownMenu();
             updateAdvisoryBanner();
 
             // Trigger data load for initial section (load subjects first, then roster and leaderboard)
@@ -301,6 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSectionId = filterSection.value;
             if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
             if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
+            renderBadgeSectionDropdownMenu();
             updateAdvisoryBanner();
             await loadSubjects(currentSectionId);
             await Promise.all([
@@ -315,6 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSectionId = encodeSectionFilter.value;
             if (filterSection) filterSection.value = currentSectionId;
             if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
+            renderBadgeSectionDropdownMenu();
             updateAdvisoryBanner();
             await loadSubjects(currentSectionId);
             await Promise.all([
@@ -329,12 +332,67 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSectionId = badgeSectionFilter.value;
             if (filterSection) filterSection.value = currentSectionId;
             if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
+            renderBadgeSectionDropdownMenu();
             updateAdvisoryBanner();
             await loadSubjects(currentSectionId);
             await Promise.all([
                 loadRoster(currentSectionId, currentSubjectId),
                 loadLeaderboard(currentSectionId)
             ]);
+        });
+    }
+
+    function renderBadgeSectionDropdownMenu() {
+        const menu = document.getElementById('badgeSectionDropdownMenu');
+        const label = document.getElementById('badgeSectionCurrentLabel');
+        if (!menu) return;
+
+        menu.innerHTML = '';
+        if (!mySections || !mySections.length) {
+            menu.innerHTML = '<li><span class="dropdown-item-text text-muted small py-2 px-3">No sections assigned</span></li>';
+            if (label) label.textContent = 'No sections';
+            return;
+        }
+
+        const currentSec = mySections.find(s => String(s.id) === String(currentSectionId)) || mySections[0];
+        if (label && currentSec) {
+            label.textContent = `${currentSec.name}${currentSec.isAdvisory ? ' ★ (Advisory Class)' : ''}`;
+        }
+
+        mySections.forEach(s => {
+            const isCurrent = String(s.id) === String(currentSectionId);
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <button type="button" class="dropdown-item py-2 px-3 rounded-2 d-flex justify-content-between align-items-center ${isCurrent ? 'active bg-success text-white' : ''}" data-section-id="${s.id}">
+                    <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                        <i class="bi ${s.isAdvisory ? 'bi-shield-check text-warning' : 'bi-mortarboard'} ${isCurrent ? 'text-white' : 'text-secondary'}"></i>
+                        <span class="fw-semibold text-truncate ${isCurrent ? 'text-white' : 'text-dark'}">${escapeHtml(s.name)}</span>
+                    </div>
+                    ${s.isAdvisory ? `<span class="badge ${isCurrent ? 'bg-white text-success' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'} text-xs">Advisory</span>` : ''}
+                </button>
+            `;
+
+            li.querySelector('button').addEventListener('click', async (e) => {
+                e.preventDefault();
+                if (String(currentSectionId) === String(s.id)) return;
+                currentSectionId = s.id;
+
+                if (badgeSectionFilter) {
+                    badgeSectionFilter.value = currentSectionId;
+                }
+                if (filterSection) filterSection.value = currentSectionId;
+                if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
+
+                renderBadgeSectionDropdownMenu();
+                updateAdvisoryBanner();
+                await loadSubjects(currentSectionId);
+                await Promise.all([
+                    loadRoster(currentSectionId, currentSubjectId),
+                    loadLeaderboard(currentSectionId)
+                ]);
+            });
+
+            menu.appendChild(li);
         });
     }
 
