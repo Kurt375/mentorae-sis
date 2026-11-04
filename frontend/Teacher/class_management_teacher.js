@@ -2147,8 +2147,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasWw = (st.wwScores || []).some(v => v !== '' && v !== null && v !== undefined);
         const hasPt = (st.ptScores || []).some(v => v !== '' && v !== null && v !== undefined);
         const hasQa = (st.qaScores || []).some(v => v !== '' && v !== null && v !== undefined);
+        const hasComponentWs = (st.wwWs !== '' && st.wwWs !== undefined) || (st.ptWs !== '' && st.ptWs !== undefined) || (st.qaWs !== '' && st.qaWs !== undefined);
 
-        if (!hasWw && !hasPt && !hasQa) {
+        if (!hasWw && !hasPt && !hasQa && !hasComponentWs) {
             alert(`⚠️ Cannot save grade for ${st.name}: No scores have been recorded in Written Works, Performance Tasks, or Summative & Exams yet.`);
             return;
         }
@@ -2777,6 +2778,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 activeGradeBreakdown.students[stObj.studentId] = stObj;
                 recomputeStudentBreakdown(stObj.studentId, weights);
+
+                // Fallback: If no sub-activity scores are recorded, but stored component totals exist in the database,
+                // populate the summary component weighted scores and transmuted grade directly from the database record
+                const hasDetailedWw = wwScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
+                const hasDetailedPt = ptScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
+                const hasDetailedQa = qaScores.some(v => v !== '' && v !== null && v !== undefined && !isNaN(v));
+
+                if (!hasDetailedWw && s.quiz_score !== null && s.quiz_score !== undefined && s.quiz_score !== '') {
+                    stObj.wwWs = parseFloat(s.quiz_score);
+                }
+                if (!hasDetailedPt && s.activity_score !== null && s.activity_score !== undefined && s.activity_score !== '') {
+                    stObj.ptWs = parseFloat(s.activity_score);
+                }
+                if (!hasDetailedQa && s.exam_score !== null && s.exam_score !== undefined && s.exam_score !== '') {
+                    stObj.qaWs = parseFloat(s.exam_score);
+                }
+
+                if (!hasDetailedWw && !hasDetailedPt && !hasDetailedQa && (s.average !== null && s.average !== undefined && s.average !== '')) {
+                    const avgNum = parseFloat(s.average);
+                    stObj.initial = Math.round(avgNum * 100) / 100;
+                    stObj.transmuted = transmuteDepEdGrade(avgNum);
+                    const desc = getDepEdDescriptor(stObj.transmuted);
+                    stObj.descriptor = desc.text;
+                    stObj.descriptorClass = desc.class;
+                    stObj.remarks = stObj.transmuted >= 75 ? 'Passed' : 'Failed';
+                }
             });
 
             // Render all 4 tables
@@ -3052,7 +3079,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             for (const st of students) {
                 const hasScore = (st.wwScores && st.wwScores.some(v => v !== '' && v !== null && v !== undefined)) ||
                     (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                    (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined));
+                    (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                    (st.wwWs !== '' && st.wwWs !== undefined) ||
+                    (st.ptWs !== '' && st.ptWs !== undefined) ||
+                    (st.qaWs !== '' && st.qaWs !== undefined);
 
                 if (!hasScore) continue;
 
