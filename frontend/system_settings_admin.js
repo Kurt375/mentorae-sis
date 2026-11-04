@@ -292,34 +292,124 @@ document.addEventListener('DOMContentLoaded', async () => {
             restoreFileInput.value = '';
             if (!sure) return;
 
-            restoreStatusMsg.textContent = 'Restoring… please don\'t close this page.';
-            restoreStatusMsg.className = 'text-sm text-muted';
+            btnRestoreBackup.disabled = true;
+            btnBackupNow.disabled = true;
 
-            const formData = new FormData();
-            formData.append('backupFile', file);
-            formData.append('confirm', 'RESTORE');
+            const CHUNK_SIZE = 1.5 * 1024 * 1024; // 1.5 MB slices to easily fit within Vercel's 4.5 MB request limit
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+            restoreStatusMsg.className = 'text-sm text-dark mt-2';
+            restoreStatusMsg.innerHTML = `
+                <div class="card p-3 border shadow-sm bg-white rounded">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <strong class="text-sm text-primary" id="restoreStepText">Starting full restore...</strong>
+                        <span class="text-xs fw-bold text-muted" id="restorePercentText">0%</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 14px;">
+                        <div id="restoreProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-muted" id="restoreDetailText">Preparing file (${(file.size / (1024 * 1024)).toFixed(1)} MB)...</div>
+                </div>
+            `;
 
             try {
-                const res = await fetch(`${API_BASE}/api/database/restore?token=${encodeURIComponent(token)}`, {
+                // 1. Initialize restore session
+                const startRes = await fetch(`${API_BASE}/api/database/restore/start?token=${encodeURIComponent(token)}`, {
                     method: 'POST',
-                    body: formData,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: file.name, totalChunks, totalSize: file.size }),
                 });
-                let data;
+                const startData = await startRes.json();
+                if (!startData.success || !startData.sessionId) {
+                    throw new Error(startData.message || 'Could not start restore session.');
+                }
+                const sessionId = startData.sessionId;
+
+                const progressBar = document.getElementById('restoreProgressBar');
+                const percentText = document.getElementById('restorePercentText');
+                const stepText = document.getElementById('restoreStepText');
+                const detailText = document.getElementById('restoreDetailText');
+
+                // 2. Upload chunks sequentially (each chunk is 1.5MB, well below Vercel's limit)
+                for (let i = 0; i < totalChunks; i++) {
+                    const start = i * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, file.size);
+                    const chunkBlob = file.slice(start, end);
+                    const chunkText = await chunkBlob.text();
+
+                    if (stepText) stepText.textContent = `Uploading backup data... (Chunk ${i + 1} of ${totalChunks})`;
+                    if (detailText) detailText.textContent = `${((end / file.size) * 100).toFixed(0)}% uploaded (${(end / (1024 * 1024)).toFixed(1)} MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
+
+                    const chunkRes = await fetch(`${API_BASE}/api/database/restore/chunk?token=${encodeURIComponent(token)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sessionId,
+                            chunkIndex: i,
+                            totalChunks,
+                            chunkText,
+                        }),
+                    });
+
+                    if (!chunkRes.ok) {
+                        throw new Error(`Upload failed at chunk ${i + 1} (Server status ${chunkRes.status})`);
+                    }
+                    const chunkData = await chunkRes.json();
+                    if (!chunkData.success) {
+                        throw new Error(chunkData.message || `Chunk ${i + 1} rejected.`);
+                    }
+
+                    const progressPct = Math.round(((i + 1) / totalChunks) * 85); // 0 to 85% for upload
+                    if (progressBar) progressBar.style.width = `${progressPct}%`;
+                    if (percentText) percentText.textContent = `${progressPct}%`;
+                }
+
+                // 3. Finalize and execute restore
+                if (stepText) stepText.textContent = 'Applying database records & restoring all files...';
+                if (detailText) detailText.textContent = 'Executing SQL statements in database transaction... please wait.';
+                if (progressBar) {
+                    progressBar.style.width = '92%';
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-warning');
+                }
+                if (percentText) percentText.textContent = '92%';
+
+                const finishRes = await fetch(`${API_BASE}/api/database/restore/finish?token=${encodeURIComponent(token)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, confirm: 'RESTORE' }),
+                });
+
+                let finishData;
                 try {
-                    data = await res.json();
+                    finishData = await finishRes.json();
                 } catch (parseErr) {
-                    throw new Error(`Server returned HTTP ${res.status} (${res.statusText || 'Gateway Timeout / Interrupted'})`);
+                    throw new Error(`Server returned HTTP ${finishRes.status} (${finishRes.statusText || 'Gateway Timeout'})`);
                 }
-                restoreStatusMsg.textContent = data.message;
-                restoreStatusMsg.className = 'text-sm ' + (data.success ? 'text-success' : 'text-danger');
-                if (!data.success) {
-                    alert(data.message || 'Invalid backup file.');
+
+                if (!finishData.success) {
+                    throw new Error(finishData.message || 'Restore failed.');
                 }
+
+                if (progressBar) {
+                    progressBar.style.width = '100%';
+                    progressBar.classList.remove('bg-warning');
+                    progressBar.classList.add('bg-success');
+                    progressBar.classList.remove('progress-bar-animated');
+                }
+                if (percentText) percentText.textContent = '100%';
+                if (stepText) stepText.textContent = '✅ Full Restore Complete!';
+                if (detailText) detailText.textContent = finishData.message || 'All records, topics, and files were restored.';
+
+                alert('✅ ' + (finishData.message || 'Full database restored successfully!'));
             } catch (err) {
-                const msg = err.message || 'could not reach the server.';
-                restoreStatusMsg.textContent = `Restore failed: ${msg}`;
-                restoreStatusMsg.className = 'text-sm text-danger';
+                const msg = err.message || 'Restore process failed.';
+                restoreStatusMsg.className = 'text-sm text-danger mt-2';
+                restoreStatusMsg.innerHTML = `<div class="alert alert-danger mb-0 py-2"><strong>Restore failed:</strong> ${msg}</div>`;
                 alert(`Restore failed: ${msg}`);
+            } finally {
+                btnRestoreBackup.disabled = false;
+                btnBackupNow.disabled = false;
             }
         });
     }

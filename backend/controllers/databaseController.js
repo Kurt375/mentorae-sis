@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const mysql = require('mysql2');
 const XLSX = require('xlsx');
+const crypto = require('crypto');
 
 // Tables in parent-before-child order (informational only — restore disables
 // FK checks, so exact order isn't load-bearing, but keeps the dump readable
@@ -726,6 +727,142 @@ async function restoreDatabase(req, res) {
   }
 }
 
+/**
+ * POST /api/database/restore/start
+ * Initializes a chunked restore session. Admin only.
+ */
+async function startChunkedRestore(req, res) {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _restore_buffer (
+        session_id VARCHAR(64) NOT NULL,
+        chunk_index INT NOT NULL,
+        chunk_data LONGTEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_id, chunk_index)
+      )
+    `);
+
+    // Clean up older leftover sessions (older than 1 hour)
+    await pool.query('DELETE FROM _restore_buffer WHERE created_at < NOW() - INTERVAL 1 HOUR').catch(() => {});
+
+    const sessionId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+    return res.json({ success: true, sessionId });
+  } catch (err) {
+    console.error('startChunkedRestore error:', err);
+    return res.status(500).json({ success: false, message: 'Could not initialize restore session.' });
+  }
+}
+
+/**
+ * POST /api/database/restore/chunk
+ * Stores one chunk (up to 2MB) into _restore_buffer. Admin only.
+ */
+async function uploadRestoreChunk(req, res) {
+  const { sessionId, chunkIndex, chunkText } = req.body;
+  if (!sessionId || chunkIndex === undefined || typeof chunkText !== 'string') {
+    return res.status(400).json({ success: false, message: 'sessionId, chunkIndex, and chunkText are required.' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO _restore_buffer (session_id, chunk_index, chunk_data) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE chunk_data = VALUES(chunk_data)`,
+      [sessionId, Number(chunkIndex), chunkText]
+    );
+    return res.json({ success: true, chunkIndex });
+  } catch (err) {
+    console.error('uploadRestoreChunk error:', err);
+    return res.status(500).json({ success: false, message: `Could not save chunk ${chunkIndex}: ${err.message}` });
+  }
+}
+
+/**
+ * POST /api/database/restore/finish
+ * Assembles all chunks in order and executes the full restore within a safe transaction. Admin only.
+ */
+async function finishChunkedRestore(req, res) {
+  const { sessionId, confirm } = req.body;
+  if (confirm !== 'RESTORE') {
+    return res.status(400).json({ success: false, message: 'Restore was not confirmed. Nothing was changed.' });
+  }
+  if (!sessionId) {
+    return res.status(400).json({ success: false, message: 'sessionId is required.' });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT chunk_data FROM _restore_buffer WHERE session_id = ? ORDER BY chunk_index ASC',
+      [sessionId]
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'No backup chunks found for this session.' });
+    }
+
+    const sqlText = rows.map((r) => r.chunk_data).join('');
+
+    if (!sqlText.startsWith(BACKUP_HEADER)) {
+      await pool.query('DELETE FROM _restore_buffer WHERE session_id = ?', [sessionId]).catch(() => {});
+      return res.status(400).json({
+        success: false,
+        message: 'This file was not recognized as a Mentorae backup. Only .sql files produced by this system\'s own Backup Now button can be restored.',
+      });
+    }
+
+    const rawLines = sqlText.split(/\r?\n/);
+    const statements = [];
+    let buffer = '';
+
+    for (const rawLine of rawLines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('--')) continue;
+      buffer += (buffer ? ' ' : '') + line;
+      if (line.endsWith(';')) {
+        statements.push(buffer);
+        buffer = '';
+      }
+    }
+    if (buffer.trim()) {
+      statements.push(buffer.trim());
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.query('SET FOREIGN_KEY_CHECKS=0;');
+      await conn.beginTransaction();
+
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < statements.length; i += BATCH_SIZE) {
+        const batch = statements.slice(i, i + BATCH_SIZE).join(';\n') + ';';
+        await conn.query(batch);
+      }
+
+      await conn.commit();
+      await conn.query('SET FOREIGN_KEY_CHECKS=1;');
+
+      // Clean up session buffer
+      await pool.query('DELETE FROM _restore_buffer WHERE session_id = ?', [sessionId]).catch(() => {});
+
+      return res.json({
+        success: true,
+        message: `Restore complete! Successfully applied ${statements.length} database statements and restored all data and files.`,
+      });
+    } catch (err) {
+      await conn.rollback();
+      try { await conn.query('SET FOREIGN_KEY_CHECKS=1;'); } catch (e) {}
+      await pool.query('DELETE FROM _restore_buffer WHERE session_id = ?', [sessionId]).catch(() => {});
+      console.error('finishChunkedRestore transaction error:', err);
+      return res.status(500).json({ success: false, message: `Restore failed and was rolled back: ${err.message}` });
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error('finishChunkedRestore error:', err);
+    return res.status(500).json({ success: false, message: `Restore error: ${err.message}` });
+  }
+}
+
 /** GET /api/database/login-logs — User / Role / Status / IP / Timestamp */
 async function browseLoginLogs(req, res) {
   try {
@@ -977,4 +1114,7 @@ module.exports = {
   exportLoginLogsCSV,
   backupDatabase,
   restoreDatabase,
+  startChunkedRestore,
+  uploadRestoreChunk,
+  finishChunkedRestore,
 };

@@ -25,6 +25,9 @@ const {
   exportLoginLogsCSV,
   backupDatabase,
   restoreDatabase,
+  startChunkedRestore,
+  uploadRestoreChunk,
+  finishChunkedRestore,
 } = require('../controllers/databaseController');
 
 // Backup files are small plain-text SQL — memory storage is fine, no need to
@@ -63,5 +66,8 @@ router.get('/login-logs/export.xlsx', exportLoginLogsCSV);
 
 router.get('/backup', backupDatabase);
 router.post('/restore', upload.single('backupFile'), restoreDatabase);
+router.post('/restore/start', startChunkedRestore);
+router.post('/restore/chunk', uploadRestoreChunk);
+router.post('/restore/finish', finishChunkedRestore);
 
 module.exports = router;
