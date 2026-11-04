@@ -362,6 +362,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const progressPct = Math.round(((i + 1) / totalChunks) * 85); // 0 to 85% for upload
                     if (progressBar) progressBar.style.width = `${progressPct}%`;
                     if (percentText) percentText.textContent = `${progressPct}%`;
+                    await new Promise((r) => setTimeout(r, 20));
                 }
 
                 // 3. Finalize and execute restore
@@ -373,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     progressBar.classList.add('bg-warning');
                 }
                 if (percentText) percentText.textContent = '92%';
+                await new Promise((r) => setTimeout(r, 50));
 
                 const finishRes = await fetch(`${API_BASE}/api/database/restore/finish?token=${encodeURIComponent(token)}`, {
                     method: 'POST',
@@ -404,8 +406,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert('✅ ' + (finishData.message || 'Full database restored successfully!'));
             } catch (err) {
                 const msg = err.message || 'Restore process failed.';
+                if (progressBar) {
+                    progressBar.classList.remove('bg-primary', 'bg-warning');
+                    progressBar.classList.add('bg-danger');
+                    progressBar.classList.remove('progress-bar-animated');
+                }
                 restoreStatusMsg.className = 'text-sm text-danger mt-2';
                 restoreStatusMsg.innerHTML = `<div class="alert alert-danger mb-0 py-2"><strong>Restore failed:</strong> ${msg}</div>`;
+                await new Promise((r) => setTimeout(r, 50));
                 alert(`Restore failed: ${msg}`);
             } finally {
                 btnRestoreBackup.disabled = false;

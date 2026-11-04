@@ -593,6 +593,22 @@ async function exportSectionsCSV(req, res) {
 
 const BACKUP_HEADER = '-- MENTORAE_BACKUP_V1';
 
+// Pattern to sanitize legacy malformed object properties produced by older backups
+const MALFORMED_OBJECT_PATTERN = /`[a-zA-Z0-9_]+`\s*=\s*'\[object Object\]'(?:,\s*(?:(?:`[a-zA-Z0-9_]+`\s*=\s*)?'\[object Object\]'))*/g;
+
+/**
+ * Escapes values safely for SQL INSERT statements.
+ * Serializes plain objects/arrays (such as JSON columns) to valid JSON strings
+ * rather than allowing mysql.escape to convert objects into key-value SET expressions.
+ */
+function escapeSqlValue(val) {
+  if (val === null || val === undefined) return 'NULL';
+  if (typeof val === 'object' && !Buffer.isBuffer(val) && !(val instanceof Date)) {
+    return mysql.escape(JSON.stringify(val));
+  }
+  return mysql.escape(val);
+}
+
 /** GET /api/database/backup — streams a .sql file. Admin only. */
 async function backupDatabase(req, res) {
   try {
@@ -641,7 +657,7 @@ async function backupDatabase(req, res) {
         );
         const colList = columns.map((c) => `\`${c}\``).join(', ');
         for (const row of rows) {
-          const values = columns.map((c) => mysql.escape(row[c])).join(', ');
+          const values = columns.map((c) => escapeSqlValue(row[c])).join(', ');
           lines.push(`INSERT INTO \`${table}\` (${colList}) VALUES (${values});`);
         }
       }
@@ -693,12 +709,20 @@ async function restoreDatabase(req, res) {
     if (!line || line.startsWith('--')) continue;
     buffer += (buffer ? ' ' : '') + line;
     if (line.endsWith(';')) {
-      statements.push(buffer);
+      let stmt = buffer;
+      if (stmt.includes('[object Object]')) {
+        stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
+      }
+      statements.push(stmt);
       buffer = '';
     }
   }
   if (buffer.trim()) {
-    statements.push(buffer.trim());
+    let stmt = buffer.trim();
+    if (stmt.includes('[object Object]')) {
+      stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
+    }
+    statements.push(stmt);
   }
 
   const conn = await pool.getConnection();
@@ -819,12 +843,20 @@ async function finishChunkedRestore(req, res) {
       if (!line || line.startsWith('--')) continue;
       buffer += (buffer ? ' ' : '') + line;
       if (line.endsWith(';')) {
-        statements.push(buffer);
+        let stmt = buffer;
+        if (stmt.includes('[object Object]')) {
+          stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
+        }
+        statements.push(stmt);
         buffer = '';
       }
     }
     if (buffer.trim()) {
-      statements.push(buffer.trim());
+      let stmt = buffer.trim();
+      if (stmt.includes('[object Object]')) {
+        stmt = stmt.replace(MALFORMED_OBJECT_PATTERN, "'{}'");
+      }
+      statements.push(stmt);
     }
 
     const conn = await pool.getConnection();
