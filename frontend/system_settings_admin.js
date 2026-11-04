@@ -367,7 +367,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // 3. Finalize and execute restore
                 if (stepText) stepText.textContent = 'Applying database records & restoring all files...';
-                if (detailText) detailText.textContent = 'Executing SQL statements in database transaction... please wait.';
+                let elapsedSec = 0;
+                const updateWaitMessage = () => {
+                    elapsedSec += 1;
+                    if (detailText) {
+                        detailText.textContent = `Restoring 8,000+ records & 50+ MB lesson files into cloud database... (${elapsedSec}s elapsed, please wait)`;
+                    }
+                };
+                updateWaitMessage();
+                const timerInterval = setInterval(updateWaitMessage, 1000);
+
                 if (progressBar) {
                     progressBar.style.width = '92%';
                     progressBar.classList.remove('bg-primary');
@@ -376,11 +385,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (percentText) percentText.textContent = '92%';
                 await new Promise((r) => setTimeout(r, 50));
 
-                const finishRes = await fetch(`${API_BASE}/api/database/restore/finish?token=${encodeURIComponent(token)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId, confirm: 'RESTORE' }),
-                });
+                let finishRes;
+                try {
+                    finishRes = await fetch(`${API_BASE}/api/database/restore/finish?token=${encodeURIComponent(token)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionId, confirm: 'RESTORE' }),
+                    });
+                } finally {
+                    clearInterval(timerInterval);
+                }
 
                 let finishData;
                 try {

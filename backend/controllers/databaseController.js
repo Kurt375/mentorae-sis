@@ -730,12 +730,23 @@ async function restoreDatabase(req, res) {
     await conn.query('SET FOREIGN_KEY_CHECKS=0;');
     await conn.beginTransaction();
 
-    // Execute in batches of 100 statements to eliminate round-trip network latency
-    // and prevent Vercel serverless function timeouts.
-    const BATCH_SIZE = 100;
-    for (let i = 0; i < statements.length; i += BATCH_SIZE) {
-      const batch = statements.slice(i, i + BATCH_SIZE).join(';\n') + ';';
-      await conn.query(batch);
+    // Execute statements in dynamic smart batches (up to 250 statements or 4 MB per packet)
+    // to minimize cloud network round-trips and maximize restore speed.
+    let currentBatch = [];
+    let currentBatchBytes = 0;
+    const MAX_BATCH_BYTES = 4 * 1024 * 1024; // 4 MB
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      currentBatch.push(stmt);
+      currentBatchBytes += stmt.length;
+
+      if (currentBatch.length >= 250 || currentBatchBytes >= MAX_BATCH_BYTES || i === statements.length - 1) {
+        const batchSql = currentBatch.join(';\n') + ';';
+        await conn.query(batchSql);
+        currentBatch = [];
+        currentBatchBytes = 0;
+      }
     }
 
     await conn.commit();
@@ -864,10 +875,23 @@ async function finishChunkedRestore(req, res) {
       await conn.query('SET FOREIGN_KEY_CHECKS=0;');
       await conn.beginTransaction();
 
-      const BATCH_SIZE = 100;
-      for (let i = 0; i < statements.length; i += BATCH_SIZE) {
-        const batch = statements.slice(i, i + BATCH_SIZE).join(';\n') + ';';
-        await conn.query(batch);
+      // Execute statements in dynamic smart batches (up to 250 statements or 4 MB per packet)
+      // to minimize cloud network round-trips and maximize restore speed.
+      let currentBatch = [];
+      let currentBatchBytes = 0;
+      const MAX_BATCH_BYTES = 4 * 1024 * 1024; // 4 MB
+
+      for (let i = 0; i < statements.length; i++) {
+        const stmt = statements[i];
+        currentBatch.push(stmt);
+        currentBatchBytes += stmt.length;
+
+        if (currentBatch.length >= 250 || currentBatchBytes >= MAX_BATCH_BYTES || i === statements.length - 1) {
+          const batchSql = currentBatch.join(';\n') + ';';
+          await conn.query(batchSql);
+          currentBatch = [];
+          currentBatchBytes = 0;
+        }
       }
 
       await conn.commit();
