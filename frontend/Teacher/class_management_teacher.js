@@ -3182,6 +3182,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     })
                 });
 
+                btnSaveAllGradesNow.disabled = false;
+                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
+
                 if (res.success) {
                     const savedCount = res.savedCount || gradesToSave.length;
                     alert(`✅ Successfully saved and synchronized grades for ${savedCount} student(s)!`);

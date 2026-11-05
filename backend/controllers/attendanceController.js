@@ -421,18 +421,29 @@ async function confirmAttendance(req, res) {
     const today = getManilaDate();
     const now = getManilaTime();
 
+    // Fast-path: Pre-fetch existing logs and student details in bulk
+    const [existingLogs] = await pool.query(
+      'SELECT id, student_id, status FROM attendance_logs WHERE student_id IN (?) AND scan_date = ?',
+      [ids, today]
+    );
+    const existingMap = new Map();
+    existingLogs.forEach((l) => existingMap.set(l.student_id, l));
+
+    const [studentRows] = await pool.query(
+      'SELECT id, first_name, last_name FROM users WHERE id IN (?)',
+      [ids]
+    );
+    const studentMap = new Map();
+    studentRows.forEach((s) => studentMap.set(s.id, s));
+
     for (const sId of ids) {
-      const [existing] = await pool.query('SELECT id, status FROM attendance_logs WHERE student_id = ? AND scan_date = ?', [
-        sId,
-        today,
-      ]);
+      const existingRecord = existingMap.get(sId);
+      const isStatusChanged = !existingRecord || existingRecord.status !== status;
 
-      const isStatusChanged = !existing[0] || existing[0].status !== status;
-
-      if (existing[0]) {
+      if (existingRecord) {
         await pool.query(
           'UPDATE attendance_logs SET status = ?, overridden_by = ?, scan_time = COALESCE(scan_time, ?) WHERE id = ?',
-          [status, req.user.id, now, existing[0].id]
+          [status, req.user.id, now, existingRecord.id]
         );
       } else {
         await pool.query(
@@ -445,10 +456,7 @@ async function confirmAttendance(req, res) {
 
       // Notification dispatch — fires if status actually changed or is newly set
       if (isStatusChanged && ['present', 'late', 'excused', 'absent'].includes(status)) {
-        const [[studentRow]] = await pool.query(
-          'SELECT first_name, last_name FROM users WHERE id = ?',
-          [sId]
-        );
+        const studentRow = studentMap.get(sId);
         const studentName = studentRow ? `${studentRow.first_name} ${studentRow.last_name}`.trim() : 'Student';
         const notifType = status === 'present' ? 'attendance_arrived' : status === 'late' ? 'attendance_late' : status === 'excused' ? 'attendance_excused' : 'attendance_absent';
         

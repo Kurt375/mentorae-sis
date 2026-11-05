@@ -412,22 +412,44 @@ async function saveEclassGrades(req, res) {
     const subPtRatio = subRows[0] ? (Number(subRows[0].pt_weight) / 100) : 0.50;
     const subQaRatio = subRows[0] ? (Number(subRows[0].qa_weight) / 100) : 0.30;
 
+    // Fast-path: Pre-fetch valid student IDs in bulk
+    const numericIds = grades.map((g) => Number(g.studentId)).filter((id) => !isNaN(id) && id > 0);
+    const validStudentIdSet = new Set();
+    if (numericIds.length > 0) {
+      const [uRows] = await conn.query('SELECT id FROM users WHERE role = "student" AND id IN (?)', [numericIds]);
+      uRows.forEach((u) => validStudentIdSet.add(u.id));
+    }
+
+    // Fallback: If any entries have string names or id_number without a numeric studentId
+    const unresolved = grades.filter((g) => {
+      const n = Number(g.studentId);
+      return isNaN(n) || n <= 0;
+    });
+    const fallbackMap = new Map();
+    if (unresolved.length > 0) {
+      const [allStudentRows] = await conn.query('SELECT id, id_number, first_name, last_name FROM users WHERE role = "student"');
+      for (const s of allStudentRows) {
+        if (s.id_number) fallbackMap.set(String(s.id_number).trim().toLowerCase(), s.id);
+        const fullName1 = `${s.first_name} ${s.last_name}`.trim().toLowerCase();
+        const fullName2 = `${s.last_name}, ${s.first_name}`.trim().toLowerCase();
+        fallbackMap.set(fullName1, s.id);
+        fallbackMap.set(fullName2, s.id);
+      }
+    }
+
+    const gradesValues = [];
+    const activityLogValues = [];
     let savedCount = 0;
+
     for (const g of grades) {
       let targetStudentId = Number(g.studentId);
-      if (isNaN(targetStudentId) || targetStudentId <= 0) {
-        const [uRows] = await conn.query(
-          `SELECT id FROM users WHERE role = 'student' AND (id_number = ? OR CONCAT(first_name, ' ', last_name) = ? OR CONCAT(last_name, ', ', first_name) = ?) LIMIT 1`,
-          [g.idNumber || g.studentId, g.name || '', g.name || '']
-        );
-        if (uRows.length) {
-          targetStudentId = uRows[0].id;
-        } else {
-          continue;
-        }
+      if (!isNaN(targetStudentId) && targetStudentId > 0) {
+        if (!validStudentIdSet.has(targetStudentId)) continue;
       } else {
-        const [uRows] = await conn.query(`SELECT id FROM users WHERE id = ? AND role = 'student'`, [targetStudentId]);
-        if (!uRows.length) continue;
+        const keyId = (g.idNumber || g.studentId || '').toString().trim().toLowerCase();
+        const keyName = (g.name || '').toString().trim().toLowerCase();
+        targetStudentId = fallbackMap.get(keyId) || fallbackMap.get(keyName);
+        if (!targetStudentId) continue;
       }
 
       if (g.written_works !== undefined || g.average !== undefined) {
@@ -437,23 +459,23 @@ async function saveEclassGrades(req, res) {
         const avg = Number(g.average) || (q + a + e);
         const rawScoresJson = g.raw_scores ? (typeof g.raw_scores === 'string' ? g.raw_scores : JSON.stringify(g.raw_scores)) : null;
 
-        await conn.query(
-          `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, raw_scores, recorded_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             section_id = VALUES(section_id),
-             quiz_score = VALUES(quiz_score),
-             activity_score = VALUES(activity_score),
-             exam_score = VALUES(exam_score),
-             raw_scores = VALUES(raw_scores),
-             recorded_by = VALUES(recorded_by)`,
-          [targetStudentId, subjectId, sectionId || 0, termName, q, a, e, rawScoresJson, req.user.id]
-        );
+        gradesValues.push([
+          targetStudentId,
+          subjectId,
+          sectionId || 0,
+          termName,
+          q,
+          a,
+          e,
+          rawScoresJson,
+          req.user.id,
+        ]);
 
-        await conn.query('INSERT INTO activity_log (student_id, description) VALUES (?, ?)', [
+        activityLogValues.push([
           targetStudentId,
           `ECR Grade synchronized (${termName}): WW ${q}, PT ${a}, QA ${e} (Average: ${avg})`,
         ]);
+        savedCount++;
       } else {
         const termsToSave = [
           { term: '1st Term', score: g.term1 },
@@ -461,6 +483,7 @@ async function saveEclassGrades(req, res) {
           { term: '3rd Term', score: g.term3 },
         ];
 
+        let studentSaved = false;
         for (const t of termsToSave) {
           if (t.score !== undefined && t.score !== null && t.score !== '' && !isNaN(Number(t.score))) {
             const score = Number(t.score);
@@ -468,21 +491,44 @@ async function saveEclassGrades(req, res) {
             const a = Math.round(score * subPtRatio * 100) / 100;
             const e = Math.round((score - q - a) * 100) / 100;
 
-            await conn.query(
-              `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, recorded_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               ON DUPLICATE KEY UPDATE
-                 section_id = VALUES(section_id),
-                 quiz_score = VALUES(quiz_score),
-                 activity_score = VALUES(activity_score),
-                 exam_score = VALUES(exam_score),
-                 recorded_by = VALUES(recorded_by)`,
-              [targetStudentId, subjectId, sectionId || 0, t.term, q, a, e, req.user.id]
-            );
+            gradesValues.push([
+              targetStudentId,
+              subjectId,
+              sectionId || 0,
+              t.term,
+              q,
+              a,
+              e,
+              null,
+              req.user.id,
+            ]);
+            studentSaved = true;
           }
         }
+        if (studentSaved) savedCount++;
       }
-      savedCount++;
+    }
+
+    if (gradesValues.length > 0) {
+      await conn.query(
+        `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, raw_scores, recorded_by)
+         VALUES ?
+         ON DUPLICATE KEY UPDATE
+           section_id = VALUES(section_id),
+           quiz_score = VALUES(quiz_score),
+           activity_score = VALUES(activity_score),
+           exam_score = VALUES(exam_score),
+           raw_scores = VALUES(raw_scores),
+           recorded_by = VALUES(recorded_by)`,
+        [gradesValues]
+      );
+    }
+
+    if (activityLogValues.length > 0) {
+      await conn.query(
+        'INSERT INTO activity_log (student_id, description) VALUES ?',
+        [activityLogValues]
+      );
     }
 
     await conn.commit();

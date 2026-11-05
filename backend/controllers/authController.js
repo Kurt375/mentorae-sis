@@ -783,29 +783,58 @@ async function getStatusSummary(req, res) {
         });
       }
     } else if (req.user.role === 'teacher') {
-      // Total Students across assigned sections
-      const [studentCountRows] = await pool.query(
-        `SELECT COUNT(DISTINCT u.id) AS totalStudents
-         FROM users u
-         JOIN schedules sch ON sch.section_id = u.section_id
-         WHERE u.role = 'student' AND sch.teacher_id = ?`,
-        [req.user.id]
-      );
+      // Execute independent dashboard queries concurrently for maximum speed
+      const [
+        [studentCountRows],
+        [fallbackCount],
+        [avgRows],
+        [notes],
+        [recentScans],
+        [advRows]
+      ] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(DISTINCT u.id) AS totalStudents
+           FROM users u
+           JOIN schedules sch ON sch.section_id = u.section_id
+           WHERE u.role = 'student' AND sch.teacher_id = ?`,
+          [req.user.id]
+        ),
+        pool.query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'"),
+        pool.query(
+          `SELECT ROUND(AVG(g.average), 1) AS classAvg
+           FROM grades g
+           JOIN users u ON u.id = g.student_id
+           JOIN schedules sch ON sch.section_id = u.section_id
+           WHERE sch.teacher_id = ?`,
+          [req.user.id]
+        ),
+        pool.query(
+          `SELECT en.id, en.absence_date, en.reason, en.status, en.created_at, u.first_name, u.last_name
+           FROM excuse_notes en
+           JOIN users u ON u.id = en.student_id
+           ORDER BY en.created_at DESC LIMIT 3`
+        ),
+        pool.query(
+          `SELECT al.scan_date, al.status, al.scan_time, u.first_name, u.last_name
+           FROM attendance_logs al
+           JOIN users u ON u.id = al.student_id
+           ORDER BY al.scan_date DESC, al.scan_time DESC LIMIT 3`
+        ),
+        pool.query(
+          `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode
+           FROM sections sec
+           LEFT JOIN strands st ON st.id = sec.strand_id
+           WHERE sec.adviser_id = ? OR sec.co_adviser_id = ?
+           LIMIT 1`,
+          [req.user.id, req.user.id]
+        ),
+      ]);
+
       let totalStudents = studentCountRows[0]?.totalStudents || 0;
       if (totalStudents === 0) {
-        const [fallbackCount] = await pool.query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'");
         totalStudents = fallbackCount[0]?.total || 0;
       }
 
-      // Class average
-      const [avgRows] = await pool.query(
-        `SELECT ROUND(AVG(g.average), 1) AS classAvg
-         FROM grades g
-         JOIN users u ON u.id = g.student_id
-         JOIN schedules sch ON sch.section_id = u.section_id
-         WHERE sch.teacher_id = ?`,
-        [req.user.id]
-      );
       const classAverage = avgRows[0]?.classAvg !== null ? Number(avgRows[0]?.classAvg) : 0;
 
       metrics = {
@@ -814,13 +843,6 @@ async function getStatusSummary(req, res) {
         studentLabel: 'Total Students Handled',
       };
 
-      // Teacher recent activities
-      const [notes] = await pool.query(
-        `SELECT en.id, en.absence_date, en.reason, en.status, en.created_at, u.first_name, u.last_name
-         FROM excuse_notes en
-         JOIN users u ON u.id = en.student_id
-         ORDER BY en.created_at DESC LIMIT 3`
-      );
       notes.forEach((n) => {
         recentActivity.push({
           type: 'excuse_note',
@@ -832,12 +854,6 @@ async function getStatusSummary(req, res) {
         });
       });
 
-      const [recentScans] = await pool.query(
-        `SELECT al.scan_date, al.status, al.scan_time, u.first_name, u.last_name
-         FROM attendance_logs al
-         JOIN users u ON u.id = al.student_id
-         ORDER BY al.scan_date DESC, al.scan_time DESC LIMIT 3`
-      );
       recentScans.forEach((s) => {
         recentActivity.push({
           type: 'scan',
@@ -849,15 +865,6 @@ async function getStatusSummary(req, res) {
         });
       });
 
-      // Teacher advisory section
-      const [advRows] = await pool.query(
-        `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode
-         FROM sections sec
-         LEFT JOIN strands st ON st.id = sec.strand_id
-         WHERE sec.adviser_id = ? OR sec.co_adviser_id = ?
-         LIMIT 1`,
-        [req.user.id, req.user.id]
-      );
       if (advRows[0]) {
         const adv = advRows[0];
         const parts = [];
