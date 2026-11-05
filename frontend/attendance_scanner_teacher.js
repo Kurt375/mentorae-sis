@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const img = document.getElementById('studentImg');
                 if (data.student.profilePictureUrl) {
-                    img.outerHTML = `<img id="studentImg" src="${data.student.profilePictureUrl}" class="w-100 h-100" style="object-fit: cover;" alt="Student photo">`;
+                    img.outerHTML = `<img id="studentImg" src="${data.student.profilePictureUrl}" class="w-100 h-100 avatar-img-fit" alt="Student photo">`;
                 } else {
                     img.outerHTML = '<i class="bi bi-person-fill text-secondary display-4 d-flex align-items-center justify-content-center h-100" id="studentImg"></i>';
                 }
