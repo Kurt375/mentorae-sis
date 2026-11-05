@@ -78,4 +78,5 @@
 
 .letter-spacing-1 {
     letter-spacing: 2px;
-}
+}
+.hover-white:hover { color: #ffffff !important; text-decoration: underline !important; }

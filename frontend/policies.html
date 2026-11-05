@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentorae - Institutional Policies &amp; Data Privacy Statement</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --mentorae-green: #0a5c2c;
+            --mentorae-dark-green: #084923;
+            --mentorae-canvas-bg: #f8fafc;
+            --text-dark: #1e293b;
+        }
+
+        body {
+            background-color: var(--mentorae-canvas-bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .portal-header {
+            background-color: var(--mentorae-green);
+            color: #ffffff;
+        }
+
+        .policy-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .policy-nav .nav-link {
+            color: #475569;
+            font-weight: 600;
+            padding: 0.85rem 1.25rem;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .policy-nav .nav-link:hover {
+            background-color: #f1f5f9;
+            color: var(--mentorae-green);
+        }
+
+        .policy-nav .nav-link.active {
+            background-color: #eef7ee;
+            color: var(--mentorae-green);
+            border-left: 4px solid var(--mentorae-green);
+        }
+
+        .section-header {
+            color: var(--mentorae-green);
+            font-weight: 700;
+            border-bottom: 2px solid #eef7ee;
+            padding-bottom: 0.6rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .badge-dpa {
+            background-color: #eef7ee;
+            color: var(--mentorae-green);
+            border: 1px solid #c8e6c9;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .highlight-box {
+            background-color: #f8fafc;
+            border-left: 4px solid var(--mentorae-green);
+            padding: 1rem 1.25rem;
+            border-radius: 0 8px 8px 0;
+            margin: 1.25rem 0;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .tab-pane {
+                display: block !important;
+                opacity: 1 !important;
+                margin-bottom: 2rem;
+                page-break-after: always;
+            }
+            body {
+                background: #ffffff;
+            }
+            .policy-card {
+                box-shadow: none;
+                border: none;
+            }
+        }
+    </style>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+
+    <!-- Header -->
+    <header class="portal-header py-4 shadow-sm">
+        <div class="container d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <img src="TSHS_image.png" alt="School Logo" class="rounded-circle shadow-sm border border-2 border-white"
+                    style="width: 60px; height: 60px; object-fit: cover;">
+                <div>
+                    <h1 class="h4 fw-bold m-0 tracking-wide">MENTORAE SIS</h1>
+                    <p class="small text-white-50 m-0 text-uppercase tracking-wider">Talisay Senior High School &bull; Institutional Policy Handbook</p>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 no-print">
+                <a href="login.html" class="btn btn-outline-light btn-sm rounded-pill px-3 fw-semibold">
+                    <i class="bi bi-box-arrow-in-left me-1"></i> Back to Login
+                </a>
+                <button type="button" class="btn btn-light btn-sm rounded-pill px-3 fw-semibold text-success" onclick="window.print()">
+                    <i class="bi bi-printer-fill me-1"></i> Print / Save PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="container py-5 flex-grow-1">
+        <div class="row g-4">
+            
+            <!-- Side Navigation Links (Desktop) -->
+            <div class="col-12 col-md-4 col-lg-3 no-print">
+                <div class="policy-card p-3 sticky-top" style="top: 1.5rem;">
+                    <div class="px-2 py-1 text-muted small fw-bold text-uppercase mb-2">Policy Navigation</div>
+                    <nav class="nav flex-column policy-nav" id="policyTabs" role="tablist">
+                        <button class="nav-link active text-start" id="tab-privacy" data-bs-toggle="pill" data-bs-target="#content-privacy" type="button" role="tab">
+                            <i class="bi bi-shield-check"></i> Data Privacy (RA 10173)
+                        </button>
+                        <button class="nav-link text-start" id="tab-aup" data-bs-toggle="pill" data-bs-target="#content-aup" type="button" role="tab">
+                            <i class="bi bi-laptop"></i> Acceptable Use Policy
+                        </button>
+                        <button class="nav-link text-start" id="tab-attendance" data-bs-toggle="pill" data-bs-target="#content-attendance" type="button" role="tab">
+                            <i class="bi bi-qr-code-scan"></i> QR Attendance Protocol
+                        </button>
+                        <button class="nav-link text-start" id="tab-dpo" data-bs-toggle="pill" data-bs-target="#content-dpo" type="button" role="tab">
+                            <i class="bi bi-person-badge"></i> Data Rights &amp; DPO
+                        </button>
+                    </nav>
+
+                    <hr class="my-3 opacity-25">
+                    <div class="px-2 small text-muted">
+                        <div><strong>Jurisdiction:</strong> Republic of the Philippines</div>
+                        <div><strong>Authority:</strong> DepEd Region IV-A &bull; TSHS</div>
+                        <div><strong>Academic Year:</strong> 2026 &ndash; 2027</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Policy Content Tabs -->
+            <div class="col-12 col-md-8 col-lg-9">
+                <div class="policy-card p-4 p-md-5">
+                    
+                    <div class="tab-content" id="policyTabContent">
+                        
+                        <!-- TAB 1: DATA PRIVACY POLICY -->
+                        <div class="tab-pane fade show active" id="content-privacy" role="tabpanel">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                <h2 class="h4 section-header m-0">Data Privacy Policy &amp; Notice</h2>
+                                <span class="badge badge-dpa px-3 py-1.5 rounded-pill">Republic Act No. 10173 Compliant</span>
+                            </div>
+
+                            <p class="text-secondary">
+                                <strong>Talisay Senior High School</strong> is committed to respecting and protecting the personal privacy of all learners, parents, guardians, faculty, and administrative staff. In compliance with <strong>Republic Act No. 10173 (Data Privacy Act of 2012)</strong> and the guidelines of the <strong>Department of Education (DepEd)</strong>, this policy explains how information is collected, processed, and safeguarded within the Mentorae Student Information System (SIS).
+                            </p>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">1. Scope of Information Collected</h5>
+                            <p class="text-secondary small mb-2">The portal collects and processes only the information necessary to fulfill educational, academic, and administrative mandates:</p>
+                            <ul class="text-secondary small">
+                                <li><strong>Learner Records:</strong> Full legal name, Learner Reference Number (LRN), Senior High School Track and Strand, Section Assignment, attendance logs, quarterly assessment marks, and official School ID photograph.</li>
+                                <li><strong>Parent / Guardian Information:</strong> Full name, verified mobile contact number, active email address, and relationship to the learner for emergency notices and attendance updates.</li>
+                                <li><strong>Faculty &amp; Staff Records:</strong> Employee ID, DepEd institutional email, subject teaching loads, classroom schedule assignments, and digital validation signatures.</li>
+                            </ul>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">2. Lawful Purposes for Data Processing</h5>
+                            <div class="highlight-box small text-secondary">
+                                Data processed within Mentorae SIS is used strictly for legitimate educational and institutional activities, including:
+                                <ul class="mb-0 mt-2">
+                                    <li>Recording daily morning routine and classroom attendance via secure QR code validation.</li>
+                                    <li>Computation of quarterly grades and generation of official DepEd Form 137 (Permanent Record) and Form 138 (Report Card).</li>
+                                    <li>Dispatching automated SMS and email notifications to parents regarding arrival, late check-in, or absence.</li>
+                                    <li>Monitoring learner progress and providing early intervention guidance for academic support.</li>
+                                </ul>
+                            </div>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">3. Data Security &amp; Access Controls</h5>
+                            <p class="text-secondary small">
+                                Mentorae SIS utilizes comprehensive organizational, physical, and technical security measures:
+                            </p>
+                            <ul class="text-secondary small">
+                                <li><strong>Role-Based Access Control (RBAC):</strong> Learners and parents access only their own individual records. Teachers access only their assigned classes. Administrative overrides are restricted to authorized school personnel.</li>
+                                <li><strong>Cryptographic Protection:</strong> User passwords are encrypted using high-work-factor bcrypt hashing. All communications between your device and the portal are secured with TLS/HTTPS encryption.</li>
+                                <li><strong>Audit Logging:</strong> System authentication, attendance confirmations, and grade submissions are timestamped and logged for administrative accountability.</li>
+                            </ul>
+                        </div>
+
+                        <!-- TAB 2: ACCEPTABLE USE POLICY -->
+                        <div class="tab-pane fade" id="content-aup" role="tabpanel">
+                            <h2 class="h4 section-header">Acceptable Use Policy (AUP)</h2>
+                            <p class="text-secondary">
+                                All authorized users of the Mentorae Portal are expected to conduct themselves with integrity, responsibility, and adherence to the <strong>DepEd Child Protection Policy (DO 40, s. 2012)</strong> and the <strong>Code of Conduct for Public School Teachers and Learners</strong>.
+                            </p>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">1. User Account Responsibilities</h5>
+                            <ul class="text-secondary small">
+                                <li>Each user is assigned unique credentials. Passwords must remain confidential and must never be shared with classmates, peers, or unauthorized persons.</li>
+                                <li>Users must immediately notify the school ICT Coordinator or Class Adviser if they suspect unauthorized access or compromised credentials.</li>
+                                <li>Users must log out of their session when using shared school computer laboratories, library terminals, or public devices.</li>
+                            </ul>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">2. Prohibited System Activities</h5>
+                            <div class="highlight-box small text-danger bg-danger-subtle border-danger">
+                                <strong>The following actions are strictly prohibited and constitute grounds for administrative and disciplinary action:</strong>
+                                <ul class="mb-0 mt-2 text-dark">
+                                    <li>Attempting to probe, scan, bypass, or test vulnerabilities of the portal infrastructure or network.</li>
+                                    <li>Attempting to access, modify, or falsify academic grades, attendance timestamps, or administrative configurations.</li>
+                                    <li>Uploading malicious software, scripts, unauthorized files, or offensive material into lesson repositories or communication boxes.</li>
+                                    <li>Using another individual's identity, LRN, or QR code to misrepresent school attendance or academic submissions.</li>
+                                </ul>
+                            </div>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">3. Disciplinary Sanctions</h5>
+                            <p class="text-secondary small">
+                                Violations of this Acceptable Use Policy will be subjected to the school's disciplinary guidelines under the supervision of the <strong>Prefect of Discipline</strong> and the <strong>Office of the Principal</strong>, and may result in immediate account revocation, academic sanctions, or legal referral under applicable Philippine laws.
+                            </p>
+                        </div>
+
+                        <!-- TAB 3: ATTENDANCE & QR CODE RULES -->
+                        <div class="tab-pane fade" id="content-attendance" role="tabpanel">
+                            <h2 class="h4 section-header">Digital Attendance &amp; QR Code Protocol</h2>
+                            <p class="text-secondary">
+                                To ensure student safety, punctuality, and accurate DepEd reporting, Talisay Senior High School enforces automated QR code attendance scanning at classroom and designated campus entry points.
+                            </p>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">1. Non-Transferability of QR Credentials</h5>
+                            <p class="text-secondary small">
+                                A student's QR code is uniquely linked to their legal LRN and school identity. <strong>Proxy scanning</strong> (scanning another student's QR code on their behalf, or taking a screenshot of a friend's code to scan for them) is strictly classified as dishonesty and forgery under the Student Handbook.
+                            </p>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">2. Daily Attendance Cut-Offs &amp; Validation</h5>
+                            <div class="table-responsive my-3">
+                                <table class="table table-bordered small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Time Period</th>
+                                            <th>Designated Routine</th>
+                                            <th>Attendance Designation</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>06:30 AM &ndash; 07:00 AM</strong></td>
+                                            <td>School Assembly / Flag Ceremony / Ground Improvement</td>
+                                            <td>Standard Arrival Window</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>07:00 AM &ndash; 08:00 AM</strong></td>
+                                            <td>Period 1 Instruction</td>
+                                            <td>Morning Time-In validated by 1st Period Teacher</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>After 07:15 AM</strong></td>
+                                            <td>Late Threshold</td>
+                                            <td>Tagged as <em>Late Arrival</em> with SMS notice to parent</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>After 08:30 AM (No Scan)</strong></td>
+                                            <td>Unconfirmed</td>
+                                            <td>Tagged as <em>Unverified / Absent</em> pending excuse slip</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">3. Parent Notification Guarantee</h5>
+                            <p class="text-secondary small">
+                                Once attendance is scanned and confirmed by the designated teacher or adviser, the system automatically dispatches real-time records to the <strong>Parent Portal</strong> and linked notification channels, providing parents with direct transparency over their child's safety and attendance.
+                            </p>
+                        </div>
+
+                        <!-- TAB 4: DATA SUBJECT RIGHTS & DPO CONTACT -->
+                        <div class="tab-pane fade" id="content-dpo" role="tabpanel">
+                            <h2 class="h4 section-header">Data Subject Rights &amp; Data Protection Officer</h2>
+                            <p class="text-secondary">
+                                Under Section 16 of the Data Privacy Act of 2012 (RA 10173), every learner, parent, and faculty member is recognized as a <strong>Data Subject</strong> and possesses the following enforceable statutory rights:
+                            </p>
+
+                            <div class="row g-3 my-2">
+                                <div class="col-12 col-md-6">
+                                    <div class="p-3 border rounded-3 bg-light h-100">
+                                        <div class="fw-bold text-success mb-1"><i class="bi bi-info-circle me-1"></i> 1. Right to Be Informed</div>
+                                        <div class="small text-muted">You have the right to know whether your personal data is being collected, stored, or processed by the school.</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <div class="p-3 border rounded-3 bg-light h-100">
+                                        <div class="fw-bold text-success mb-1"><i class="bi bi-eye me-1"></i> 2. Right to Access</div>
+                                        <div class="small text-muted">You have the right to inspect and review your academic grades, attendance logs, and registered parent information.</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <div class="p-3 border rounded-3 bg-light h-100">
+                                        <div class="fw-bold text-success mb-1"><i class="bi bi-pencil-square me-1"></i> 3. Right to Rectification</div>
+                                        <div class="small text-muted">You have the right to request correction of inaccurate, incomplete, or outdated information in your profile.</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <div class="p-3 border rounded-3 bg-light h-100">
+                                        <div class="fw-bold text-success mb-1"><i class="bi bi-shield-slash me-1"></i> 4. Right to Object &amp; Lodge Complaints</div>
+                                        <div class="small text-muted">You may submit concerns to the School Data Protection Officer or the National Privacy Commission (NPC).</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h5 class="fw-bold mt-4 mb-2 text-dark">Data Protection Officer (DPO) Inquiries</h5>
+                            <p class="text-secondary small">
+                                For inquiries, record corrections, or formal privacy concerns, please contact the designated school authority:
+                            </p>
+                            <div class="p-3 rounded-3 border bg-light small">
+                                <div><strong>Office:</strong> Data Protection Officer &bull; Office of the Principal</div>
+                                <div><strong>Institution:</strong> Talisay Senior High School</div>
+                                <div><strong>Address:</strong> Talisay, Batangas, Philippines 4220</div>
+                                <div><strong>Official Inquiries:</strong> tshs.talisay@deped.gov.ph</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white-50 text-center py-3 mt-auto small">
+        <div class="container d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+            <div>&copy; 2026 Talisay Senior High School. All Rights Reserved.</div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="login.html" class="text-white-50 text-decoration-none">Return to Portal Login</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-switch tabs if requested via URL hash (e.g. policies.html#aup)
+        document.addEventListener('DOMContentLoaded', () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) {
+                const targetBtn = document.getElementById(`tab-${hash}`);
+                if (targetBtn && window.bootstrap) {
+                    const tab = new bootstrap.Tab(targetBtn);
+                    tab.show();
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
