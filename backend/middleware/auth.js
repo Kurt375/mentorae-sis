@@ -26,7 +26,11 @@ async function isMaintenanceMode() {
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const bearerToken = header.startsWith('Bearer ') ? header.slice(7) : null;
-  const token = bearerToken || req.cookies?.token || req.query?.token;
+  // For read-only GET/HEAD requests (e.g. file exports, Excel downloads opened via window.open),
+  // allow token in query param. For all write operations (POST, PUT, DELETE, PATCH), require Bearer header or cookie.
+  const isReadOnly = req.method === 'GET' || req.method === 'HEAD';
+  const queryToken = isReadOnly ? req.query?.token : null;
+  const token = bearerToken || req.cookies?.token || queryToken;
 
   if (!token) {
     return res.status(401).json({ success: false, message: 'You must be logged in to do that.' });
@@ -34,6 +38,12 @@ async function requireAuth(req, res, next) {
 
   try {
     const secret = process.env.JWT_SECRET || 'mentorae-sis-jwt-secret-key-2026';
+    if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'mentorae-sis-jwt-secret-key-2026')) {
+      if (!global._hasLoggedJwtWarn) {
+        console.warn('⚠️ [SECURITY NOTICE] Production environment is using default/unset JWT_SECRET. Ensure a strong random string is set in environment variables.');
+        global._hasLoggedJwtWarn = true;
+      }
+    }
     const payload = jwt.verify(token, secret);
     req.user = payload;
 

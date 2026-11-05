@@ -68,8 +68,12 @@ router.get('/login-logs/export.xlsx', exportLoginLogsCSV);
 router.get('/backup', backupDatabase);
 router.post('/restore', upload.single('backupFile'), restoreDatabase);
 router.post('/restore/start', startChunkedRestore);
-router.post('/restore/chunk', uploadRestoreChunk);
-router.post('/restore/batch', restoreBatch);
+// Dedicated large body parsers for database restore chunks and SQL batches (up to 65MB)
+const largeJson = express.json({ limit: '65mb' });
+const largeUrlencoded = express.urlencoded({ extended: true, limit: '65mb' });
+
+router.post('/restore/chunk', largeJson, largeUrlencoded, uploadRestoreChunk);
+router.post('/restore/batch', largeJson, largeUrlencoded, restoreBatch);
 router.post('/restore/finish', finishChunkedRestore);
 
 module.exports = router;
