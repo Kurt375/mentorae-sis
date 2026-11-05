@@ -165,6 +165,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ];
 
+    // Baseline academic periods (Period 1: 07:00 AM - 08:00 AM)
+    // Ensures schedule continuity and prevents jumping from 07:00 AM directly to 08:00 AM
+    // even when a teacher has no classes scheduled during this time slot.
+    const BASELINE_PERIODS = [
+        {
+            startMin: 7 * 60,      // 07:00 AM
+            endMin: 8 * 60,        // 08:00 AM
+            startStr: '07:00',
+            endStr: '08:00'
+        }
+    ];
+
     function toMinutes(t) {
         if (!t) return 0;
         const [h, m] = t.split(':').map(Number);
@@ -223,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 termEl.textContent = terms.length === 1 ? terms[0] : (terms.length > 1 ? terms.join(', ') : 'All Terms');
             }
 
-            // Extract all unique start and end boundaries (classes + fixed school routines)
+            // Extract all unique start and end boundaries (classes + fixed school routines + baseline periods)
             const timePointsSet = new Set();
             for (const s of schedules) {
                 timePointsSet.add(toMinutes(s.startTime));
@@ -233,17 +245,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 timePointsSet.add(evt.startMin);
                 timePointsSet.add(evt.endMin);
             }
+            for (const base of BASELINE_PERIODS) {
+                timePointsSet.add(base.startMin);
+                timePointsSet.add(base.endMin);
+            }
             const sortedPoints = Array.from(timePointsSet).sort((a, b) => a - b);
 
-            // Construct atomic intervals that have a fixed event or at least one scheduled class
+            // Construct atomic intervals that have a fixed event, scheduled class, or baseline period (e.g. 7-8 AM)
             const intervals = [];
             for (let i = 0; i < sortedPoints.length - 1; i++) {
                 const startMin = sortedPoints[i];
                 const endMin = sortedPoints[i + 1];
                 const fixedEvt = FIXED_SCHOOL_EVENTS.find(e => e.startMin === startMin && e.endMin === endMin);
                 const hasClass = schedules.some(s => toMinutes(s.startTime) <= startMin && toMinutes(s.endTime) >= endMin);
+                const isBaseline = BASELINE_PERIODS.some(b => b.startMin <= startMin && b.endMin >= endMin);
 
-                if (fixedEvt || hasClass) {
+                if (fixedEvt || hasClass || isBaseline) {
                     intervals.push({
                         startMin,
                         endMin,
@@ -392,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         // Free time slot: render balanced slot placeholder so row heights remain stable
                         const td = document.createElement('td');
-                        td.className = 'text-muted micro-text align-middle';
+                        td.className = 'text-muted micro-text align-middle text-center';
                         td.textContent = '—';
                         tr.appendChild(td);
                     }
