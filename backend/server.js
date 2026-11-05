@@ -51,8 +51,17 @@ const allowedOrigins = [
 app.use((req, res, next) => {
   // Prevent MIME type sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  // Allow framing only on the same origin (preserves portal's embedded PDF / lesson doc previews)
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Content Security Policy: frame-ancestors prevents external clickjacking while allowing
+  // our production domains, preview branches, and local dev environments to embed PDFs/docs
+  res.setHeader(
+    'Content-Security-Policy',
+    "frame-ancestors 'self' https://mentorae-sis-frontend.vercel.app https://mentorae-sis.vercel.app https://*.vercel.app https://*.onrender.com http://localhost:* http://127.0.0.1:*"
+  );
+  // Omit X-Frame-Options on file-delivery routes so frontend can embed document previews cross-subdomain;
+  // keep SAMEORIGIN on general API endpoints for legacy browser protection
+  if (!req.path.startsWith('/api/content/') && !req.path.startsWith('/api/resources/files/')) {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  }
   // Standard Referrer Policy to prevent token/path leakage to third parties
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   // Disable client-side caching of sensitive student data from API
