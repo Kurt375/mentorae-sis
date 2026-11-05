@@ -213,7 +213,7 @@ async function runSevenAmAttendanceJob(force = false) {
  * When any authenticated traffic arrives on a weekday at or after 7:00 AM Manila time,
  * checks if today's cutoff job has executed. If not, dispatches it immediately in the background.
  */
-function maybeTriggerSevenAmJobOpportunistically() {
+async function maybeTriggerSevenAmJobOpportunistically() {
   try {
     const dayOfWeek = getManilaDayOfWeek();
     if (dayOfWeek === 'Saturday' || dayOfWeek === 'Sunday') return;
@@ -222,12 +222,10 @@ function maybeTriggerSevenAmJobOpportunistically() {
     const today = getManilaDate();
     if (lastRunDate === today) return;
 
-    // Fire non-blocking in background
-    runSevenAmAttendanceJob(false).catch((e) => {
-      console.error('[ATTENDANCE JOB] Opportunistic run error:', e.message);
-    });
+    // Await execution so serverless runtimes (Vercel) do not freeze the process mid-execution
+    await runSevenAmAttendanceJob(false);
   } catch (err) {
-    // Non-fatal
+    console.error('[ATTENDANCE JOB] Opportunistic run error:', err.message);
   }
 }
 

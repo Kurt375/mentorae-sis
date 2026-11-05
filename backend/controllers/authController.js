@@ -492,6 +492,16 @@ async function changePassword(req, res) {
       if (!emailRegex.test(cleanEmail)) {
         return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
       }
+      const [existing] = await pool.query(
+        'SELECT id, id_number FROM users WHERE (email = ? OR personal_email = ?) AND id != ? LIMIT 1',
+        [cleanEmail, cleanEmail, req.user.id]
+      );
+      if (existing.length) {
+        return res.status(409).json({
+          success: false,
+          message: `The email "${cleanEmail}" is already registered to another account (ID: ${existing[0].id_number}). Each user must have a unique email address.`
+        });
+      }
       updates.push('personal_email = ?');
       params.push(cleanEmail);
     }
@@ -608,8 +618,24 @@ async function updateProfile(req, res) {
     const sets = [];
     const params = [];
     if (personalEmail !== undefined) {
-      sets.push('personal_email = ?');
-      params.push(personalEmail ? personalEmail.trim().toLowerCase() : null);
+      if (personalEmail && String(personalEmail).trim()) {
+        const cleanEmail = String(personalEmail).trim().toLowerCase();
+        const [existing] = await pool.query(
+          'SELECT id, id_number FROM users WHERE (email = ? OR personal_email = ?) AND id != ? LIMIT 1',
+          [cleanEmail, cleanEmail, req.user.id]
+        );
+        if (existing.length) {
+          return res.status(409).json({
+            success: false,
+            message: `The email "${cleanEmail}" is already registered to another account (ID: ${existing[0].id_number}). Each user must have a unique email address.`
+          });
+        }
+        sets.push('personal_email = ?');
+        params.push(cleanEmail);
+      } else {
+        sets.push('personal_email = ?');
+        params.push(null);
+      }
     }
     if (contactNumber !== undefined) {
       sets.push('contact_number = ?');

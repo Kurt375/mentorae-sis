@@ -1400,41 +1400,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ww = gradeState.writtenWorkAvg || 90;
         const exam = gradeState.quarterlyExamAvg || 85;
 
+        // Use backend termTrends for terms taken or currently taking (e.g. 1st Term, 2nd Term, 3rd Term)
+        const activeTerm = gradeState.activeTerm || '1st Term';
+        const trends = Array.isArray(gradeState.termTrends) && gradeState.termTrends.length > 0
+            ? gradeState.termTrends
+            : [{ term: activeTerm, gwa: gwa, performanceTaskAvg: pt, writtenWorkAvg: ww, quarterlyExamAvg: exam }];
+
+        const labels = trends.map(t => t.term);
+        const gwaData = trends.map(t => Number(t.gwa != null ? t.gwa : gwa));
+        const ptData = trends.map(t => Number(t.performanceTaskAvg != null ? t.performanceTaskAvg : pt));
+        const wwData = trends.map(t => Number(t.writtenWorkAvg != null ? t.writtenWorkAvg : ww));
+        const examData = trends.map(t => Number(t.quarterlyExamAvg != null ? t.quarterlyExamAvg : exam));
+
+        const getStats = (dataArr) => {
+            const high = Math.max(...dataArr);
+            const low = Math.min(...dataArr);
+            const avg = (dataArr.reduce((a, b) => a + b, 0) / dataArr.length).toFixed(1);
+            return { high: `${high}%`, low: `${low}%`, avg: `${avg}%` };
+        };
+
+        const gwaStats = getStats(gwaData);
+        const ptStats = getStats(ptData);
+        const wwStats = getStats(wwData);
+        const examStats = getStats(examData);
+
         return {
             'average': {
                 title: 'Average Grade Trend',
                 score: `${gwa}%`,
-                trendData: [Math.max(70, gwa - 4), Math.max(72, gwa - 2), gwa],
-                high: `${Math.min(100, gwa + 3)}%`,
-                low: `${Math.max(70, gwa - 4)}%`,
-                avg: `${gwa}%`,
+                labels: labels,
+                trendData: gwaData,
+                high: gwaStats.high,
+                low: gwaStats.low,
+                avg: gwaStats.avg,
                 legend: 'Average GWA'
             },
             'performance': {
                 title: 'Performance Task Trend',
                 score: `${pt}%`,
-                trendData: [Math.max(70, pt - 3), Math.max(72, pt - 1), pt],
-                high: `${Math.min(100, pt + 2)}%`,
-                low: `${Math.max(70, pt - 3)}%`,
-                avg: `${pt}%`,
+                labels: labels,
+                trendData: ptData,
+                high: ptStats.high,
+                low: ptStats.low,
+                avg: ptStats.avg,
                 legend: 'Performance Tasks'
             },
             'written': {
                 title: 'Written Work Trend',
                 score: `${ww}%`,
-                trendData: [Math.max(70, ww - 5), Math.max(72, ww - 2), ww],
-                high: `${Math.min(100, ww + 2)}%`,
-                low: `${Math.max(70, ww - 5)}%`,
-                avg: `${ww}%`,
+                labels: labels,
+                trendData: wwData,
+                high: wwStats.high,
+                low: wwStats.low,
+                avg: wwStats.avg,
                 legend: 'Written Works'
             },
             'exam': {
                 title: 'Quarterly Assessment Trend',
                 score: `${exam}%`,
-                trendData: [Math.max(70, exam - 4), Math.max(72, exam - 2), exam],
-                high: `${Math.min(100, exam + 3)}%`,
-                low: `${Math.max(70, exam - 4)}%`,
-                avg: `${exam}%`,
+                labels: labels,
+                trendData: examData,
+                high: examStats.high,
+                low: examStats.low,
+                avg: examStats.avg,
                 legend: 'Quarterly Assessment'
             }
         };
@@ -1456,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         gaugeLineChartInstance = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['Term 1', 'Term 2', 'Current'],
+                labels: profile.labels && profile.labels.length ? profile.labels : ['1st Term'],
                 datasets: [{
                     label: profile.legend,
                     data: profile.trendData,

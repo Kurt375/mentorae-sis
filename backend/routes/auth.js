@@ -39,14 +39,18 @@ router.post('/forgot-password/verify', ipVolumetricLimiter, verifyResetCode);
 router.post('/forgot-password/verify-phone', ipVolumetricLimiter, verifyResetPhone);
 router.post('/forgot-password/reset', resetPassword);
 router.post('/change-password', requireAuth, changePassword);
-router.get('/me', requireAuth, (req, res, next) => {
-  maybeTriggerSevenAmJobOpportunistically();
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    await maybeTriggerSevenAmJobOpportunistically();
+  } catch (e) {}
   next();
 }, me);
 router.get('/profile', requireAuth, getProfile);
 router.patch('/profile', requireAuth, updateProfile);
-router.get('/status-summary', requireAuth, (req, res, next) => {
-  maybeTriggerSevenAmJobOpportunistically();
+router.get('/status-summary', requireAuth, async (req, res, next) => {
+  try {
+    await maybeTriggerSevenAmJobOpportunistically();
+  } catch (e) {}
   next();
 }, getStatusSummary);
 

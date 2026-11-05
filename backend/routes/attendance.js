@@ -65,8 +65,12 @@ function handleProofUpload(req, res, next) {
 }
 
 // Opportunistic auto-trigger for 7:00 AM attendance job on morning traffic
-router.use((req, res, next) => {
-  maybeTriggerSevenAmJobOpportunistically();
+router.use(async (req, res, next) => {
+  try {
+    await maybeTriggerSevenAmJobOpportunistically();
+  } catch (err) {
+    // Non-fatal
+  }
   next();
 });
 

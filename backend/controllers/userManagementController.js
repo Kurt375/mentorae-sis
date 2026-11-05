@@ -146,6 +146,19 @@ async function createUser(req, res) {
     });
   }
 
+  // Pre-check duplicate email across institutional and personal emails
+  const cleanEmail = email.trim().toLowerCase();
+  const [existingEmail] = await pool.query(
+    'SELECT id, id_number FROM users WHERE email = ? OR personal_email = ? LIMIT 1',
+    [cleanEmail, cleanEmail]
+  );
+  if (existingEmail.length) {
+    return res.status(409).json({
+      success: false,
+      message: `The email "${cleanEmail}" is already registered to another account (ID: ${existingEmail[0].id_number}). Each user must have a unique email address.`
+    });
+  }
+
   if (password) {
     if (password.length < 8) {
       return res.status(400).json({ success: false, message: 'Manual password must be at least 8 characters long.' });
@@ -691,6 +704,7 @@ async function updateUser(req, res) {
     lastName,
     contactNumber,
     email,
+    personalEmail,
     idNumber,
     program,
     parentName,
@@ -752,8 +766,43 @@ async function updateUser(req, res) {
       if (typeof email !== 'string' || !email.trim()) {
         return res.status(400).json({ success: false, message: 'Email cannot be empty.' });
       }
+      const cleanEmail = email.trim().toLowerCase();
+      const [dupEmail] = await pool.query(
+        'SELECT id, id_number FROM users WHERE (email = ? OR personal_email = ?) AND id != ? LIMIT 1',
+        [cleanEmail, cleanEmail, req.params.id]
+      );
+      if (dupEmail.length) {
+        return res.status(409).json({
+          success: false,
+          message: `The email "${cleanEmail}" is already registered to another user (ID: ${dupEmail[0].id_number}).`
+        });
+      }
       updates.push('email = ?');
-      params.push(email.trim().toLowerCase());
+      params.push(cleanEmail);
+    }
+    if (personalEmail !== undefined) {
+      if (personalEmail && typeof personalEmail === 'string' && personalEmail.trim()) {
+        const cleanPEmail = personalEmail.trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(cleanPEmail)) {
+          return res.status(400).json({ success: false, message: 'Please enter a valid personal email address.' });
+        }
+        const [dupPEmail] = await pool.query(
+          'SELECT id, id_number FROM users WHERE (email = ? OR personal_email = ?) AND id != ? LIMIT 1',
+          [cleanPEmail, cleanPEmail, req.params.id]
+        );
+        if (dupPEmail.length) {
+          return res.status(409).json({
+            success: false,
+            message: `The personal email "${cleanPEmail}" is already registered to another user (ID: ${dupPEmail[0].id_number}).`
+          });
+        }
+        updates.push('personal_email = ?');
+        params.push(cleanPEmail);
+      } else {
+        updates.push('personal_email = ?');
+        params.push(null);
+      }
     }
     if (idNumber !== undefined) {
       if (typeof idNumber !== 'string' || !idNumber.trim()) {
@@ -1707,6 +1756,8 @@ async function bulkImportStudents(req, res) {
     }
     const em = String(u.email || '').trim().toLowerCase();
     if (em) existingEmailSet.add(em);
+    const pem = String(u.personal_email || '').trim().toLowerCase();
+    if (pem) existingEmailSet.add(pem);
 
     const phone = cleanPhone(u.contact_number);
     const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();

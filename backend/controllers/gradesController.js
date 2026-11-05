@@ -513,6 +513,69 @@ async function computeStudentGradePerformance(studentId) {
 
   const improvingCount = gradedSubjects.filter((g) => g.average >= 75).length;
 
+  // 4. Compute real per-term trends for terms taken or currently taking (1st Term, 2nd Term, 3rd Term)
+  const activeTermNum = canonicalTerm.includes('3') ? 3 : canonicalTerm.includes('2') ? 2 : 1;
+  const standardTerms = ['1st Term', '2nd Term', '3rd Term'];
+  const termKeys = standardTerms.slice(0, activeTermNum);
+
+  for (const gr of rows) {
+    const norm = normalizeCanonicalTerm(gr.term);
+    if (standardTerms.includes(norm) && !termKeys.includes(norm)) {
+      termKeys.push(norm);
+    }
+  }
+  termKeys.sort((a, b) => {
+    const order = { '1st Term': 1, '2nd Term': 2, '3rd Term': 3 };
+    return (order[a] || 1) - (order[b] || 1);
+  });
+
+  const termTrends = termKeys.map((termName) => {
+    const termVariants = getTermVariants(termName);
+    const termRows = rows.filter((r) => termVariants.includes(r.term) || normalizeCanonicalTerm(r.term) === termName);
+    const termGraded = termRows.filter((r) => r.average !== null && !isNaN(Number(r.average)));
+
+    let gwa = null;
+    if (termGraded.length > 0) {
+      const sum = termGraded.reduce((acc, r) => acc + transmuteDepEdGrade(Number(r.average)), 0);
+      gwa = Number((sum / termGraded.length).toFixed(1));
+    } else if (termName === canonicalTerm && overall !== null) {
+      gwa = Number(overall);
+    }
+
+    let termWw = null;
+    const wwRows = termGraded.filter((r) => r.quiz_score !== null);
+    if (wwRows.length > 0) {
+      termWw = Math.round(wwRows.reduce((acc, r) => acc + (Number(r.quiz_score) / (Number(r.ww_weight) || 20)) * 100, 0) / wwRows.length);
+    } else if (termName === canonicalTerm) {
+      termWw = writtenWorkAvg;
+    }
+
+    let termPt = null;
+    const ptRows = termGraded.filter((r) => r.activity_score !== null);
+    if (ptRows.length > 0) {
+      termPt = Math.round(ptRows.reduce((acc, r) => acc + (Number(r.activity_score) / (Number(r.pt_weight) || 50)) * 100, 0) / ptRows.length);
+    } else if (termName === canonicalTerm) {
+      termPt = performanceTaskAvg;
+    }
+
+    let termQa = null;
+    const qaRows = termGraded.filter((r) => r.exam_score !== null);
+    if (qaRows.length > 0) {
+      termQa = Math.round(qaRows.reduce((acc, r) => acc + (Number(r.exam_score) / (Number(r.qa_weight) || 30)) * 100, 0) / qaRows.length);
+    } else if (termName === canonicalTerm) {
+      termQa = quarterlyExamAvg;
+    }
+
+    return {
+      term: termName,
+      gwa: gwa !== null ? gwa : Number(overall || 75),
+      writtenWorkAvg: termWw !== null ? termWw : (writtenWorkAvg || 75),
+      performanceTaskAvg: termPt !== null ? termPt : (performanceTaskAvg || 75),
+      quarterlyExamAvg: termQa !== null ? termQa : (quarterlyExamAvg || 75),
+      hasRecordedGrades: termGraded.length > 0,
+    };
+  });
+
   const fullName = `${s.first_name || ''} ${s.middle_initial ? s.middle_initial + ' ' : ''}${s.last_name || ''}`.trim();
   const formattedName = `${s.last_name || ''}, ${s.first_name || ''} ${s.middle_initial || ''}`.trim();
 
@@ -550,6 +613,7 @@ async function computeStudentGradePerformance(studentId) {
     performanceTaskAvg: performanceTaskAvg !== null ? performanceTaskAvg : 0,
     quarterlyExamAvg: quarterlyExamAvg !== null ? quarterlyExamAvg : 0,
     grades,
+    termTrends,
   };
 }
 
