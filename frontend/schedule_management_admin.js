@@ -1360,11 +1360,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 250);
 
+            const chkOverride = document.getElementById('chkOverrideSchedules');
+            const overrideExisting = chkOverride ? chkOverride.checked : true;
+
             const formData = new FormData();
             formData.append('importFile', file);
+            formData.append('overrideExisting', overrideExisting ? 'true' : 'false');
 
             try {
-                const res = await fetch(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import?token=${encodeURIComponent(token)}`, {
+                const res = await fetch(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import?overrideExisting=${overrideExisting ? 'true' : 'false'}&token=${encodeURIComponent(token)}`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -1380,44 +1384,108 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                setSchedProgressBar(100, 'Import Complete!', data.message || 'Schedules created successfully.');
+                setSchedProgressBar(100, 'Import Complete!', data.message || 'Schedules processed successfully.');
 
                 if (Array.isArray(data.results) && data.results.length) {
-                    let summaryHeader = '';
-                    if (data.totalSheets) {
-                        summaryHeader = `
-                            <div class="alert alert-success-subtle border border-success-subtle py-2 px-3 mb-2 rounded-3 text-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                <div>
-                                    <strong class="text-success"><i class="bi bi-check-circle-fill me-1"></i> ${data.totalEntriesCreated} class schedule(s) scheduled</strong> across ${data.totalSheets} teacher sheets.
-                                </div>
-                                <div class="d-flex gap-1">
+                    const totalCreated = data.totalEntriesCreated || 0;
+                    const totalReassigned = data.totalEntriesReassigned || 0;
+                    const totalUnchanged = data.totalEntriesUnchanged || 0;
+                    const totalWarnings = data.totalWarnings || 0;
+
+                    const summaryHeader = `
+                        <div class="alert alert-light border shadow-xs py-2.5 px-3 mb-3 rounded-3 text-sm">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                <span class="fw-bold text-dark">
+                                    <i class="bi bi-file-earmark-check-fill text-success me-1"></i> Timetable Import Results
+                                </span>
+                                <div class="d-flex flex-wrap gap-1">
                                     ${data.newTeachersRegistered ? `<span class="badge bg-success shadow-xs">+${data.newTeachersRegistered} Teachers Registered</span>` : ''}
                                     ${data.newSectionsCreated ? `<span class="badge bg-primary shadow-xs">+${data.newSectionsCreated} Sections Synced</span>` : ''}
                                 </div>
                             </div>
-                        `;
-                    }
+                            <div class="d-flex flex-wrap gap-1.5">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                    <i class="bi bi-check-circle-fill me-1"></i>${totalCreated} New Scheduled
+                                </span>
+                                ${totalReassigned > 0 ? `
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                        <i class="bi bi-arrow-repeat me-1"></i>${totalReassigned} Reassigned / Overridden
+                                    </span>
+                                ` : ''}
+                                ${totalUnchanged > 0 ? `
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                        <i class="bi bi-check2-all me-1"></i>${totalUnchanged} Up to Date
+                                    </span>
+                                ` : ''}
+                                ${totalWarnings > 0 ? `
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>${totalWarnings} Warning(s)
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
 
                     resultsEl.innerHTML = summaryHeader + data.results.map(r => {
                         let badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
                         let icon = '<i class="bi bi-x-circle-fill me-1"></i>';
+                        let statusText = String(r.status || 'STATUS').toUpperCase();
+
                         if (r.status === 'created') {
                             badgeClass = 'bg-success-subtle text-success border border-success-subtle';
                             icon = '<i class="bi bi-check-circle-fill me-1"></i>';
+                        } else if (r.status === 'reassigned') {
+                            badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
+                            icon = '<i class="bi bi-arrow-repeat me-1"></i>';
+                            statusText = 'OVERRIDDEN';
                         } else if (r.status === 'partial') {
                             badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
                             icon = '<i class="bi bi-exclamation-circle-fill me-1"></i>';
+                        } else if (r.status === 'unchanged') {
+                            badgeClass = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+                            icon = '<i class="bi bi-check2-all me-1"></i>';
+                            statusText = 'UP TO DATE';
+                        } else if (r.status === 'warning') {
+                            badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                            icon = '<i class="bi bi-exclamation-triangle-fill me-1"></i>';
+                            statusText = 'CONFLICT';
                         }
 
                         const labelPrefix = data.totalSheets ? 'Teacher Sheet' : 'Row';
 
+                        let changesHtml = '';
+                        if (Array.isArray(r.changes) && r.changes.length > 0) {
+                            changesHtml = `
+                                <div class="mt-2 p-2 rounded bg-primary-subtle border border-primary-subtle text-xs text-primary-emphasis">
+                                    <strong><i class="bi bi-arrow-repeat me-1"></i> Applied Changes:</strong>
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        ${r.changes.map(c => `<li>${c}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
+                        let warningsHtml = '';
+                        if (Array.isArray(r.warnings) && r.warnings.length > 0) {
+                            warningsHtml = `
+                                <div class="mt-2 p-2 rounded bg-warning-subtle border border-warning-subtle text-xs text-warning-emphasis">
+                                    <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Warnings &amp; Conflicts:</strong>
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        ${r.warnings.map(w => `<li>${w}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
                         return `
-                            <div class="p-2.5 mb-2 rounded border bg-light text-sm">
+                            <div class="p-2.5 mb-2 rounded border bg-light text-sm shadow-xs">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <strong class="text-dark">${labelPrefix} ${r.row}: ${r.name}</strong>
-                                    <span class="badge ${badgeClass} px-2 py-1">${icon}${r.status.toUpperCase()}</span>
+                                    <span class="badge ${badgeClass} px-2 py-1">${icon}${statusText}</span>
                                 </div>
                                 <div class="text-muted small">${r.message}</div>
+                                ${changesHtml}
+                                ${warningsHtml}
                             </div>
                         `;
                     }).join('');

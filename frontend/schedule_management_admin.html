@@ -249,6 +249,15 @@
                         </div>
                         <input type="file" id="bulkScheduleFileInput" accept=".xlsx,.xls,.csv"
                             class="form-control mb-3">
+                        <div class="form-check form-switch mb-3 p-2 bg-light rounded border border-success-subtle">
+                            <input class="form-check-input ms-0 me-2" type="checkbox" id="chkOverrideSchedules" checked role="switch">
+                            <label class="form-check-label text-sm fw-bold text-dark cursor-pointer" for="chkOverrideSchedules">
+                                <i class="bi bi-arrow-repeat text-success me-1"></i> Override &amp; reassign existing schedules on changes
+                            </label>
+                            <div class="text-xs text-muted ps-4">
+                                When enabled, re-uploading an edited workbook automatically updates existing time slots and reassigns conflicting classes to the new teacher.
+                            </div>
+                        </div>
                         <button type="button" class="btn btn-success fw-semibold" id="btnRunBulkImportSchedule">
                             <i class="bi bi-upload me-1"></i> Import Schedules
                         </button>

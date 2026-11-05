@@ -852,11 +852,23 @@ function parseTimeRangeBlock(raw) {
   return { startTime: s, endTime: e };
 }
 
+function formatTime12(t) {
+  if (!t) return '';
+  const [hStr, mStr] = String(t).split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ? mStr.padStart(2, '0') : '00';
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+}
+
 /**
  * Bulk imports schedules from the official TSHS Teacher Program Timetable layout.
  */
 async function importTshsTeacherProgramGrid(workbook, req, res) {
   try {
+    const overrideExisting = req.overrideExisting !== false;
+
     // 1. Fetch DB reference datasets
     const [teachers] = await pool.query("SELECT id, id_number, first_name, last_name, email FROM users WHERE role = 'teacher'");
     const [strands] = await pool.query("SELECT id, code, title FROM strands");
@@ -867,10 +879,18 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
     `);
     const [subjects] = await pool.query("SELECT id, name, code, strand, grade_level, quarter FROM subjects");
 
-    // Pre-load existing schedules to avoid duplicates
-    const [existingSchedules] = await pool.query(
-      "SELECT teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time FROM schedules"
-    );
+    // Pre-load existing schedules with full metadata
+    const [existingSchedules] = await pool.query(`
+      SELECT s.id, s.teacher_id, s.subject_id, s.section_id, s.quarter, s.day_of_week, s.start_time, s.end_time,
+             CONCAT(u.first_name, ' ', u.last_name) AS teacher_name,
+             sec.name AS section_name,
+             sub.name AS subject_name
+      FROM schedules s
+      JOIN users u ON u.id = s.teacher_id
+      JOIN sections sec ON sec.id = s.section_id
+      JOIN subjects sub ON sub.id = s.subject_id
+    `);
+
     const existingSchedSet = new Set(
       existingSchedules.map(
         (s) => `${s.teacher_id}_${s.subject_id}_${s.section_id}_${s.quarter}_${s.day_of_week}_${s.start_time}_${s.end_time}`
@@ -881,25 +901,54 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
     const teacherDaySlots = new Map();
     const sectionDaySlots = new Map();
 
-    function addSlotToMemory(tId, secId, d, sTime, eTime, q) {
+    function addSlotToMemory(schedId, tId, secId, subId, d, sTime, eTime, q, tName, secName, subName) {
       const sMin = toMinutes(sTime);
       const eMin = toMinutes(eTime);
+      const slotObj = {
+        schedId,
+        tId,
+        secId,
+        subId,
+        quarter: q,
+        startTime: sTime,
+        endTime: eTime,
+        sMin,
+        eMin,
+        teacherName: tName,
+        sectionName: secName,
+        subjectName: subName,
+      };
+
       const tKey = `${tId}_${d}`;
       if (!teacherDaySlots.has(tKey)) teacherDaySlots.set(tKey, []);
-      teacherDaySlots.get(tKey).push({ sMin, eMin, quarter: q, startTime: sTime, endTime: eTime });
+      teacherDaySlots.get(tKey).push(slotObj);
 
       const secKey = `${secId}_${d}`;
       if (!sectionDaySlots.has(secKey)) sectionDaySlots.set(secKey, []);
-      sectionDaySlots.get(secKey).push({ sMin, eMin, quarter: q, startTime: sTime, endTime: eTime });
+      sectionDaySlots.get(secKey).push(slotObj);
+      return slotObj;
     }
 
     existingSchedules.forEach((s) => {
-      addSlotToMemory(s.teacher_id, s.section_id, s.day_of_week, String(s.start_time), String(s.end_time), s.quarter);
+      addSlotToMemory(
+        s.id,
+        s.teacher_id,
+        s.section_id,
+        s.subject_id,
+        s.day_of_week,
+        String(s.start_time),
+        String(s.end_time),
+        s.quarter,
+        s.teacher_name,
+        s.section_name,
+        s.subject_name
+      );
     });
 
-    function hasSlotConflict(tId, secId, d, sTime, eTime, q) {
+    function findSlotConflicts(tId, secId, d, sTime, eTime, q) {
       const sMin = toMinutes(sTime);
       const eMin = toMinutes(eTime);
+      const list = [];
 
       const tKey = `${tId}_${d}`;
       const tSlots = teacherDaySlots.get(tKey);
@@ -907,7 +956,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         for (const slot of tSlots) {
           const termsOverlap = (slot.quarter === 'All Terms' || q === 'All Terms' || slot.quarter === q);
           if (termsOverlap && !(slot.eMin <= sMin || slot.sMin >= eMin)) {
-            return true;
+            list.push({ type: 'teacher', slot });
           }
         }
       }
@@ -918,12 +967,12 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         for (const slot of secSlots) {
           const termsOverlap = (slot.quarter === 'All Terms' || q === 'All Terms' || slot.quarter === q);
           if (termsOverlap && !(slot.eMin <= sMin || slot.sMin >= eMin)) {
-            return true;
+            list.push({ type: 'section', slot });
           }
         }
       }
 
-      return false;
+      return list;
     }
 
     const defaultPasswordHash = await bcrypt.hash('Teacher@2026', 10);
@@ -1132,6 +1181,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
     }
 
     const schedulesToInsert = [];
+    const schedulesToReassign = [];
     const sheetResults = [];
     let newTeachersCount = 0;
     let newSectionsCount = 0;
@@ -1201,7 +1251,10 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       ];
 
       let sheetCreated = 0;
-      let sheetSkippedExisting = 0;
+      let sheetReassigned = 0;
+      let sheetUnchanged = 0;
+      const sheetChanges = [];
+      const sheetWarnings = [];
 
       for (const { col, day } of dayCols) {
         let r = 17;
@@ -1274,17 +1327,96 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
 
           const schedKey = `${teacher.id}_${subject.id}_${section.id}_${term}_${day}_${slotTime.startTime}_${slotTime.endTime}`;
           if (existingSchedSet.has(schedKey)) {
-            sheetSkippedExisting++;
+            sheetUnchanged++;
             continue;
           }
 
-          // Instant in-memory overlap check for both teacher and section (zero DB latency)
-          if (hasSlotConflict(teacher.id, section.id, day, slotTime.startTime, slotTime.endTime, term)) {
-            sheetSkippedExisting++;
+          const conflicts = findSlotConflicts(teacher.id, section.id, day, slotTime.startTime, slotTime.endTime, term);
+          const secConflict = conflicts.find((c) => c.type === 'section');
+          const teacherConflict = conflicts.find((c) => c.type === 'teacher');
+
+          if (secConflict) {
+            const prev = secConflict.slot;
+            const timeFmt = `${formatTime12(slotTime.startTime)} – ${formatTime12(slotTime.endTime)}`;
+            if (prev.tId !== teacher.id) {
+              if (overrideExisting) {
+                if (prev.schedId) {
+                  schedulesToReassign.push({
+                    schedId: prev.schedId,
+                    newTeacherId: teacher.id,
+                    newSubjectId: subject.id,
+                    term,
+                    day,
+                    startTime: slotTime.startTime,
+                    endTime: slotTime.endTime,
+                  });
+                } else {
+                  // Staged earlier in this same import batch
+                  const stagedIdx = schedulesToInsert.findIndex(
+                    (si) => si[2] === section.id && si[4] === day && si[5] === slotTime.startTime && si[6] === slotTime.endTime
+                  );
+                  if (stagedIdx >= 0) {
+                    schedulesToInsert[stagedIdx][0] = teacher.id;
+                    schedulesToInsert[stagedIdx][1] = subject.id;
+                  }
+                }
+
+                prev.tId = teacher.id;
+                prev.subId = subject.id;
+                const prevName = prev.teacherName || 'previous teacher';
+                prev.teacherName = `${teacher.first_name} ${teacher.last_name}`;
+                prev.subjectName = subject.name;
+
+                sheetChanges.push(`Reassigned: ${subject.name} | ${section.name} (${day} ${timeFmt}) from ${prevName} to ${teacher.first_name} ${teacher.last_name}`);
+                sheetReassigned++;
+                continue;
+              } else {
+                sheetWarnings.push(`Section Conflict on ${day} (${timeFmt}): ${section.name} is already assigned to ${prev.teacherName || 'another teacher'}. Skipped.`);
+                continue;
+              }
+            } else {
+              // Same teacher, different subject/time overlap
+              if (overrideExisting && prev.schedId) {
+                schedulesToReassign.push({
+                  schedId: prev.schedId,
+                  newTeacherId: teacher.id,
+                  newSubjectId: subject.id,
+                  term,
+                  day,
+                  startTime: slotTime.startTime,
+                  endTime: slotTime.endTime,
+                });
+                const prevSubName = prev.subjectName || 'previous subject';
+                prev.subId = subject.id;
+                prev.subjectName = subject.name;
+                sheetChanges.push(`Updated Subject: ${section.name} (${day} ${timeFmt}) updated from ${prevSubName} to ${subject.name}`);
+                sheetReassigned++;
+                continue;
+              }
+            }
+          }
+
+          if (teacherConflict) {
+            const prev = teacherConflict.slot;
+            const timeFmt = `${formatTime12(slotTime.startTime)} – ${formatTime12(slotTime.endTime)}`;
+            sheetWarnings.push(`Teacher Double-Booking on ${day} (${timeFmt}): ${teacher.first_name} ${teacher.last_name} is already scheduled with ${prev.sectionName || 'another section'}. Skipped.`);
             continue;
           }
 
-          addSlotToMemory(teacher.id, section.id, day, slotTime.startTime, slotTime.endTime, term);
+          // No conflict: create new schedule
+          addSlotToMemory(
+            null,
+            teacher.id,
+            section.id,
+            subject.id,
+            day,
+            slotTime.startTime,
+            slotTime.endTime,
+            term,
+            `${teacher.first_name} ${teacher.last_name}`,
+            section.name,
+            subject.name
+          );
           existingSchedSet.add(schedKey);
           schedulesToInsert.push([
             teacher.id,
@@ -1299,12 +1431,39 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         }
       }
 
+      let status = 'unchanged';
+      if (sheetCreated > 0 || sheetReassigned > 0) {
+        status = sheetWarnings.length > 0 ? 'partial' : (sheetReassigned > 0 && sheetCreated === 0 ? 'reassigned' : 'created');
+      } else if (sheetWarnings.length > 0) {
+        status = 'warning';
+      }
+
+      const summaryParts = [];
+      if (sheetCreated > 0) summaryParts.push(`${sheetCreated} scheduled`);
+      if (sheetReassigned > 0) summaryParts.push(`${sheetReassigned} reassigned/updated`);
+      if (sheetUnchanged > 0) summaryParts.push(`${sheetUnchanged} up to date`);
+      if (sheetWarnings.length > 0) summaryParts.push(`${sheetWarnings.length} warning(s)`);
+
       sheetResults.push({
         row: sIdx + 1,
         name: `${teacher.first_name} ${teacher.last_name}`,
-        status: sheetCreated > 0 ? 'created' : (sheetSkippedExisting > 0 ? 'partial' : 'error'),
-        message: `${sheetCreated} class schedule(s) created${sheetSkippedExisting > 0 ? `, ${sheetSkippedExisting} already up to date` : ''}.`,
+        status,
+        createdCount: sheetCreated,
+        reassignedCount: sheetReassigned,
+        unchangedCount: sheetUnchanged,
+        warningCount: sheetWarnings.length,
+        message: summaryParts.join(', ') || 'No valid schedule cells in sheet',
+        changes: sheetChanges,
+        warnings: sheetWarnings,
       });
+    }
+
+    // Execute DB reassignments
+    for (const r of schedulesToReassign) {
+      await pool.query(
+        'UPDATE schedules SET teacher_id = ?, subject_id = ?, quarter = ? WHERE id = ?',
+        [r.newTeacherId, r.newSubjectId, r.term, r.schedId]
+      );
     }
 
     // Batch insert schedules in chunks of 50
@@ -1317,10 +1476,18 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       );
     }
 
+    const totalCreated = schedulesToInsert.length;
+    const totalReassigned = schedulesToReassign.length;
+    const totalWarnings = sheetResults.reduce((acc, r) => acc + (r.warningCount || 0), 0);
+    const totalUnchanged = sheetResults.reduce((acc, r) => acc + (r.unchangedCount || 0), 0);
+
     return res.json({
       success: true,
-      message: `TSHS Timetable Import Complete: ${schedulesToInsert.length} class schedule(s) scheduled across ${workbook.SheetNames.length} teacher program sheet(s).`,
-      totalEntriesCreated: schedulesToInsert.length,
+      message: `TSHS Timetable Import Complete: ${totalCreated} scheduled, ${totalReassigned} overridden/reassigned across ${workbook.SheetNames.length} teacher program sheet(s).`,
+      totalEntriesCreated: totalCreated,
+      totalEntriesReassigned: totalReassigned,
+      totalEntriesUnchanged: totalUnchanged,
+      totalWarnings: totalWarnings,
       totalSheets: workbook.SheetNames.length,
       newTeachersRegistered: newTeachersCount,
       newSectionsCreated: newSectionsCount,
@@ -1369,27 +1536,64 @@ async function importTabularSchedules(workbook, req, res) {
     return val !== null && val !== undefined ? String(val).trim() : '';
   }
 
-  const [existingSchedules] = await pool.query(
-    "SELECT teacher_id, section_id, quarter, day_of_week, start_time, end_time FROM schedules"
-  );
+  const overrideExisting = req.overrideExisting !== false;
+
+  const [existingSchedules] = await pool.query(`
+    SELECT s.id, s.teacher_id, s.section_id, s.subject_id, s.quarter, s.day_of_week, s.start_time, s.end_time,
+           CONCAT(u.first_name, ' ', u.last_name) AS teacher_name,
+           sec.name AS section_name,
+           sub.name AS subject_name
+    FROM schedules s
+    JOIN users u ON u.id = s.teacher_id
+    JOIN sections sec ON sec.id = s.section_id
+    JOIN subjects sub ON sub.id = s.subject_id
+  `);
 
   const teacherDaySlots = new Map();
   const sectionDaySlots = new Map();
 
-  function addSlotToMemory(tId, secId, d, sTime, eTime, q) {
+  function addSlotToMemory(schedId, tId, secId, subId, d, sTime, eTime, q, tName, secName, subName) {
     const sMin = toMinutes(sTime);
     const eMin = toMinutes(eTime);
+    const slotObj = {
+      schedId,
+      tId,
+      secId,
+      subId,
+      quarter: q,
+      startTime: sTime,
+      endTime: eTime,
+      sMin,
+      eMin,
+      teacherName: tName,
+      sectionName: secName,
+      subjectName: subName,
+    };
+
     const tKey = `${tId}_${d}`;
     if (!teacherDaySlots.has(tKey)) teacherDaySlots.set(tKey, []);
-    teacherDaySlots.get(tKey).push({ sMin, eMin, quarter: q, startTime: sTime, endTime: eTime });
+    teacherDaySlots.get(tKey).push(slotObj);
 
     const secKey = `${secId}_${d}`;
     if (!sectionDaySlots.has(secKey)) sectionDaySlots.set(secKey, []);
-    sectionDaySlots.get(secKey).push({ sMin, eMin, quarter: q, startTime: sTime, endTime: eTime });
+    sectionDaySlots.get(secKey).push(slotObj);
+    return slotObj;
   }
 
   existingSchedules.forEach((s) => {
-    addSlotToMemory(s.teacher_id, s.section_id, s.day_of_week, String(s.start_time), String(s.end_time), s.quarter);
+    addSlotToMemory(
+      s.id,
+      s.teacher_id,
+      s.section_id,
+      s.subject_id,
+      s.day_of_week,
+      String(s.start_time),
+      String(s.end_time),
+      s.quarter,
+      s.teacher_name,
+      s.section_name,
+      s.subject_name
+    );
   });
 
   function checkSlotConflictFast(tId, secId, d, sTime, eTime, q) {
@@ -1405,7 +1609,8 @@ async function importTabularSchedules(workbook, req, res) {
           return {
             hasConflict: true,
             type: 'teacher',
-            message: `Teacher conflict on ${d}: Already assigned to another class during ${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}.`,
+            slot,
+            message: `Teacher Double-Booking on ${d}: Already assigned to ${slot.sectionName || 'another class'} during ${formatTime12(slot.startTime)} – ${formatTime12(slot.endTime)}.`,
           };
         }
       }
@@ -1420,7 +1625,8 @@ async function importTabularSchedules(workbook, req, res) {
           return {
             hasConflict: true,
             type: 'section',
-            message: `Section conflict on ${d}: Section already assigned to another class during ${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}.`,
+            slot,
+            message: `Section Conflict on ${d}: Section ${slot.sectionName || ''} is already assigned to ${slot.teacherName || 'another teacher'} during ${formatTime12(slot.startTime)} – ${formatTime12(slot.endTime)}.`,
           };
         }
       }
@@ -1431,6 +1637,8 @@ async function importTabularSchedules(workbook, req, res) {
 
   const results = [];
   let totalEntriesCreated = 0;
+  let totalEntriesReassigned = 0;
+  let totalEntriesUnchanged = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -1607,18 +1815,63 @@ async function importTabularSchedules(workbook, req, res) {
     }
 
     let rowCreatedCount = 0;
+    let rowReassignedCount = 0;
+    let rowUnchangedCount = 0;
     const rowErrors = [];
+    const rowChanges = [];
 
     for (const day of days) {
-      // Instant in-memory overlap check (zero DB network round-trips)
-      const conflict = checkSlotConflictFast(teacher.id, section.id, day, startTime, endTime, term);
-
-      if (conflict.hasConflict) {
-        rowErrors.push(conflict.message);
+      // Check if identical schedule already exists
+      const [existingExact] = await pool.query(
+        'SELECT id FROM schedules WHERE teacher_id = ? AND subject_id = ? AND section_id = ? AND quarter = ? AND day_of_week = ? AND start_time = ? AND end_time = ?',
+        [teacher.id, subject.id, section.id, term, day, startTime, endTime]
+      );
+      if (existingExact.length > 0) {
+        rowUnchangedCount++;
+        totalEntriesUnchanged++;
         continue;
       }
 
-      addSlotToMemory(teacher.id, section.id, day, startTime, endTime, term);
+      // Instant in-memory overlap check
+      const conflict = checkSlotConflictFast(teacher.id, section.id, day, startTime, endTime, term);
+
+      if (conflict.hasConflict) {
+        if (conflict.type === 'section' && conflict.slot.tId !== teacher.id && overrideExisting) {
+          if (conflict.slot.schedId) {
+            await pool.query(
+              'UPDATE schedules SET teacher_id = ?, subject_id = ?, quarter = ? WHERE id = ?',
+              [teacher.id, subject.id, term, conflict.slot.schedId]
+            );
+          }
+          const prevName = conflict.slot.teacherName || 'previous teacher';
+          conflict.slot.tId = teacher.id;
+          conflict.slot.subId = subject.id;
+          conflict.slot.teacherName = `${teacher.first_name} ${teacher.last_name}`;
+          conflict.slot.subjectName = subject.name;
+
+          rowChanges.push(`Reassigned on ${day} (${formatTime12(startTime)}–${formatTime12(endTime)}) from ${prevName} to ${teacher.first_name} ${teacher.last_name}`);
+          rowReassignedCount++;
+          totalEntriesReassigned++;
+          continue;
+        } else {
+          rowErrors.push(conflict.message);
+          continue;
+        }
+      }
+
+      addSlotToMemory(
+        null,
+        teacher.id,
+        section.id,
+        subject.id,
+        day,
+        startTime,
+        endTime,
+        term,
+        `${teacher.first_name} ${teacher.last_name}`,
+        section.name,
+        subject.name
+      );
 
       await pool.query(
         'INSERT INTO schedules (teacher_id, subject_id, section_id, quarter, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -1628,19 +1881,29 @@ async function importTabularSchedules(workbook, req, res) {
       totalEntriesCreated++;
     }
 
-    if (rowCreatedCount > 0 && rowErrors.length === 0) {
+    if (rowCreatedCount > 0 || rowReassignedCount > 0) {
+      const summaryMsg = [
+        rowCreatedCount > 0 ? `${rowCreatedCount} created` : '',
+        rowReassignedCount > 0 ? `${rowReassignedCount} reassigned` : '',
+        rowUnchangedCount > 0 ? `${rowUnchangedCount} up to date` : '',
+      ].filter(Boolean).join(', ');
+
       results.push({
         row: rowNum,
         name: `${teacher.first_name} ${teacher.last_name} • ${subject.name} • ${section.name}`,
-        status: 'created',
-        message: `Created for ${days.join(', ')} (${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}).`,
+        status: rowErrors.length > 0 ? 'partial' : (rowReassignedCount > 0 && rowCreatedCount === 0 ? 'reassigned' : 'created'),
+        message: `${summaryMsg} for ${days.join(', ')} (${formatTime12(startTime)}–${formatTime12(endTime)}).`,
+        changes: rowChanges,
+        warnings: rowErrors,
       });
-    } else if (rowCreatedCount > 0 && rowErrors.length > 0) {
+    } else if (rowUnchangedCount > 0 && rowErrors.length === 0) {
       results.push({
         row: rowNum,
         name: `${teacher.first_name} ${teacher.last_name} • ${subject.name} • ${section.name}`,
-        status: 'partial',
-        message: `Created for some days, but had conflicts: ${rowErrors.join(' ')}`,
+        status: 'unchanged',
+        message: `Already up to date for ${days.join(', ')} (${formatTime12(startTime)}–${formatTime12(endTime)}).`,
+        changes: [],
+        warnings: [],
       });
     } else {
       results.push({
@@ -1648,15 +1911,19 @@ async function importTabularSchedules(workbook, req, res) {
         name: `${teacher.first_name} ${teacher.last_name} • ${subject.name} • ${section.name}`,
         status: 'error',
         message: rowErrors.join(' ') || 'Could not schedule class.',
+        changes: [],
+        warnings: rowErrors,
       });
     }
   }
 
-  const successRows = results.filter((r) => r.status === 'created' || r.status === 'partial').length;
+  const successRows = results.filter((r) => r.status === 'created' || r.status === 'reassigned' || r.status === 'partial' || r.status === 'unchanged').length;
   return res.json({
     success: true,
-    message: `${totalEntriesCreated} schedule entry(s) created from ${successRows} of ${rows.length} row(s).`,
+    message: `${totalEntriesCreated} schedule entry(s) created, ${totalEntriesReassigned} reassigned/overridden across ${successRows} row(s).`,
     totalEntriesCreated,
+    totalEntriesReassigned,
+    totalEntriesUnchanged,
     results,
   });
 }
@@ -1670,6 +1937,15 @@ async function bulkImportSchedules(req, res) {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No file was uploaded.' });
   }
+
+  const overrideExisting = (
+    req.body.overrideExisting === 'true' ||
+    req.body.overrideExisting === true ||
+    req.body.overrideExisting === '1' ||
+    req.query.overrideExisting === 'true' ||
+    req.body.overrideExisting === undefined
+  );
+  req.overrideExisting = overrideExisting;
 
   let workbook;
   try {

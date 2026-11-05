@@ -299,7 +299,20 @@ async function checkSessionLock(teacherId, sectionId, subjectId) {
   const activeSchedule = rows.find((s) => nowMin >= toMinutes(s.start_time) - 5 && nowMin <= toMinutes(s.end_time) + 5);
 
   if (activeSchedule) {
-    return { isAllowed: true, reason: 'Session Active. You can confirm attendance.' };
+    // Check if this is the section's first scheduled class of the day (e.g. 7:00 AM period)
+    const [firstSchedRows] = await pool.query(
+      'SELECT start_time FROM schedules WHERE section_id = ? AND day_of_week = ? ORDER BY start_time ASC LIMIT 1',
+      [sectionId, today]
+    );
+    const isFirstPeriod = Boolean(firstSchedRows.length && firstSchedRows[0].start_time === activeSchedule.start_time);
+
+    return {
+      isAllowed: true,
+      reason: isFirstPeriod
+        ? '1st Period Morning Session Active (7:00 AM). You can validate initial morning attendance for this section.'
+        : 'Subject Session Active. You can confirm attendance for this period.',
+      isFirstPeriod,
+    };
   }
 
   const next = rows.find((s) => toMinutes(s.start_time) - 5 > nowMin);
@@ -387,7 +400,14 @@ async function getConfirmationRoster(req, res) {
     const hasTimeOuts = rows.some((r) => r.time_out);
     const allTimeOutsConfirmed = hasTimeOuts && rows.filter((r) => r.time_out).every((r) => r.confirmed_at || r.confirmed_by);
 
-    return res.json({ success: true, roster, isAdvisory: isAdviser, allTimeOutsConfirmed });
+    const todayDay = getManilaDayOfWeek();
+    const [firstSched] = await pool.query(
+      'SELECT teacher_id, start_time FROM schedules WHERE section_id = ? AND day_of_week = ? ORDER BY start_time ASC LIMIT 1',
+      [sectionId, todayDay]
+    );
+    const isFirstPeriodTeacher = Boolean(firstSched.length && firstSched[0].teacher_id === req.user.id);
+
+    return res.json({ success: true, roster, isAdvisory: isAdviser, isFirstPeriodTeacher, allTimeOutsConfirmed });
   } catch (err) {
     console.error('getConfirmationRoster error:', err);
     return res.status(500).json({ success: false, message: 'Could not load the attendance roster.' });

@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedStudentIds = new Set();
     let sessionAllowed = false;
     let isCurrentAdvisory = false;
+    let isCurrentFirstPeriod = false;
 
     function markAttendanceSeen() {
         try {
@@ -134,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         excused: 'bg-danger-subtle text-danger',
     };
 
-    function updateSectionHeaderAndView(isAdvisory) {
+    function updateSectionHeaderAndView(isAdvisory, isFirstPeriod = false) {
         if (sectionTypeBadgeWrap) {
             if (isAdvisory) {
                 sectionTypeBadgeWrap.innerHTML = `
@@ -143,6 +144,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="bi bi-star-fill text-warning"></i> Advisory Class
                         </span>
                         <span class="pill-desc">Daily Time In &amp; Time Out</span>
+                    </div>
+                `;
+            } else if (isFirstPeriod) {
+                sectionTypeBadgeWrap.innerHTML = `
+                    <div class="section-mode-pill">
+                        <span class="pill-tag bg-success text-white shadow-sm">
+                            <i class="bi bi-alarm-fill text-warning"></i> 1st Period Class (7:00 AM)
+                        </span>
+                        <span class="pill-desc">Morning Attendance Validator</span>
                     </div>
                 `;
             } else {
@@ -170,6 +180,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         <th class="px-3 py-3 fw-semibold text-nowrap">Section</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time In</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time Out</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Status</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Action</th>
+                    </tr>
+                `;
+            } else if (isFirstPeriod) {
+                thead.innerHTML = `
+                    <tr class="table-header-row text-white text-nowrap">
+                        <th class="px-3 py-3 text-center" style="width: 44px;">
+                            <input class="form-check-input my-0 cursor-pointer" type="checkbox" id="selectAllRoster" title="Select / Deselect All">
+                        </th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Student ID</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Name</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Cluster</th>
+                        <th class="px-3 py-3 fw-semibold text-nowrap">Section</th>
+                        <th class="px-3 py-3 fw-semibold text-center text-nowrap">Time In</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Status</th>
                         <th class="px-3 py-3 fw-semibold text-center text-nowrap">Action</th>
                     </tr>
@@ -219,8 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const selectedOpt = sectionFilter.options[sectionFilter.selectedIndex];
         isCurrentAdvisory = data.isAdvisory !== undefined ? Boolean(data.isAdvisory) : (selectedOpt?.dataset.advisory === '1');
+        isCurrentFirstPeriod = Boolean(data.isFirstPeriodTeacher);
 
-        updateSectionHeaderAndView(isCurrentAdvisory);
+        updateSectionHeaderAndView(isCurrentAdvisory, isCurrentFirstPeriod);
         applyRosterFilters();
 
         if (data.allTimeOutsConfirmed) {
@@ -439,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRoster(roster) {
         currentlyRenderedRoster = roster || [];
         tbody.innerHTML = '';
-        const colSpan = isCurrentAdvisory ? 9 : 7;
+        const colSpan = isCurrentAdvisory ? 9 : (isCurrentFirstPeriod ? 8 : 7);
         if (!roster.length) {
             tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted py-4">No students in this section.</td></tr>`;
             syncSelectAllStates();
@@ -457,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let timeInCell = '';
             let timeOutCell = '';
 
-            if (isCurrentAdvisory) {
+            if (isCurrentAdvisory || isCurrentFirstPeriod) {
                 const inFormatted = s.timeIn ? s.timeIn.slice(0, 5) : '—';
                 timeInCell = `
                     <td class="px-3 py-3 text-center text-nowrap">
