@@ -98,7 +98,7 @@ app.use(cors({
     }
 
     // Block unauthorized third-party origins
-    return callback(new Error(`CORS blocked: Origin ${origin} is not permitted to access this API.`));
+    return callback(null, false);
   },
   credentials: true
 }));
