@@ -252,11 +252,34 @@ async function getRiskAssessment(req, res) {
       params
     );
 
+    // Fetch existing targeted intervention assignments in bulk for these students
+    const studentIds = rows.map((r) => r.studentId);
+    let assignmentMap = {};
+    if (studentIds.length > 0) {
+      try {
+        const [assignRows] = await pool.query(
+          `SELECT sla.student_id, sla.subject_id, sla.topic_id, sla.created_at, t.title AS topic_title
+           FROM student_lesson_assignments sla
+           JOIN topics t ON t.id = sla.topic_id
+           WHERE sla.student_id IN (?)
+           ORDER BY sla.created_at DESC`,
+          [studentIds]
+        );
+        for (const a of assignRows) {
+          const subjectKey = `${a.student_id}_${a.subject_id}`;
+          if (!assignmentMap[subjectKey]) assignmentMap[subjectKey] = a;
+          if (!assignmentMap[a.student_id]) assignmentMap[a.student_id] = a;
+        }
+      } catch (assignErr) {
+        console.warn('Could not load student_lesson_assignments:', assignErr.message);
+      }
+    }
+
     // Fetch lowest/failing subject per student for targeted intervention recommendations
     const studentsWithRisk = await Promise.all(
       rows.map(async (r) => {
         const [subRows] = await pool.query(
-          `SELECT g.average, sub.name AS subjectName
+          `SELECT g.average, sub.id AS subjectId, sub.name AS subjectName
            FROM grades g
            JOIN subjects sub ON sub.id = g.subject_id
            WHERE g.student_id = ?
@@ -267,6 +290,16 @@ async function getRiskAssessment(req, res) {
 
         const lowest = subRows.length > 0 ? subRows[0] : null;
         const rawRisk = classifyRisk(r.overallGrade, r.attendanceRate);
+
+        // Check if an active intervention assignment already exists
+        const assignment = lowest && lowest.subjectId
+          ? (assignmentMap[`${r.studentId}_${lowest.subjectId}`] || assignmentMap[r.studentId])
+          : assignmentMap[r.studentId];
+
+        const isAssigned = !!assignment;
+        const assignedTopicId = assignment ? assignment.topic_id : null;
+        const assignedTopicTitle = assignment ? assignment.topic_title : null;
+        const assignedAt = assignment ? assignment.created_at : null;
 
         let riskTier = 'Low Risk';
         let riskClass = 'bg-low-risk text-success';
@@ -285,7 +318,7 @@ async function getRiskAssessment(req, res) {
           if (lowest) {
             detailText = `Failing Subject: <strong>${lowest.subjectName}</strong> (${lowest.average}%)`;
             action = {
-              label: 'Assign Lesson',
+              label: isAssigned ? 'Assigned' : 'Assign Lesson',
               disabled: false,
               subjectId: lowest.subjectId,
               subjectName: lowest.subjectName,
@@ -294,7 +327,7 @@ async function getRiskAssessment(req, res) {
           } else {
             detailText = `Academic Risk: Attendance (${r.attendanceRate ?? 'Below Threshold'}%)`;
             action = {
-              label: 'Assign Lesson',
+              label: isAssigned ? 'Assigned' : 'Assign Lesson',
               disabled: false,
               subjectId: null,
               subjectName: null,
@@ -308,7 +341,7 @@ async function getRiskAssessment(req, res) {
           if (lowest) {
             detailText = `At-Risk Subject: <strong>${lowest.subjectName}</strong> (${lowest.average}%)`;
             action = {
-              label: 'Assign Lesson',
+              label: isAssigned ? 'Assigned' : 'Assign Lesson',
               disabled: false,
               subjectId: lowest.subjectId,
               subjectName: lowest.subjectName,
@@ -317,7 +350,7 @@ async function getRiskAssessment(req, res) {
           } else {
             detailText = `Grade: ${r.overallGrade ? r.overallGrade + '%' : 'No grades yet'} | Attendance: ${r.attendanceRate ? r.attendanceRate + '%' : '0%'}`;
             action = {
-              label: 'Assign Lesson',
+              label: isAssigned ? 'Assigned' : 'Assign Lesson',
               disabled: false,
               subjectId: null,
               subjectName: null,
@@ -344,6 +377,11 @@ async function getRiskAssessment(req, res) {
           detailColor,
           subjectId: lowest ? lowest.subjectId : null,
           subjectName: lowest ? lowest.subjectName : null,
+          failingAverage: lowest ? lowest.average : null,
+          isAssigned,
+          assignedTopicId,
+          assignedTopicTitle,
+          assignedAt,
           action,
         };
       })

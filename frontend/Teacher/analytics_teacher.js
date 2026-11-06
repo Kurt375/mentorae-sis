@@ -532,11 +532,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Render Filtered Cards
         riskAssessmentDirectory.innerHTML = filteredRiskStudents.map((s, idx) => {
-            const actionButton = s.action.disabled
-                ? `<button type="button" class="btn btn-action-recommend btn-secondary w-100" disabled>Not Applicable</button>`
-                : `<button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 text-white shadow-xs text-truncate" data-index="${idx}">
-                    <i class="bi bi-journal-plus me-1"></i> Assign Lesson
-                   </button>`;
+            let actionButton;
+            if (s.action && s.action.disabled) {
+                actionButton = `<button type="button" class="btn btn-action-recommend btn-secondary w-100" disabled>Not Applicable</button>`;
+            } else if (s.isAssigned) {
+                actionButton = `
+                    <button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 shadow-xs text-truncate" data-index="${idx}"
+                        style="background-color: #e8f5e9; border: 1.5px solid #2e7d32; color: #1b5e20; font-weight: 600;"
+                        title="Assigned: ${escapeHtml(s.assignedTopicTitle || 'Remedial Lesson')} (Click to view or change)">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i> Assigned
+                    </button>`;
+            } else {
+                actionButton = `
+                    <button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 text-white shadow-xs text-truncate" data-index="${idx}">
+                        <i class="bi bi-journal-plus me-1"></i> Assign Lesson
+                    </button>`;
+            }
 
             return `
                 <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-4">
@@ -715,12 +726,104 @@ document.addEventListener('DOMContentLoaded', async () => {
             badgeEl.textContent = student.riskTier || 'High Risk';
         }
 
+        // Active status badge inside student card
+        const activeStatusAlert = document.getElementById('assignActiveStatusAlert');
+        const activeStatusTitle = document.getElementById('assignActiveStatusTitle');
+        const activeStatusDate = document.getElementById('assignActiveStatusDate');
+        if (activeStatusAlert) {
+            if (student.isAssigned && student.assignedTopicTitle) {
+                activeStatusAlert.classList.remove('d-none');
+                if (activeStatusTitle) activeStatusTitle.textContent = student.assignedTopicTitle;
+                if (activeStatusDate) {
+                    const d = student.assignedAt ? new Date(student.assignedAt) : null;
+                    activeStatusDate.textContent = d && !isNaN(d.getTime()) ? `• ${d.toLocaleDateString()}` : '';
+                }
+            } else {
+                activeStatusAlert.classList.add('d-none');
+            }
+        }
+
         const subjName = student.subjectName || 'General Mathematics';
         document.getElementById('assignSubjectName').value = subjName;
 
         const openSubjectLink = document.getElementById('assignOpenSubjectLink');
         if (openSubjectLink) {
             openSubjectLink.href = student.action && student.action.url ? student.action.url : `subject_detail_teacher.html?subject=${encodeURIComponent(subjName)}&from=analytics`;
+        }
+
+        // Setup peers with similar failing subject (Batch Intervention)
+        const peerContainer = document.getElementById('peerAssignContainer');
+        const peerList = document.getElementById('peerStudentList');
+        const peerBadge = document.getElementById('peerAssignCountBadge');
+        const peerSummary = document.getElementById('peerSelectionSummary');
+        const btnSelectAllPeers = document.getElementById('btnToggleSelectAllPeers');
+        const btnConfirm = document.getElementById('btnConfirmAssignLesson');
+
+        if (peerContainer && peerList) {
+            const subjLower = (student.subjectName || '').trim().toLowerCase();
+            const peers = currentRiskStudents.filter(p => 
+                p.studentId !== student.studentId &&
+                p.subjectName &&
+                p.subjectName.trim().toLowerCase() === subjLower &&
+                (!p.action || !p.action.disabled)
+            );
+
+            if (peers.length === 0) {
+                peerContainer.classList.add('d-none');
+                peerList.innerHTML = '';
+                if (btnConfirm) btnConfirm.innerHTML = '<i class="bi bi-send-check me-1"></i> Save & Notify Student';
+            } else {
+                peerContainer.classList.remove('d-none');
+                if (peerBadge) peerBadge.textContent = `${peers.length} peer${peers.length > 1 ? 's' : ''}`;
+                if (btnSelectAllPeers) btnSelectAllPeers.textContent = 'Select All';
+
+                peerList.innerHTML = peers.map(p => `
+                    <div class="form-check py-1.5 px-2 border-bottom d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <input class="form-check-input peer-assign-checkbox me-2" type="checkbox" value="${p.studentId}" id="peerCheck_${p.studentId}">
+                            <label class="form-check-label text-dark fw-semibold small cursor-pointer m-0" for="peerCheck_${p.studentId}">
+                                ${escapeHtml(p.name)}
+                                <span class="micro-text text-muted d-block fw-normal">${escapeHtml(p.section)}</span>
+                            </label>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge ${p.riskClass || 'bg-danger'} micro-text">${p.failingAverage ? p.failingAverage + '%' : (p.riskTier || 'At Risk')}</span>
+                            ${p.isAssigned ? '<span class="badge bg-success-subtle text-success micro-text ms-1"><i class="bi bi-check-circle"></i> Assigned</span>' : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                const updateCount = () => {
+                    const checkedCount = peerList.querySelectorAll('.peer-assign-checkbox:checked').length;
+                    const totalSelected = 1 + checkedCount;
+                    if (btnConfirm) {
+                        btnConfirm.innerHTML = totalSelected === 1
+                            ? '<i class="bi bi-send-check me-1"></i> Save & Notify Student'
+                            : `<i class="bi bi-send-check me-1"></i> Save & Notify ${totalSelected} Students`;
+                    }
+                    if (peerSummary) {
+                        peerSummary.textContent = totalSelected === 1
+                            ? 'Check peers above to assign to multiple students simultaneously.'
+                            : `${totalSelected} students selected (${student.name.split(' ')[0]} + ${checkedCount} peer${checkedCount > 1 ? 's' : ''}).`;
+                    }
+                };
+
+                peerList.querySelectorAll('.peer-assign-checkbox').forEach(cb => {
+                    cb.addEventListener('change', updateCount);
+                });
+
+                if (btnSelectAllPeers) {
+                    btnSelectAllPeers.onclick = () => {
+                        const cbs = peerList.querySelectorAll('.peer-assign-checkbox');
+                        const anyUnchecked = Array.from(cbs).some(c => !c.checked);
+                        cbs.forEach(c => { c.checked = anyUnchecked; });
+                        btnSelectAllPeers.textContent = anyUnchecked ? 'Deselect All' : 'Select All';
+                        updateCount();
+                    };
+                }
+
+                updateCount();
+            }
         }
 
         // Reset inline recommendation form
@@ -740,7 +843,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const alertContainer = document.getElementById('assignAlertContainer');
         if (alertContainer) alertContainer.innerHTML = '';
 
-        await loadAssignableTopics(student);
+        await loadAssignableTopics(student, student.assignedTopicId || null);
 
         assignModalInstance.show();
     }
@@ -913,6 +1016,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const note = document.getElementById('assignTeacherNote').value.trim();
             const alertContainer = document.getElementById('assignAlertContainer');
 
+            // Gather peers checked for batch assignment
+            const checkedPeerBoxes = document.querySelectorAll('.peer-assign-checkbox:checked');
+            const peerIds = Array.from(checkedPeerBoxes).map(cb => cb.value);
+            const targetStudentIds = [studentId, ...peerIds];
+
             if (!topicId) {
                 if (alertContainer) {
                     alertContainer.innerHTML = '<div class="alert alert-warning py-2 px-3 small rounded-3 mt-2">Please select a lesson or recommendation topic to assign.</div>';
@@ -926,16 +1034,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const res = await authedFetch('/api/content/assign-lesson', token, {
                     method: 'POST',
-                    body: JSON.stringify({ studentId, subjectId, topicId, note })
+                    body: JSON.stringify({
+                        studentId,
+                        studentIds: targetStudentIds,
+                        subjectId,
+                        topicId,
+                        note
+                    })
                 });
 
                 if (res.success) {
+                    const topicSelect = document.getElementById('assignTopicSelect');
+                    const selectedTopicTitle = res.topicTitle || (topicSelect && topicSelect.selectedOptions[0] ? topicSelect.selectedOptions[0].text.replace(/^[^\w]+/, '').trim() : 'Assigned Lesson');
+                    const assignedIds = (res.assignedStudentIds || targetStudentIds).map(id => parseInt(id, 10));
+
+                    // Instantly update student state in both currentRiskStudents and filteredRiskStudents
+                    [currentRiskStudents, filteredRiskStudents].forEach(list => {
+                        list.forEach(s => {
+                            if (assignedIds.includes(parseInt(s.studentId, 10))) {
+                                s.isAssigned = true;
+                                s.assignedTopicId = res.topicId || topicId;
+                                s.assignedTopicTitle = selectedTopicTitle;
+                                s.assignedAt = new Date().toISOString();
+                                if (s.action) s.action.label = 'Assigned';
+                            }
+                        });
+                    });
+
+                    // Immediately re-render cards so all assigned buttons turn into [ ✓ Assigned ]
+                    applyRiskFiltersAndRender();
+
                     if (alertContainer) {
-                        alertContainer.innerHTML = `<div class="alert alert-success py-2 px-3 small rounded-3 mt-2"><i class="bi bi-check-circle-fill me-1"></i>${res.message || 'Intervention assigned and saved! Student has been notified.'}</div>`;
+                        alertContainer.innerHTML = `<div class="alert alert-success py-2 px-3 small rounded-3 mt-2"><i class="bi bi-check-circle-fill me-1"></i>${res.message || 'Intervention assigned and saved! Student(s) have been notified.'}</div>`;
                     }
                     setTimeout(() => {
                         if (assignModalInstance) assignModalInstance.hide();
-                        alert(`Confirmation:\n${res.message || 'The intervention has been successfully assigned and the student has been notified.'}`);
+                        alert(`Confirmation:\n${res.message || 'The intervention has been successfully assigned and the students have been notified.'}`);
                     }, 800);
                 } else {
                     if (alertContainer) {

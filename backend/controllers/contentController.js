@@ -2229,20 +2229,33 @@ async function getClassTopicQuizResults(req, res) {
   }
 }
 
-/** POST /api/content/assign-lesson { studentId, subjectId, topicId, note } */
+/** POST /api/content/assign-lesson { studentId, studentIds, subjectId, topicId, note } */
 async function assignLesson(req, res) {
-  const { studentId, subjectId, topicId, note } = req.body;
-  if (!studentId || !topicId) {
-    return res.status(400).json({ success: false, message: 'Student and lesson topic are required.' });
+  const { studentId, studentIds, subjectId, topicId, note } = req.body;
+
+  let targetIds = [];
+  if (Array.isArray(studentIds) && studentIds.length > 0) {
+    targetIds = studentIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id) && id > 0);
+  } else if (studentId) {
+    const sId = parseInt(studentId, 10);
+    if (!isNaN(sId) && sId > 0) targetIds.push(sId);
+  }
+  // Remove duplicates
+  targetIds = Array.from(new Set(targetIds));
+
+  if (targetIds.length === 0 || !topicId) {
+    return res.status(400).json({ success: false, message: 'At least one student and a lesson topic are required.' });
   }
 
   try {
-    // 1. Verify student
-    const [studentRows] = await pool.query("SELECT id, first_name, last_name FROM users WHERE id = ? AND role = 'student' LIMIT 1", [studentId]);
+    // 1. Verify students
+    const [studentRows] = await pool.query(
+      `SELECT id, first_name, last_name FROM users WHERE id IN (${targetIds.map(() => '?').join(',')}) AND role = 'student'`,
+      targetIds
+    );
     if (!studentRows.length) {
-      return res.status(404).json({ success: false, message: 'Student not found.' });
+      return res.status(404).json({ success: false, message: 'Student(s) not found.' });
     }
-    const student = studentRows[0];
 
     // 2. Verify topic
     const [topicRows] = await pool.query(
@@ -2258,69 +2271,79 @@ async function assignLesson(req, res) {
     const topic = topicRows[0];
     const resolvedSubjectId = subjectId || topic.subject_id;
     const subjectName = topic.subject_name || 'Subject';
-
-    // 3. Insert assignment
-    await pool.query(
-      `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, note)
-       VALUES (?, ?, ?, ?, ?)`,
-      [student.id, req.user.id, resolvedSubjectId, topic.id, note || null]
-    );
-
-    // 4. Send In-App Notification to Student
     const teacherName = fullName(req.user);
     const isRec = !!topic.is_recommendation;
-    const notifTitle = isRec
-      ? `New ${subjectName} Recommendation Assigned`
-      : `New ${subjectName} Lesson Assigned`;
-    const notifMsg = note && note.trim()
-      ? `Teacher ${teacherName} assigned you "${topic.title}": "${note.trim()}". Please review the learning materials.`
-      : `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`;
 
-    await notify({
-      recipientId: student.id,
-      type: 'intervention_assigned',
-      title: notifTitle,
-      message: notifMsg,
-      relatedStudentId: student.id,
-    });
+    // 3. Insert assignments and notifications in batch
+    for (const student of studentRows) {
+      await pool.query(
+        `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, note)
+         VALUES (?, ?, ?, ?, ?)`,
+        [student.id, req.user.id, resolvedSubjectId, topic.id, note || null]
+      );
 
-    // 5. Notify Linked Parent(s) in-app
-    const parentIds = await getParentIdsForStudent(student.id);
-    if (parentIds.length > 0) {
-      const parentTitle = isRec ? `New ${subjectName} Recommendation for Your Child` : `Targeted Remedial Lesson Assigned for Your Child`;
-      const parentMsg = note && note.trim()
-        ? `Teacher ${teacherName} assigned ${student.first_name} "${topic.title}": "${note.trim()}".`
-        : `Teacher ${teacherName} assigned ${student.first_name} a targeted learning module: "${topic.title}".`;
-      await notifyMany(parentIds, {
+      // In-App Notification to Student
+      const notifTitle = isRec
+        ? `New ${subjectName} Recommendation Assigned`
+        : `New ${subjectName} Lesson Assigned`;
+      const notifMsg = note && note.trim()
+        ? `Teacher ${teacherName} assigned you "${topic.title}": "${note.trim()}". Please review the learning materials.`
+        : `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`;
+
+      await notify({
+        recipientId: student.id,
         type: 'intervention_assigned',
-        title: parentTitle,
-        message: parentMsg,
+        title: notifTitle,
+        message: notifMsg,
         relatedStudentId: student.id,
-        skipEmail: true,
       });
+
+      // Notify Linked Parent(s) in-app
+      const parentIds = await getParentIdsForStudent(student.id);
+      if (parentIds.length > 0) {
+        const parentTitle = isRec ? `New ${subjectName} Recommendation for Your Child` : `Targeted Remedial Lesson Assigned for Your Child`;
+        const parentMsg = note && note.trim()
+          ? `Teacher ${teacherName} assigned ${student.first_name} "${topic.title}": "${note.trim()}".`
+          : `Teacher ${teacherName} assigned ${student.first_name} a targeted learning module: "${topic.title}".`;
+        await notifyMany(parentIds, {
+          type: 'intervention_assigned',
+          title: parentTitle,
+          message: parentMsg,
+          relatedStudentId: student.id,
+          skipEmail: true,
+        });
+      }
+
+      // Background Email
+      (async () => {
+        try {
+          await sendInterventionEmail({
+            studentId: student.id,
+            teacherName,
+            subjectName,
+            topicTitle: topic.title,
+            note: note || '',
+            isRecommendation: isRec,
+          });
+        } catch (e) {
+          console.error('Background intervention email error:', e.message);
+        }
+      })();
     }
 
-    // 6. Dispatch Rich Email to Student & Linked Parents in background
-    (async () => {
-      try {
-        await sendInterventionEmail({
-          studentId: student.id,
-          teacherName,
-          subjectName,
-          topicTitle: topic.title,
-          note: note || '',
-          isRecommendation: isRec,
-        });
-      } catch (e) {
-        console.error('Background intervention email error:', e.message);
-      }
-    })();
+    const assignedCount = studentRows.length;
+    const names = studentRows.map((s) => `${s.first_name} ${s.last_name}`).join(', ');
 
     return res.json({
       success: true,
-      message: `Lesson "${topic.title}" has been successfully assigned to ${student.first_name} ${student.last_name}.`,
-      studentName: `${student.first_name} ${student.last_name}`,
+      message: assignedCount === 1
+        ? `Lesson "${topic.title}" has been successfully assigned to ${names}.`
+        : `Lesson "${topic.title}" has been successfully assigned to ${assignedCount} students (${names}).`,
+      assignedCount,
+      assignedStudentIds: studentRows.map((s) => s.id),
+      studentName: names,
       topicTitle: topic.title,
+      topicId: topic.id,
     });
   } catch (err) {
     console.error('assignLesson error:', err);
