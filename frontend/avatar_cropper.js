@@ -257,7 +257,7 @@
           </div>
           <div class="cropper-body">
             <div class="cropper-hint">
-              <i class="bi bi-arrows-move me-1"></i> Drag to position photo &bull; Use slider to zoom
+              <i class="bi bi-person-bounding-box me-1"></i> Aligns for 3:4 School ID &amp; circular avatars &bull; Drag &amp; zoom
             </div>
             <div class="cropper-canvas-wrap" id="cropperWrap">
               <canvas id="avatarCropperCanvas" width="320" height="320"></canvas>
@@ -323,8 +323,11 @@
       this.saveBtn = document.getElementById('cropperSaveBtn');
 
       this.VIEW_SIZE = 320;
-      this.APERTURE_RADIUS = 115; // 230px circle diameter
-      this.APERTURE_CENTER = this.VIEW_SIZE / 2; // 160
+      this.APERTURE_WIDTH = 192;
+      this.APERTURE_HEIGHT = 256; // Exact 3:4 portrait ID ratio
+      this.APERTURE_CENTER_X = this.VIEW_SIZE / 2; // 160
+      this.APERTURE_CENTER_Y = this.VIEW_SIZE / 2; // 160
+      this.APERTURE_RADIUS = this.APERTURE_WIDTH / 2; // 96 (legacy compatibility)
 
       this.img = null;
       this.scale = 1.0;
@@ -440,11 +443,10 @@
       this.offsetY = 0;
       this.rotation = 0;
 
-      // Fit the image so the smaller dimension covers the aperture diameter (2 * radius)
-      const apertureDiameter = this.APERTURE_RADIUS * 2;
+      // Fit the image so it covers both dimensions of the 3:4 aperture (192 x 256)
       const fitScale = Math.max(
-        apertureDiameter / this.img.naturalWidth,
-        apertureDiameter / this.img.naturalHeight
+        this.APERTURE_WIDTH / this.img.naturalWidth,
+        this.APERTURE_HEIGHT / this.img.naturalHeight
       );
       this.minScale = fitScale * 0.7;
       this.maxScale = fitScale * 4.0;
@@ -497,7 +499,7 @@
 
     draw() {
       if (!this.img) return;
-      const { ctx, VIEW_SIZE, APERTURE_CENTER, APERTURE_RADIUS } = this;
+      const { ctx, VIEW_SIZE, APERTURE_CENTER_X, APERTURE_CENTER_Y, APERTURE_WIDTH, APERTURE_HEIGHT } = this;
 
       // Clear viewport
       ctx.clearRect(0, 0, VIEW_SIZE, VIEW_SIZE);
@@ -508,7 +510,7 @@
 
       // 1. Draw transformed image
       ctx.save();
-      ctx.translate(APERTURE_CENTER + this.offsetX, APERTURE_CENTER + this.offsetY);
+      ctx.translate(APERTURE_CENTER_X + this.offsetX, APERTURE_CENTER_Y + this.offsetY);
       ctx.rotate((this.rotation * Math.PI) / 180);
       ctx.scale(this.scale, this.scale);
       ctx.drawImage(
@@ -520,44 +522,71 @@
       );
       ctx.restore();
 
-      // 2. Draw circular aperture mask
-      // Semi-transparent overlay outside the circle
+      // 2. Draw mask overlay outside the 3:4 portrait rectangle
+      const x0 = APERTURE_CENTER_X - APERTURE_WIDTH / 2;
+      const y0 = APERTURE_CENTER_Y - APERTURE_HEIGHT / 2;
+      const cornerRadius = 10;
+
       ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
       ctx.beginPath();
       ctx.rect(0, 0, VIEW_SIZE, VIEW_SIZE);
-      ctx.arc(APERTURE_CENTER, APERTURE_CENTER, APERTURE_RADIUS, 0, Math.PI * 2, true);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-      ctx.fill();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x0, y0, APERTURE_WIDTH, APERTURE_HEIGHT, cornerRadius);
+      } else {
+        ctx.rect(x0, y0, APERTURE_WIDTH, APERTURE_HEIGHT);
+      }
+      ctx.fill('evenodd');
       ctx.restore();
 
-      // 3. Subtle inner grid lines inside the circle for face alignment
+      // 3. Grid lines inside the 3:4 aperture
       ctx.save();
       ctx.beginPath();
-      ctx.arc(APERTURE_CENTER, APERTURE_CENTER, APERTURE_RADIUS, 0, Math.PI * 2);
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x0, y0, APERTURE_WIDTH, APERTURE_HEIGHT, cornerRadius);
+      } else {
+        ctx.rect(x0, y0, APERTURE_WIDTH, APERTURE_HEIGHT);
+      }
       ctx.clip();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
+
       // Vertical third lines
       ctx.beginPath();
-      ctx.moveTo(APERTURE_CENTER - APERTURE_RADIUS / 3, APERTURE_CENTER - APERTURE_RADIUS);
-      ctx.lineTo(APERTURE_CENTER - APERTURE_RADIUS / 3, APERTURE_CENTER + APERTURE_RADIUS);
-      ctx.moveTo(APERTURE_CENTER + APERTURE_RADIUS / 3, APERTURE_CENTER - APERTURE_RADIUS);
-      ctx.lineTo(APERTURE_CENTER + APERTURE_RADIUS / 3, APERTURE_CENTER + APERTURE_RADIUS);
+      ctx.moveTo(x0 + APERTURE_WIDTH / 3, y0);
+      ctx.lineTo(x0 + APERTURE_WIDTH / 3, y0 + APERTURE_HEIGHT);
+      ctx.moveTo(x0 + (APERTURE_WIDTH * 2) / 3, y0);
+      ctx.lineTo(x0 + (APERTURE_WIDTH * 2) / 3, y0 + APERTURE_HEIGHT);
+
       // Horizontal third lines
-      ctx.moveTo(APERTURE_CENTER - APERTURE_RADIUS, APERTURE_CENTER - APERTURE_RADIUS / 3);
-      ctx.lineTo(APERTURE_CENTER + APERTURE_RADIUS, APERTURE_CENTER - APERTURE_RADIUS / 3);
-      ctx.moveTo(APERTURE_CENTER - APERTURE_RADIUS, APERTURE_CENTER + APERTURE_RADIUS / 3);
-      ctx.lineTo(APERTURE_CENTER + APERTURE_RADIUS, APERTURE_CENTER + APERTURE_RADIUS / 3);
+      ctx.moveTo(x0, y0 + APERTURE_HEIGHT / 3);
+      ctx.lineTo(x0 + APERTURE_WIDTH, y0 + APERTURE_HEIGHT / 3);
+      ctx.moveTo(x0, y0 + (APERTURE_HEIGHT * 2) / 3);
+      ctx.lineTo(x0 + APERTURE_WIDTH, y0 + (APERTURE_HEIGHT * 2) / 3);
       ctx.stroke();
+
+      // 4. Circular avatar boundary guide (shows how it appears when displayed as a circle)
+      const circleRadius = APERTURE_WIDTH / 2 - 4;
+      ctx.beginPath();
+      ctx.setLineDash([3, 3]);
+      ctx.arc(APERTURE_CENTER_X, APERTURE_CENTER_Y - 4, circleRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
       ctx.restore();
 
-      // 4. Clean white ring around the circle aperture
+      // 5. Clean white border around the 3:4 ID aperture
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(APERTURE_CENTER, APERTURE_CENTER, APERTURE_RADIUS, 0, Math.PI * 2);
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x0, y0, APERTURE_WIDTH, APERTURE_HEIGHT, cornerRadius);
+      } else {
+        ctx.rect(x0, y0, APERTURE_WIDTH, APERTURE_HEIGHT);
+      }
       ctx.stroke();
       ctx.restore();
     }
@@ -572,23 +601,21 @@
       `;
 
       try {
-        // High-resolution output canvas (400x400)
-        const OUTPUT_SIZE = 400;
+        // High-resolution 3:4 portrait output canvas (450x600 px)
+        // Clean rectangular save without destructive circular clipping so it fits 3:4 School ID cards without black edges,
+        // while CSS border-radius: 50% automatically rounds it into a circle on profiles/dashboards!
+        const OUTPUT_WIDTH = 450;
+        const OUTPUT_HEIGHT = 600;
         const outCanvas = document.createElement('canvas');
-        outCanvas.width = OUTPUT_SIZE;
-        outCanvas.height = OUTPUT_SIZE;
+        outCanvas.width = OUTPUT_WIDTH;
+        outCanvas.height = OUTPUT_HEIGHT;
         const outCtx = outCanvas.getContext('2d');
 
-        // Circular clipping
+        // Scale ratio from viewfinder aperture (192x256) to output (450x600)
+        const ratio = OUTPUT_WIDTH / this.APERTURE_WIDTH;
+
         outCtx.save();
-        outCtx.beginPath();
-        outCtx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
-        outCtx.clip();
-
-        // Scale ratio from viewfinder aperture (2 * APERTURE_RADIUS = 230) to output (400)
-        const ratio = OUTPUT_SIZE / (this.APERTURE_RADIUS * 2);
-
-        outCtx.translate(OUTPUT_SIZE / 2 + this.offsetX * ratio, OUTPUT_SIZE / 2 + this.offsetY * ratio);
+        outCtx.translate(OUTPUT_WIDTH / 2 + this.offsetX * ratio, OUTPUT_HEIGHT / 2 + this.offsetY * ratio);
         outCtx.rotate((this.rotation * Math.PI) / 180);
         outCtx.scale(this.scale * ratio, this.scale * ratio);
         outCtx.drawImage(
