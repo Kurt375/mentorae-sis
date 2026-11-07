@@ -288,4 +288,9 @@ body.dashboard-bg {
     color: #dc3545;
 }
 
+/* Assign Intervention Lesson Modal Dialog Width */
+#assignLessonModal .modal-dialog {
+    max-width: 680px;
+}
+
 
