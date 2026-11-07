@@ -150,8 +150,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await authedFetch(`/api/analytics/grade-trend${query}`, token);
             if (!data.success) return;
 
-            const labels = (data.labels && data.labels.length > 0) ? data.labels : ['1st Quarter', '2nd Quarter', '3rd Quarter'];
-            const histData = (data.data && data.data.length > 0) ? data.data : [82, 85, 88];
+            const labels = (data.labels && data.labels.length > 0) ? data.labels : ['No data yet'];
+            const histData = (data.data && data.data.length > 0) ? data.data : [];
 
             const ctx = gradeTrendCanvas.getContext('2d');
             const gradientFill = ctx.createLinearGradient(0, 0, 0, 160);

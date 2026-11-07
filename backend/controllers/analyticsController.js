@@ -94,25 +94,25 @@ async function getGradeTrend(req, res) {
       params
     );
 
+    const termOrder = {
+      '1st Term': 1, '1st Quarter': 1,
+      '2nd Term': 2, '2nd Quarter': 2,
+      '3rd Term': 3, '3rd Quarter': 3,
+      '4th Term': 4, '4th Quarter': 4,
+    };
+    rows.sort((a, b) => {
+      const orderA = termOrder[a.term] || 99;
+      const orderB = termOrder[b.term] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return new Date(a.firstSeen) - new Date(b.firstSeen);
+    });
+
     let labels = [];
     let data = [];
 
-    if (rows.length >= 2) {
+    if (rows.length > 0) {
       labels = rows.map((r) => r.term);
       data = rows.map((r) => Number(r.avgGrade));
-    } else if (rows.length === 1) {
-      // 1 real data point recorded; synthesize progression curve around it
-      const currentAvg = Number(rows[0].avgGrade);
-      labels = ['1st Quarter', '2nd Quarter', '3rd Quarter (Projected)'];
-      data = [
-        Math.max(70, Math.round((currentAvg - 3.5) * 10) / 10),
-        currentAvg,
-        Math.min(98, Math.round((currentAvg + 2.2) * 10) / 10),
-      ];
-    } else {
-      // Fallback baseline for classes without grades yet
-      labels = ['1st Quarter', '2nd Quarter', '3rd Quarter (Projected)'];
-      data = [82.5, 85.0, 87.5];
     }
 
     return res.json({

@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     labels: trendData.labels.length ? trendData.labels : ['No data yet'],
                     datasets: [{
                         label: 'Average Grade',
-                        data: trendData.data.length ? trendData.data : [0],
+                        data: trendData.data.length ? trendData.data : [],
                         borderColor: '#0a5c2c',
                         backgroundColor: 'rgba(10, 92, 44, 0.1)',
                         fill: true,
