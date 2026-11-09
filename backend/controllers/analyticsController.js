@@ -557,6 +557,11 @@ function formatBytes(bytes) {
   return `${mb.toFixed(2)} MB`;
 }
 
+// In-Memory Cache for Heavy System Health Queries (TiDB RU Conservation)
+let cachedSystemStats = null;
+let lastSystemStatsTime = 0;
+const SYSTEM_STATS_CACHE_TTL = 5 * 60 * 1000; // Cache heavy information_schema metrics for 5 minutes
+
 /** GET /api/analytics/system-status — Live Server and Database health metrics */
 async function getSystemStatus(req, res) {
   try {
@@ -572,45 +577,91 @@ async function getSystemStatus(req, res) {
     const dbMode = typeof pool.getCurrentMode === 'function' ? pool.getCurrentMode() : 'cloud';
     const dbModeLabel = dbMode === 'cloud' ? 'Cloud TiDB' : 'Local MySQL';
 
-    // Database size query
-    let dbSizeBytes = 0;
-    let tableCount = 0;
-    let rowCount = 0;
-    try {
-      const [sizeRows] = await pool.query(
-        `SELECT 
-           COALESCE(SUM(data_length + index_length), 0) AS total_bytes,
-           COUNT(*) AS table_count,
-           COALESCE(SUM(table_rows), 0) AS total_rows
-         FROM information_schema.TABLES
-         WHERE table_schema = DATABASE()`
-      );
-      if (sizeRows && sizeRows.length > 0) {
-        dbSizeBytes = Number(sizeRows[0].total_bytes || 0);
-        tableCount = Number(sizeRows[0].table_count || 0);
-        rowCount = Number(sizeRows[0].total_rows || 0);
+    // In-Memory Cache for Heavy TiDB Storage Stats (Prevents repetitive information_schema scans)
+    const now = Date.now();
+    let stats = null;
+
+    if (cachedSystemStats && (now - lastSystemStatsTime < SYSTEM_STATS_CACHE_TTL)) {
+      stats = cachedSystemStats;
+    } else {
+      let dbSizeBytes = 0;
+      let tableCount = 0;
+      let rowCount = 0;
+      try {
+        const [sizeRows] = await pool.query(
+          `SELECT 
+             COALESCE(SUM(data_length + index_length), 0) AS total_bytes,
+             COUNT(*) AS table_count,
+             COALESCE(SUM(table_rows), 0) AS total_rows
+           FROM information_schema.TABLES
+           WHERE table_schema = DATABASE()`
+        );
+        if (sizeRows && sizeRows.length > 0) {
+          dbSizeBytes = Number(sizeRows[0].total_bytes || 0);
+          tableCount = Number(sizeRows[0].table_count || 0);
+          rowCount = Number(sizeRows[0].total_rows || 0);
+        }
+      } catch (e) {
+        console.warn('DB size calculation fallback:', e.message);
       }
-    } catch (e) {
-      console.warn('DB size calculation fallback:', e.message);
+
+      const uploadsPath = path.join(__dirname, '..', 'uploads');
+      const filesSizeBytes = getDirSizeBytes(uploadsPath);
+      const totalSizeBytes = dbSizeBytes + filesSizeBytes;
+
+      const dbSizeMB = Number((dbSizeBytes / (1024 * 1024)).toFixed(2));
+      const filesSizeMB = Number((filesSizeBytes / (1024 * 1024)).toFixed(2));
+      const totalSizeMB = Number((totalSizeBytes / (1024 * 1024)).toFixed(2));
+
+      const quotaBytes = 5 * 1024 * 1024 * 1024; // 5 GB TiDB Cloud Serverless Free Quota
+      const quotaFormatted = '5 GB';
+      const percentUsed = (totalSizeBytes / quotaBytes) * 100;
+      const percentDisplay = percentUsed < 0.01 ? '0.01%' : `${percentUsed.toFixed(2)}%`;
+      const quotaDisplaySize = `${formatBytes(totalSizeBytes)} / ${quotaFormatted} used (${percentDisplay})`;
+
+      let totalUsers = 0;
+      try {
+        const [userCountRows] = await pool.query('SELECT COUNT(*) AS total FROM users');
+        totalUsers = userCountRows[0]?.total || 0;
+      } catch (e) {}
+
+      stats = {
+        dbSizeBytes,
+        tableCount,
+        rowCount,
+        filesSizeBytes,
+        totalSizeBytes,
+        dbSizeMB,
+        filesSizeMB,
+        totalSizeMB,
+        quotaBytes,
+        quotaFormatted,
+        percentUsed,
+        percentDisplay,
+        quotaDisplaySize,
+        totalUsers,
+      };
+
+      cachedSystemStats = stats;
+      lastSystemStatsTime = now;
     }
 
-    // Uploaded assets size
-    const uploadsPath = path.join(__dirname, '..', 'uploads');
-    const filesSizeBytes = getDirSizeBytes(uploadsPath);
-    const totalSizeBytes = dbSizeBytes + filesSizeBytes;
-
-    const dbSizeMB = Number((dbSizeBytes / (1024 * 1024)).toFixed(2));
-    const filesSizeMB = Number((filesSizeBytes / (1024 * 1024)).toFixed(2));
-    const totalSizeMB = Number((totalSizeBytes / (1024 * 1024)).toFixed(2));
-
-    const quotaBytes = 5 * 1024 * 1024 * 1024; // 5 GB TiDB Cloud Serverless Free Quota
-    const quotaFormatted = '5 GB';
-    const percentUsed = (totalSizeBytes / quotaBytes) * 100;
-    const percentDisplay = percentUsed < 0.01 ? '0.01%' : `${percentUsed.toFixed(2)}%`;
-    const quotaDisplaySize = `${formatBytes(totalSizeBytes)} / ${quotaFormatted} used (${percentDisplay})`;
-
-    const [userCountRows] = await pool.query('SELECT COUNT(*) AS total FROM users');
-    const totalUsers = userCountRows[0]?.total || 0;
+    const {
+      dbSizeBytes,
+      tableCount,
+      rowCount,
+      filesSizeBytes,
+      totalSizeBytes,
+      dbSizeMB,
+      filesSizeMB,
+      totalSizeMB,
+      quotaBytes,
+      quotaFormatted,
+      percentUsed,
+      percentDisplay,
+      quotaDisplaySize,
+      totalUsers,
+    } = stats;
 
     return res.json({
       success: true,

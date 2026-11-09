@@ -181,7 +181,27 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('pageshow', loadAttendanceConfirmationBadge);
     window.addEventListener('focus', loadAttendanceConfirmationBadge);
     window.addEventListener('mentorae:attendance-confirmed', loadAttendanceConfirmationBadge);
-    setInterval(loadAttendanceConfirmationBadge, 15000);
+    // Intelligent TiDB RU Conservation: 60s interval + pause on hidden tab
+    let attBadgeTimer = null;
+    function startAttBadgePolling() {
+        if (!attBadgeTimer) {
+            attBadgeTimer = setInterval(() => {
+                if (!document.hidden) loadAttendanceConfirmationBadge();
+            }, 60000);
+        }
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (attBadgeTimer) {
+                clearInterval(attBadgeTimer);
+                attBadgeTimer = null;
+            }
+        } else {
+            loadAttendanceConfirmationBadge();
+            startAttBadgePolling();
+        }
+    });
+    startAttBadgePolling();
 
     wireLogout('logoutBtn', '../login.html', token);
 });

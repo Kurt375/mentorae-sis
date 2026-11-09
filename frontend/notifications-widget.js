@@ -1238,5 +1238,39 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
         });
     }
 
-    setInterval(refresh, 10000);
+    // Intelligent TiDB RU Conservation:
+    // 1. Poll every 45 seconds while active (balanced responsiveness vs database load)
+    // 2. Automatically PAUSE polling when tab is minimized or hidden (document.hidden)
+    // 3. Immediately refresh when user returns to this tab
+    let pollIntervalId = null;
+    const NOTIF_POLL_INTERVAL_MS = 45000;
+
+    function startNotificationPolling() {
+        if (!pollIntervalId) {
+            pollIntervalId = setInterval(() => {
+                if (!document.hidden) {
+                    refresh();
+                }
+            }, NOTIF_POLL_INTERVAL_MS);
+        }
+    }
+
+    function stopNotificationPolling() {
+        if (pollIntervalId) {
+            clearInterval(pollIntervalId);
+            pollIntervalId = null;
+        }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopNotificationPolling();
+        } else {
+            // User returned to tab: fetch immediately, then resume timer
+            refresh();
+            startNotificationPolling();
+        }
+    });
+
+    startNotificationPolling();
 }

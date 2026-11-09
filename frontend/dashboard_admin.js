@@ -130,7 +130,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     loadSystemStatus();
-    setInterval(loadSystemStatus, 15000);
+    // Intelligent TiDB RU Conservation: 60s interval + pause on hidden tab
+    let systemStatusTimer = null;
+    function startSystemStatusPolling() {
+        if (!systemStatusTimer) {
+            systemStatusTimer = setInterval(() => {
+                if (!document.hidden) loadSystemStatus();
+            }, 60000);
+        }
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (systemStatusTimer) {
+                clearInterval(systemStatusTimer);
+                systemStatusTimer = null;
+            }
+        } else {
+            loadSystemStatus();
+            startSystemStatusPolling();
+        }
+    });
+    startSystemStatusPolling();
 
     if (typeof initNotificationBell === 'function') {
         initNotificationBell('notifBellBtn', token, user.role);
