@@ -778,15 +778,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (btnSelectAllPeers) btnSelectAllPeers.textContent = 'Select All';
 
                 peerList.innerHTML = peers.map(p => `
-                    <div class="peer-assign-row py-2 px-2.5 border-bottom d-flex align-items-center justify-content-between rounded-2" style="cursor: pointer;">
-                        <div class="d-flex align-items-center flex-grow-1 me-2" style="min-width: 0;">
-                            <input class="form-check-input peer-assign-checkbox me-2.5 flex-shrink-0" type="checkbox" value="${p.studentId}" id="peerCheck_${p.studentId}" aria-label="Select ${escapeHtml(p.name)}">
-                            <label class="form-check-label text-dark fw-semibold small cursor-pointer m-0 flex-grow-1 text-truncate" for="peerCheck_${p.studentId}">
-                                ${escapeHtml(p.name)}
+                    <div class="peer-assign-row">
+                        <div class="peer-info-wrap">
+                            <input class="form-check-input peer-assign-checkbox" type="checkbox" value="${p.studentId}" id="peerCheck_${p.studentId}" aria-label="Select ${escapeHtml(p.name)}">
+                            <label class="form-check-label peer-label text-dark fw-semibold small text-truncate" for="peerCheck_${p.studentId}">
+                                <span class="d-block text-truncate">${escapeHtml(p.name)}</span>
                                 <span class="micro-text text-muted d-block fw-normal text-truncate">${escapeHtml(p.section)}</span>
                             </label>
                         </div>
-                        <div class="text-end flex-shrink-0">
+                        <div class="text-end flex-shrink-0 ps-2">
                             <span class="badge ${p.riskClass || 'bg-danger'} micro-text">${p.failingAverage ? p.failingAverage + '%' : (p.riskTier || 'At Risk')}</span>
                             ${p.isAssigned ? '<span class="badge bg-success-subtle text-success micro-text ms-1"><i class="bi bi-check-circle"></i> Assigned</span>' : ''}
                         </div>
