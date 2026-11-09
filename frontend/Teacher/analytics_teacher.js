@@ -635,31 +635,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let assignModalInstance = null;
     let currentAssignStudent = null;
+    const assignableTopicsCache = new Map();
 
-    async function loadAssignableTopics(student, selectedTopicId = null) {
+    async function loadAssignableTopics(student, selectedTopicId = null, forceRefresh = false) {
         const topicSelect = document.getElementById('assignTopicSelect');
         const topicMeta = document.getElementById('assignTopicMeta');
         if (!topicSelect) return;
 
-        topicSelect.innerHTML = '<option value="">Loading topics...</option>';
-        if (topicMeta) topicMeta.textContent = 'Loading available lessons and recommendations...';
-
         const subjName = (student && student.subjectName) || document.getElementById('assignSubjectName').value || 'General Mathematics';
+        const subjId = (student && student.subjectId) || document.getElementById('assignSubjectId').value || '';
+        const cacheKey = `${subjId}_${subjName.trim().toLowerCase()}`;
 
-        try {
-            const params = new URLSearchParams();
-            if (student && student.subjectId) params.append('subjectId', student.subjectId);
-            if (subjName) params.append('subjectName', subjName);
-
-            const res = await authedFetch(`/api/content/assignable-topics?${params.toString()}`, token);
-            if (!res.success || !Array.isArray(res.topics) || res.topics.length === 0) {
+        const renderTopics = (topics) => {
+            if (!Array.isArray(topics) || topics.length === 0) {
                 topicSelect.innerHTML = '<option value="">No approved lessons or recommendations found</option>';
                 if (topicMeta) topicMeta.textContent = 'Use "+ New Recommendation" above to create a recommendation topic.';
                 return;
             }
 
-            const recTopics = res.topics.filter(t => t.isRecommendation);
-            const lessonTopics = res.topics.filter(t => !t.isRecommendation);
+            const recTopics = topics.filter(t => t.isRecommendation);
+            const lessonTopics = topics.filter(t => !t.isRecommendation);
 
             let optionsHtml = '';
 
@@ -698,8 +693,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (topicMeta) {
-                topicMeta.textContent = `Found ${res.topics.length} topic(s) (${recTopics.length} recommendation(s), ${lessonTopics.length} lesson(s)) for ${subjName}.`;
+                topicMeta.textContent = `Found ${topics.length} topic(s) (${recTopics.length} recommendation(s), ${lessonTopics.length} lesson(s)) for ${subjName}.`;
             }
+        };
+
+        // Instant rendering from memory cache: 0 network roundtrips, 0 TiDB RUs
+        if (!forceRefresh && assignableTopicsCache.has(cacheKey)) {
+            renderTopics(assignableTopicsCache.get(cacheKey));
+            return;
+        }
+
+        topicSelect.innerHTML = '<option value="">Loading topics...</option>';
+        if (topicMeta) topicMeta.textContent = 'Loading available lessons and recommendations...';
+
+        try {
+            const params = new URLSearchParams();
+            if (subjId) params.append('subjectId', subjId);
+            if (subjName) params.append('subjectName', subjName);
+
+            const res = await authedFetch(`/api/content/assignable-topics?${params.toString()}`, token);
+            if (!res.success || !Array.isArray(res.topics) || res.topics.length === 0) {
+                topicSelect.innerHTML = '<option value="">No approved lessons or recommendations found</option>';
+                if (topicMeta) topicMeta.textContent = 'Use "+ New Recommendation" above to create a recommendation topic.';
+                return;
+            }
+
+            // Save to memory cache
+            assignableTopicsCache.set(cacheKey, res.topics);
+            renderTopics(res.topics);
         } catch (err) {
             console.error('Error fetching assignable topics:', err);
             topicSelect.innerHTML = '<option value="">Error loading topics</option>';
@@ -865,9 +886,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const alertContainer = document.getElementById('assignAlertContainer');
         if (alertContainer) alertContainer.innerHTML = '';
 
-        await loadAssignableTopics(student, student.assignedTopicId || null);
-
+        // Open modal immediately on click for instant 0ms user feedback
         assignModalInstance.show();
+
+        // Load topics asynchronously (instant from memory cache, or lightweight background fetch)
+        loadAssignableTopics(student, student.assignedTopicId || null);
     }
 
     // Toggle and wire inline recommendation section
@@ -1005,8 +1028,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (descInput) descInput.value = '';
                     if (inlineRecFile) inlineRecFile.value = '';
 
-                    // Reload assignable topics and select the newly created recommendation
-                    await loadAssignableTopics(currentAssignStudent || { subjectId, subjectName }, newTopicId);
+                    // Invalidate cache and reload assignable topics with the newly created recommendation
+                    await loadAssignableTopics(currentAssignStudent || { subjectId, subjectName }, newTopicId, true);
 
                     const alertContainer = document.getElementById('assignAlertContainer');
                     if (alertContainer) {

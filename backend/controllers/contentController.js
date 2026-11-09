@@ -2467,8 +2467,25 @@ async function getMyRecommendations(req, res) {
 async function listAssignableTopics(req, res) {
   try {
     const { subjectId, subjectName } = req.query;
+    // High-performance projection: avoids transferring heavy base64/JSON content_payload across TiDB Serverless
     let query = `
-      SELECT t.id, t.title, t.description, t.is_recommendation, t.content_payload, s.id AS subject_id, s.name AS subject_name, s.code AS subject_code
+      SELECT t.id, t.title, t.description, t.is_recommendation,
+             s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+             (CASE 
+                WHEN t.content_payload IS NOT NULL AND JSON_VALID(t.content_payload) = 1 
+                  THEN COALESCE(JSON_LENGTH(t.content_payload, '$.files'), 0) > 0
+                ELSE (t.content_payload LIKE '%"files":[%' AND t.content_payload NOT LIKE '%"files":[]%')
+              END) AS has_files,
+             (CASE 
+                WHEN t.content_payload IS NOT NULL AND JSON_VALID(t.content_payload) = 1 
+                  THEN (COALESCE(JSON_LENGTH(t.content_payload, '$.quizzes'), 0) > 0 OR COALESCE(JSON_LENGTH(t.content_payload, '$.quiz'), 0) > 0)
+                ELSE (t.content_payload LIKE '%"quiz%' AND t.content_payload NOT LIKE '%"quiz":[]%' AND t.content_payload NOT LIKE '%"quizzes":[]%')
+              END) AS has_quiz,
+             (CASE 
+                WHEN t.content_payload IS NOT NULL AND JSON_VALID(t.content_payload) = 1 
+                  THEN COALESCE(JSON_LENGTH(t.content_payload, '$.flashcards'), 0) > 0
+                ELSE (t.content_payload LIKE '%"flashcards":[%' AND t.content_payload NOT LIKE '%"flashcards":[]%')
+              END) AS has_flashcards
       FROM topics t
       LEFT JOIN subjects s ON s.id = t.subject_id
       WHERE (t.status = 'approved' OR t.status IS NULL OR t.is_recommendation = 1)
@@ -2487,23 +2504,18 @@ async function listAssignableTopics(req, res) {
     query += ' ORDER BY t.is_recommendation DESC, t.title ASC';
 
     const [rows] = await pool.query(query, params);
-    const topics = rows.map((r) => {
-      let p = {};
-      try { p = typeof r.content_payload === 'string' ? JSON.parse(r.content_payload) : (r.content_payload || {}); } catch(e){}
-      const quizzes = Array.isArray(p.quizzes) ? p.quizzes : (Array.isArray(p.quiz) ? p.quiz : []);
-      return {
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        isRecommendation: !!r.is_recommendation,
-        subjectId: r.subject_id,
-        subjectName: r.subject_name,
-        subjectCode: r.subject_code,
-        hasFiles: Array.isArray(p.files) && p.files.length > 0,
-        hasQuiz: quizzes.length > 0,
-        hasFlashcards: Array.isArray(p.flashcards) && p.flashcards.length > 0,
-      };
-    });
+    const topics = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      isRecommendation: !!r.is_recommendation,
+      subjectId: r.subject_id,
+      subjectName: r.subject_name,
+      subjectCode: r.subject_code,
+      hasFiles: Boolean(r.has_files),
+      hasQuiz: Boolean(r.has_quiz),
+      hasFlashcards: Boolean(r.has_flashcards),
+    }));
 
     return res.json({ success: true, topics });
   } catch (err) {
