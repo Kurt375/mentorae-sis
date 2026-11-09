@@ -778,15 +778,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (btnSelectAllPeers) btnSelectAllPeers.textContent = 'Select All';
 
                 peerList.innerHTML = peers.map(p => `
-                    <div class="form-check py-1.5 px-2 border-bottom d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
-                            <input class="form-check-input peer-assign-checkbox me-2" type="checkbox" value="${p.studentId}" id="peerCheck_${p.studentId}">
-                            <label class="form-check-label text-dark fw-semibold small cursor-pointer m-0" for="peerCheck_${p.studentId}">
+                    <div class="peer-assign-row py-2 px-2.5 border-bottom d-flex align-items-center justify-content-between rounded-2" style="cursor: pointer;">
+                        <div class="d-flex align-items-center flex-grow-1 me-2" style="min-width: 0;">
+                            <input class="form-check-input peer-assign-checkbox me-2.5 flex-shrink-0" type="checkbox" value="${p.studentId}" id="peerCheck_${p.studentId}" aria-label="Select ${escapeHtml(p.name)}">
+                            <label class="form-check-label text-dark fw-semibold small cursor-pointer m-0 flex-grow-1 text-truncate" for="peerCheck_${p.studentId}">
                                 ${escapeHtml(p.name)}
-                                <span class="micro-text text-muted d-block fw-normal">${escapeHtml(p.section)}</span>
+                                <span class="micro-text text-muted d-block fw-normal text-truncate">${escapeHtml(p.section)}</span>
                             </label>
                         </div>
-                        <div class="text-end">
+                        <div class="text-end flex-shrink-0">
                             <span class="badge ${p.riskClass || 'bg-danger'} micro-text">${p.failingAverage ? p.failingAverage + '%' : (p.riskTier || 'At Risk')}</span>
                             ${p.isAssigned ? '<span class="badge bg-success-subtle text-success micro-text ms-1"><i class="bi bi-check-circle"></i> Assigned</span>' : ''}
                         </div>
@@ -794,7 +794,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `).join('');
 
                 const updateCount = () => {
-                    const checkedCount = peerList.querySelectorAll('.peer-assign-checkbox:checked').length;
+                    const allCheckboxes = peerList.querySelectorAll('.peer-assign-checkbox');
+                    let checkedCount = 0;
+                    allCheckboxes.forEach(cb => {
+                        const row = cb.closest('.peer-assign-row');
+                        if (cb.checked) {
+                            checkedCount++;
+                            if (row) row.classList.add('is-selected');
+                        } else {
+                            if (row) row.classList.remove('is-selected');
+                        }
+                    });
+
                     const totalSelected = 1 + checkedCount;
                     if (btnConfirm) {
                         btnConfirm.innerHTML = totalSelected === 1
@@ -810,6 +821,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 peerList.querySelectorAll('.peer-assign-checkbox').forEach(cb => {
                     cb.addEventListener('change', updateCount);
+                });
+
+                peerList.querySelectorAll('.peer-assign-row').forEach(row => {
+                    row.addEventListener('click', (e) => {
+                        if (e.target.closest('input') || e.target.closest('label')) return;
+                        const cb = row.querySelector('.peer-assign-checkbox');
+                        if (cb) {
+                            cb.checked = !cb.checked;
+                            cb.dispatchEvent(new Event('change'));
+                        }
+                    });
                 });
 
                 if (btnSelectAllPeers) {

@@ -293,4 +293,40 @@ body.dashboard-bg {
     max-width: 680px;
 }
 
+/* Peer Assignment Checkbox List */
+.peer-assign-row {
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+}
+
+.peer-assign-row:hover {
+    background-color: #f8fafc;
+}
+
+.peer-assign-row.is-selected {
+    background-color: rgba(25, 135, 84, 0.08);
+}
+
+.peer-assign-checkbox {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    min-width: 1.25rem;
+    margin: 0 !important;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1.5px solid #94a3b8;
+    transition: all 0.15s ease-in-out;
+}
+
+.peer-assign-checkbox:checked {
+    background-color: var(--mentorae-green, #198754);
+    border-color: var(--mentorae-green, #198754);
+}
+
+.peer-assign-checkbox:focus {
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.2);
+    border-color: var(--mentorae-green, #198754);
+}
+
+
 
