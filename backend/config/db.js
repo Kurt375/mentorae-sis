@@ -6,7 +6,7 @@ const mysql = require('mysql2/promise');
 
 // 1. Configure Cloud Pool (TiDB Cloud Serverless)
 let cloudPool = null;
-const defaultCloudUrl = 'mysql://9M5wW7WSxVGV8jt.root:uDJSCYF9DulP0tvo@gateway01.ap-northeast-1.prod.aws.tidbcloud.com:4000/mentorae_sis';
+const defaultCloudUrl = 'mysql://reYEiFhJxWyYw84.root:OySUylWE3z5IgPT9@gateway01.ap-northeast-1.prod.aws.tidbcloud.com:4000/mentorae_sis';
 const cloudUrl = (process.env.MYSQL_URL || defaultCloudUrl).split('?')[0];
 
 if (cloudUrl) {
@@ -26,7 +26,12 @@ if (cloudUrl) {
   });
 
   cloudPool.on('connection', (conn) => {
-    conn.query("SET time_zone = '+08:00'", () => {});
+    try {
+      if (conn && typeof conn.query === 'function') {
+        const q = conn.query("SET time_zone = '+08:00'", () => {});
+        if (q && typeof q.catch === 'function') q.catch(() => {});
+      }
+    } catch (e) {}
   });
 }
 
@@ -107,24 +112,25 @@ async function probeLocal() {
   }
 })();
 
-// Periodic background health check (every 30 seconds):
-// If currently operating in local mode, automatically switch back to cloud once unblocked!
-const healthCheckInterval = setInterval(async () => {
-  if (currentMode === 'local' && cloudPool && !isSwitching) {
-    const cloudOk = await probeCloud();
-    if (cloudOk) {
-      isSwitching = true;
-      activePool = cloudPool;
-      currentMode = 'cloud';
-      console.log('🔄 [DATABASE] Cloud Database is now unblocked and accessible! Switched back to prioritizing CLOUD database.');
-      isSwitching = false;
+// Periodic background health check (every 30 seconds for long-lived servers only):
+// Skip on serverless (Vercel) to avoid unhandled background task freezes
+if (!process.env.VERCEL && !process.env.VERCEL_ENV && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  const healthCheckInterval = setInterval(async () => {
+    if (currentMode === 'local' && cloudPool && !isSwitching) {
+      const cloudOk = await probeCloud();
+      if (cloudOk) {
+        isSwitching = true;
+        activePool = cloudPool;
+        currentMode = 'cloud';
+        console.log('🔄 [DATABASE] Cloud Database is now unblocked and accessible! Switched back to prioritizing CLOUD database.');
+        isSwitching = false;
+      }
     }
-  }
-}, 30000);
+  }, 30000);
 
-// Prevent this background timer from blocking process exit in CLI scripts
-if (healthCheckInterval.unref) {
-  healthCheckInterval.unref();
+  if (healthCheckInterval && healthCheckInterval.unref) {
+    healthCheckInterval.unref();
+  }
 }
 
 // Detect connection/network drop errors (e.g. firewall port block or cable disconnect)

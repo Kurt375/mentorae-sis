@@ -162,7 +162,8 @@ app.use((err, req, res, next) => {
 const { startAttendanceScheduler } = require('./jobs/attendanceJob');
 
 const PORT = process.env.PORT || 5000;
-if (!process.env.VERCEL) {
+const isServerless = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME);
+if (!isServerless && process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Mentorae SIS API listening on port ${PORT}`);
     startAttendanceScheduler();
