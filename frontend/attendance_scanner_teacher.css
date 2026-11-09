@@ -175,3 +175,51 @@
 .tracking-sm { letter-spacing: 0.2px; }
 .link-transition { transition: opacity 0.15s ease; }
 .link-transition:hover { opacity: 0.8; }
+
+/* Mobile & iOS Safari Responsiveness & Accessibility */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .custom-navbar {
+        padding-top: max(0.85rem, env(safe-area-inset-top)) !important;
+        padding-left: max(1rem, env(safe-area-inset-left)) !important;
+        padding-right: max(1rem, env(safe-area-inset-right)) !important;
+    }
+    .portal-wrapper {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+}
+
+@media (max-width: 768px) {
+    .scanner-card {
+        max-width: 100%;
+        height: auto;
+        min-height: 420px;
+    }
+
+    .viewfinder-lens {
+        height: 320px;
+    }
+
+    .btn,
+    .btn-sm,
+    #startScanBtn,
+    #stopScanBtn,
+    #backToDashboardBtn {
+        min-height: 46px;
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .custom-navbar {
+        padding: 0.75rem 1rem !important;
+    }
+
+    .dashboard-time #liveTime {
+        font-size: 1.15rem !important;
+    }
+
+    .dashboard-time #liveDate {
+        font-size: 0.72rem !important;
+    }
+}

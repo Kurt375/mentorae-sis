@@ -229,3 +229,74 @@
     border-color: var(--mentorae-green);
     box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.15);
 }
+
+/* Mobile & iOS Safari Responsiveness & Accessibility */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .custom-navbar {
+        padding-top: max(0.85rem, env(safe-area-inset-top)) !important;
+        padding-left: max(1rem, env(safe-area-inset-left)) !important;
+        padding-right: max(1rem, env(safe-area-inset-right)) !important;
+    }
+    .portal-wrapper {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+}
+
+.table-scroll-container {
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll-container:focus-visible {
+    outline: 2px solid var(--mentorae-green);
+    outline-offset: 1px;
+}
+
+@media (max-width: 768px) {
+    input.form-control,
+    select.form-select,
+    textarea.form-control,
+    .form-control-sm,
+    .form-select-sm {
+        font-size: 16px !important;
+        min-height: 44px;
+    }
+
+    .btn,
+    .btn-sm,
+    #daysDropdownBtn,
+    #editDaysDropdownBtn,
+    #backToDashboardBtn,
+    .action-link-btn {
+        min-height: 44px;
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .custom-navbar {
+        padding: 0.75rem 1rem !important;
+    }
+
+    .dashboard-time #liveTime {
+        font-size: 1.15rem !important;
+    }
+
+    .dashboard-time #liveDate {
+        font-size: 0.72rem !important;
+    }
+
+    .schedule-filter-toolbar {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .schedule-filter-toolbar .d-flex {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .schedule-filter-toolbar .form-select-sm {
+        width: 100% !important;
+    }
+}
