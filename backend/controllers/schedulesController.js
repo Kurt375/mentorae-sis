@@ -155,7 +155,7 @@ function parseTime(val) {
   return null;
 }
 
-const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 function parseDays(raw) {
   if (!raw) return [];
@@ -236,11 +236,6 @@ function parseDays(raw) {
     fr: 'Friday',
     fri: 'Friday',
     friday: 'Friday',
-
-    s: 'Saturday',
-    sa: 'Saturday',
-    sat: 'Saturday',
-    saturday: 'Saturday',
   };
 
   const resolved = [];
@@ -449,6 +444,11 @@ async function createSchedule(req, res) {
     return res.status(400).json({ success: false, message: 'All fields are required and time format must be valid (e.g. 07:30 AM or 13:30).' });
   }
 
+  const invalidDay = days.find((d) => !validDays.includes(d));
+  if (invalidDay) {
+    return res.status(400).json({ success: false, message: `Invalid day: ${invalidDay}. Classes can only be scheduled Monday through Friday.` });
+  }
+
   if (startTime < SCHOOL_OPEN) {
     return res.status(400).json({ success: false, message: 'Schedule cannot start before 7:00 AM.' });
   }
@@ -525,6 +525,11 @@ async function updateSchedule(req, res) {
 
   if (!primaryId || !teacherId || !subjectId || !sectionId || !Array.isArray(days) || !days.length || !startTime || !endTime) {
     return res.status(400).json({ success: false, message: 'All fields are required and time format must be valid (e.g. 07:30 AM or 13:30).' });
+  }
+
+  const invalidDay = days.find((d) => !validDays.includes(d));
+  if (invalidDay) {
+    return res.status(400).json({ success: false, message: `Invalid day: ${invalidDay}. Classes can only be scheduled Monday through Friday.` });
   }
 
   if (startTime < SCHOOL_OPEN) {

@@ -147,6 +147,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (historyRes && historyRes.success && Array.isArray(historyRes.history) && historyRes.history.length > 0) {
                     attendanceTableBody.innerHTML = '';
                     historyRes.history.forEach(log => {
+                        if (!log.scan_date) return;
+                        const checkDate = new Date(log.scan_date + 'T00:00:00');
+                        if (checkDate.getDay() === 0 || checkDate.getDay() === 6) return; // Skip weekends
+
                         const tr = document.createElement('tr');
                         const statusLower = (log.status || '').toLowerCase();
                         tr.setAttribute('data-status', statusLower);
@@ -286,7 +290,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!container || !activeChild) return;
         try {
             const data = await authedFetch(`/api/attendance/excuse-notes?studentId=${activeChild.id}`, token);
-            if (data && data.success && Array.isArray(data.notes) && data.notes.length > 0) {
+            const validNotes = (data && data.success && Array.isArray(data.notes))
+                ? data.notes.filter(n => {
+                    if (!n.absence_date) return false;
+                    const d = new Date(String(n.absence_date).slice(0, 10) + 'T00:00:00');
+                    return d.getDay() !== 0 && d.getDay() !== 6;
+                })
+                : [];
+            if (validNotes.length > 0) {
                 container.innerHTML = `
                     <div class="table-responsive">
                         <table class="table table-sm table-hover align-middle mb-0">
@@ -301,7 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${data.notes.map((n) => {
+                                ${validNotes.map((n) => {
                                     let badgeColor = 'bg-warning text-dark';
                                     if (n.status === 'approved') badgeColor = 'bg-success text-white';
                                     else if (n.status === 'rejected') badgeColor = 'bg-danger text-white';
@@ -382,6 +393,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const fileInput = document.getElementById('excuseFile');
             const file = fileInput?.files?.[0];
 
+            if (date) {
+                const d = new Date(date + 'T00:00:00');
+                if (d.getDay() === 0 || d.getDay() === 6) {
+                    alert('Excuse notes cannot be submitted for weekend dates (Saturday or Sunday). Please select a school day (Monday to Friday).');
+                    return;
+                }
+            }
+
             if (file) {
                 const allowedExts = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp'];
                 const ext = (file.name || '').toLowerCase().slice((file.name || '').lastIndexOf('.'));
@@ -451,5 +470,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isSubmittingExcuse = false;
             }
         });
+
+        const excuseDateInput = document.getElementById('excuseDate');
+        if (excuseDateInput) {
+            excuseDateInput.addEventListener('change', () => {
+                if (!excuseDateInput.value) return;
+                const d = new Date(excuseDateInput.value + 'T00:00:00');
+                if (d.getDay() === 0 || d.getDay() === 6) {
+                    alert('Excuse notes cannot be submitted for weekend dates (Saturday or Sunday). Please select a school day (Monday to Friday).');
+                    excuseDateInput.value = '';
+                }
+            });
+        }
     }
 });

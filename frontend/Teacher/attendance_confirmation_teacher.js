@@ -777,8 +777,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${year}-${month}-${day}`;
     }
 
+    function getLatestSchoolDate() {
+        const d = new Date();
+        const day = d.getDay();
+        if (day === 6) d.setDate(d.getDate() - 1); // Saturday -> Friday
+        else if (day === 0) d.setDate(d.getDate() - 2); // Sunday -> Friday
+        return d;
+    }
+
     if (historyDateInput) {
-        historyDateInput.value = toISODate(new Date());
+        historyDateInput.value = toISODate(getLatestSchoolDate());
     }
 
     async function loadDailyHistory() {
@@ -818,6 +826,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusVal = historyStatusFilter ? historyStatusFilter.value : 'all';
 
         const filtered = currentHistoryRecords.filter(r => {
+            if (r.scanDate) {
+                const d = new Date(r.scanDate + 'T00:00:00');
+                if (d.getDay() === 0 || d.getDay() === 6) return false;
+            }
             const matchesSearch = !searchTerm ||
                 r.name.toLowerCase().includes(searchTerm) ||
                 r.idNumber.toLowerCase().includes(searchTerm) ||
@@ -875,12 +887,30 @@ document.addEventListener('DOMContentLoaded', () => {
         historySectionFilter.addEventListener('change', loadDailyHistory);
     }
     if (historyDateInput) {
-        historyDateInput.addEventListener('change', loadDailyHistory);
+        historyDateInput.addEventListener('change', () => {
+            if (!historyDateInput.value) return;
+            const d = new Date(historyDateInput.value + 'T00:00:00');
+            const day = d.getDay();
+            if (day === 0 || day === 6) {
+                alert('School attendance is not recorded on weekends (Saturday and Sunday). Switching to the preceding Friday.');
+                if (day === 6) d.setDate(d.getDate() - 1);
+                else if (day === 0) d.setDate(d.getDate() - 2);
+                historyDateInput.value = toISODate(d);
+            }
+            loadDailyHistory();
+        });
     }
     if (btnHistoryToday) {
         btnHistoryToday.addEventListener('click', () => {
             if (historyDateInput) {
-                historyDateInput.value = toISODate(new Date());
+                const now = new Date();
+                const day = now.getDay();
+                if (day === 0 || day === 6) {
+                    alert('Today is a weekend. Switching to the latest school day (Friday).');
+                    historyDateInput.value = toISODate(getLatestSchoolDate());
+                } else {
+                    historyDateInput.value = toISODate(now);
+                }
                 loadDailyHistory();
             }
         });
@@ -890,6 +920,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (historyDateInput) {
                 const yest = new Date();
                 yest.setDate(yest.getDate() - 1);
+                if (yest.getDay() === 0) {
+                    yest.setDate(yest.getDate() - 2); // Land on Friday
+                } else if (yest.getDay() === 6) {
+                    yest.setDate(yest.getDate() - 1); // Land on Friday
+                }
                 historyDateInput.value = toISODate(yest);
                 loadDailyHistory();
             }

@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (days.length === 1) return days[0];
 
-        const shortMap = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+        const shortMap = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri' };
         return days.map(d => shortMap[d] || d).join(', ');
     }
 
@@ -564,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function groupSchedules(schedules) {
         const groups = [];
-        const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
         for (const s of schedules) {
             const key = `${s.teacher}|||${s.subject}|||${s.strand}|||${s.section}|||${s.quarter || ''}|||${s.startTime}|||${s.endTime}`;

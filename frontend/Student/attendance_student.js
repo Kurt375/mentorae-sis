@@ -252,6 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const status = attendanceStatusFilter ? attendanceStatusFilter.value : 'all';
 
         const filtered = allAttendanceHistory.filter(row => {
+            if (!row.scan_date) return false;
+            const d = new Date(row.scan_date + 'T00:00:00');
+            const day = d.getDay();
+            if (day === 0 || day === 6) return false; // Exclude Sunday (0) and Saturday (6)
+
             if (status !== 'all' && (row.status || '').toLowerCase() !== status.toLowerCase()) {
                 return false;
             }

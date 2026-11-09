@@ -20,6 +20,7 @@ const {
   getExcuseNoteProof,
 } = require('../controllers/attendanceController');
 const { runSevenAmAttendanceJob, maybeTriggerSevenAmJobOpportunistically } = require('../jobs/attendanceJob');
+const { cleanupWeekendRecords } = require('../scripts/cleanup_weekends');
 const multer = require('multer');
 
 // Proof file upload handling: PDFs, Word documents (DOC/DOCX), and Images only. Max 5MB.
@@ -109,6 +110,16 @@ router.post('/trigger-7am-job', requireAuth, requireRole('teacher', 'admin'), as
   try {
     const force = Boolean(req.body.force);
     const result = await runSevenAmAttendanceJob(force);
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin purge of existing weekend records (attendance logs, excuse notes, and schedules)
+router.post('/cleanup-weekends', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const result = await cleanupWeekendRecords();
     return res.json({ success: true, ...result });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

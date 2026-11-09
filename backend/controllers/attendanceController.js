@@ -66,6 +66,14 @@ async function scanAttendance(req, res) {
     return res.status(400).json({ success: false, message: 'No QR code data received.' });
   }
 
+  const todayDay = getManilaDayOfWeek();
+  if (todayDay === 'Saturday' || todayDay === 'Sunday') {
+    return res.status(403).json({
+      success: false,
+      message: 'Attendance scanning is disabled on weekends (Saturday and Sunday).',
+    });
+  }
+
   try {
     const [studentRows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.section_id,
@@ -208,6 +216,10 @@ async function checkSessionLock(teacherId, sectionId, subjectId) {
   const today = getManilaDayOfWeek();
   const nowStr = getManilaTime();
 
+  if (today === 'Saturday' || today === 'Sunday') {
+    return { isAllowed: false, reason: 'Attendance cannot be validated or confirmed on weekends.' };
+  }
+
   // Check if this teacher is the official section adviser or co-adviser
   const [[sec]] = await pool.query('SELECT adviser_id, co_adviser_id FROM sections WHERE id = ?', [sectionId]);
   const isAdviser = Boolean(sec && (sec.adviser_id === teacherId || sec.co_adviser_id === teacherId));
@@ -226,9 +238,6 @@ async function checkSessionLock(teacherId, sectionId, subjectId) {
   // If this is the teacher's advisory class and no specific subject period was requested:
   // Advisory attendance validation starts at 7:00 AM and ends when the first subject ends.
   if (isAdviser && !subjectId) {
-    if (today === 'Saturday' || today === 'Sunday') {
-      return { isAllowed: false, reason: 'Advisory attendance validation cannot be performed on weekends.' };
-    }
 
     // Find the first scheduled subject of the day for this section
     const [firstSubRows] = await pool.query(
@@ -369,6 +378,19 @@ async function getConfirmationRoster(req, res) {
       }
     }
 
+    const todayDay = getManilaDayOfWeek();
+    if (todayDay === 'Saturday' || todayDay === 'Sunday') {
+      return res.json({
+        success: true,
+        roster: [],
+        isAdvisory: isAdviser,
+        isFirstPeriodTeacher: false,
+        allTimeOutsConfirmed: true,
+        isWeekend: true,
+        message: 'Attendance confirmation is closed on weekends (Saturday and Sunday).',
+      });
+    }
+
     const today = getManilaDate();
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
@@ -400,7 +422,6 @@ async function getConfirmationRoster(req, res) {
     const hasTimeOuts = rows.some((r) => r.time_out);
     const allTimeOutsConfirmed = hasTimeOuts && rows.filter((r) => r.time_out).every((r) => r.confirmed_at || r.confirmed_by);
 
-    const todayDay = getManilaDayOfWeek();
     const [firstSched] = await pool.query(
       'SELECT teacher_id, start_time FROM schedules WHERE section_id = ? AND day_of_week = ? ORDER BY start_time ASC LIMIT 1',
       [sectionId, todayDay]
@@ -568,6 +589,11 @@ async function confirmAttendanceOut(req, res) {
     return res.status(400).json({ success: false, message: 'Valid studentId(s) and sectionId are required.' });
   }
 
+  const todayDay = getManilaDayOfWeek();
+  if (todayDay === 'Saturday' || todayDay === 'Sunday') {
+    return res.status(403).json({ success: false, message: 'Time-out attendance cannot be confirmed on weekends.' });
+  }
+
   try {
     if (req.user.role === 'teacher') {
       const teaches = await teacherTeachesSection(req.user.id, sectionId);
@@ -674,6 +700,11 @@ async function finishSectionConfirmation(req, res) {
   const { sectionId } = req.body;
   if (!sectionId) {
     return res.status(400).json({ success: false, message: 'sectionId is required.' });
+  }
+
+  const todayDay = getManilaDayOfWeek();
+  if (todayDay === 'Saturday' || todayDay === 'Sunday') {
+    return res.status(403).json({ success: false, message: 'Attendance confirmation cannot be finalized on weekends.' });
   }
 
   try {
@@ -812,6 +843,24 @@ async function getSectionDailyHistory(req, res) {
     }
 
     const targetDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : getManilaDate();
+    const targetDayOfWeek = new Date(targetDate + 'T00:00:00').getDay();
+    if (targetDayOfWeek === 0 || targetDayOfWeek === 6) {
+      return res.json({
+        success: true,
+        date: targetDate,
+        isWeekend: true,
+        message: 'No school attendance records exist on weekends (Saturday and Sunday).',
+        records: [],
+        stats: {
+          totalStudents: 0,
+          presentCount: 0,
+          lateCount: 0,
+          excusedCount: 0,
+          absentCount: 0,
+          rate: 0,
+        },
+      });
+    }
 
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
@@ -822,7 +871,7 @@ async function getSectionDailyHistory(req, res) {
        FROM users u
        JOIN sections sec ON sec.id = u.section_id
        JOIN strands st ON st.id = sec.strand_id
-       LEFT JOIN attendance_logs a ON a.student_id = u.id AND a.scan_date = ?
+       LEFT JOIN attendance_logs a ON a.student_id = u.id AND a.scan_date = ? AND DAYOFWEEK(a.scan_date) NOT IN (1, 7)
        LEFT JOIN users u_conf ON u_conf.id = a.confirmed_by
        LEFT JOIN users u_over ON u_over.id = a.overridden_by
        WHERE u.role = 'student' AND u.section_id = ?
@@ -893,14 +942,14 @@ async function getSummary(req, res) {
 
     const [[totals]] = await pool.query(
       `SELECT COUNT(*) AS totalDays, SUM(status IN ('present','late')) AS presentDays
-       FROM attendance_logs WHERE student_id = ?`,
+       FROM attendance_logs WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)`,
       [studentId.id]
     );
     const totalDays = Number(totals.totalDays) || 0;
     const presentDays = Number(totals.presentDays) || 0;
     const rate = totalDays ? Math.round((presentDays / totalDays) * 100) : 0;
 
-    // Monthly Trends: aggregate attendance by month (up to last 3 months)
+    // Monthly Trends: aggregate attendance by month (up to last 3 months, weekdays only)
     const [monthlyRows] = await pool.query(
       `SELECT 
          DATE_FORMAT(scan_date, '%Y-%m') AS monthKey,
@@ -908,7 +957,7 @@ async function getSummary(req, res) {
          COUNT(*) AS totalDays,
          SUM(status IN ('present','late')) AS presentDays
        FROM attendance_logs
-       WHERE student_id = ?
+       WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)
        GROUP BY monthKey, monthLabel
        ORDER BY monthKey DESC
        LIMIT 3`,
@@ -928,11 +977,11 @@ async function getSummary(req, res) {
       };
     });
 
-    // Consecutive Present Days Streak (ordered by most recent scan_date DESC)
+    // Consecutive Present Days Streak (ordered by most recent scan_date DESC, weekdays only)
     const [recentLogs] = await pool.query(
       `SELECT scan_date, status
        FROM attendance_logs
-       WHERE student_id = ?
+       WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)
        ORDER BY scan_date DESC, scan_time DESC
        LIMIT 60`,
       [studentId.id]
@@ -968,11 +1017,12 @@ async function getHistory(req, res) {
     if (studentId.error) return res.status(studentId.code).json({ success: false, message: studentId.error });
 
     const { page, limit, offset } = parsePagination(req.query, { limit: 30 });
-    const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM attendance_logs WHERE student_id = ?', [
-      studentId.id,
-    ]);
+    const [[{ total }]] = await pool.query(
+      'SELECT COUNT(*) AS total FROM attendance_logs WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)',
+      [studentId.id]
+    );
     const [rows] = await pool.query(
-      'SELECT scan_date, scan_time, status FROM attendance_logs WHERE student_id = ? ORDER BY scan_date DESC LIMIT ? OFFSET ?',
+      'SELECT scan_date, scan_time, status FROM attendance_logs WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7) ORDER BY scan_date DESC LIMIT ? OFFSET ?',
       [studentId.id, limit, offset]
     );
 
@@ -1000,6 +1050,15 @@ async function submitExcuseNote(req, res) {
   const { studentId, absenceDate, reason, remarks } = req.body;
   if (!studentId || !absenceDate || !reason) {
     return res.status(400).json({ success: false, message: 'Student, date, and reason are required.' });
+  }
+
+  const d = new Date(absenceDate + 'T00:00:00');
+  const dow = d.getDay();
+  if (dow === 0 || dow === 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Excuse notes cannot be submitted for weekend dates (Saturday or Sunday).',
+    });
   }
 
   // Extract uploaded proof document/image if present
@@ -1147,6 +1206,8 @@ async function listExcuseNotes(req, res) {
       where.push('en.status = ?');
       params.push(req.query.status);
     }
+
+    where.push('DAYOFWEEK(en.absence_date) NOT IN (1, 7)');
 
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const [rows] = await pool.query(

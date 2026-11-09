@@ -30,6 +30,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const successSound = document.getElementById('scanSuccessSound');
     const failSound = document.getElementById('scanFailSound');
 
+    const isWeekend = () => {
+        const d = new Date();
+        return d.getDay() === 0 || d.getDay() === 6;
+    };
+
+    if (isWeekend()) {
+        if (statusText) statusText.textContent = 'Attendance scanning is closed on weekends (Saturday & Sunday).';
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50');
+            startBtn.title = 'Attendance scanning is closed on weekends.';
+        }
+    }
+
     const canvasEl = document.createElement('canvas');
     const canvas = canvasEl.getContext('2d', { willReadFrequently: true });
 
@@ -38,6 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let isProcessing = false;
 
     async function startScan() {
+        if (isWeekend()) {
+            alert('Attendance scanning is disabled on weekends (Saturday and Sunday).');
+            return;
+        }
         try {
             stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
             video.srcObject = stream;

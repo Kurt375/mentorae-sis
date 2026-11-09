@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const { getManilaDate, getManilaTime, getManilaDayOfWeek } = require('../utils/dateUtils');
 const { sendAttendanceEmail } = require('../utils/mailer');
+const { cleanupWeekendRecords } = require('../scripts/cleanup_weekends');
 
 let lastRunDate = null;
 let isJobRunning = false;
@@ -234,6 +235,9 @@ async function maybeTriggerSevenAmJobOpportunistically() {
  */
 function startAttendanceScheduler() {
   console.log('[ATTENDANCE JOB] Scheduler initialized (checking every 30s for 7:00 AM Manila cutoff)...');
+  // Clean up any weekend attendance logs and schedules on server boot
+  cleanupWeekendRecords().catch((e) => console.error('[CLEANUP] Boot cleanup error:', e));
+
   // Check immediately upon server boot
   runSevenAmAttendanceJob(false).catch((e) => console.error('[ATTENDANCE JOB] Boot check error:', e));
 
