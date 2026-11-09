@@ -30,3 +30,4 @@ async function cleanupWeekendRecords() {
 }
 
 module.exports = { cleanupWeekendRecords };
+

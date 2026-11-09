@@ -15,18 +15,31 @@
     --badge-absent-txt: #842029;
 }
 
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
 .dashboard-bg {
     background-color: var(--mentorae-canvas-bg);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .portal-wrapper {
+    width: 100%;
     max-width: 992px;
     margin: 0 auto;
     border-left: 1px solid #e2e8f0;
     border-right: 1px solid #e2e8f0;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .custom-navbar {
@@ -937,16 +950,9 @@
    ========================================================================== */
 .grade-component-tabs {
     display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
     width: 100% !important;
+    max-width: 100% !important;
     margin-bottom: 0;
-}
-
-.grade-component-tabs .nav-item {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    display: flex !important;
 }
 
 .grade-tab-pill {
@@ -955,13 +961,10 @@
     border: 1px solid #e2e8f0;
     transition: all 0.2s ease;
     font-size: 0.85rem;
-    white-space: nowrap !important;
-    width: 100% !important;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    padding-left: 8px !important;
-    padding-right: 8px !important;
+    white-space: nowrap !important;
 }
 
 .grade-tab-pill:hover {
@@ -977,12 +980,85 @@
     box-shadow: 0 2px 6px rgba(10, 92, 44, 0.25) !important;
 }
 
-@media (max-width: 1200px) {
+/* Tablet & Mobile Screens: Touch-Friendly Scrollable Horizontal Navigation */
+@media (max-width: 991.98px) {
+    .grade-component-tabs {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px !important;
+        padding: 4px 2px 8px 2px !important;
+        scrollbar-width: thin;
+    }
+
+    .grade-component-tabs::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .grade-component-tabs::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    .grade-component-tabs .nav-item {
+        flex: 0 0 auto !important;
+        min-width: max-content !important;
+        width: auto !important;
+    }
+
+    .grade-tab-pill {
+        white-space: nowrap !important;
+        padding: 8px 16px !important;
+        font-size: 0.82rem !important;
+        width: auto !important;
+        border-radius: 8px !important;
+    }
+}
+
+/* Desktop Screens: Full Width Justified Row */
+@media (min-width: 992px) {
+    .grade-component-tabs {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+    }
+
+    .grade-component-tabs .nav-item {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        display: flex !important;
+    }
+
+    .grade-tab-pill {
+        width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+}
+
+@media (max-width: 1200px) and (min-width: 992px) {
     .grade-tab-pill {
         font-size: 0.78rem !important;
         padding-left: 5px !important;
         padding-right: 5px !important;
     }
+}
+
+/* Active Category Weight Summary Badge responsive wrap */
+#activeCategoryBadgeContainer {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+#activeCategoryWeightSummary {
+    white-space: normal !important;
+    word-break: break-word;
+    max-width: 100%;
+    line-height: 1.45;
+    text-align: left;
+    display: inline-block;
 }
 
 .hps-header-row {
@@ -1265,6 +1341,8 @@
 
 /* 1. Student Table (Roster) in Class Management */
 .roster-table-scroll-container {
+    width: 100% !important;
+    max-width: 100% !important;
     max-height: 480px;
     overflow-y: auto !important;
     overflow-x: auto !important;
@@ -1291,6 +1369,8 @@
 
 /* 2. Enter Grade Tables in Class Management */
 .grade-table-scroll-container {
+    width: 100% !important;
+    max-width: 100% !important;
     max-height: 480px;
     overflow-y: auto !important;
     overflow-x: auto !important;
@@ -1741,4 +1821,35 @@ section.docx img,
 #badgeSectionCurrentLabel {
     max-width: 200px;
     vertical-align: middle;
+}
+
+
+/* =========================================================================
+   Mobile Responsiveness & iOS Viewport Optimization
+   ========================================================================= */
+@media (max-width: 576px) {
+    .workspace-content-fill {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        padding-top: 14px !important;
+        padding-bottom: 14px !important;
+    }
+
+    #enterGradesSection {
+        padding: 14px !important;
+    }
+
+    .custom-navbar {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+    }
+}
+
+/* Prevent iOS Auto-Zoom on form input focus (inputs < 16px trigger iOS auto-zoom) */
+@media (max-width: 768px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
 }
