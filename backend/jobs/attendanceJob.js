@@ -1,7 +1,7 @@
 const pool = require('../config/db');
 const { getManilaDate, getManilaTime, getManilaDayOfWeek } = require('../utils/dateUtils');
 const { sendAttendanceEmail } = require('../utils/mailer');
-const { cleanupWeekendRecords } = require('../scripts/cleanup_weekends');
+const { cleanupWeekendRecords } = require('../utils/cleanupWeekendRecords');
 
 let lastRunDate = null;
 let isJobRunning = false;

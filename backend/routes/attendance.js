@@ -20,7 +20,7 @@ const {
   getExcuseNoteProof,
 } = require('../controllers/attendanceController');
 const { runSevenAmAttendanceJob, maybeTriggerSevenAmJobOpportunistically } = require('../jobs/attendanceJob');
-const { cleanupWeekendRecords } = require('../scripts/cleanup_weekends');
+const { cleanupWeekendRecords } = require('../utils/cleanupWeekendRecords');
 const multer = require('multer');
 
 // Proof file upload handling: PDFs, Word documents (DOC/DOCX), and Images only. Max 5MB.
