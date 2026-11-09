@@ -2273,49 +2273,81 @@ async function assignLesson(req, res) {
     const subjectName = topic.subject_name || 'Subject';
     const teacherName = fullName(req.user);
     const isRec = !!topic.is_recommendation;
+    const studentIdsList = studentRows.map((s) => s.id);
 
-    // 3. Insert assignments and notifications in batch
+    // 3. High-Performance Batch INSERT for all assignments (1 atomic SQL query)
+    const placeholders = studentIdsList.map(() => '(?, ?, ?, ?, ?)').join(', ');
+    const flatParams = [];
+    for (const sId of studentIdsList) {
+      flatParams.push(sId, req.user.id, resolvedSubjectId, topic.id, note || null);
+    }
+    await pool.query(
+      `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, note)
+       VALUES ${placeholders}`,
+      flatParams
+    );
+
+    // 4. Batch lookup linked parents for ALL selected students (1 single query)
+    const [parentLinks] = await pool.query(
+      `SELECT student_id, parent_id FROM parent_student_links WHERE student_id IN (${studentIdsList.map(() => '?').join(',')})`,
+      studentIdsList
+    );
+    const parentsByStudent = new Map();
+    parentLinks.forEach((row) => {
+      if (!parentsByStudent.has(row.student_id)) parentsByStudent.set(row.student_id, []);
+      parentsByStudent.get(row.student_id).push(row.parent_id);
+    });
+
+    // 5. Concurrently dispatch in-app notifications in parallel
+    const notifTitle = isRec
+      ? `New ${subjectName} Recommendation Assigned`
+      : `New ${subjectName} Lesson Assigned`;
+    const notifMsg = note && note.trim()
+      ? `Teacher ${teacherName} assigned you "${topic.title}": "${note.trim()}". Please review the learning materials.`
+      : `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`;
+
+    const notificationPromises = [];
+
     for (const student of studentRows) {
-      await pool.query(
-        `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, note)
-         VALUES (?, ?, ?, ?, ?)`,
-        [student.id, req.user.id, resolvedSubjectId, topic.id, note || null]
+      // Student in-app notification
+      notificationPromises.push(
+        notify({
+          recipientId: student.id,
+          type: 'intervention_assigned',
+          title: notifTitle,
+          message: notifMsg,
+          relatedStudentId: student.id,
+        })
       );
 
-      // In-App Notification to Student
-      const notifTitle = isRec
-        ? `New ${subjectName} Recommendation Assigned`
-        : `New ${subjectName} Lesson Assigned`;
-      const notifMsg = note && note.trim()
-        ? `Teacher ${teacherName} assigned you "${topic.title}": "${note.trim()}". Please review the learning materials.`
-        : `Teacher ${teacherName} assigned you "${topic.title}". Please review the learning materials, practice quiz, and flashcards.`;
-
-      await notify({
-        recipientId: student.id,
-        type: 'intervention_assigned',
-        title: notifTitle,
-        message: notifMsg,
-        relatedStudentId: student.id,
-      });
-
-      // Notify Linked Parent(s) in-app
-      const parentIds = await getParentIdsForStudent(student.id);
+      // Parent in-app notification
+      const parentIds = parentsByStudent.get(student.id) || [];
       if (parentIds.length > 0) {
-        const parentTitle = isRec ? `New ${subjectName} Recommendation for Your Child` : `Targeted Remedial Lesson Assigned for Your Child`;
+        const parentTitle = isRec
+          ? `New ${subjectName} Recommendation for Your Child`
+          : `Targeted Remedial Lesson Assigned for Your Child`;
         const parentMsg = note && note.trim()
           ? `Teacher ${teacherName} assigned ${student.first_name} "${topic.title}": "${note.trim()}".`
           : `Teacher ${teacherName} assigned ${student.first_name} a targeted learning module: "${topic.title}".`;
-        await notifyMany(parentIds, {
-          type: 'intervention_assigned',
-          title: parentTitle,
-          message: parentMsg,
-          relatedStudentId: student.id,
-          skipEmail: true,
-        });
-      }
 
-      // Background Email
-      (async () => {
+        notificationPromises.push(
+          notifyMany(parentIds, {
+            type: 'intervention_assigned',
+            title: parentTitle,
+            message: parentMsg,
+            relatedStudentId: student.id,
+            skipEmail: true,
+          })
+        );
+      }
+    }
+
+    // Await all parallel in-app notifications so they are 100% saved before completing
+    await Promise.allSettled(notificationPromises);
+
+    // 6. Asynchronously trigger background emails without blocking the teacher's UI
+    (async () => {
+      for (const student of studentRows) {
         try {
           await sendInterventionEmail({
             studentId: student.id,
@@ -2328,8 +2360,8 @@ async function assignLesson(req, res) {
         } catch (e) {
           console.error('Background intervention email error:', e.message);
         }
-      })();
-    }
+      }
+    })();
 
     const assignedCount = studentRows.length;
     const names = studentRows.map((s) => `${s.first_name} ${s.last_name}`).join(', ');
