@@ -269,25 +269,34 @@ document.addEventListener('DOMContentLoaded', () => {
     let allAttendanceHistory = [];
     const attendanceSearchInput = document.getElementById('attendanceSearchInput');
     const attendanceStatusFilter = document.getElementById('attendanceStatusFilter');
+    const attendanceTermFilter = document.getElementById('attendanceTermFilter');
 
-    function renderAttendanceLogRows() {
-        const tbody = document.getElementById('attendanceLogBody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
+    const TERM_DATES = {
+        all: { label: 'All Terms (SY 2026-2027)', tag: 'All_Terms', start: '2026-06-08', end: '2027-04-08' },
+        term1: { label: '1st Term (Jun 8 – Sep 15, 2026)', tag: '1st_Term', start: '2026-06-08', end: '2026-09-15' },
+        term2: { label: '2nd Term (Sep 16 – Nov 30, 2026)', tag: '2nd_Term', start: '2026-09-16', end: '2026-11-30' },
+        term3: { label: '3rd Term (Jan 4 – Apr 8, 2027)', tag: '3rd_Term', start: '2027-01-04', end: '2027-04-08' }
+    };
 
-        if (!allAttendanceHistory || !allAttendanceHistory.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No attendance records yet.</td></tr>';
-            return;
-        }
-
+    function getFilteredAttendanceRows() {
+        if (!allAttendanceHistory || !allAttendanceHistory.length) return [];
         const search = (attendanceSearchInput ? attendanceSearchInput.value : '').trim().toLowerCase();
         const status = attendanceStatusFilter ? attendanceStatusFilter.value : 'all';
+        const term = attendanceTermFilter ? attendanceTermFilter.value : 'all';
 
-        const filtered = allAttendanceHistory.filter(row => {
+        return allAttendanceHistory.filter(row => {
             if (!row.scan_date) return false;
             const d = new Date(row.scan_date + 'T00:00:00');
             const day = d.getDay();
-            if (day === 0 || day === 6) return false; // Exclude Sunday (0) and Saturday (6)
+            if (day === 0 || day === 6) return false; // Exclude weekends
+
+            if (term !== 'all' && TERM_DATES[term]) {
+                const start = TERM_DATES[term].start;
+                const end = TERM_DATES[term].end;
+                if (row.scan_date < start || row.scan_date > end) {
+                    return false;
+                }
+            }
 
             if (status !== 'all' && (row.status || '').toLowerCase() !== status.toLowerCase()) {
                 return false;
@@ -302,6 +311,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return true;
         });
+    }
+
+    function renderAttendanceLogRows() {
+        const tbody = document.getElementById('attendanceLogBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!allAttendanceHistory || !allAttendanceHistory.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No attendance records yet.</td></tr>';
+            return;
+        }
+
+        const filtered = getFilteredAttendanceRows();
 
         if (!filtered.length) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No attendance records matching your filter.</td></tr>';
@@ -326,6 +348,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (attendanceStatusFilter) {
         attendanceStatusFilter.addEventListener('change', renderAttendanceLogRows);
+    }
+    if (attendanceTermFilter) {
+        attendanceTermFilter.addEventListener('change', renderAttendanceLogRows);
     }
 
     async function loadHistory() {
@@ -352,8 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadAttendanceCsv = document.getElementById('btnDownloadAttendanceCsv');
 
     function getExportRows() {
-        if (!allAttendanceHistory || !allAttendanceHistory.length) return [];
-        return allAttendanceHistory.map((row, idx) => ({
+        const rows = getFilteredAttendanceRows();
+        if (!rows || !rows.length) return [];
+        return rows.map((row, idx) => ({
             no: idx + 1,
             date: formatDate(row.scan_date),
             status: (row.status || '').toUpperCase(),
@@ -365,9 +391,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function printAttendanceReport() {
         const rows = getExportRows();
         if (!rows.length) {
-            alert('No attendance records available to print.');
+            alert('No attendance records available to print for the selected filter.');
             return;
         }
+
+        const term = attendanceTermFilter ? attendanceTermFilter.value : 'all';
+        const termInfo = TERM_DATES[term] || TERM_DATES.all;
 
         const presentCount = rows.filter(r => r.status === 'PRESENT').length;
         const lateCount = rows.filter(r => r.status === 'LATE').length;
@@ -396,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Attendance History - ${studentFullName}</title>
+                <title>Attendance History - ${studentFullName} (${termInfo.label})</title>
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                 <style>
                     @page { size: portrait; margin: 1.2cm; }
@@ -413,13 +442,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </head>
             <body>
                 <div class="no-print d-flex justify-content-between align-items-center mb-3">
-                    <span class="text-muted small">Student Attendance History Report</span>
+                    <span class="text-muted small">Student Attendance History Report (${termInfo.label})</span>
                     <button class="btn btn-sm btn-primary" onclick="window.print()">Print Document</button>
                 </div>
                 <div class="header-box d-flex justify-content-between align-items-center">
                     <div>
                         <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
-                        <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History</div>
+                        <div class="small fw-semibold text-secondary">Learner Attendance Log History — ${termInfo.label}</div>
                         <div class="small text-muted mt-1">Learner: <strong>${studentFullName}</strong> | ID / LRN: <code>${studentIdNumber}</code> | Section: <strong>${studentSectionName || 'Medical Sciences'}</strong></div>
                     </div>
                     <div class="text-end">
@@ -628,23 +657,29 @@ document.addEventListener('DOMContentLoaded', () => {
             { wch: 34 }   // Remarks / Source
         ];
 
+        const term = attendanceTermFilter ? attendanceTermFilter.value : 'all';
+        const termInfo = TERM_DATES[term] || TERM_DATES.all;
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
+        XLSX.utils.book_append_sheet(wb, ws, `Attendance ${termInfo.tag}`);
 
         const safeName = studentFullName.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const filename = `Attendance_History_${safeName}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        const filename = `Attendance_History_${safeName}_${termInfo.tag}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         XLSX.writeFile(wb, filename);
     }
 
     function exportAttendanceCsv() {
         const rows = getExportRows();
         if (!rows.length) {
-            alert('No attendance records available to export.');
+            alert('No attendance records available to export for the selected filter.');
             return;
         }
+        const term = attendanceTermFilter ? attendanceTermFilter.value : 'all';
+        const termInfo = TERM_DATES[term] || TERM_DATES.all;
+
         const safeName = studentFullName.replace(/[^a-zA-Z0-9_-]/g, '_');
-        let csv = "TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT\n";
-        csv += `Learner: "${studentFullName}",Student ID / LRN: "${studentIdNumber}",Section: "${studentSectionName || 'Medical Sciences'}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
+        let csv = `TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT (${termInfo.label})\n`;
+        csv += `Learner: "${studentFullName}",Student ID / LRN: "${studentIdNumber}",Section: "${studentSectionName || 'Medical Sciences'}",Academic Term: "${termInfo.label}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
         csv += "No,Date,Status,Time In/Out,Remarks\n";
         rows.forEach(r => {
             csv += `${r.no},"${r.date}","${r.status}","${r.time || '—'}","${(r.remarks || 'Regular scan').replace(/"/g, '""')}"\n`;
@@ -653,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Attendance_History_${safeName}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute('download', `Attendance_History_${safeName}_${termInfo.tag}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

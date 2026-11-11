@@ -159,6 +159,12 @@
                             <option value="late">Late</option>
                             <option value="excused">Excused</option>
                         </select>
+                        <select class="form-select form-select-sm" id="filterTermSelect" style="width: auto;"
+                            aria-label="Filter attendance by academic term">
+                            <option value="all">All Terms (Whole Year)</option>
+                            <option value="term1">1st Term (Jun 8 – Sep 15)</option>
+                            <option value="term2" selected>2nd Term (Sep 16 – Nov 30)</option>
+                        </select>
                         <button type="button"
                             class="btn btn-sm btn-outline-secondary fw-semibold px-3 py-1.5 rounded-pill d-inline-flex align-items-center gap-1.5 shadow-xs"
                             id="btnExportLogs" title="Print Attendance Log">

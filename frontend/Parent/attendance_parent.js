@@ -154,6 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const tr = document.createElement('tr');
                         const statusLower = (log.status || '').toLowerCase();
                         tr.setAttribute('data-status', statusLower);
+                        tr.setAttribute('data-date', log.scan_date || '');
 
                         // Format date
                         let dateStr = log.scan_date || '';
@@ -195,6 +196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         `;
                         attendanceTableBody.appendChild(tr);
                     });
+                    filterParentAttendanceTable();
                 } else {
                     attendanceTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No attendance records found for this student yet.</td></tr>';
                 }
@@ -210,21 +212,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Error loading student context:', err);
     }
 
-    // 7. Attendance Status Filter Logic
-    if (filterStatusSelect && attendanceTableBody) {
-        filterStatusSelect.addEventListener('change', (e) => {
-            const selectedStatus = e.target.value;
-            const rows = attendanceTableBody.querySelectorAll('tr[data-status]');
+    // 7. Attendance Status and Academic Term Filter Logic
+    const filterTermSelect = document.getElementById('filterTermSelect');
 
-            rows.forEach(row => {
-                const rowStatus = row.getAttribute('data-status');
-                if (selectedStatus === 'all' || rowStatus === selectedStatus) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+    function filterParentAttendanceTable() {
+        if (!attendanceTableBody) return;
+        const selectedStatus = filterStatusSelect ? filterStatusSelect.value : 'all';
+        const selectedTerm = filterTermSelect ? filterTermSelect.value : 'all';
+        const rows = attendanceTableBody.querySelectorAll('tr[data-status]');
+
+        rows.forEach(row => {
+            const rowStatus = row.getAttribute('data-status');
+            const rowDate = row.getAttribute('data-date') || '';
+
+            let matchesStatus = (selectedStatus === 'all' || rowStatus === selectedStatus);
+            let matchesTerm = true;
+
+            if (selectedTerm === 'term1') {
+                matchesTerm = (rowDate >= '2026-06-08' && rowDate <= '2026-09-15');
+            } else if (selectedTerm === 'term2') {
+                matchesTerm = (rowDate >= '2026-09-16' && rowDate <= '2026-11-30');
+            } else if (selectedTerm === 'term3') {
+                matchesTerm = (rowDate >= '2027-01-04' && rowDate <= '2027-04-08');
+            }
+
+            if (matchesStatus && matchesTerm) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
         });
+    }
+
+    if (filterStatusSelect) {
+        filterStatusSelect.addEventListener('change', filterParentAttendanceTable);
+    }
+    if (filterTermSelect) {
+        filterTermSelect.addEventListener('change', filterParentAttendanceTable);
     }
 
     // 8. Export / Print Attendance Logs (Print, .xlsx, .csv)
@@ -232,7 +256,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnDownloadAttendanceCsv = document.getElementById('btnDownloadAttendanceCsv');
 
     function getParentAttendanceData() {
-        const rows = attendanceTableBody ? Array.from(attendanceTableBody.querySelectorAll('tr[data-status]')) : [];
+        const rows = attendanceTableBody
+            ? Array.from(attendanceTableBody.querySelectorAll('tr[data-status]')).filter(r => r.style.display !== 'none')
+            : [];
         return rows.map((tr, idx) => {
             const cells = tr.querySelectorAll('td');
             return {
