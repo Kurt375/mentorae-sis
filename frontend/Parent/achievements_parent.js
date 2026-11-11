@@ -230,9 +230,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        badgesContainer.innerHTML = earnedBadges.map(b => `
+        const bCountMap = {};
+        earnedBadges.forEach(b => {
+            bCountMap[b.id] = (bCountMap[b.id] || 0) + 1;
+        });
+        const uniqueBadges = [];
+        const seen = new Set();
+        earnedBadges.forEach(b => {
+            if (!seen.has(b.id)) {
+                seen.add(b.id);
+                uniqueBadges.push({ ...b, count: bCountMap[b.id] || 1 });
+            }
+        });
+
+        badgesContainer.innerHTML = uniqueBadges.map(b => `
             <div class="col-12 col-md-6 col-lg-4">
-                <div class="badge-card h-100 d-flex flex-column justify-content-between shadow-2xs">
+                <div class="badge-card h-100 d-flex flex-column justify-content-between shadow-2xs position-relative">
+                    <span class="badge-count-pill" title="Earned ${b.count} time${b.count === 1 ? '' : 's'}">${b.count}</span>
                     <div class="d-flex align-items-start gap-3 mb-2">
                         <div class="badge-icon-wrap bg-light border">
                             ${b.icon}

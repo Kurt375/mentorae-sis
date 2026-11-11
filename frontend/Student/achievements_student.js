@@ -103,6 +103,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         earnedBadges = getFilteredEarnedBadges();
     }
 
+    function getEarnedCountsMap() {
+        const map = new Map();
+        earnedBadges.forEach(b => {
+            if (b && b.id) {
+                map.set(b.id, (map.get(b.id) || 0) + 1);
+            }
+        });
+        return map;
+    }
+
     // 1. Live Date & Time Clock
     function updateDateTime() {
         const liveDateElement = document.getElementById('liveDate');
@@ -697,12 +707,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             let badgeDotsHtml = '';
             if (isCurrentUser) {
                 // Render the 3 custom featured badges
+                const myEarnedCounts = getEarnedCountsMap();
                 featuredBadgeIds.forEach(fid => {
                     const catMatch = allCatalogBadges.find(b => b.id === fid);
                     if (catMatch) {
+                        const count = myEarnedCounts.get(fid) || 1;
                         badgeDotsHtml += `
-                            <span class="badge-slot-dot bg-white border shadow-xs position-relative user-badge-clickable" title="${catMatch.title} (Click to customize showcase badges)">
+                            <span class="badge-slot-dot bg-white border shadow-xs position-relative user-badge-clickable" title="${catMatch.title} (${count} earned - Click to customize showcase badges)">
                                 ${catMatch.icon}
+                                <span class="badge-slot-count-pill">${count}</span>
                             </span>
                         `;
                     }
@@ -725,12 +738,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
             } else {
                 // Classmate top badges
-                const stBadges = (student.badges || []).slice(0, 3);
+                const bCountMap = {};
+                (student.badges || []).forEach(b => {
+                    if (b && b.id) {
+                        bCountMap[b.id] = (bCountMap[b.id] || 0) + 1;
+                    }
+                });
+                const uniqueBadges = [];
+                const seen = new Set();
+                (student.badges || []).forEach(b => {
+                    if (b && b.id && !seen.has(b.id)) {
+                        seen.add(b.id);
+                        uniqueBadges.push({ ...b, count: bCountMap[b.id] || 1 });
+                    }
+                });
+
+                const stBadges = uniqueBadges.slice(0, 3);
                 stBadges.forEach(b => {
                     const catMatch = allCatalogBadges.find(c => c.id === b.id) || {};
+                    const count = b.count || 1;
                     badgeDotsHtml += `
-                        <span class="badge-slot-dot bg-white border shadow-xs position-relative" title="${b.name || 'Badge'}">
+                        <span class="badge-slot-dot bg-white border shadow-xs position-relative" title="${b.name || 'Badge'} (${count} earned)">
                             ${catMatch.icon || (b.icon ? `<i class="bi ${b.icon}"></i>` : (b.symbol || '⭐'))}
+                            <span class="badge-slot-count-pill">${count}</span>
                         </span>
                     `;
                 });
@@ -772,7 +802,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 10. Scope is permanently locked to Section Leaderboard
 
     // 11. Render Badges (Track or Grid)
-    function renderCustomizableBadges(earnedMap) {
+    function renderCustomizableBadges(earnedMap, earnedCounts) {
+        if (!earnedCounts) earnedCounts = getEarnedCountsMap();
         const categoryFilter = getStoredCategoryFilter();
         const sortMode = getStoredSortMode();
         const viewMode = getStoredViewMode();
@@ -798,11 +829,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             list.sort((a, b) => b.points - a.points);
         } else if (sortMode === 'alphabetical') {
             list.sort((a, b) => a.title.localeCompare(b.title));
+        } else if (sortMode === 'multipliers') {
+            list.sort((a, b) => {
+                const countA = earnedCounts.get(a.id) || 0;
+                const countB = earnedCounts.get(b.id) || 0;
+                if (countB !== countA) return countB - countA;
+                return b.points - a.points;
+            });
         } else {
             // 'recent' (Earned first)
             list.sort((a, b) => {
-                const aEarned = earnedMap.has(a.id);
-                const bEarned = earnedMap.has(b.id);
+                const aEarned = earnedCounts.has(a.id);
+                const bEarned = earnedCounts.has(b.id);
                 if (aEarned && !bEarned) return -1;
                 if (!aEarned && bEarned) return 1;
                 return 0;
@@ -820,7 +858,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         list.forEach(badge => {
-            const isEarned = earnedMap.has(badge.id);
+            const isEarned = earnedCounts.has(badge.id);
+            const count = isEarned ? (earnedCounts.get(badge.id) || 1) : 0;
             const earnedData = isEarned ? earnedMap.get(badge.id) : null;
             const isFeatured = featuredIds.includes(badge.id);
             const earnedDate = earnedData ? earnedData.date : 'Locked';
@@ -833,6 +872,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             card.innerHTML = `
                 ${isFeatured ? `<span class="position-absolute top-0 start-0 translate-middle-y badge rounded-pill bg-warning text-dark border border-white fw-bold shadow-xs ms-2 mt-2" style="font-size:0.6rem; z-index:3;"><i class="bi bi-pin-angle-fill me-0.5"></i>Pinned</span>` : ''}
+                ${isEarned ? `<span class="badge-count-pill" title="Earned ${count} time${count === 1 ? '' : 's'}">${count}</span>` : ''}
                 <div class="badge-icon-wrap" style="${isEarned ? `background:${badge.bg}; color:${badge.color};` : ''}">
                     ${badge.icon}
                 </div>
@@ -850,7 +890,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 12. Render Main UI
     function renderAchievements() {
-        const earnedMap = new Map(earnedBadges.map(b => [b.id, b]));
+        const earnedCounts = getEarnedCountsMap();
+        const earnedMap = new Map();
+        earnedBadges.forEach(b => {
+            if (!earnedMap.has(b.id)) earnedMap.set(b.id, b);
+        });
 
         // Counters
         const badgesEarnedDisplay = document.getElementById('badgesEarnedDisplay');
@@ -864,16 +908,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (badgesEarnedDisplay) badgesEarnedDisplay.textContent = earnedBadges.length;
         if (badgeCountPill) badgeCountPill.textContent = `${earnedBadges.length} Unlocked`;
         if (badgesEarnedSubText) {
-            const lockedCount = Math.max(0, allCatalogBadges.length - earnedBadges.length);
+            const lockedCount = Math.max(0, allCatalogBadges.length - earnedCounts.size);
             badgesEarnedSubText.textContent = `${lockedCount} more to unlock`;
         }
 
         if (filterCountAll) filterCountAll.textContent = allCatalogBadges.length;
         if (filterCountEarned) filterCountEarned.textContent = earnedBadges.length;
-        if (filterCountLocked) filterCountLocked.textContent = Math.max(0, allCatalogBadges.length - earnedBadges.length);
+        if (filterCountLocked) filterCountLocked.textContent = Math.max(0, allCatalogBadges.length - earnedCounts.size);
 
         // Render Customizable Badges
-        renderCustomizableBadges(earnedMap);
+        renderCustomizableBadges(earnedMap, earnedCounts);
 
         // Render Recent Activities from Backend
         const recentActivitiesList = document.getElementById('recentActivitiesList');
@@ -915,13 +959,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const allBadgesModalGrid = document.getElementById('allBadgesModalGrid');
         if (!allBadgesModalGrid) return;
 
-        const earnedMap = new Map(earnedBadges.map(b => [b.id, b]));
+        const earnedCounts = getEarnedCountsMap();
+        const earnedMap = new Map();
+        earnedBadges.forEach(b => {
+            if (!earnedMap.has(b.id)) earnedMap.set(b.id, b);
+        });
 
         let filteredList = allCatalogBadges;
         if (currentModalFilter === 'earned') {
-            filteredList = allCatalogBadges.filter(b => earnedMap.has(b.id));
+            filteredList = allCatalogBadges.filter(b => earnedCounts.has(b.id));
         } else if (currentModalFilter === 'locked') {
-            filteredList = allCatalogBadges.filter(b => !earnedMap.has(b.id));
+            filteredList = allCatalogBadges.filter(b => !earnedCounts.has(b.id));
         }
 
         allBadgesModalGrid.innerHTML = '';
@@ -932,7 +980,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         filteredList.forEach(badge => {
-            const isEarned = earnedMap.has(badge.id);
+            const isEarned = earnedCounts.has(badge.id);
+            const count = isEarned ? (earnedCounts.get(badge.id) || 1) : 0;
             const earnedData = isEarned ? earnedMap.get(badge.id) : null;
             const earnedDate = earnedData ? earnedData.date : 'Locked';
 
@@ -941,6 +990,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             col.innerHTML = `
                 <div class="badge-card h-100 ${isEarned ? '' : 'locked'} position-relative" data-badge-id="${badge.id}" tabindex="0" role="button">
+                    ${isEarned ? `<span class="badge-count-pill" title="Earned ${count} time${count === 1 ? '' : 's'}">${count}</span>` : ''}
                     <div class="badge-icon-wrap" style="${isEarned ? `background:${badge.bg}; color:${badge.color};` : ''}">
                         ${badge.icon}
                     </div>

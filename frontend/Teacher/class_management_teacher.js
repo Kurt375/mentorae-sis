@@ -1129,14 +1129,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Badge icons tray - ONLY render if there are actually valid badges
                 const validBadges = (r.badges || []).filter(b => b && (b.id || b.name));
-                const badgePills = validBadges.slice(0, 3).map(b => {
+                const bCountMap = {};
+                validBadges.forEach(b => { bCountMap[b.id] = (bCountMap[b.id] || 0) + 1; });
+                const uniqueBadges = [];
+                const seen = new Set();
+                validBadges.forEach(b => {
+                    if (!seen.has(b.id)) {
+                        seen.add(b.id);
+                        uniqueBadges.push({ ...b, count: bCountMap[b.id] || 1 });
+                    }
+                });
+                const badgePills = uniqueBadges.slice(0, 3).map(b => {
                     const meta = BADGE_METADATA[b.id] || {};
                     const iconDisplay = meta.icon || b.symbol || '⭐';
                     const bg = meta.bg || '#fef2cb';
                     const col = meta.color || '#b27a00';
                     return `
-                        <span class="badge-mini-circle d-inline-flex align-items-center justify-content-center" title="${b.name}" style="background: ${bg}; color: ${col};">
+                        <span class="badge-mini-circle d-inline-flex align-items-center justify-content-center position-relative" title="${b.name} (${b.count} earned)" style="background: ${bg}; color: ${col};">
                             ${iconDisplay}
+                            <span class="badge-slot-count-pill">${b.count}</span>
                         </span>
                     `;
                 }).join('');
