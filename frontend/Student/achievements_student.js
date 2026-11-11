@@ -1263,32 +1263,173 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalPts = earnedBadges.reduce((s, b) => s + (b.points || 0), 0);
         const rankTxt = document.getElementById('classRankDisplay') ? document.getElementById('classRankDisplay').textContent : '#—';
 
-        const data = [
-            ["TALISAY SENIOR HIGH SCHOOL - STUDENT ACHIEVEMENTS & BADGES PORTFOLIO"],
-            ["Learner Name:", STUDENT_NAME, "Student ID / LRN:", studentIdNumber],
-            ["Total Gamified Points:", totalPts, "Class Standings Rank:", rankTxt],
-            ["Export Date:", new Date().toLocaleDateString(), "Total Badges:", earnedBadges.length],
-            [],
-            ["No.", "Badge Name", "Category", "Points", "Date Earned", "Awarded By", "Description & Criteria"]
-        ];
+        const ws = {};
+        const merges = [];
+        const rowHeights = [];
 
+        function setCell(r, c, val, style = {}, type = 's') {
+            const colLetter = String.fromCharCode(65 + c);
+            const cellKey = colLetter + (r + 1);
+            ws[cellKey] = { v: val, t: type, s: style };
+        }
+
+        const thinBorder = { style: 'thin', color: { rgb: 'D0D7DE' } };
+        const cellBorder = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+        // ROW 0: School Header Banner
+        rowHeights.push({ hpt: 28 });
+        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
+        for (let c = 0; c <= 6; c++) {
+            setCell(0, c, c === 0 ? "TALISAY SENIOR HIGH SCHOOL" : "", {
+                font: { name: "Segoe UI", sz: 14, bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "0A5C2C" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+
+        // ROW 1: System Title Ribbon
+        rowHeights.push({ hpt: 20 });
+        merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 6 } });
+        for (let c = 0; c <= 6; c++) {
+            setCell(1, c, c === 0 ? "MENTORAE — STUDENT ACHIEVEMENTS & COMPETENCY BADGES PORTFOLIO" : "", {
+                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "E6F4EA" } },
+                fill: { fgColor: { rgb: "074520" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+
+        // ROW 2: Learner Information Bar
+        rowHeights.push({ hpt: 22 });
+        merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 3 } });
+        merges.push({ s: { r: 2, c: 4 }, e: { r: 2, c: 6 } });
+        for (let c = 0; c <= 3; c++) {
+            setCell(2, c, c === 0 ? `Learner: ${STUDENT_NAME}` : "", {
+                font: { name: "Segoe UI", sz: 11, bold: true, color: { rgb: "0A5C2C" } },
+                fill: { fgColor: { rgb: "E8F5E9" } },
+                alignment: { horizontal: "left", vertical: "center" },
+                border: { bottom: { style: "thin", color: { rgb: "0A5C2C" } } }
+            });
+        }
+        for (let c = 4; c <= 6; c++) {
+            setCell(2, c, c === 4 ? `Student ID / LRN: ${studentIdNumber}` : "", {
+                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "1E293B" } },
+                fill: { fgColor: { rgb: "E8F5E9" } },
+                alignment: { horizontal: "right", vertical: "center" },
+                border: { bottom: { style: "thin", color: { rgb: "0A5C2C" } } }
+            });
+        }
+
+        // ROW 3: Secondary Metadata
+        rowHeights.push({ hpt: 19 });
+        merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 2 } });
+        merges.push({ s: { r: 3, c: 3 }, e: { r: 3, c: 4 } });
+        merges.push({ s: { r: 3, c: 5 }, e: { r: 3, c: 6 } });
+        for (let c = 0; c <= 2; c++) {
+            setCell(3, c, c === 0 ? `Total Gamified Points: ${totalPts} pts` : "", {
+                font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "0A5C2C" } },
+                fill: { fgColor: { rgb: "F8F9FA" } },
+                alignment: { horizontal: "left", vertical: "center" }
+            });
+        }
+        for (let c = 3; c <= 4; c++) {
+            setCell(3, c, c === 3 ? `Class Standings: ${rankTxt}` : "", {
+                font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "1E40AF" } },
+                fill: { fgColor: { rgb: "F8F9FA" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+        for (let c = 5; c <= 6; c++) {
+            setCell(3, c, c === 5 ? `Exported: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : "", {
+                font: { name: "Segoe UI", sz: 9, color: { rgb: "4A5568" } },
+                fill: { fgColor: { rgb: "F8F9FA" } },
+                alignment: { horizontal: "right", vertical: "center" }
+            });
+        }
+
+        // ROW 4: KPI Summary Cards
+        rowHeights.push({ hpt: 22 });
+        merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 1 } });
+        merges.push({ s: { r: 4, c: 2 }, e: { r: 4, c: 3 } });
+        merges.push({ s: { r: 4, c: 4 }, e: { r: 4, c: 6 } });
+
+        const kpiBadges = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "166534" } }, fill: { fgColor: { rgb: "DCFCE7" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+        const kpiPoints = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "1E40AF" } }, fill: { fgColor: { rgb: "DBEAFE" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+        const kpiStanding = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "92400E" } }, fill: { fgColor: { rgb: "FEF3C7" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+
+        for (let c = 0; c <= 1; c++) setCell(4, c, c === 0 ? `TOTAL BADGES EARNED: ${earnedBadges.length}` : "", kpiBadges);
+        for (let c = 2; c <= 3; c++) setCell(4, c, c === 2 ? `ACCUMULATED SCORE: ${totalPts} POINTS` : "", kpiPoints);
+        for (let c = 4; c <= 6; c++) setCell(4, c, c === 4 ? `SECTION LEADERBOARD: ${rankTxt}` : "", kpiStanding);
+
+        // ROW 5: Spacing Row
+        rowHeights.push({ hpt: 8 });
+        for (let c = 0; c <= 6; c++) setCell(5, c, "", {});
+
+        // ROW 6: Table Headers
+        rowHeights.push({ hpt: 26 });
+        const headers = ["No.", "Badge Title", "Category", "Points Awarded", "Date Unlocked", "Awarded By", "Competency & Criteria Description"];
+        const headerStyle = {
+            font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "0A5C2C" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+                top: { style: "medium", color: { rgb: "063E1D" } },
+                bottom: { style: "medium", color: { rgb: "063E1D" } },
+                left: { style: "thin", color: { rgb: "074724" } },
+                right: { style: "thin", color: { rgb: "074724" } }
+            }
+        };
+        headers.forEach((h, c) => setCell(6, c, h, headerStyle));
+
+        // ROW 7+: Data Rows
+        let curRow = 7;
         earnedBadges.forEach((b, idx) => {
-            data.push([
-                idx + 1,
-                b.title,
-                b.category,
-                b.points,
-                b.earnedAt ? new Date(b.earnedAt).toLocaleDateString() : 'Active Term',
-                b.awardedBy || 'Subject Teacher',
-                b.description || b.requirement || ''
-            ]);
+            rowHeights.push({ hpt: 22 });
+            const isEven = idx % 2 === 0;
+            const rowBg = isEven ? "FFFFFF" : "F9FAF9";
+
+            let catFill = "E0F2FE";
+            let catColor = "0369A1";
+            const cat = (b.category || '').toLowerCase();
+            if (cat.includes('attend')) {
+                catFill = "DCFCE7";
+                catColor = "166534";
+            } else if (cat.includes('leader') || cat.includes('special')) {
+                catFill = "FEF3C7";
+                catColor = "92400E";
+            } else if (cat.includes('char') || cat.includes('values')) {
+                catFill = "F3E8FF";
+                catColor = "7E22CE";
+            }
+
+            setCell(curRow, 0, idx + 1, { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder }, 'n');
+            setCell(curRow, 1, b.title || 'Badge', { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "0A5C2C" } }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "left", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 2, b.category || 'General', { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: catColor } }, fill: { fgColor: { rgb: catFill } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 3, `+${b.points || 10} pts`, { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "166534" } }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 4, b.earnedAt ? new Date(b.earnedAt).toLocaleDateString() : 'Active Term', { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 5, b.awardedBy || 'Subject Teacher', { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 6, b.description || b.requirement || '', { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "left", vertical: "center" }, border: cellBorder });
+
+            curRow++;
         });
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        ws['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 45 }];
+        ws['!ref'] = `A1:G${curRow}`;
+        ws['!merges'] = merges;
+        ws['!rows'] = rowHeights;
+        ws['!cols'] = [
+            { wch: 8 },   // No.
+            { wch: 28 },  // Badge Title
+            { wch: 18 },  // Category
+            { wch: 16 },  // Points Awarded
+            { wch: 16 },  // Date Unlocked
+            { wch: 22 },  // Awarded By
+            { wch: 45 }   // Competency Description
+        ];
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Badges Portfolio");
-        const filename = `Badges_Portfolio_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+        const safeName = (STUDENT_NAME || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `Achievements_Portfolio_${safeName}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         XLSX.writeFile(wb, filename);
     }
 

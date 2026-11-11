@@ -1,6 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
     const { token, user } = requireSession('../login.html');
 
+    // Resolve Learner Details for Exports & Printables
+    let studentFullName = (user && (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name)) || 'Student';
+    let studentIdNumber = (user && user.id_number) || 'N/A';
+    let studentSectionName = (user && (user.section_name || user.section)) || '';
+    let studentTrackStrand = (user && user.strand) || '';
+
+    // Eagerly hydrate complete profile from server
+    authedFetch('/api/auth/profile', token).then(res => {
+        if (res && res.success && res.profile) {
+            const p = res.profile;
+            if (p.full_name) studentFullName = p.full_name;
+            else if (p.first_name || p.last_name) studentFullName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+            if (p.id_number) studentIdNumber = p.id_number;
+            if (p.section_name) studentSectionName = p.section_name;
+            if (p.strand) studentTrackStrand = p.strand;
+        }
+    }).catch(() => {});
+
     // Function to update live date and time
     function updateDateTime() {
         const liveDateElement = document.getElementById('liveDate');
@@ -337,8 +355,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const studentName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Student';
-        const studentId = user ? (user.id_number || 'N/A') : 'N/A';
+        const presentCount = rows.filter(r => r.status === 'PRESENT').length;
+        const lateCount = rows.filter(r => r.status === 'LATE').length;
+        const absentCount = rows.filter(r => r.status === 'ABSENT').length;
+        const excusedCount = rows.filter(r => r.status === 'EXCUSED').length;
+        const totalCount = rows.length;
+        const attendanceRate = totalCount > 0 ? Math.round(((presentCount + lateCount) / totalCount) * 100) : 0;
+
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
             alert('Pop-up blocked. Please allow pop-ups to print your attendance report.');
@@ -350,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="text-align: center;">${r.no}</td>
                 <td><strong>${r.date}</strong></td>
                 <td style="text-align: center;"><span class="badge-status status-${r.status.toLowerCase()}">${r.status}</span></td>
-                <td style="text-align: center;">${r.time}</td>
+                <td style="text-align: center;">${r.time || '—'}</td>
                 <td>${r.remarks}</td>
             </tr>
         `).join('');
@@ -359,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Attendance History - ${studentName}</title>
+                <title>Attendance History - ${studentFullName}</title>
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                 <style>
                     @page { size: portrait; margin: 1.2cm; }
@@ -370,6 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .status-late { background-color: #fff3cd; color: #664d03; }
                     .status-excused { background-color: #cff4fc; color: #055160; }
                     .status-absent { background-color: #f8d7da; color: #842029; }
+                    .kpi-pill { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-right: 4px; }
                     @media print { .no-print { display: none !important; } }
                 </style>
             </head>
@@ -382,12 +406,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                         <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
                         <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History</div>
-                        <div class="small text-muted mt-1">Student: <strong>${studentName}</strong> (ID: <code>${studentId}</code>)</div>
+                        <div class="small text-muted mt-1">Learner: <strong>${studentFullName}</strong> | ID / LRN: <code>${studentIdNumber}</code> | Section: <strong>${studentSectionName || 'Senior High School'}</strong></div>
                     </div>
                     <div class="text-end">
-                        <div class="small text-muted">Generated: ${new Date().toLocaleDateString()}</div>
-                        <div class="small fw-semibold text-success">Total Records: ${rows.length}</div>
+                        <div class="small text-muted">Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        <div class="small fw-semibold text-success mt-1">Attendance Rate: ${attendanceRate}%</div>
                     </div>
+                </div>
+                <div class="mb-3 d-flex flex-wrap gap-1">
+                    <span class="kpi-pill bg-light border text-dark">Total: ${totalCount}</span>
+                    <span class="kpi-pill status-present">Present: ${presentCount}</span>
+                    <span class="kpi-pill status-late">Late: ${lateCount}</span>
+                    <span class="kpi-pill status-absent">Absent: ${absentCount}</span>
+                    <span class="kpi-pill status-excused">Excused: ${excusedCount}</span>
                 </div>
                 <table class="table table-bordered table-sm align-middle mt-2">
                     <thead style="background-color: #0a5c2c; color: white;">
@@ -421,26 +452,173 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const studentName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Student';
-        const studentId = user ? (user.id_number || 'N/A') : 'N/A';
+        const presentCount = rows.filter(r => r.status === 'PRESENT').length;
+        const lateCount = rows.filter(r => r.status === 'LATE').length;
+        const absentCount = rows.filter(r => r.status === 'ABSENT').length;
+        const excusedCount = rows.filter(r => r.status === 'EXCUSED').length;
+        const totalCount = rows.length;
+        const attendanceRate = totalCount > 0 ? Math.round(((presentCount + lateCount) / totalCount) * 100) : 0;
 
-        const data = [
-            ["TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT"],
-            ["Learner Name:", studentName, "Student ID / LRN:", studentId],
-            ["Export Date:", new Date().toLocaleDateString(), "Total Logs:", rows.length],
-            [],
-            ["No.", "Date", "Status", "Time In / Out", "Remarks / Source"]
-        ];
+        const ws = {};
+        const merges = [];
+        const rowHeights = [];
 
-        rows.forEach(r => {
-            data.push([r.no, r.date, r.status, r.time, r.remarks]);
+        function setCell(r, c, val, style = {}, type = 's') {
+            const colLetter = String.fromCharCode(65 + c);
+            const cellKey = colLetter + (r + 1);
+            ws[cellKey] = { v: val, t: type, s: style };
+        }
+
+        const thinBorder = { style: 'thin', color: { rgb: 'D0D7DE' } };
+        const cellBorder = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+        // ROW 0: School Header Banner
+        rowHeights.push({ hpt: 28 });
+        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+        for (let c = 0; c <= 4; c++) {
+            setCell(0, c, c === 0 ? "TALISAY SENIOR HIGH SCHOOL" : "", {
+                font: { name: "Segoe UI", sz: 14, bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "0A5C2C" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+
+        // ROW 1: System Title Ribbon
+        rowHeights.push({ hpt: 20 });
+        merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
+        for (let c = 0; c <= 4; c++) {
+            setCell(1, c, c === 0 ? "MENTORAE — OFFICIAL STUDENT ATTENDANCE LOG REPORT" : "", {
+                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "E6F4EA" } },
+                fill: { fgColor: { rgb: "074520" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+
+        // ROW 2: Learner Information Bar
+        rowHeights.push({ hpt: 22 });
+        merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
+        merges.push({ s: { r: 2, c: 3 }, e: { r: 2, c: 4 } });
+        for (let c = 0; c <= 2; c++) {
+            setCell(2, c, c === 0 ? `Learner: ${studentFullName}` : "", {
+                font: { name: "Segoe UI", sz: 11, bold: true, color: { rgb: "0A5C2C" } },
+                fill: { fgColor: { rgb: "E8F5E9" } },
+                alignment: { horizontal: "left", vertical: "center" },
+                border: { bottom: { style: "thin", color: { rgb: "0A5C2C" } } }
+            });
+        }
+        for (let c = 3; c <= 4; c++) {
+            setCell(2, c, c === 3 ? `Student ID / LRN: ${studentIdNumber}` : "", {
+                font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "1E293B" } },
+                fill: { fgColor: { rgb: "E8F5E9" } },
+                alignment: { horizontal: "right", vertical: "center" },
+                border: { bottom: { style: "thin", color: { rgb: "0A5C2C" } } }
+            });
+        }
+
+        // ROW 3: Secondary Metadata
+        rowHeights.push({ hpt: 19 });
+        merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 1 } });
+        merges.push({ s: { r: 3, c: 2 }, e: { r: 3, c: 3 } });
+        for (let c = 0; c <= 1; c++) {
+            setCell(3, c, c === 0 ? `Section: ${studentSectionName || 'Senior High School'}` : "", {
+                font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "4A5568" } },
+                fill: { fgColor: { rgb: "F8F9FA" } },
+                alignment: { horizontal: "left", vertical: "center" }
+            });
+        }
+        for (let c = 2; c <= 3; c++) {
+            setCell(3, c, c === 2 ? `Exported: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : "", {
+                font: { name: "Segoe UI", sz: 9, color: { rgb: "4A5568" } },
+                fill: { fgColor: { rgb: "F8F9FA" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+        setCell(3, 4, `Rate: ${attendanceRate}%`, {
+            font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: attendanceRate >= 85 ? "166534" : "991B1B" } },
+            fill: { fgColor: { rgb: "F8F9FA" } },
+            alignment: { horizontal: "right", vertical: "center" }
         });
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        ws['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 30 }];
+        // ROW 4: KPI Summary Cards
+        rowHeights.push({ hpt: 22 });
+        const kpiPresent = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "166534" } }, fill: { fgColor: { rgb: "DCFCE7" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+        const kpiLate = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "92400E" } }, fill: { fgColor: { rgb: "FEF3C7" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+        const kpiAbsent = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "991B1B" } }, fill: { fgColor: { rgb: "FEE2E2" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+        const kpiExcused = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "1E40AF" } }, fill: { fgColor: { rgb: "DBEAFE" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+        const kpiTotal = { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "1F2937" } }, fill: { fgColor: { rgb: "F1F5F9" } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder };
+
+        setCell(4, 0, `Total: ${totalCount}`, kpiTotal);
+        setCell(4, 1, `Present: ${presentCount}`, kpiPresent);
+        setCell(4, 2, `Late: ${lateCount}`, kpiLate);
+        setCell(4, 3, `Absent: ${absentCount}`, kpiAbsent);
+        setCell(4, 4, `Excused: ${excusedCount}`, kpiExcused);
+
+        // ROW 5: Spacing Row
+        rowHeights.push({ hpt: 8 });
+        for (let c = 0; c <= 4; c++) setCell(5, c, "", {});
+
+        // ROW 6: Table Headers
+        rowHeights.push({ hpt: 26 });
+        const headers = ["No.", "Date", "Status", "Time In / Out", "Remarks / Source"];
+        const headerStyle = {
+            font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "0A5C2C" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+                top: { style: "medium", color: { rgb: "063E1D" } },
+                bottom: { style: "medium", color: { rgb: "063E1D" } },
+                left: { style: "thin", color: { rgb: "074724" } },
+                right: { style: "thin", color: { rgb: "074724" } }
+            }
+        };
+        headers.forEach((h, c) => setCell(6, c, h, headerStyle));
+
+        // ROW 7+: Data Rows
+        let curRow = 7;
+        rows.forEach((r, idx) => {
+            rowHeights.push({ hpt: 21 });
+            const isEven = idx % 2 === 0;
+            const rowBg = isEven ? "FFFFFF" : "F9FAF9";
+
+            let statusFill = "DCFCE7";
+            let statusColor = "166534";
+            const st = (r.status || '').toUpperCase();
+            if (st === 'LATE') {
+                statusFill = "FEF3C7";
+                statusColor = "92400E";
+            } else if (st === 'ABSENT') {
+                statusFill = "FEE2E2";
+                statusColor = "991B1B";
+            } else if (st === 'EXCUSED') {
+                statusFill = "DBEAFE";
+                statusColor = "1E40AF";
+            }
+
+            setCell(curRow, 0, r.no, { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder }, 'n');
+            setCell(curRow, 1, r.date, { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 2, r.status, { font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: statusColor } }, fill: { fgColor: { rgb: statusFill } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 3, r.time || '—', { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "center", vertical: "center" }, border: cellBorder });
+            setCell(curRow, 4, r.remarks || 'Regular scan', { font: { name: "Segoe UI", sz: 9 }, fill: { fgColor: { rgb: rowBg } }, alignment: { horizontal: "left", vertical: "center" }, border: cellBorder });
+
+            curRow++;
+        });
+
+        ws['!ref'] = `A1:E${curRow}`;
+        ws['!merges'] = merges;
+        ws['!rows'] = rowHeights;
+        ws['!cols'] = [
+            { wch: 8 },   // No.
+            { wch: 22 },  // Date
+            { wch: 16 },  // Status
+            { wch: 18 },  // Time In / Out
+            { wch: 34 }   // Remarks / Source
+        ];
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
-        const filename = `Attendance_History_${studentId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+        const safeName = studentFullName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `Attendance_History_${safeName}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         XLSX.writeFile(wb, filename);
     }
 
@@ -450,16 +628,18 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('No attendance records available to export.');
             return;
         }
-        const studentId = user ? (user.id_number || 'student') : 'student';
-        let csv = "No,Date,Status,Time Logged,Remarks\n";
+        const safeName = studentFullName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        let csv = "TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT\n";
+        csv += `Learner: "${studentFullName}",Student ID / LRN: "${studentIdNumber}",Section: "${studentSectionName || 'Senior High School'}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
+        csv += "No,Date,Status,Time In/Out,Remarks\n";
         rows.forEach(r => {
-            csv += `${r.no},"${r.date}","${r.status}","${r.time}","${r.remarks.replace(/"/g, '""')}"\n`;
+            csv += `${r.no},"${r.date}","${r.status}","${r.time || '—'}","${(r.remarks || 'Regular scan').replace(/"/g, '""')}"\n`;
         });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Attendance_History_${studentId}_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute('download', `Attendance_History_${safeName}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
