@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const badgeYearFilter = document.getElementById('badgeYearFilter');
     const badgeTermFilter = document.getElementById('badgeTermFilter');
+    const badgeSearchInput = document.getElementById('badgeSearchInput');
+    const leaderboardSearchInput = document.getElementById('leaderboardSearchInput');
 
     function getBadgeSchoolYear(dateStr) {
         if (!dateStr) return '';
@@ -68,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function getFilteredEarnedBadges() {
         const selectedYear = badgeYearFilter ? badgeYearFilter.value : 'all';
         const selectedTerm = badgeTermFilter ? badgeTermFilter.value : 'all';
+        const q = (badgeSearchInput ? badgeSearchInput.value : '').trim().toLowerCase();
 
         return allRawEarnedBadges.filter(b => {
             if (!b.earnedAt) return false;
@@ -80,6 +83,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (selectedTerm !== 'all') {
                 const term = getBadgeTerm(b.earnedAt);
                 if (term !== selectedTerm) return false;
+            }
+
+            if (q) {
+                const title = (b.title || '').toLowerCase();
+                const cat = (b.category || '').toLowerCase();
+                const desc = (b.description || b.requirement || '').toLowerCase();
+                const awardedBy = (b.awardedBy || '').toLowerCase();
+                if (!title.includes(q) && !cat.includes(q) && !desc.includes(q) && !awardedBy.includes(q)) {
+                    return false;
+                }
             }
 
             return true;
@@ -431,6 +444,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (badgeSearchInput) {
+        badgeSearchInput.addEventListener('input', () => {
+            syncEarnedBadgesFilter();
+            renderAchievements();
+        });
+    }
+
+    if (leaderboardSearchInput) {
+        leaderboardSearchInput.addEventListener('input', () => {
+            renderLeaderboardUI();
+        });
+    }
+
     if (badgeCategoryFilter) {
         badgeCategoryFilter.addEventListener('change', (e) => {
             localStorage.setItem(STORAGE_KEY_BADGE_CATEGORY, e.target.value);
@@ -612,11 +638,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const q = (leaderboardSearchInput ? leaderboardSearchInput.value : '').trim().toLowerCase();
+        const displayedList = leaderboardList.filter(s => {
+            if (!q) return true;
+            const name = (s.name || '').toLowerCase();
+            const idNum = String(s.idNumber || s.id || '').toLowerCase();
+            return name.includes(q) || idNum.includes(q);
+        });
+
+        if (!displayedList.length) {
+            container.innerHTML = `
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-search d-block mb-2 fs-4 opacity-50"></i>
+                    <p class="m-0 text-sm fw-semibold">No classmates match "${escapeHtml(q)}"</p>
+                    <p class="m-0 micro-text text-muted">Try searching with a different name or student ID.</p>
+                </div>
+            `;
+            return;
+        }
+
         container.innerHTML = '';
         const auraTheme = getStoredAuraTheme();
         const featuredBadgeIds = getStoredFeaturedBadges();
 
-        leaderboardList.forEach(student => {
+        displayedList.forEach(student => {
             const isCurrentUser = student.id === STUDENT_ID || student.idNumber === user.id_number;
             const rank = student.rank;
 
