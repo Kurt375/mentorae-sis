@@ -22,10 +22,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     const badgesContainer = document.getElementById('badgesContainer');
     const btnPrintBadgeReport = document.getElementById('btnPrintBadgeReport');
     const btnExportBadgeExcel = document.getElementById('btnExportBadgeExcel');
+    const parentBadgeYearFilter = document.getElementById('parentBadgeYearFilter');
+    const parentBadgeTermFilter = document.getElementById('parentBadgeTermFilter');
 
     let childrenList = [];
     let activeChild = null;
+    let allRawEarnedBadges = [];
     let earnedBadges = [];
+
+    function getBadgeSchoolYear(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const yr = d.getFullYear();
+        const mo = d.getMonth() + 1; // 1-12
+        if (mo >= 6) {
+            return `${yr}-${yr + 1}`;
+        } else {
+            return `${yr - 1}-${yr}`;
+        }
+    }
+
+    function getBadgeTerm(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const mo = d.getMonth() + 1;
+        const day = d.getDate();
+        // 1st Term: June 8 to Sept 15
+        if ((mo === 6 && day >= 8) || mo === 7 || mo === 8 || (mo === 9 && day <= 15)) {
+            return 'term1';
+        }
+        // 2nd Term: Sept 16 to Nov 30
+        if ((mo === 9 && day >= 16) || mo === 10 || (mo === 11 && day <= 30)) {
+            return 'term2';
+        }
+        // 3rd Term: Dec 1 to Apr 30
+        if (mo === 12 || mo === 1 || mo === 2 || mo === 3 || (mo === 4 && day <= 30)) {
+            return 'term3';
+        }
+        return '';
+    }
+
+    function getFilteredEarnedBadges() {
+        const selectedYear = parentBadgeYearFilter ? parentBadgeYearFilter.value : 'all';
+        const selectedTerm = parentBadgeTermFilter ? parentBadgeTermFilter.value : 'all';
+
+        return allRawEarnedBadges.filter(b => {
+            if (!b.earnedAt) return false;
+            if (selectedYear !== 'all') {
+                const badgeYear = getBadgeSchoolYear(b.earnedAt);
+                if (badgeYear !== selectedYear) return false;
+            }
+            if (selectedTerm !== 'all') {
+                const badgeTerm = getBadgeTerm(b.earnedAt);
+                if (badgeTerm !== selectedTerm) return false;
+            }
+            return true;
+        });
+    }
+
+    function syncEarnedBadgesFilter() {
+        earnedBadges = getFilteredEarnedBadges();
+        const totalPts = earnedBadges.reduce((s, b) => s + b.points, 0);
+        if (totalPointsDisplay) totalPointsDisplay.textContent = totalPts;
+        if (badgesEarnedDisplay) badgesEarnedDisplay.textContent = earnedBadges.length;
+        renderBadges();
+    }
+
+    if (parentBadgeYearFilter) {
+        parentBadgeYearFilter.addEventListener('change', syncEarnedBadgesFilter);
+    }
+    if (parentBadgeTermFilter) {
+        parentBadgeTermFilter.addEventListener('change', syncEarnedBadgesFilter);
+    }
 
     const BADGE_DEFAULTS = {
         perfect_attendance: { title: 'Perfect Attendance', icon: '🎯', category: 'Attendance', bg: '#d5ebd5', color: '#1f6e1f' },
@@ -102,9 +172,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 authedFetch('/api/badges/leaderboard?scope=section', token)
             ]);
 
-            earnedBadges = [];
+            allRawEarnedBadges = [];
             if (badgeRes && badgeRes.success && Array.isArray(badgeRes.badges)) {
-                earnedBadges = badgeRes.badges.map(b => {
+                allRawEarnedBadges = badgeRes.badges.map(b => {
                     const def = BADGE_DEFAULTS[b.badge_id] || {};
                     return {
                         id: b.badge_id,
@@ -118,10 +188,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
-            const totalPts = earnedBadges.reduce((s, b) => s + b.points, 0);
-            if (totalPointsDisplay) totalPointsDisplay.textContent = totalPts;
-            if (badgesEarnedDisplay) badgesEarnedDisplay.textContent = earnedBadges.length;
-
             let rank = '—';
             if (lbRes && lbRes.success && Array.isArray(lbRes.leaderboard)) {
                 const found = lbRes.leaderboard.find(r => String(r.studentId) === String(childId));
@@ -129,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             if (classRankDisplay) classRankDisplay.textContent = rank;
 
-            renderBadges();
+            syncEarnedBadgesFilter();
         } catch (err) {
             console.error('Error loading badges for child:', err);
             if (badgesContainer) {
@@ -187,6 +253,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
             const studentSec = activeChild ? activeChild.section : '—';
             const totalPts = earnedBadges.reduce((s, b) => s + b.points, 0);
+            const yearLabel = (parentBadgeYearFilter && parentBadgeYearFilter.selectedOptions[0]) ? parentBadgeYearFilter.selectedOptions[0].textContent.trim() : 'All School Years';
+            const termLabel = (parentBadgeTermFilter && parentBadgeTermFilter.selectedOptions[0]) ? parentBadgeTermFilter.selectedOptions[0].textContent.trim() : 'All Terms';
+            const periodLabel = `${yearLabel} • ${termLabel}`;
 
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
@@ -227,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div>
                             <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
                             <div class="small fw-semibold text-secondary">Learner Achievements &amp; Positive Recognition Badges (Parent Copy)</div>
-                            <div class="small text-muted mt-1">Student: <strong>${studentName}</strong> | Class: ${studentSec} | ID: <code>${studentId}</code></div>
+                            <div class="small text-muted mt-1">Student: <strong>${studentName}</strong> | Class: ${studentSec} | ID: <code>${studentId}</code> | Period: <strong>${periodLabel}</strong></div>
                         </div>
                         <div class="text-end">
                             <span class="badge bg-success fs-6 me-1">Total Points: ${totalPts}</span>
@@ -273,6 +342,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
             const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
             const totalPts = earnedBadges.reduce((s, b) => s + b.points, 0);
+            const yearLabel = (parentBadgeYearFilter && parentBadgeYearFilter.selectedOptions[0]) ? parentBadgeYearFilter.selectedOptions[0].textContent.trim() : 'All School Years';
+            const termLabel = (parentBadgeTermFilter && parentBadgeTermFilter.selectedOptions[0]) ? parentBadgeTermFilter.selectedOptions[0].textContent.trim() : 'All Terms';
+            const periodLabel = `${yearLabel} • ${termLabel}`;
 
             const ws = {};
             const merges = [];
@@ -350,8 +422,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
             for (let c = 4; c <= 5; c++) {
-                setCell(3, c, c === 4 ? `Exported: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : "", {
-                    font: { name: "Segoe UI", sz: 9, color: { rgb: "4A5568" } },
+                setCell(3, c, c === 4 ? `Period: ${periodLabel}` : "", {
+                    font: { name: "Segoe UI", sz: 8.5, color: { rgb: "4A5568" } },
                     fill: { fgColor: { rgb: "F8F9FA" } },
                     alignment: { horizontal: "right", vertical: "center" }
                 });
@@ -438,7 +510,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             XLSX.utils.book_append_sheet(wb, ws, "Badges Portfolio");
 
             const safeName = (studentName || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
-            const filename = `Achievements_ParentCopy_${safeName}_${studentId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            const safeYear = (parentBadgeYearFilter ? parentBadgeYearFilter.value : 'all').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const safeTerm = (parentBadgeTermFilter ? parentBadgeTermFilter.value : 'all').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const filename = `Achievements_ParentCopy_${safeName}_${studentId}_${safeYear}_${safeTerm}_${new Date().toISOString().slice(0, 10)}.xlsx`;
             XLSX.writeFile(wb, filename);
         });
     }

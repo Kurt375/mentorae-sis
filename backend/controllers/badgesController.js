@@ -355,8 +355,9 @@ async function resetBadges(req, res) {
  */
 async function getRecentBadgeActivity(req, res) {
   try {
-    const { sectionId } = req.query;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const { sectionId, term, school_year, sy } = req.query;
+    const requestedSy = school_year || sy;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 500, 1000);
 
     let whereClause = '';
     const params = [];
@@ -389,7 +390,50 @@ async function getRecentBadgeActivity(req, res) {
       return res.status(403).json({ success: false, message: 'Unauthorized.' });
     }
 
-    params.push(limit);
+    let dateFilterSql = '';
+    const dateParams = [];
+
+    let syStartYear = null;
+    let syEndYear = null;
+    if (requestedSy && requestedSy !== 'all') {
+      const match = String(requestedSy).match(/(\d{4})\s*[-–—]\s*(\d{4})/);
+      if (match) {
+        syStartYear = parseInt(match[1], 10);
+        syEndYear = parseInt(match[2], 10);
+      }
+    }
+
+    if (syStartYear && syEndYear) {
+      if (term === 'term1' || term === '1st Term') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syStartYear}-06-08 00:00:00`, `${syStartYear}-09-15 23:59:59`);
+      } else if (term === 'term2' || term === '2nd Term') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syStartYear}-09-16 00:00:00`, `${syStartYear}-11-30 23:59:59`);
+      } else if (term === 'term3' || term === '3rd Term') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syEndYear}-01-04 00:00:00`, `${syEndYear}-04-08 23:59:59`);
+      } else {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syStartYear}-06-01 00:00:00`, `${syEndYear}-04-30 23:59:59`);
+      }
+    } else {
+      if (term === 'term1' || term === '1st Term') {
+        dateFilterSql = ' AND ((MONTH(sb.earned_at) IN (6,7,8)) OR (MONTH(sb.earned_at) = 9 AND DAY(sb.earned_at) <= 15))';
+      } else if (term === 'term2' || term === '2nd Term') {
+        dateFilterSql = ' AND ((MONTH(sb.earned_at) = 9 AND DAY(sb.earned_at) >= 16) OR MONTH(sb.earned_at) IN (10, 11, 12))';
+      } else if (term === 'term3' || term === '3rd Term') {
+        dateFilterSql = ' AND ((MONTH(sb.earned_at) IN (1, 2, 3)) OR (MONTH(sb.earned_at) = 4 AND DAY(sb.earned_at) <= 8))';
+      }
+    }
+
+    if (whereClause) {
+      whereClause += dateFilterSql;
+    } else if (dateFilterSql) {
+      whereClause = 'WHERE ' + dateFilterSql.replace(/^\s*AND\s+/i, '');
+    }
+
+    params.push(...dateParams, limit);
 
     const [rows] = await pool.query(
       `SELECT sb.id, sb.student_id, sb.badge_id, sb.earned_at,

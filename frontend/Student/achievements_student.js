@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // State
     let allCatalogBadges = [];
+    let allRawEarnedBadges = [];
     let earnedBadges = [];
     let studentActivities = [];
     let leaderboardList = [];
@@ -33,6 +34,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentActiveSlotIndex = 0;
     let tempFeaturedBadgeIds = [];
     let tempAuraTheme = 'aura-emerald';
+
+    const badgeYearFilter = document.getElementById('badgeYearFilter');
+    const badgeTermFilter = document.getElementById('badgeTermFilter');
+
+    function getBadgeSchoolYear(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        return m >= 6 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+    }
+
+    function getBadgeTerm(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        if ((m === 6 && day >= 8) || m === 7 || m === 8 || (m === 9 && day <= 15)) {
+            return 'term1';
+        }
+        if ((m === 9 && day >= 16) || m === 10 || m === 11 || m === 12) {
+            return 'term2';
+        }
+        if (m >= 1 && m <= 5) {
+            return 'term3';
+        }
+        return '';
+    }
+
+    function getFilteredEarnedBadges() {
+        const selectedYear = badgeYearFilter ? badgeYearFilter.value : 'all';
+        const selectedTerm = badgeTermFilter ? badgeTermFilter.value : 'all';
+
+        return allRawEarnedBadges.filter(b => {
+            if (!b.earnedAt) return false;
+
+            if (selectedYear !== 'all') {
+                const sy = getBadgeSchoolYear(b.earnedAt);
+                if (sy !== selectedYear) return false;
+            }
+
+            if (selectedTerm !== 'all') {
+                const term = getBadgeTerm(b.earnedAt);
+                if (term !== selectedTerm) return false;
+            }
+
+            return true;
+        });
+    }
+
+    function syncEarnedBadgesFilter() {
+        earnedBadges = getFilteredEarnedBadges();
+    }
 
     // 1. Live Date & Time Clock
     function updateDateTime() {
@@ -359,6 +415,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (badgeYearFilter) {
+        badgeYearFilter.addEventListener('change', () => {
+            syncEarnedBadgesFilter();
+            renderAchievements();
+        });
+    }
+
+    if (badgeTermFilter) {
+        badgeTermFilter.addEventListener('change', () => {
+            syncEarnedBadgesFilter();
+            renderAchievements();
+        });
+    }
+
     if (badgeCategoryFilter) {
         badgeCategoryFilter.addEventListener('change', (e) => {
             localStorage.setItem(STORAGE_KEY_BADGE_CATEGORY, e.target.value);
@@ -439,7 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // B. Fetch Student Badges & Recent Activities
             const studentRes = await authedFetch(`/api/badges/student/${STUDENT_ID}`, token);
             if (studentRes.success) {
-                earnedBadges = (studentRes.badges || []).map(b => {
+                allRawEarnedBadges = (studentRes.badges || []).map(b => {
                     const catItem = allCatalogBadges.find(c => c.id === b.badge_id) || {};
                     return {
                         id: b.badge_id,
@@ -455,6 +525,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         requirement: catItem.requirement || ''
                     };
                 });
+                syncEarnedBadgesFilter();
                 studentActivities = studentRes.activity || [];
             }
 
@@ -1183,6 +1254,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalPts = earnedBadges.reduce((s, b) => s + (b.points || 0), 0);
         const rankTxt = document.getElementById('classRankDisplay') ? document.getElementById('classRankDisplay').textContent : '#—';
         const studentIdNumber = user ? (user.id_number || 'N/A') : 'N/A';
+        const yearLabel = (badgeYearFilter && badgeYearFilter.selectedOptions[0]) ? badgeYearFilter.selectedOptions[0].textContent.trim() : 'All School Years';
+        const termLabel = (badgeTermFilter && badgeTermFilter.selectedOptions[0]) ? badgeTermFilter.selectedOptions[0].textContent.trim() : 'All Terms';
+        const periodLabel = `${yearLabel} • ${termLabel}`;
 
         const rowsHtml = earnedBadges.map((b, idx) => `
             <tr>
@@ -1218,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div>
                         <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
                         <div class="small fw-semibold text-secondary">Learner Achievements, Motivation Badges &amp; Gamified Rewards Portfolio</div>
-                        <div class="small text-muted mt-1">Learner: <strong>${STUDENT_NAME}</strong> | ID: <code>${studentIdNumber}</code></div>
+                        <div class="small text-muted mt-1">Learner: <strong>${STUDENT_NAME}</strong> | ID: <code>${studentIdNumber}</code> | Period: <strong>${periodLabel}</strong></div>
                     </div>
                     <div class="text-end">
                         <span class="badge bg-success fs-6 me-1">Total Points: ${totalPts}</span>
@@ -1262,6 +1336,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const studentIdNumber = user ? (user.id_number || 'N/A') : 'N/A';
         const totalPts = earnedBadges.reduce((s, b) => s + (b.points || 0), 0);
         const rankTxt = document.getElementById('classRankDisplay') ? document.getElementById('classRankDisplay').textContent : '#—';
+        const yearLabel = (badgeYearFilter && badgeYearFilter.selectedOptions[0]) ? badgeYearFilter.selectedOptions[0].textContent.trim() : 'All School Years';
+        const termLabel = (badgeTermFilter && badgeTermFilter.selectedOptions[0]) ? badgeTermFilter.selectedOptions[0].textContent.trim() : 'All Terms';
+        const periodLabel = `${yearLabel} • ${termLabel}`;
 
         const ws = {};
         const merges = [];
@@ -1339,8 +1416,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         for (let c = 5; c <= 6; c++) {
-            setCell(3, c, c === 5 ? `Exported: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}` : "", {
-                font: { name: "Segoe UI", sz: 9, color: { rgb: "4A5568" } },
+            setCell(3, c, c === 5 ? `Period: ${periodLabel}` : "", {
+                font: { name: "Segoe UI", sz: 8.5, color: { rgb: "4A5568" } },
                 fill: { fgColor: { rgb: "F8F9FA" } },
                 alignment: { horizontal: "right", vertical: "center" }
             });
@@ -1429,7 +1506,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         XLSX.utils.book_append_sheet(wb, ws, "Badges Portfolio");
 
         const safeName = (STUDENT_NAME || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const filename = `Achievements_Portfolio_${safeName}_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        const safeYear = (badgeYearFilter ? badgeYearFilter.value : 'all').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const safeTerm = (badgeTermFilter ? badgeTermFilter.value : 'all').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `Achievements_Portfolio_${safeName}_${studentIdNumber}_${safeYear}_${safeTerm}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         XLSX.writeFile(wb, filename);
     }
 

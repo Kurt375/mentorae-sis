@@ -723,14 +723,14 @@ async function getStatusSummary(req, res) {
       );
       const attendanceRate = attRateRows[0]?.attRate !== null ? Number(attRateRows[0]?.attRate) : 0.0;
 
-      // Badges & Points (calculate actual earned badges and real sum of points from badge_catalog)
+      // Badges & Points for active term (Option A: Term-Scoped)
       const [badgeRows] = await pool.query(
         `SELECT COUNT(sb.badge_id) AS totalBadges,
                 COALESCE(SUM(bc.points), 0) AS totalPoints
          FROM student_badges sb
          LEFT JOIN badge_catalog bc ON bc.id = sb.badge_id
-         WHERE sb.student_id = ?`,
-        [req.user.id]
+         WHERE sb.student_id = ? AND sb.earned_at >= ? AND sb.earned_at <= ?`,
+        [req.user.id, `${termStartDate} 00:00:00`, `${termEndDate} 23:59:59`]
       );
       const badgeCount = Number(badgeRows[0]?.totalBadges) || 0;
       const badgePoints = Number(badgeRows[0]?.totalPoints) || 0;

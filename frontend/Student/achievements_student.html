@@ -117,6 +117,24 @@
                         <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1.5 text-xs fw-semibold d-inline-flex align-items-center gap-1.5 shadow-xs text-white" id="btnExportBadgeExcel" title="Download Excel (.xlsx)">
                             <i class="bi bi-file-earmark-excel-fill"></i> Export (.xlsx)
                         </button>
+                        <!-- School Year Filter -->
+                        <select class="form-select form-select-sm rounded-pill shadow-xs bg-white border text-sm"
+                            id="badgeYearFilter" style="width: auto; min-width: 150px;" aria-label="Filter Badge School Year">
+                            <option value="all">All School Years</option>
+                            <option value="2025-2026">S.Y. 2025–2026</option>
+                            <option value="2026-2027" selected>S.Y. 2026–2027</option>
+                            <option value="2027-2028">S.Y. 2027–2028</option>
+                            <option value="2028-2029">S.Y. 2028–2029</option>
+                        </select>
+
+                        <!-- Academic Term Filter -->
+                        <select class="form-select form-select-sm rounded-pill shadow-xs bg-white border text-sm"
+                            id="badgeTermFilter" style="width: auto; min-width: 170px;" aria-label="Filter Badge Term">
+                            <option value="all">All Terms (Whole Year)</option>
+                            <option value="term1">1st Term (Jun 8 – Sep 15)</option>
+                            <option value="term2" selected>2nd Term (Sep 16 – Nov 30)</option>
+                            <option value="term3">3rd Term (Jan 4 – Apr 8)</option>
+                        </select>
                         <!-- Category Filter -->
                         <select class="form-select form-select-sm rounded-pill shadow-xs bg-white border text-sm"
                             id="badgeCategoryFilter" style="width: auto;" aria-label="Filter Badge Category">

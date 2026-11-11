@@ -1611,7 +1611,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activityTimeline.innerHTML = '<p class="text-muted small py-2">Loading recent badge activity...</p>';
 
         try {
-            const queryParam = (secId && secId !== 'all') ? `?sectionId=${encodeURIComponent(secId)}` : '';
+            const queryParam = (secId && secId !== 'all') ? `?sectionId=${encodeURIComponent(secId)}&limit=500` : '?limit=500';
             const data = await authedFetch(`/api/badges/recent${queryParam}`, token);
             if (!data.success || !Array.isArray(data.activity)) {
                 activityTimeline.innerHTML = '<p class="text-muted small py-2">No activity records found.</p>';
@@ -1701,17 +1701,88 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const loadActivity = loadRecentBadgeActivity;
 
+    function getBadgeSchoolYear(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1; // 1-12
+        return m >= 6 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+    }
+
+    function getBadgeTerm(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        if ((m === 6 && day >= 8) || m === 7 || m === 8 || (m === 9 && day <= 15)) {
+            return 'term1';
+        }
+        if ((m === 9 && day >= 16) || m === 10 || m === 11 || m === 12) {
+            return 'term2';
+        }
+        if (m >= 1 && m <= 5) {
+            return 'term3';
+        }
+        return '';
+    }
+
     function renderFullActivityList(query = '') {
         const listEl = document.getElementById('fullActivityTimelineList');
         const countEl = document.getElementById('fullModalFilteredCount');
         const badgeCountBadge = document.getElementById('fullModalBadgeCount');
         const pointsCountBadge = document.getElementById('fullModalPointsCount');
+        const yearFilter = document.getElementById('fullModalYearFilter');
+        const termFilter = document.getElementById('fullModalTermFilter');
+        const activeLabel = document.getElementById('fullModalActiveFilterLabel');
         if (!listEl) return;
 
         const q = String(query || '').trim().toLowerCase();
+        const selectedYear = yearFilter ? yearFilter.value : 'all';
+        const selectedTerm = termFilter ? termFilter.value : 'all';
 
-        const totalBadges = recentClassBadgesActivity.length;
-        const totalPoints = recentClassBadgesActivity.reduce((sum, item) => sum + (Number(item.points) || 0), 0);
+        if (activeLabel && yearFilter && termFilter) {
+            const yText = yearFilter.options[yearFilter.selectedIndex]?.text || 'All School Years';
+            const tText = termFilter.options[termFilter.selectedIndex]?.text || 'All Terms';
+            activeLabel.textContent = `Period: ${yText} • ${tText}`;
+        }
+
+        const filtered = recentClassBadgesActivity.filter(item => {
+            if (!item.earned_at) return false;
+
+            // School Year Check
+            if (selectedYear !== 'all') {
+                const sy = getBadgeSchoolYear(item.earned_at);
+                if (sy !== selectedYear) return false;
+            }
+
+            // Term Check
+            if (selectedTerm !== 'all') {
+                const term = getBadgeTerm(item.earned_at);
+                if (term !== selectedTerm) return false;
+            }
+
+            // Search query filter
+            if (q) {
+                const sName = (item.student_name || '').toLowerCase();
+                const sId = String(item.student_id_number || item.student_id || '').toLowerCase();
+                const bName = (item.badge_name || '').toLowerCase();
+                const awardedBy = (item.awarded_by_name || '').toLowerCase();
+                const dateStr = item.earned_at ? new Date(item.earned_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                }).toLowerCase() : '';
+
+                if (!sName.includes(q) && !sId.includes(q) && !bName.includes(q) && !awardedBy.includes(q) && !dateStr.includes(q)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        const totalBadges = filtered.length;
+        const totalPoints = filtered.reduce((sum, item) => sum + (Number(item.points) || 0), 0);
 
         if (badgeCountBadge) badgeCountBadge.innerHTML = `<i class="bi bi-award me-1"></i> ${totalBadges} Badges Awarded`;
         if (pointsCountBadge) pointsCountBadge.innerHTML = `<i class="bi bi-star-fill text-warning me-1"></i> ${totalPoints} Total Points`;
@@ -1728,29 +1799,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const filtered = recentClassBadgesActivity.filter(item => {
-            if (!q) return true;
-            const sName = (item.student_name || '').toLowerCase();
-            const sId = String(item.student_id_number || item.student_id || '').toLowerCase();
-            const bName = (item.badge_name || '').toLowerCase();
-            const awardedBy = (item.awarded_by_name || '').toLowerCase();
-            const dateStr = item.earned_at ? new Date(item.earned_at).toLocaleDateString('en-US', {
-                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            }).toLowerCase() : '';
-
-            return sName.includes(q) || sId.includes(q) || bName.includes(q) || awardedBy.includes(q) || dateStr.includes(q);
-        });
-
         if (countEl) {
-            countEl.textContent = `Showing ${filtered.length} of ${totalBadges} records`;
+            countEl.textContent = `Showing ${filtered.length} of ${recentClassBadgesActivity.length} records`;
         }
 
         if (!filtered.length) {
             listEl.innerHTML = `
                 <div class="text-center py-5 text-muted">
                     <i class="bi bi-search d-block mb-2 fs-3 opacity-50"></i>
-                    <p class="m-0 text-sm fw-semibold">No matching badge records found</p>
-                    <p class="m-0 micro-text text-muted">Try searching by a different student name, badge title, or date.</p>
+                    <p class="m-0 text-sm fw-semibold">No matching badge records found for this period</p>
+                    <p class="m-0 micro-text text-muted">Try switching terms, selecting another school year, or clearing the search query.</p>
                 </div>
             `;
             return;
@@ -1872,6 +1930,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (fullModalSearchInput) {
         fullModalSearchInput.addEventListener('input', (e) => {
             renderFullActivityList(e.target.value);
+        });
+    }
+
+    const fullModalYearFilter = document.getElementById('fullModalYearFilter');
+    if (fullModalYearFilter) {
+        fullModalYearFilter.addEventListener('change', () => {
+            const searchInp = document.getElementById('fullModalSearchInput');
+            renderFullActivityList(searchInp ? searchInp.value : '');
+        });
+    }
+
+    const fullModalTermFilter = document.getElementById('fullModalTermFilter');
+    if (fullModalTermFilter) {
+        fullModalTermFilter.addEventListener('change', () => {
+            const searchInp = document.getElementById('fullModalSearchInput');
+            renderFullActivityList(searchInp ? searchInp.value : '');
         });
     }
 
