@@ -108,8 +108,11 @@ async function login(req, res) {
 
   try {
     const [rows] = await pool.query(
-      `SELECT * FROM users 
-       WHERE (email = ? OR email = ? OR email = ? OR personal_email = ? OR id_number = ? OR (role = 'admin' AND LOWER(?) IN ('admin', 'administrator'))) 
+      `SELECT u.*, sec.grade_level AS gradeLevel, sec.name AS sectionName, st.code AS strandCode
+       FROM users u
+       LEFT JOIN sections sec ON sec.id = u.section_id
+       LEFT JOIN strands st ON st.id = sec.strand_id
+       WHERE (u.email = ? OR u.email = ? OR u.email = ? OR u.personal_email = ? OR u.id_number = ? OR (u.role = 'admin' AND LOWER(?) IN ('admin', 'administrator'))) 
        LIMIT 1`,
       [trimmedIdentity, tshsAlias, shortAlias, trimmedIdentity, trimmedIdentity, trimmedIdentity]
     );
@@ -190,6 +193,10 @@ async function login(req, res) {
       id_number: user.id_number,
       full_name: fullName(user),
       section_id: user.section_id,
+      section_name: user.sectionName || null,
+      section: user.sectionName ? `Grade ${user.gradeLevel} - ${user.strandCode} (${user.sectionName})` : null,
+      grade_level: user.gradeLevel || null,
+      strand: user.strandCode || null,
       preferred_language: user.preferred_language || 'en',
     };
     const secret = process.env.JWT_SECRET || 'mentorae-sis-jwt-secret-key-2026';
@@ -571,6 +578,9 @@ async function getProfile(req, res) {
         program: u.program,
         enrollmentStatus: u.enrollment_status,
         profilePictureUrl: u.profile_picture_url,
+        sectionName: u.sectionName || null,
+        gradeLevel: u.grade_level || null,
+        strandCode: u.strandCode || null,
         section: u.sectionName ? `Grade ${u.grade_level} - ${u.strandCode} (${u.sectionName})` : null,
         advisorySection,
       },

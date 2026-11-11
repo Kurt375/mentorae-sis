@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!activeChild) return;
         if (contextStudentName) contextStudentName.textContent = activeChild.name;
         if (contextStudentMeta) {
-            contextStudentMeta.textContent = `${activeChild.section || 'Senior High School'} | LRN / ID: ${activeChild.idNumber || '—'}`;
+            contextStudentMeta.textContent = `${activeChild.sectionName || activeChild.section || 'Medical Sciences'} | LRN / ID: ${activeChild.idNumber || '—'}`;
         }
     }
 
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
-            const studentSec = activeChild ? (activeChild.section || 'Senior High School') : 'Senior High School';
+            const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
             const totalPts = earnedBadges.reduce((s, b) => s + b.points, 0);
 
             const ws = {};

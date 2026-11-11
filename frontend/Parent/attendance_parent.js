@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Render Student Identity Header
         if (studentHeaderName) studentHeaderName.textContent = activeChild.name || 'Student';
         const idText = activeChild.idNumber ? ` | ID: ${activeChild.idNumber}` : '';
-        if (studentHeaderMeta) studentHeaderMeta.textContent = `${activeChild.section || 'Senior High School'}${idText}`;
+        if (studentHeaderMeta) studentHeaderMeta.textContent = `${activeChild.section || activeChild.sectionName || 'Medical Sciences'}${idText}`;
         if (excuseStudentName) excuseStudentName.value = activeChild.name || 'Student';
         if (linkProgressNav) linkProgressNav.href = `progress_parent.html?studentId=${activeChild.id}`;
 
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
-            const studentSec = activeChild ? (activeChild.section || 'Senior High School') : 'Senior High School';
+            const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
 
             const presentCount = logs.filter(r => r.status === 'PRESENT').length;
             const lateCount = logs.filter(r => r.status === 'LATE').length;
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
-            const studentSec = activeChild ? (activeChild.section || 'Senior High School') : 'Senior High School';
+            const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
 
             const presentCount = logs.filter(r => r.status === 'PRESENT').length;
             const lateCount = logs.filter(r => r.status === 'LATE').length;
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'student') : 'student';
-            const studentSec = activeChild ? (activeChild.section || 'Senior High School') : 'Senior High School';
+            const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
             const safeName = studentName.replace(/[^a-zA-Z0-9_-]/g, '_');
 
             let csv = "TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT (PARENT COPY)\n";

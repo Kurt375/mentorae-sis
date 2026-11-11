@@ -996,6 +996,26 @@ async function getSummary(req, res) {
       }
     }
 
+    const [[studentInfo]] = await pool.query(
+      `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
+              sec.grade_level, sec.name AS sectionName, st.code AS strandCode
+       FROM users u
+       LEFT JOIN sections sec ON sec.id = u.section_id
+       LEFT JOIN strands st ON st.id = sec.strand_id
+       WHERE u.id = ?`,
+      [studentId.id]
+    );
+
+    const student = studentInfo ? {
+      id: studentInfo.id,
+      idNumber: studentInfo.id_number,
+      fullName: `${studentInfo.first_name} ${studentInfo.middle_initial ? studentInfo.middle_initial + ' ' : ''}${studentInfo.last_name}`.trim(),
+      sectionName: studentInfo.sectionName || null,
+      gradeLevel: studentInfo.grade_level || null,
+      strandCode: studentInfo.strandCode || null,
+      section: studentInfo.sectionName ? `Grade ${studentInfo.grade_level} - ${studentInfo.strandCode} (${studentInfo.sectionName})` : null,
+    } : null;
+
     return res.json({
       success: true,
       totalDays,
@@ -1003,6 +1023,7 @@ async function getSummary(req, res) {
       rate,
       monthlyTrends,
       streak,
+      student,
     });
   } catch (err) {
     console.error('getSummary error:', err);

@@ -4,18 +4,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Resolve Learner Details for Exports & Printables
     let studentFullName = (user && (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name)) || 'Student';
     let studentIdNumber = (user && user.id_number) || 'N/A';
-    let studentSectionName = (user && (user.section_name || user.section)) || '';
-    let studentTrackStrand = (user && user.strand) || '';
+    let studentSectionName = (user && (user.section_name || user.sectionName || user.section)) || '';
+    let studentTrackStrand = (user && (user.strand || user.strandCode)) || '';
+
+    function applyStudentProfile(p) {
+        if (!p) return;
+        if (p.fullName || p.full_name) {
+            studentFullName = p.fullName || p.full_name;
+        } else if (p.firstName || p.first_name || p.lastName || p.last_name) {
+            studentFullName = `${p.firstName || p.first_name || ''} ${p.lastName || p.last_name || ''}`.trim();
+        }
+        if (p.idNumber || p.id_number) studentIdNumber = p.idNumber || p.id_number;
+
+        const rawSec = p.sectionName || p.section_name || p.section || '';
+        if (rawSec) {
+            studentSectionName = rawSec;
+        }
+        if (p.strandCode || p.strand) studentTrackStrand = p.strandCode || p.strand;
+    }
 
     // Eagerly hydrate complete profile from server
     authedFetch('/api/auth/profile', token).then(res => {
         if (res && res.success && res.profile) {
-            const p = res.profile;
-            if (p.full_name) studentFullName = p.full_name;
-            else if (p.first_name || p.last_name) studentFullName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
-            if (p.id_number) studentIdNumber = p.id_number;
-            if (p.section_name) studentSectionName = p.section_name;
-            if (p.strand) studentTrackStrand = p.strand;
+            applyStudentProfile(res.profile);
         }
     }).catch(() => {});
 
@@ -219,6 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await authedFetch('/api/attendance/summary', token);
             if (!data.success) return;
+            if (data.student) {
+                applyStudentProfile(data.student);
+            }
             document.getElementById('metricTotalDays').textContent = data.totalDays;
             document.getElementById('metricPresentDays').textContent = data.presentDays;
             document.getElementById('metricAttendanceRate').textContent = `${data.rate}%`;
@@ -406,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                         <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
                         <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History</div>
-                        <div class="small text-muted mt-1">Learner: <strong>${studentFullName}</strong> | ID / LRN: <code>${studentIdNumber}</code> | Section: <strong>${studentSectionName || 'Senior High School'}</strong></div>
+                        <div class="small text-muted mt-1">Learner: <strong>${studentFullName}</strong> | ID / LRN: <code>${studentIdNumber}</code> | Section: <strong>${studentSectionName || 'Medical Sciences'}</strong></div>
                     </div>
                     <div class="text-end">
                         <div class="small text-muted">Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
@@ -520,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 1 } });
         merges.push({ s: { r: 3, c: 2 }, e: { r: 3, c: 3 } });
         for (let c = 0; c <= 1; c++) {
-            setCell(3, c, c === 0 ? `Section: ${studentSectionName || 'Senior High School'}` : "", {
+            setCell(3, c, c === 0 ? `Section: ${studentSectionName || 'Medical Sciences'}` : "", {
                 font: { name: "Segoe UI", sz: 9, bold: true, color: { rgb: "4A5568" } },
                 fill: { fgColor: { rgb: "F8F9FA" } },
                 alignment: { horizontal: "left", vertical: "center" }
@@ -630,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const safeName = studentFullName.replace(/[^a-zA-Z0-9_-]/g, '_');
         let csv = "TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT\n";
-        csv += `Learner: "${studentFullName}",Student ID / LRN: "${studentIdNumber}",Section: "${studentSectionName || 'Senior High School'}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
+        csv += `Learner: "${studentFullName}",Student ID / LRN: "${studentIdNumber}",Section: "${studentSectionName || 'Medical Sciences'}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
         csv += "No,Date,Status,Time In/Out,Remarks\n";
         rows.forEach(r => {
             csv += `${r.no},"${r.date}","${r.status}","${r.time || '—'}","${(r.remarks || 'Regular scan').replace(/"/g, '""')}"\n`;
