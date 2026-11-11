@@ -240,6 +240,12 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        <select id="teacherLeaderboardTermFilter" class="form-select form-select-sm shadow-2xs rounded-pill" style="width: auto; font-size: 0.8rem; font-weight: 500;" aria-label="Filter leaderboard by term">
+                            <option value="all">All Terms (Whole Year)</option>
+                            <option value="term1">1st Term (Jun – Sep)</option>
+                            <option value="term2" selected>2nd Term (Sep – Nov)</option>
+                            <option value="term3">3rd Term (Jan – Apr)</option>
+                        </select>
                         <span
                             class="badge section-header-badge px-3 py-2 rounded-pill d-inline-flex align-items-center gap-1.5"
                             id="leaderboardTotalStudents">
@@ -1156,13 +1162,13 @@
         <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content border-0 rounded-4 shadow overflow-hidden">
                 <div class="modal-header bg-dark text-white py-3 px-4 border-0">
-                    <div class="d-flex align-items-center gap-2.5">
-                        <div class="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-                            <i class="bi bi-clock-history text-white fs-5"></i>
+                    <div class="d-flex align-items-center" style="gap: 14px;">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25);">
+                            <i class="bi bi-award-fill text-warning fs-5"></i>
                         </div>
                         <div>
                             <h5 class="modal-title fw-bold fs-6 m-0 text-white" id="modalRecentActivityFullLabel">
-                                Recent Badge Activity & Recognition
+                                Recent Badge Activity &amp; Recognition
                             </h5>
                             <span class="micro-text text-white-50" id="fullModalStudentSubtitle">
                                 Complete timeline of badges awarded across all students

@@ -82,12 +82,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    async function updateParentLeaderboardRank() {
+        if (!activeChild) return;
+        const selYear = parentBadgeYearFilter ? parentBadgeYearFilter.value : '2026-2027';
+        const selTerm = parentBadgeTermFilter ? parentBadgeTermFilter.value : 'term2';
+
+        let url = `/api/badges/leaderboard?scope=section`;
+        if (selYear && selYear !== 'all') url += `&school_year=${encodeURIComponent(selYear)}`;
+        if (selTerm && selTerm !== 'all') url += `&term=${encodeURIComponent(selTerm)}`;
+
+        try {
+            const lbRes = await authedFetch(url, token);
+            let rank = '—';
+            if (lbRes && lbRes.success && Array.isArray(lbRes.leaderboard)) {
+                const found = lbRes.leaderboard.find(r => String(r.id) === String(activeChild.id) || String(r.studentId) === String(activeChild.id));
+                if (found) rank = `#${found.rank}`;
+            }
+            if (classRankDisplay) classRankDisplay.textContent = rank;
+        } catch (e) {
+            console.error('Error updating parent leaderboard rank:', e);
+        }
+    }
+
     function syncEarnedBadgesFilter() {
         earnedBadges = getFilteredEarnedBadges();
         const totalPts = earnedBadges.reduce((s, b) => s + b.points, 0);
         if (totalPointsDisplay) totalPointsDisplay.textContent = totalPts;
         if (badgesEarnedDisplay) badgesEarnedDisplay.textContent = earnedBadges.length;
         renderBadges();
+        updateParentLeaderboardRank();
     }
 
     if (parentBadgeYearFilter) {
@@ -167,10 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            const [badgeRes, lbRes] = await Promise.all([
-                authedFetch(`/api/badges/student/${childId}`, token),
-                authedFetch('/api/badges/leaderboard?scope=section', token)
-            ]);
+            const badgeRes = await authedFetch(`/api/badges/student/${childId}`, token);
 
             allRawEarnedBadges = [];
             if (badgeRes && badgeRes.success && Array.isArray(badgeRes.badges)) {
@@ -187,13 +207,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     };
                 });
             }
-
-            let rank = '—';
-            if (lbRes && lbRes.success && Array.isArray(lbRes.leaderboard)) {
-                const found = lbRes.leaderboard.find(r => String(r.studentId) === String(childId));
-                if (found) rank = `#${found.rank}`;
-            }
-            if (classRankDisplay) classRankDisplay.textContent = rank;
 
             syncEarnedBadgesFilter();
         } catch (err) {

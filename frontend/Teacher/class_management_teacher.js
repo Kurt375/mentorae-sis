@@ -1070,13 +1070,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!sectionLeaderboardList) return;
         sectionLeaderboardList.innerHTML = '<p class="text-muted small py-3 text-center mb-0"><i class="bi bi-arrow-repeat me-2"></i>Loading live section leaderboard...</p>';
 
+        const termSelect = document.getElementById('teacherLeaderboardTermFilter');
+        const selTerm = termSelect ? termSelect.value : 'term2';
+        const termLabel = (termSelect && termSelect.selectedOptions[0]) ? termSelect.selectedOptions[0].textContent.trim() : 'Standings';
+
         let url = `/api/badges/leaderboard?scope=section&sectionId=${sectionId}&limit=100`;
+        if (selTerm && selTerm !== 'all') url += `&term=${encodeURIComponent(selTerm)}&school_year=2026-2027`;
         const secObj = mySections.find(s => String(s.id) === String(sectionId));
         if (sectionId === 'all') {
             url = `/api/badges/leaderboard?scope=school&limit=200`;
-            if (leaderboardSectionLabel) leaderboardSectionLabel.textContent = 'All Classes Handled • Academic Standings';
+            if (selTerm && selTerm !== 'all') url += `&term=${encodeURIComponent(selTerm)}&school_year=2026-2027`;
+            if (leaderboardSectionLabel) leaderboardSectionLabel.textContent = `All Classes Handled • ${termLabel}`;
         } else if (leaderboardSectionLabel && secObj) {
-            leaderboardSectionLabel.textContent = `Grade ${secObj.grade_level} - ${secObj.strandCode || ''} (${secObj.name}) • Live Academic Standings`;
+            leaderboardSectionLabel.textContent = `Grade ${secObj.grade_level} - ${secObj.strandCode || ''} (${secObj.name}) • ${termLabel}`;
         }
 
         try {
@@ -1172,6 +1178,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('loadLeaderboard error:', err);
             sectionLeaderboardList.innerHTML = '<p class="text-danger small py-3 text-center mb-0">Could not load leaderboard.</p>';
         }
+    }
+
+    const teacherLeaderboardTermFilter = document.getElementById('teacherLeaderboardTermFilter');
+    if (teacherLeaderboardTermFilter) {
+        teacherLeaderboardTermFilter.addEventListener('change', () => {
+            loadLeaderboard(currentSectionId);
+        });
     }
 
     // =========================================================================
@@ -1728,6 +1741,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         return '';
     }
 
+    let modalBadgeActivityList = [];
+
+    async function fetchFullModalActivity() {
+        const listEl = document.getElementById('fullActivityTimelineList');
+        const countEl = document.getElementById('fullModalFilteredCount');
+        const badgeCountBadge = document.getElementById('fullModalBadgeCount');
+        const pointsCountBadge = document.getElementById('fullModalPointsCount');
+        const yearFilter = document.getElementById('fullModalYearFilter');
+        const termFilter = document.getElementById('fullModalTermFilter');
+        const activeLabel = document.getElementById('fullModalActiveFilterLabel');
+        const searchInp = document.getElementById('fullModalSearchInput');
+        const secId = currentSectionId || '';
+
+        const selYear = yearFilter ? yearFilter.value : '2026-2027';
+        const selTerm = termFilter ? termFilter.value : 'term2';
+
+        if (activeLabel && yearFilter && termFilter) {
+            const yText = yearFilter.options[yearFilter.selectedIndex]?.text || 'All School Years';
+            const tText = termFilter.options[termFilter.selectedIndex]?.text || 'All Terms';
+            activeLabel.textContent = `Period: ${yText} • ${tText}`;
+        }
+
+        if (listEl) {
+            listEl.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>
+                    <span class="text-sm">Loading badge activity records for this period...</span>
+                </div>
+            `;
+        }
+
+        try {
+            let url = `/api/badges/recent?limit=500`;
+            if (secId && secId !== 'all') url += `&sectionId=${encodeURIComponent(secId)}`;
+            if (selYear && selYear !== 'all') url += `&school_year=${encodeURIComponent(selYear)}`;
+            if (selTerm && selTerm !== 'all') url += `&term=${encodeURIComponent(selTerm)}`;
+
+            const data = await authedFetch(url, token);
+            if (data && data.success && Array.isArray(data.activity)) {
+                modalBadgeActivityList = data.activity;
+            } else {
+                modalBadgeActivityList = [];
+            }
+        } catch (err) {
+            console.error('Error fetching full modal activity:', err);
+            modalBadgeActivityList = [];
+        }
+
+        renderFullActivityList(searchInp ? searchInp.value : '');
+    }
+
     function renderFullActivityList(query = '') {
         const listEl = document.getElementById('fullActivityTimelineList');
         const countEl = document.getElementById('fullModalFilteredCount');
@@ -1739,8 +1803,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!listEl) return;
 
         const q = String(query || '').trim().toLowerCase();
-        const selectedYear = yearFilter ? yearFilter.value : 'all';
-        const selectedTerm = termFilter ? termFilter.value : 'all';
 
         if (activeLabel && yearFilter && termFilter) {
             const yText = yearFilter.options[yearFilter.selectedIndex]?.text || 'All School Years';
@@ -1748,37 +1810,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             activeLabel.textContent = `Period: ${yText} • ${tText}`;
         }
 
-        const filtered = recentClassBadgesActivity.filter(item => {
-            if (!item.earned_at) return false;
+        const filtered = modalBadgeActivityList.filter(item => {
+            if (!q) return true;
+            const sName = (item.student_name || '').toLowerCase();
+            const sId = String(item.student_id_number || item.student_id || '').toLowerCase();
+            const bName = (item.badge_name || '').toLowerCase();
+            const awardedBy = (item.awarded_by_name || '').toLowerCase();
+            const dateStr = item.earned_at ? new Date(item.earned_at).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            }).toLowerCase() : '';
 
-            // School Year Check
-            if (selectedYear !== 'all') {
-                const sy = getBadgeSchoolYear(item.earned_at);
-                if (sy !== selectedYear) return false;
-            }
-
-            // Term Check
-            if (selectedTerm !== 'all') {
-                const term = getBadgeTerm(item.earned_at);
-                if (term !== selectedTerm) return false;
-            }
-
-            // Search query filter
-            if (q) {
-                const sName = (item.student_name || '').toLowerCase();
-                const sId = String(item.student_id_number || item.student_id || '').toLowerCase();
-                const bName = (item.badge_name || '').toLowerCase();
-                const awardedBy = (item.awarded_by_name || '').toLowerCase();
-                const dateStr = item.earned_at ? new Date(item.earned_at).toLocaleDateString('en-US', {
-                    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                }).toLowerCase() : '';
-
-                if (!sName.includes(q) && !sId.includes(q) && !bName.includes(q) && !awardedBy.includes(q) && !dateStr.includes(q)) {
-                    return false;
-                }
-            }
-
-            return true;
+            return sName.includes(q) || sId.includes(q) || bName.includes(q) || awardedBy.includes(q) || dateStr.includes(q);
         });
 
         const totalBadges = filtered.length;
@@ -1787,28 +1829,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (badgeCountBadge) badgeCountBadge.innerHTML = `<i class="bi bi-award me-1"></i> ${totalBadges} Badges Awarded`;
         if (pointsCountBadge) pointsCountBadge.innerHTML = `<i class="bi bi-star-fill text-warning me-1"></i> ${totalPoints} Total Points`;
 
-        if (!recentClassBadgesActivity.length) {
+        if (!modalBadgeActivityList.length) {
             listEl.innerHTML = `
                 <div class="text-center py-5 text-muted">
                     <i class="bi bi-award d-block mb-2 fs-3 opacity-50"></i>
-                    <p class="m-0 text-sm fw-semibold">No badges awarded yet</p>
-                    <p class="m-0 micro-text text-muted">Start recognizing learners with merit badges above.</p>
+                    <p class="m-0 text-sm fw-semibold">No badges awarded yet for this period</p>
+                    <p class="m-0 micro-text text-muted">Try selecting a different academic term or school year.</p>
                 </div>
             `;
-            if (countEl) countEl.textContent = 'Showing 0 records';
+            if (countEl) countEl.textContent = 'Showing 0 of 0 records';
             return;
         }
 
         if (countEl) {
-            countEl.textContent = `Showing ${filtered.length} of ${recentClassBadgesActivity.length} records`;
+            countEl.textContent = `Showing ${filtered.length} of ${modalBadgeActivityList.length} records`;
         }
 
         if (!filtered.length) {
             listEl.innerHTML = `
                 <div class="text-center py-5 text-muted">
                     <i class="bi bi-search d-block mb-2 fs-3 opacity-50"></i>
-                    <p class="m-0 text-sm fw-semibold">No matching badge records found for this period</p>
-                    <p class="m-0 micro-text text-muted">Try switching terms, selecting another school year, or clearing the search query.</p>
+                    <p class="m-0 text-sm fw-semibold">No matching badge records found</p>
+                    <p class="m-0 micro-text text-muted">Try clearing the search query or searching by a different name.</p>
                 </div>
             `;
             return;
@@ -1910,12 +1952,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (subtitleEl) subtitleEl.textContent = 'Complete timeline of badges awarded across all students';
 
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
-
-        if (!recentClassBadgesActivity.length) {
-            await loadRecentBadgeActivity(currentSectionId);
-        }
-
-        renderFullActivityList('');
+        await fetchFullModalActivity();
     }
 
     const btnExpandRecentActivity = document.getElementById('btnExpandRecentActivity');
@@ -1936,16 +1973,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fullModalYearFilter = document.getElementById('fullModalYearFilter');
     if (fullModalYearFilter) {
         fullModalYearFilter.addEventListener('change', () => {
-            const searchInp = document.getElementById('fullModalSearchInput');
-            renderFullActivityList(searchInp ? searchInp.value : '');
+            fetchFullModalActivity();
         });
     }
 
     const fullModalTermFilter = document.getElementById('fullModalTermFilter');
     if (fullModalTermFilter) {
         fullModalTermFilter.addEventListener('change', () => {
-            const searchInp = document.getElementById('fullModalSearchInput');
-            renderFullActivityList(searchInp ? searchInp.value : '');
+            fetchFullModalActivity();
         });
     }
 

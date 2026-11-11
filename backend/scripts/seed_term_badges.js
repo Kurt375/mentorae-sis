@@ -63,7 +63,7 @@ async function seedTermBadges() {
       const randTime = start + Math.random() * (end - start);
       d = new Date(randTime);
     } while (d.getDay() === 0 || d.getDay() === 6); // Skip weekends
-    
+
     // Set realistic school hours (8:30 AM to 4:30 PM)
     const hours = 8 + Math.floor(Math.random() * 8);
     const mins = Math.floor(Math.random() * 60);
@@ -131,3 +131,4 @@ seedTermBadges().catch(err => {
   console.error('Seeding failed:', err);
   process.exit(1);
 });
+

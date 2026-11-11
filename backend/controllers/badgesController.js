@@ -241,6 +241,8 @@ async function getLeaderboard(req, res) {
     let sectionId = req.query.sectionId || null;
     let scope = req.query.scope === 'school' ? 'school' : 'section';
     const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const { term, school_year, sy } = req.query;
+    const requestedSy = school_year || sy;
 
     // Students and parents are permanently locked to their specific section cohort
     if (req.user.role === 'student') {
@@ -276,6 +278,43 @@ async function getLeaderboard(req, res) {
       params.push(sectionId);
     }
 
+    let dateFilterSql = '';
+    const dateParams = [];
+
+    let syStartYear = null;
+    let syEndYear = null;
+    if (requestedSy && requestedSy !== 'all') {
+      const match = String(requestedSy).match(/(\d{4})\s*[-–—]\s*(\d{4})/);
+      if (match) {
+        syStartYear = parseInt(match[1], 10);
+        syEndYear = parseInt(match[2], 10);
+      }
+    }
+
+    if (syStartYear && syEndYear) {
+      if (term === 'term1' || term === '1st Term') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syStartYear}-06-08 00:00:00`, `${syStartYear}-09-15 23:59:59`);
+      } else if (term === 'term2' || term === '2nd Term') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syStartYear}-09-16 00:00:00`, `${syStartYear}-11-30 23:59:59`);
+      } else if (term === 'term3' || term === '3rd Term') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syEndYear}-01-04 00:00:00`, `${syEndYear}-04-08 23:59:59`);
+      } else if (requestedSy !== 'all') {
+        dateFilterSql = ' AND sb.earned_at >= ? AND sb.earned_at <= ?';
+        dateParams.push(`${syStartYear}-06-01 00:00:00`, `${syEndYear}-04-30 23:59:59`);
+      }
+    } else {
+      if (term === 'term1' || term === '1st Term') {
+        dateFilterSql = ' AND ((MONTH(sb.earned_at) IN (6,7,8)) OR (MONTH(sb.earned_at) = 9 AND DAY(sb.earned_at) <= 15))';
+      } else if (term === 'term2' || term === '2nd Term') {
+        dateFilterSql = ' AND ((MONTH(sb.earned_at) = 9 AND DAY(sb.earned_at) >= 16) OR MONTH(sb.earned_at) IN (10, 11, 12))';
+      } else if (term === 'term3' || term === '3rd Term') {
+        dateFilterSql = ' AND ((MONTH(sb.earned_at) IN (1, 2, 3)) OR (MONTH(sb.earned_at) = 4 AND DAY(sb.earned_at) <= 8))';
+      }
+    }
+
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.profile_picture_url,
               sec.name AS sectionName, st.code AS strandCode, sec.grade_level,
@@ -285,13 +324,13 @@ async function getLeaderboard(req, res) {
        FROM users u
        LEFT JOIN sections sec ON sec.id = u.section_id
        LEFT JOIN strands st ON st.id = sec.strand_id
-       LEFT JOIN student_badges sb ON sb.student_id = u.id
+       LEFT JOIN student_badges sb ON sb.student_id = u.id ${dateFilterSql}
        LEFT JOIN badge_catalog bc ON bc.id = sb.badge_id
        WHERE ${conditions.join(' AND ')}
        GROUP BY u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.profile_picture_url, sec.name, st.code, sec.grade_level
        ORDER BY totalPoints DESC, badgeCount DESC, u.last_name ASC
        LIMIT ?`,
-      [...params, limit]
+      [...dateParams, ...params, limit]
     );
 
     const leaderboard = rows.map((r, i) => {
@@ -315,7 +354,7 @@ async function getLeaderboard(req, res) {
       };
     });
 
-    return res.json({ success: true, leaderboard, scope, sectionId });
+    return res.json({ success: true, leaderboard, scope, sectionId, term: term || 'all', schoolYear: requestedSy || 'all' });
   } catch (err) {
     console.error('getLeaderboard error:', err);
     return res.status(500).json({ success: false, message: 'Could not load the leaderboard.' });

@@ -416,16 +416,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (badgeYearFilter) {
-        badgeYearFilter.addEventListener('change', () => {
+        badgeYearFilter.addEventListener('change', async () => {
             syncEarnedBadgesFilter();
             renderAchievements();
+            await loadLeaderboard();
         });
     }
 
     if (badgeTermFilter) {
-        badgeTermFilter.addEventListener('change', () => {
+        badgeTermFilter.addEventListener('change', async () => {
             syncEarnedBadgesFilter();
             renderAchievements();
+            await loadLeaderboard();
         });
     }
 
@@ -549,7 +551,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             container.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-arrow-repeat me-2"></i>Loading leaderboard standings...</div>';
         }
 
-        const lbRes = await authedFetch('/api/badges/leaderboard?scope=section', token);
+        const selYear = badgeYearFilter ? badgeYearFilter.value : '2026-2027';
+        const selTerm = badgeTermFilter ? badgeTermFilter.value : 'term2';
+
+        let url = `/api/badges/leaderboard?scope=section`;
+        if (selYear && selYear !== 'all') url += `&school_year=${encodeURIComponent(selYear)}`;
+        if (selTerm && selTerm !== 'all') url += `&term=${encodeURIComponent(selTerm)}`;
+
+        const lbRes = await authedFetch(url, token);
         if (lbRes.success && Array.isArray(lbRes.leaderboard)) {
             leaderboardList = lbRes.leaderboard;
         } else {
@@ -588,7 +597,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Subtitle
         if (leaderboardSubTitle) {
             const secName = me && me.section ? me.section : 'My Section';
-            leaderboardSubTitle.textContent = `${secName} • Live Academic Standings`;
+            const termLabel = (badgeTermFilter && badgeTermFilter.selectedOptions[0]) ? badgeTermFilter.selectedOptions[0].textContent.trim() : 'Live Academic';
+            leaderboardSubTitle.textContent = `${secName} • ${termLabel} Standings`;
         }
 
         if (!leaderboardList.length) {
