@@ -1,22 +1,25 @@
 const pool = require('../config/db');
 const { classifyRisk } = require('../ml/features');
 const { buildRecommendations } = require('../ml/prescriptive');
+const { getActiveTermConfig } = require('../utils/termUtils');
 
 /** GET /api/parent/children — linked children with a quick overview each */
 async function getMyChildren(req, res) {
   try {
+    const { currentTerm, termStartDate } = await getActiveTermConfig();
+
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
               sec.grade_level, sec.name AS sectionName, st.code AS strandCode,
-              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id) AS overallGrade,
-              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id) AS attendanceRate,
+              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id AND term = ?) AS overallGrade,
+              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id AND scan_date >= ?) AS attendanceRate,
               (SELECT status FROM attendance_logs WHERE student_id = u.id ORDER BY scan_date DESC LIMIT 1) AS lastStatus
        FROM parent_student_links pl
        JOIN users u ON u.id = pl.student_id
        LEFT JOIN sections sec ON sec.id = u.section_id
        LEFT JOIN strands st ON st.id = sec.strand_id
        WHERE pl.parent_id = ?`,
-      [req.user.id]
+      [currentTerm, termStartDate, req.user.id]
     );
 
     const children = rows.map((r) => ({
@@ -27,8 +30,8 @@ async function getMyChildren(req, res) {
       sectionName: r.sectionName || null,
       gradeLevel: r.grade_level || null,
       strandCode: r.strandCode || null,
-      overallGrade: r.overallGrade,
-      attendanceRate: r.attendanceRate,
+      overallGrade: r.overallGrade !== null ? Number(r.overallGrade) : 0.0,
+      attendanceRate: r.attendanceRate !== null ? Number(r.attendanceRate) : 0.0,
       lastStatus: r.lastStatus,
     }));
 
@@ -53,16 +56,18 @@ async function getStudentRecommendationsForParent(req, res) {
       }
     }
 
+    const { currentTerm, termStartDate } = await getActiveTermConfig();
+
     const [[student]] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.last_name,
               sec.name AS sectionName, st.code AS strandCode,
-              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id) AS overallGrade,
-              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id) AS attendanceRate
+              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id AND term = ?) AS overallGrade,
+              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id AND scan_date >= ?) AS attendanceRate
        FROM users u
        LEFT JOIN sections sec ON sec.id = u.section_id
        LEFT JOIN strands st ON st.id = sec.strand_id
        WHERE u.id = ?`,
-      [studentId]
+      [currentTerm, termStartDate, studentId]
     );
 
     if (!student) {
@@ -77,10 +82,10 @@ async function getStudentRecommendationsForParent(req, res) {
               COALESCE(sub.qa_weight, 30.00) AS qa_weight
        FROM grades g
        JOIN subjects sub ON sub.id = g.subject_id
-       WHERE g.student_id = ?
+       WHERE g.student_id = ? AND g.term = ?
        ORDER BY g.average ASC
        LIMIT 1`,
-      [studentId]
+      [studentId, currentTerm]
     );
 
     const lowest = subRows[0] || null;

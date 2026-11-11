@@ -1505,9 +1505,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function syncScheduleActiveTerm() {
+        try {
+            const data = await authedFetch('/api/settings', token);
+            if (data && data.success && data.settings && data.settings.current_semester) {
+                const termFilter = document.getElementById('filterScheduleTerm');
+                const addQuarter = document.getElementById('quarter');
+                const term = data.settings.current_semester;
+                if (termFilter && Array.from(termFilter.options).some(o => o.value === term)) {
+                    termFilter.value = term;
+                }
+                if (addQuarter && Array.from(addQuarter.options).some(o => o.value === term)) {
+                    addQuarter.value = term;
+                }
+            }
+        } catch (e) {
+            console.warn('syncScheduleActiveTerm note:', e.message);
+        }
+    }
+
     loadTeachers();
     loadStrands();
     loadSections();
     loadSubjects();
-    loadSchedules();
+    syncScheduleActiveTerm().finally(() => {
+        loadSchedules();
+    });
 });

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { sendOtpEmail } = require('../utils/mailer');
 const { getManilaDate } = require('../utils/dateUtils');
+const { getActiveTermConfig } = require('../utils/termUtils');
 const { enqueueLoginAudit } = require('../utils/authAuditQueue');
 
 const MAX_FAILED_ATTEMPTS = 5;
@@ -683,10 +684,7 @@ async function updateProfile(req, res) {
  */
 async function getStatusSummary(req, res) {
   try {
-    const [settingRows] = await pool.query(
-      "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('current_semester','school_year')"
-    );
-    const settings = Object.fromEntries(settingRows.map((r) => [r.setting_key, r.setting_value]));
+    const { currentTerm, schoolYear, termStartDate } = await getActiveTermConfig();
 
     const [userRows] = await pool.query(
       `SELECT u.program, u.enrollment_status, sec.grade_level, sec.name AS sectionName, st.code AS strandCode
@@ -711,19 +709,19 @@ async function getStatusSummary(req, res) {
       );
       presentStatus = attRows[0] ? attRows[0].time_out_status || attRows[0].status : 'absent';
 
-      // Overall Grade
+      // Overall Grade for active term (0.0 if none recorded yet)
       const [gradeRows] = await pool.query(
-        'SELECT ROUND(AVG(average), 1) AS overallGrade FROM grades WHERE student_id = ?',
-        [req.user.id]
+        'SELECT ROUND(AVG(average), 1) AS overallGrade FROM grades WHERE student_id = ? AND term = ?',
+        [req.user.id, currentTerm]
       );
-      const overallGrade = gradeRows[0]?.overallGrade !== null ? Number(gradeRows[0]?.overallGrade) : 0;
+      const overallGrade = gradeRows[0]?.overallGrade !== null ? Number(gradeRows[0]?.overallGrade) : 0.0;
 
-      // Attendance Rate
+      // Attendance Rate for active term
       const [attRateRows] = await pool.query(
-        "SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) AS attRate FROM attendance_logs WHERE student_id = ?",
-        [req.user.id]
+        "SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) AS attRate FROM attendance_logs WHERE student_id = ? AND scan_date >= ?",
+        [req.user.id, termStartDate]
       );
-      const attendanceRate = attRateRows[0]?.attRate !== null ? Number(attRateRows[0]?.attRate) : 0;
+      const attendanceRate = attRateRows[0]?.attRate !== null ? Number(attRateRows[0]?.attRate) : 0.0;
 
       // Badges & Points (calculate actual earned badges and real sum of points from badge_catalog)
       const [badgeRows] = await pool.query(
@@ -815,8 +813,8 @@ async function getStatusSummary(req, res) {
            FROM grades g
            JOIN users u ON u.id = g.student_id
            JOIN schedules sch ON sch.section_id = u.section_id
-           WHERE sch.teacher_id = ?`,
-          [req.user.id]
+           WHERE sch.teacher_id = ? AND g.term = ?`,
+          [req.user.id, currentTerm]
         ),
         pool.query(
           `SELECT en.id, en.absence_date, en.reason, en.status, en.created_at, u.first_name, u.last_name
@@ -888,8 +886,8 @@ async function getStatusSummary(req, res) {
     return res.json({
       success: true,
       summary: {
-        semester: settings.current_semester || null,
-        schoolYear: settings.school_year || null,
+        semester: currentTerm || null,
+        schoolYear: schoolYear || null,
         section: u.sectionName ? `Grade ${u.grade_level} - ${u.strandCode} (${u.sectionName})` : null,
         advisoryClass: advisoryClass || null,
         strand: u.strandCode || null,

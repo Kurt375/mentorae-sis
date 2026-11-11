@@ -6,6 +6,7 @@ const { classifyRisk, toFeatureVector } = require('../ml/features');
 const riskModel = require('../ml/riskModel');
 const { buildRecommendations } = require('../ml/prescriptive');
 const { getManilaDate } = require('../utils/dateUtils');
+const { getActiveTermConfig } = require('../utils/termUtils');
 
 /** GET /api/analytics/filter-options — provides available grade levels, strands, and sections */
 async function getFilterOptions(req, res) {
@@ -161,16 +162,17 @@ async function getRiskDistribution(req, res) {
       }
     }
 
+    const { currentTerm, termStartDate } = await getActiveTermConfig();
     const whereClause = `WHERE ${where.join(' AND ')}`;
 
     const [rows] = await pool.query(
       `SELECT u.id,
-              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id) AS grade,
-              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id) AS attendanceRate
+              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id AND term = ?) AS grade,
+              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id AND scan_date >= ?) AS attendanceRate
        FROM users u
        LEFT JOIN sections s ON s.id = u.section_id
        ${whereClause}`,
-      params
+      [currentTerm, termStartDate, ...params]
     );
 
     const counts = { High: 0, Medium: 0, Low: 0 };
@@ -237,20 +239,21 @@ async function getRiskAssessment(req, res) {
       }
     }
 
+    const { currentTerm, termStartDate } = await getActiveTermConfig();
     const whereClause = `WHERE ${where.join(' AND ')}`;
 
     const [rows] = await pool.query(
       `SELECT u.id AS studentId, u.id_number, u.first_name, u.middle_initial, u.last_name,
               u.section_id, s.name AS sectionName, s.grade_level AS gradeLevel,
               st.code AS strandCode, st.title AS strandTitle,
-              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id) AS overallGrade,
-              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id) AS attendanceRate
+              (SELECT ROUND(AVG(average), 1) FROM grades WHERE student_id = u.id AND term = ?) AS overallGrade,
+              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id AND scan_date >= ?) AS attendanceRate
        FROM users u
        LEFT JOIN sections s ON s.id = u.section_id
        LEFT JOIN strands st ON st.id = s.strand_id
        ${whereClause}
        ORDER BY u.last_name ASC, u.first_name ASC`,
-      params
+      [currentTerm, termStartDate, ...params]
     );
 
     // Fetch existing targeted intervention assignments in bulk for these students
@@ -283,10 +286,10 @@ async function getRiskAssessment(req, res) {
           `SELECT g.average, sub.id AS subjectId, sub.name AS subjectName
            FROM grades g
            JOIN subjects sub ON sub.id = g.subject_id
-           WHERE g.student_id = ?
+           WHERE g.student_id = ? AND g.term = ?
            ORDER BY g.average ASC
            LIMIT 1`,
-          [r.studentId]
+          [r.studentId, currentTerm]
         );
 
         const lowest = subRows.length > 0 ? subRows[0] : null;
@@ -434,16 +437,18 @@ async function getRiskDirectory(req, res) {
 async function getPredictiveRisk(req, res) {
   try {
     const loaded = riskModel.load();
+    const { currentTerm, termStartDate } = await getActiveTermConfig();
 
     const [rows] = await pool.query(
       `SELECT g.id AS gradeId, u.id AS studentId, u.id_number, u.first_name, u.middle_initial, u.last_name,
               sub.name AS subjectName, g.term, g.quiz_score, g.activity_score, g.exam_score,
-              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id) AS attendanceRate
+              (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id AND scan_date >= ?) AS attendanceRate
        FROM grades g
        JOIN users u ON u.id = g.student_id
        JOIN subjects sub ON sub.id = g.subject_id
-       WHERE u.role = 'student' AND g.exam_score IS NULL
-       ORDER BY g.updated_at DESC`
+       WHERE u.role = 'student' AND (g.exam_score IS NULL OR g.exam_score = 0) AND g.term = ?
+       ORDER BY g.updated_at DESC`,
+      [termStartDate, currentTerm]
     );
 
     const predictions = rows.map((r) => {
@@ -706,11 +711,13 @@ async function getSystemStatus(req, res) {
 /** GET /api/analytics/institutional-overview — High-level KPI metrics for the Main Executive Dashboard */
 async function getInstitutionalOverview(req, res) {
   try {
+    const { currentTerm, termStartDate } = await getActiveTermConfig();
+
     const [[usersTotal]] = await pool.query("SELECT COUNT(id) AS count FROM users");
     const [[st]] = await pool.query("SELECT COUNT(id) AS count FROM users WHERE role = 'student'");
     const [[sec]] = await pool.query("SELECT COUNT(id) AS count FROM sections");
     
-    // Attendance calculation: check today first, fallback to overall log average
+    // Attendance calculation: check today first, fallback to active term window average
     const today = getManilaDate();
     const [[attToday]] = await pool.query(
       "SELECT COUNT(id) AS presentCount FROM attendance_logs WHERE scan_date = ? AND status IN ('present', 'late')",
@@ -720,20 +727,23 @@ async function getInstitutionalOverview(req, res) {
     if (st.count > 0 && attToday.presentCount > 0) {
       attendanceRate = Math.round((attToday.presentCount / st.count) * 100);
     } else {
-      const [[attOverall]] = await pool.query(
-        "SELECT ROUND((SUM(status IN ('present', 'late')) / COUNT(id)) * 100) AS rate FROM attendance_logs"
+      const [[attTerm]] = await pool.query(
+        "SELECT ROUND((SUM(status IN ('present', 'late')) / COUNT(id)) * 100) AS rate FROM attendance_logs WHERE scan_date >= ?",
+        [termStartDate]
       );
-      attendanceRate = attOverall.rate !== null ? Number(attOverall.rate) : 0;
+      attendanceRate = attTerm.rate !== null ? Number(attTerm.rate) : 0;
     }
 
-    // Average school GPA
+    // Average school GPA strictly for active term (resets to 0.0 when new term has no grades yet)
     const [[gpaRows]] = await pool.query(
-      "SELECT ROUND(AVG(average), 1) AS avgGpa FROM grades"
+      "SELECT ROUND(AVG(average), 1) AS avgGpa FROM grades WHERE term = ?",
+      [currentTerm]
     );
-    const schoolGpa = gpaRows.avgGpa !== null ? Number(gpaRows.avgGpa) : 85.0;
+    const schoolGpa = gpaRows.avgGpa !== null ? Number(gpaRows.avgGpa) : 0.0;
 
     return res.json({
       success: true,
+      activeTerm: currentTerm,
       totalUsers: Number(usersTotal.count || 0),
       enrolledStudents: Number(st.count || 0),
       activeSections: Number(sec.count || 0),

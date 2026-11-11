@@ -6690,6 +6690,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =========================================================================
     // 13. Initial Bootstrapping
     // =========================================================================
+    async function syncActiveTermSelection() {
+        try {
+            const data = await authedFetch('/api/settings', token);
+            if (data && data.success && data.settings) {
+                const termStr = String(data.settings.current_semester || '2nd Term');
+                let targetVal = 't2';
+                if (termStr.includes('1') || termStr.toLowerCase().includes('1st') || termStr.toLowerCase().includes('first')) targetVal = 't1';
+                else if (termStr.includes('2') || termStr.toLowerCase().includes('2nd') || termStr.toLowerCase().includes('second')) targetVal = 't2';
+                else if (termStr.includes('3') || termStr.toLowerCase().includes('3rd') || termStr.toLowerCase().includes('third')) targetVal = 't3';
+
+                if (encodeTermFilter) {
+                    encodeTermFilter.value = targetVal;
+                }
+            }
+        } catch (e) {
+            console.warn('syncActiveTermSelection note:', e.message);
+        }
+    }
+
+    await syncActiveTermSelection();
     await Promise.all([
         loadSections(),
         loadBadgeCatalog()
