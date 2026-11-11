@@ -70,9 +70,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const linkAttendance = document.getElementById('linkAttendance');
     const linkGradePerformance = document.getElementById('linkGradePerformance');
+    const linkAchievements = document.getElementById('linkAchievements');
     const childrenSelectorContainer = document.getElementById('childrenSelectorContainer');
     const childSelectDropdown = document.getElementById('childSelectDropdown');
     const announcementsBadge = document.getElementById('announcementsBadge');
+
+    const parentRiskStatusBadge = document.getElementById('parentRiskStatusBadge');
+    const parentRecommendationsContainer = document.getElementById('parentRecommendationsContainer');
 
     let childrenList = [];
     let currentChildIndex = 0;
@@ -174,6 +178,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (linkGradePerformance) {
             linkGradePerformance.href = `grade_performance_parent.html?studentId=${child.id}`;
+        }
+        if (linkAchievements) {
+            linkAchievements.href = `achievements_parent.html?studentId=${child.id}`;
+        }
+
+        // Load Prescriptive Home Support Guidance for this child
+        loadParentRecommendations(child.id);
+    }
+
+    async function loadParentRecommendations(childId) {
+        if (!parentRecommendationsContainer) return;
+        parentRecommendationsContainer.innerHTML = `
+            <div class="text-center py-3 text-muted micro-text">
+                <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
+                Analyzing academic indicators and generating home guidance...
+            </div>
+        `;
+
+        try {
+            const res = await authedFetch(`/api/parent/student/${childId}/recommendations`, token);
+            if (!res || !res.success || !res.prescriptive) {
+                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0">No active guidance recommendations at this time.</p>';
+                if (parentRiskStatusBadge) parentRiskStatusBadge.textContent = 'Active Monitoring';
+                return;
+            }
+
+            const { student, prescriptive } = res;
+            if (parentRiskStatusBadge) {
+                parentRiskStatusBadge.textContent = student.riskTier || 'Good Standing';
+                if (student.riskTier && student.riskTier.includes('High')) {
+                    parentRiskStatusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text fw-bold px-2.5 py-1.5';
+                } else if (student.riskTier && student.riskTier.includes('Medium')) {
+                    parentRiskStatusBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle micro-text fw-bold px-2.5 py-1.5';
+                } else {
+                    parentRiskStatusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle micro-text fw-bold px-2.5 py-1.5';
+                }
+            }
+
+            const actions = prescriptive.homeActions || [];
+            if (!actions.length) {
+                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0">Your child is performing well across all subjects.</p>';
+                return;
+            }
+
+            parentRecommendationsContainer.innerHTML = actions.map(act => `
+                <div class="p-2.5 rounded-3 border bg-light d-flex align-items-start gap-2.5">
+                    <div class="fs-5 flex-shrink-0 mt-0.5">
+                        <i class="bi ${act.icon}"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark m-0 small">${act.title}</h6>
+                        <p class="micro-text text-secondary m-0 mt-0.5">${act.text}</p>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.warn('Could not load parent recommendations:', err);
+            if (parentRecommendationsContainer) {
+                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0">Guidance recommendations could not be updated right now.</p>';
+            }
         }
     }
 

@@ -1162,6 +1162,139 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    // =========================================================================
+    // 17b. Printable & Downloadable Achievements & Badge Reports
+    // =========================================================================
+    const btnPrintBadgeReport = document.getElementById('btnPrintBadgeReport');
+    const btnExportBadgeExcel = document.getElementById('btnExportBadgeExcel');
+
+    function printBadgePortfolio() {
+        if (!earnedBadges || !earnedBadges.length) {
+            alert('No unlocked badges found to print yet.');
+            return;
+        }
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert('Pop-up blocked. Please allow pop-ups to print your badge portfolio.');
+            return;
+        }
+
+        const totalPts = earnedBadges.reduce((s, b) => s + (b.points || 0), 0);
+        const rankTxt = document.getElementById('classRankDisplay') ? document.getElementById('classRankDisplay').textContent : '#—';
+        const studentIdNumber = user ? (user.id_number || 'N/A') : 'N/A';
+
+        const rowsHtml = earnedBadges.map((b, idx) => `
+            <tr>
+                <td style="text-align: center;">${idx + 1}</td>
+                <td><strong>${b.title}</strong></td>
+                <td style="text-align: center;"><span style="display:inline-block; padding: 2px 8px; border-radius: 12px; background:#e8f5e9; color:#1b5e20; font-weight:600; font-size:0.8rem;">${b.category}</span></td>
+                <td style="text-align: center; font-weight: bold; color: #0a5c2c;">+${b.points} pts</td>
+                <td style="text-align: center;">${b.earnedAt ? new Date(b.earnedAt).toLocaleDateString() : 'Active Term'}</td>
+                <td>${b.awardedBy || 'Subject Teacher'}</td>
+                <td style="font-size: 0.8rem; color: #475569;">${b.description || b.requirement || 'Excellence and engagement award'}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Achievements & Rewards Portfolio - ${STUDENT_NAME}</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                <style>
+                    @page { size: landscape; margin: 1cm; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; padding: 1.5rem; }
+                    .header-box { border-bottom: 2px solid #0a5c2c; padding-bottom: 0.75rem; margin-bottom: 1.25rem; }
+                    @media print { .no-print { display: none !important; } }
+                </style>
+            </head>
+            <body>
+                <div class="no-print d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Learner Achievement Transcript &amp; Badge Portfolio</span>
+                    <button class="btn btn-sm btn-primary" onclick="window.print()">Print Document</button>
+                </div>
+                <div class="header-box d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
+                        <div class="small fw-semibold text-secondary">Learner Achievements, Motivation Badges &amp; Gamified Rewards Portfolio</div>
+                        <div class="small text-muted mt-1">Learner: <strong>${STUDENT_NAME}</strong> | ID: <code>${studentIdNumber}</code></div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-success fs-6 me-1">Total Points: ${totalPts}</span>
+                        <span class="badge bg-primary fs-6">Class Rank: ${rankTxt}</span>
+                        <div class="small text-muted mt-1">Generated: ${new Date().toLocaleDateString()}</div>
+                    </div>
+                </div>
+                <table class="table table-bordered table-sm align-middle mt-3">
+                    <thead style="background-color: #0a5c2c; color: white;">
+                        <tr>
+                            <th style="width: 5%; text-align: center;">#</th>
+                            <th style="width: 20%;">Badge Name</th>
+                            <th style="width: 14%; text-align: center;">Category</th>
+                            <th style="width: 11%; text-align: center;">Points</th>
+                            <th style="width: 14%; text-align: center;">Earned Date</th>
+                            <th style="width: 16%;">Awarded By</th>
+                            <th style="width: 20%;">DepEd Citation / Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+    }
+
+    function exportBadgeExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert('Excel library is loading. Please try again in a moment.');
+            return;
+        }
+        if (!earnedBadges || !earnedBadges.length) {
+            alert('No unlocked badges found to export.');
+            return;
+        }
+
+        const studentIdNumber = user ? (user.id_number || 'N/A') : 'N/A';
+        const totalPts = earnedBadges.reduce((s, b) => s + (b.points || 0), 0);
+        const rankTxt = document.getElementById('classRankDisplay') ? document.getElementById('classRankDisplay').textContent : '#—';
+
+        const data = [
+            ["TALISAY SENIOR HIGH SCHOOL - STUDENT ACHIEVEMENTS & BADGES PORTFOLIO"],
+            ["Learner Name:", STUDENT_NAME, "Student ID / LRN:", studentIdNumber],
+            ["Total Gamified Points:", totalPts, "Class Standings Rank:", rankTxt],
+            ["Export Date:", new Date().toLocaleDateString(), "Total Badges:", earnedBadges.length],
+            [],
+            ["No.", "Badge Name", "Category", "Points", "Date Earned", "Awarded By", "Description & Criteria"]
+        ];
+
+        earnedBadges.forEach((b, idx) => {
+            data.push([
+                idx + 1,
+                b.title,
+                b.category,
+                b.points,
+                b.earnedAt ? new Date(b.earnedAt).toLocaleDateString() : 'Active Term',
+                b.awardedBy || 'Subject Teacher',
+                b.description || b.requirement || ''
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 45 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Badges Portfolio");
+        const filename = `Badges_Portfolio_${studentIdNumber}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, filename);
+    }
+
+    if (btnPrintBadgeReport) btnPrintBadgeReport.addEventListener('click', printBadgePortfolio);
+    if (btnExportBadgeExcel) btnExportBadgeExcel.addEventListener('click', exportBadgeExcel);
+
     // 18. Initial View Mode Setup & Data Load
     setViewMode(getStoredViewMode());
     await loadData();

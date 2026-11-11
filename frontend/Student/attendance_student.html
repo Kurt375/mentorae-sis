@@ -112,13 +112,28 @@
             </div>
 
             <section class="card border-0 rounded-3 p-4 shadow-sm bg-white mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                    <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Attendance History</h3>
-                    <button type="button"
-                        class="btn btn-sm btn-outline-success fw-semibold px-3 rounded-pill d-inline-flex align-items-center gap-1"
-                        id="btnExportLogs">
-                        <i class="bi bi-download"></i> Export
-                    </button>
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3 border-bottom pb-2">
+                    <div>
+                        <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Attendance History</h3>
+                        <p class="micro-text text-muted mb-0">Official daily QR scan and classroom check-in records</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                        <button type="button"
+                            class="btn btn-sm btn-outline-secondary fw-semibold px-2.5 rounded-pill d-inline-flex align-items-center gap-1"
+                            id="btnExportLogs" title="Print Attendance Log">
+                            <i class="bi bi-printer-fill"></i> Print Log
+                        </button>
+                        <button type="button"
+                            class="btn btn-sm btn-success fw-semibold px-2.5 rounded-pill d-inline-flex align-items-center gap-1"
+                            id="btnDownloadAttendanceExcel" title="Download Excel Spreadsheet">
+                            <i class="bi bi-file-earmark-excel-fill"></i> Download (.xlsx)
+                        </button>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-success fw-semibold px-2.5 rounded-pill d-inline-flex align-items-center gap-1 bg-white"
+                            id="btnDownloadAttendanceCsv" title="Download CSV File">
+                            <i class="bi bi-filetype-csv"></i> CSV
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Search and Filter Row (Below Left) -->
@@ -187,6 +202,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
     <script src="attendance_student.js"></script>

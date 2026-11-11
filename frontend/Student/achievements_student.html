@@ -111,6 +111,12 @@
 
                     <!-- Custom Display Controls Toolbar -->
                     <div class="d-flex align-items-center flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1 bg-white" id="btnPrintBadgeReport" title="Print Achievements Portfolio">
+                            <i class="bi bi-printer-fill"></i> Print Portfolio
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1" id="btnExportBadgeExcel" title="Download Excel (.xlsx)">
+                            <i class="bi bi-file-earmark-excel-fill"></i> Export (.xlsx)
+                        </button>
                         <!-- Category Filter -->
                         <select class="form-select form-select-sm rounded-pill shadow-xs bg-white border text-sm"
                             id="badgeCategoryFilter" style="width: auto;" aria-label="Filter Badge Category">
@@ -581,6 +587,7 @@
         crossorigin="anonymous"></script>
     <script src="../config.js"></script>
     <script src="../session.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Custom Achievements Script -->
     <script src="achievements_student.js?v=20261009-2"></script>
 </body>

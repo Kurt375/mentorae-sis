@@ -1003,4 +1003,78 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     }
+
+    // =========================================================================
+    // School-Wide Demographic Analytics & Excel Export Engine (Admin)
+    // =========================================================================
+    const btnExportTrendsExcel = document.getElementById('btnExportTrendsExcel');
+    if (btnExportTrendsExcel) {
+        btnExportTrendsExcel.addEventListener('click', () => {
+            window.open(`${API_BASE}/api/analytics/export-academic-trends?token=${encodeURIComponent(token)}`, '_blank');
+        });
+    }
+
+    const btnExportDemographicsExcel = document.getElementById('btnExportDemographicsExcel');
+    if (btnExportDemographicsExcel) {
+        btnExportDemographicsExcel.addEventListener('click', () => {
+            window.open(`${API_BASE}/api/analytics/export-demographics?token=${encodeURIComponent(token)}`, '_blank');
+        });
+    }
+
+    async function loadDemographics() {
+        const demoTotalEl = document.getElementById('demoTotalStudents');
+        const demoMaleCountEl = document.getElementById('demoMaleCount');
+        const demoFemaleCountEl = document.getElementById('demoFemaleCount');
+        const demoMaleBarEl = document.getElementById('demoMaleBar');
+        const demoFemaleBarEl = document.getElementById('demoFemaleBar');
+        const demo4PsCountEl = document.getElementById('demo4PsCount');
+        const demo4PsPctEl = document.getElementById('demo4PsPct');
+        const demoAralCountEl = document.getElementById('demoAralCount');
+        const demoAralPctEl = document.getElementById('demoAralPct');
+        const demoStrandBarsContainer = document.getElementById('demoStrandBarsContainer');
+
+        if (!demoTotalEl) return;
+
+        try {
+            const res = await authedFetch('/api/analytics/demographics', token);
+            if (!res || !res.success || !res.demographics) return;
+
+            const { totalStudents, sexDistribution, programDistribution, strandDistribution } = res.demographics;
+
+            if (demoTotalEl) demoTotalEl.textContent = totalStudents;
+            if (demoMaleCountEl) demoMaleCountEl.textContent = `${sexDistribution.male} M (${sexDistribution.malePct}%)`;
+            if (demoFemaleCountEl) demoFemaleCountEl.textContent = `${sexDistribution.female} F (${sexDistribution.femalePct}%)`;
+
+            if (demoMaleBarEl) demoMaleBarEl.style.width = `${sexDistribution.malePct}%`;
+            if (demoFemaleBarEl) demoFemaleBarEl.style.width = `${sexDistribution.femalePct}%`;
+
+            if (demo4PsCountEl) demo4PsCountEl.textContent = programDistribution.fourPs;
+            if (demo4PsPctEl) demo4PsPctEl.textContent = `${programDistribution.fourPsPct}% of student population`;
+
+            if (demoAralCountEl) demoAralCountEl.textContent = programDistribution.aral;
+            if (demoAralPctEl) demoAralPctEl.textContent = `${programDistribution.aralPct}% remedial support`;
+
+            if (demoStrandBarsContainer && Array.isArray(strandDistribution)) {
+                if (!strandDistribution.length) {
+                    demoStrandBarsContainer.innerHTML = '<div class="text-muted micro-text text-center py-2">No active strand enrollments found.</div>';
+                } else {
+                    demoStrandBarsContainer.innerHTML = strandDistribution.map(st => `
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center micro-text mb-1">
+                                <span class="fw-semibold text-dark"><strong>${escapeHtml(st.code)}</strong> — ${escapeHtml(st.title)}</span>
+                                <span class="text-muted">${st.totalLearners} learners (${st.pct}%) &bull; <span class="text-primary">${st.maleCount} M</span> / <span class="text-danger">${st.femaleCount} F</span></span>
+                            </div>
+                            <div class="progress" style="height: 7px;">
+                                <div class="progress-bar bg-success" style="width: ${st.pct}%;"></div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+        } catch (err) {
+            console.warn('Could not load demographic analytics:', err);
+        }
+    }
+
+    loadDemographics();
 });

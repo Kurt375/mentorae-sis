@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { classifyRisk, toFeatureVector } = require('../ml/features');
 const riskModel = require('../ml/riskModel');
@@ -745,6 +746,373 @@ async function getInstitutionalOverview(req, res) {
   }
 }
 
+/** GET /api/analytics/demographics — School-wide demographic breakdown (Sex, Strand, Grade Level, 4Ps/ARAL) */
+async function getDemographics(req, res) {
+  try {
+    const [[totalRow]] = await pool.query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'");
+    const total = Number(totalRow.total || 0);
+
+    // Sex distribution
+    const [sexRows] = await pool.query(
+      `SELECT COALESCE(sex, 'Unspecified') AS sex, COUNT(*) AS count
+       FROM users WHERE role = 'student'
+       GROUP BY sex`
+    );
+    const sexDistribution = {
+      male: 0,
+      female: 0,
+      unspecified: 0,
+      malePct: 0,
+      femalePct: 0
+    };
+    sexRows.forEach(r => {
+      const s = String(r.sex).toLowerCase();
+      if (s === 'male') sexDistribution.male = Number(r.count);
+      else if (s === 'female') sexDistribution.female = Number(r.count);
+      else sexDistribution.unspecified += Number(r.count);
+    });
+    if (total > 0) {
+      sexDistribution.malePct = Math.round((sexDistribution.male / total) * 100);
+      sexDistribution.femalePct = Math.round((sexDistribution.female / total) * 100);
+    }
+
+    // Grade Level distribution
+    const [gradeRows] = await pool.query(
+      `SELECT COALESCE(sec.grade_level, 11) AS gradeLevel, COUNT(u.id) AS count
+       FROM users u
+       LEFT JOIN sections sec ON sec.id = u.section_id
+       WHERE u.role = 'student'
+       GROUP BY gradeLevel
+       ORDER BY gradeLevel ASC`
+    );
+    const gradeDistribution = gradeRows.map(r => ({
+      gradeLevel: Number(r.gradeLevel),
+      count: Number(r.count),
+      pct: total > 0 ? Math.round((Number(r.count) / total) * 100) : 0
+    }));
+
+    // Government program distribution (4Ps, ARAL, Regular)
+    const [progRows] = await pool.query(
+      `SELECT COALESCE(program, 'regular') AS prog, COUNT(*) AS count
+       FROM users WHERE role = 'student'
+       GROUP BY prog`
+    );
+    const programDistribution = {
+      fourPs: 0,
+      aral: 0,
+      regular: 0,
+      fourPsPct: 0,
+      aralPct: 0,
+      regularPct: 0
+    };
+    progRows.forEach(r => {
+      const p = String(r.prog).toLowerCase();
+      if (p === '4ps') programDistribution.fourPs = Number(r.count);
+      else if (p === 'aral') programDistribution.aral = Number(r.count);
+      else programDistribution.regular += Number(r.count);
+    });
+    if (total > 0) {
+      programDistribution.fourPsPct = Math.round((programDistribution.fourPs / total) * 100);
+      programDistribution.aralPct = Math.round((programDistribution.aral / total) * 100);
+      programDistribution.regularPct = Math.round((programDistribution.regular / total) * 100);
+    }
+
+    // Strand/Cluster distribution
+    const [strandRows] = await pool.query(
+      `SELECT st.id, st.code, st.title,
+              COUNT(u.id) AS totalLearners,
+              SUM(CASE WHEN LOWER(u.sex) = 'male' THEN 1 ELSE 0 END) AS maleCount,
+              SUM(CASE WHEN LOWER(u.sex) = 'female' THEN 1 ELSE 0 END) AS femaleCount,
+              SUM(CASE WHEN LOWER(u.program) = '4ps' THEN 1 ELSE 0 END) AS fourPsCount,
+              SUM(CASE WHEN LOWER(u.program) = 'aral' THEN 1 ELSE 0 END) AS aralCount
+       FROM strands st
+       LEFT JOIN sections sec ON sec.strand_id = st.id
+       LEFT JOIN users u ON u.section_id = sec.id AND u.role = 'student'
+       GROUP BY st.id, st.code, st.title
+       ORDER BY st.code ASC`
+    );
+    const strandDistribution = strandRows.map(r => ({
+      strandId: r.id,
+      code: r.code,
+      title: r.title,
+      totalLearners: Number(r.totalLearners || 0),
+      maleCount: Number(r.maleCount || 0),
+      femaleCount: Number(r.femaleCount || 0),
+      fourPsCount: Number(r.fourPsCount || 0),
+      aralCount: Number(r.aralCount || 0),
+      pct: total > 0 ? Math.round((Number(r.totalLearners || 0) / total) * 100) : 0
+    }));
+
+    return res.json({
+      success: true,
+      demographics: {
+        totalStudents: total,
+        sexDistribution,
+        gradeDistribution,
+        programDistribution,
+        strandDistribution
+      }
+    });
+  } catch (err) {
+    console.error('getDemographics error:', err);
+    return res.status(500).json({ success: false, message: 'Could not load school-wide demographics.' });
+  }
+}
+
+/** GET /api/analytics/export-demographics — Generates official Excel workbook for demographic reporting */
+async function exportDemographics(req, res) {
+  try {
+    const [[totalRow]] = await pool.query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'");
+    const total = Number(totalRow.total || 0);
+
+    const [strandRows] = await pool.query(
+      `SELECT st.code, st.title,
+              SUM(CASE WHEN sec.grade_level = 11 THEN 1 ELSE 0 END) AS g11Count,
+              SUM(CASE WHEN sec.grade_level = 12 THEN 1 ELSE 0 END) AS g12Count,
+              SUM(CASE WHEN LOWER(u.sex) = 'male' THEN 1 ELSE 0 END) AS maleCount,
+              SUM(CASE WHEN LOWER(u.sex) = 'female' THEN 1 ELSE 0 END) AS femaleCount,
+              SUM(CASE WHEN LOWER(u.program) = '4ps' THEN 1 ELSE 0 END) AS fourPsCount,
+              SUM(CASE WHEN LOWER(u.program) = 'aral' THEN 1 ELSE 0 END) AS aralCount,
+              COUNT(u.id) AS totalCount
+       FROM strands st
+       LEFT JOIN sections sec ON sec.strand_id = st.id
+       LEFT JOIN users u ON u.section_id = sec.id AND u.role = 'student'
+       GROUP BY st.id, st.code, st.title
+       ORDER BY st.code ASC`
+    );
+
+    const [secRows] = await pool.query(
+      `SELECT sec.name AS sectionName, sec.grade_level, st.code AS strandCode,
+              COUNT(u.id) AS enrolledCount,
+              SUM(CASE WHEN LOWER(u.sex) = 'male' THEN 1 ELSE 0 END) AS maleCount,
+              SUM(CASE WHEN LOWER(u.sex) = 'female' THEN 1 ELSE 0 END) AS femaleCount
+       FROM sections sec
+       JOIN strands st ON st.id = sec.strand_id
+       LEFT JOIN users u ON u.section_id = sec.id AND u.role = 'student'
+       GROUP BY sec.id, sec.name, sec.grade_level, st.code
+       ORDER BY sec.grade_level ASC, st.code ASC, sec.name ASC`
+    );
+
+    // Sheet 1: Executive Summary
+    const sheet1Data = [
+      ["TALISAY SENIOR HIGH SCHOOL - INSTITUTIONAL DEMOGRAPHIC REPORT"],
+      ["Academic Year:", "2026-2027", "Generated On:", new Date().toLocaleDateString()],
+      ["Total Enrolled Learners:", total],
+      [],
+      ["DEMOGRAPHIC CATEGORY", "CLASSIFICATION", "ENROLLED COUNT", "PERCENTAGE OF TOTAL"],
+    ];
+
+    let maleTotal = 0;
+    let femaleTotal = 0;
+    let fourPsTotal = 0;
+    let aralTotal = 0;
+
+    strandRows.forEach(r => {
+      maleTotal += Number(r.maleCount || 0);
+      femaleTotal += Number(r.femaleCount || 0);
+      fourPsTotal += Number(r.fourPsCount || 0);
+      aralTotal += Number(r.aralCount || 0);
+    });
+
+    const mPct = total > 0 ? ((maleTotal / total) * 100).toFixed(1) + '%' : '0%';
+    const fPct = total > 0 ? ((femaleTotal / total) * 100).toFixed(1) + '%' : '0%';
+    sheet1Data.push(["Sex / Gender", "Male Learners", maleTotal, mPct]);
+    sheet1Data.push(["Sex / Gender", "Female Learners", femaleTotal, fPct]);
+
+    const fourPsPct = total > 0 ? ((fourPsTotal / total) * 100).toFixed(1) + '%' : '0%';
+    const aralPct = total > 0 ? ((aralTotal / total) * 100).toFixed(1) + '%' : '0%';
+    const regTotal = Math.max(0, total - fourPsTotal - aralTotal);
+    const regPct = total > 0 ? ((regTotal / total) * 100).toFixed(1) + '%' : '0%';
+    sheet1Data.push(["Assistance Program", "4Ps Beneficiaries", fourPsTotal, fourPsPct]);
+    sheet1Data.push(["Assistance Program", "ARAL Program (Remedial)", aralTotal, aralPct]);
+    sheet1Data.push(["Assistance Program", "Regular Learners", regTotal, regPct]);
+
+    // Sheet 2: Cluster & Strand Details
+    const sheet2Data = [
+      ["No.", "Cluster Code", "Cluster Title", "Grade 11", "Grade 12", "Male", "Female", "4Ps", "ARAL", "Total Learners", "Percentage"]
+    ];
+    strandRows.forEach((r, idx) => {
+      const pct = total > 0 ? ((Number(r.totalCount) / total) * 100).toFixed(1) + '%' : '0%';
+      sheet2Data.push([
+        idx + 1,
+        r.code,
+        r.title,
+        Number(r.g11Count || 0),
+        Number(r.g12Count || 0),
+        Number(r.maleCount || 0),
+        Number(r.femaleCount || 0),
+        Number(r.fourPsCount || 0),
+        Number(r.aralCount || 0),
+        Number(r.totalCount || 0),
+        pct
+      ]);
+    });
+
+    // Sheet 3: Section Roster Counts
+    const sheet3Data = [
+      ["No.", "Grade Level", "Cluster / Track", "Section Name", "Male Learners", "Female Learners", "Total Enrolled"]
+    ];
+    secRows.forEach((r, idx) => {
+      sheet3Data.push([
+        idx + 1,
+        `Grade ${r.grade_level}`,
+        r.strandCode,
+        r.sectionName,
+        Number(r.maleCount || 0),
+        Number(r.femaleCount || 0),
+        Number(r.enrolledCount || 0)
+      ]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+    ws1['!cols'] = [{ wch: 25 }, { wch: 28 }, { wch: 18 }, { wch: 22 }];
+
+    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+    ws2['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 38 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
+
+    const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data);
+    ws3['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 18 }, { wch: 25 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Executive Demographics");
+    XLSX.utils.book_append_sheet(wb, ws2, "Clusters & Strands");
+    XLSX.utils.book_append_sheet(wb, ws3, "Sections Distribution");
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `TSHS_School_Demographics_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(buf);
+  } catch (err) {
+    console.error('exportDemographics error:', err);
+    return res.status(500).json({ success: false, message: 'Could not export school-wide demographics.' });
+  }
+}
+
+/** GET /api/analytics/export-academic-trends — Generates official Excel workbook for multi-term academic progression */
+async function exportAcademicTrends(req, res) {
+  try {
+    // School-wide term averages
+    const [trendRows] = await pool.query(
+      `SELECT g.term,
+              COUNT(g.id) AS recordedGradesCount,
+              ROUND(AVG(g.average), 2) AS averageGrade,
+              SUM(CASE WHEN g.average >= 75 THEN 1 ELSE 0 END) AS passedCount,
+              SUM(CASE WHEN g.average >= 90 THEN 1 ELSE 0 END) AS honorsCount,
+              SUM(CASE WHEN g.average < 75 THEN 1 ELSE 0 END) AS atRiskCount
+       FROM grades g
+       GROUP BY g.term
+       ORDER BY g.term ASC`
+    );
+
+    // Strand averages per term
+    const [strandTrendRows] = await pool.query(
+      `SELECT st.code AS strandCode, st.title AS strandTitle, g.term,
+              ROUND(AVG(g.average), 2) AS avgGrade,
+              COUNT(g.id) AS gradeCount
+       FROM grades g
+       JOIN sections sec ON sec.id = g.section_id
+       JOIN strands st ON st.id = sec.strand_id
+       GROUP BY st.code, st.title, g.term
+       ORDER BY st.code ASC, g.term ASC`
+    );
+
+    // Subject averages
+    const [subjectRows] = await pool.query(
+      `SELECT sub.code AS subjectCode, sub.name AS subjectName, sub.classification,
+              ROUND(AVG(g.average), 2) AS avgGrade,
+              SUM(CASE WHEN g.average >= 75 THEN 1 ELSE 0 END) AS passedCount,
+              COUNT(g.id) AS totalGrades
+       FROM grades g
+       JOIN subjects sub ON sub.id = g.subject_id
+       GROUP BY sub.code, sub.name, sub.classification
+       ORDER BY avgGrade DESC`
+    );
+
+    // Sheet 1: Academic Progression
+    const sheet1Data = [
+      ["TALISAY SENIOR HIGH SCHOOL - AGGREGATE ACADEMIC TRENDS REPORT"],
+      ["Academic Year:", "2026-2027", "Export Date:", new Date().toLocaleDateString()],
+      [],
+      ["GRADING TERM", "EVALUATED GRADES", "TERM AVERAGE GPA", "PASSED COUNT", "PASSING RATE (%)", "HONORS (90+)", "AT-RISK (<75)"]
+    ];
+
+    trendRows.forEach(r => {
+      const total = Number(r.recordedGradesCount || 0);
+      const passed = Number(r.passedCount || 0);
+      const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) + '%' : '0%';
+      sheet1Data.push([
+        r.term,
+        total,
+        Number(r.averageGrade || 0),
+        passed,
+        passRate,
+        Number(r.honorsCount || 0),
+        Number(r.atRiskCount || 0)
+      ]);
+    });
+
+    // Sheet 2: Cluster Performance Trends
+    const sheet2Data = [
+      ["No.", "Cluster Code", "Cluster Title", "Grading Term", "Term GPA Average", "Grades Sample Size"]
+    ];
+    strandTrendRows.forEach((r, idx) => {
+      sheet2Data.push([
+        idx + 1,
+        r.strandCode,
+        r.strandTitle,
+        r.term,
+        Number(r.avgGrade || 0),
+        Number(r.gradeCount || 0)
+      ]);
+    });
+
+    // Sheet 3: Subject Performance Overview
+    const sheet3Data = [
+      ["No.", "Subject Code", "Subject Name", "Classification", "Average Grade", "Passing Rate (%)", "Total Records"]
+    ];
+    subjectRows.forEach((r, idx) => {
+      const tot = Number(r.totalGrades || 0);
+      const pass = Number(r.passedCount || 0);
+      const rate = tot > 0 ? ((pass / tot) * 100).toFixed(1) + '%' : '0%';
+      sheet3Data.push([
+        idx + 1,
+        r.subjectCode,
+        r.subjectName,
+        r.classification || 'Core',
+        Number(r.avgGrade || 0),
+        rate,
+        tot
+      ]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+    ws1['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }];
+
+    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+    ws2['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 35 }, { wch: 16 }, { wch: 18 }, { wch: 18 }];
+
+    const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data);
+    ws3['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 35 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 16 }];
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Academic Trends Summary");
+    XLSX.utils.book_append_sheet(wb, ws2, "Clusters Performance");
+    XLSX.utils.book_append_sheet(wb, ws3, "Subjects Ranking");
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `TSHS_Academic_Trends_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(buf);
+  } catch (err) {
+    console.error('exportAcademicTrends error:', err);
+    return res.status(500).json({ success: false, message: 'Could not export academic trends.' });
+  }
+}
+
 module.exports = {
   getFilterOptions,
   getGradeTrend,
@@ -754,5 +1122,8 @@ module.exports = {
   getPredictiveRisk,
   getSystemStatus,
   getInstitutionalOverview,
+  getDemographics,
+  exportDemographics,
+  exportAcademicTrends,
 };
 

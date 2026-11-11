@@ -312,43 +312,162 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Export Attendance Logs Logic
+    // =========================================================================
+    // Printable & Downloadable Attendance Reports (Print, .xlsx, .csv)
+    // =========================================================================
     const btnExportLogs = document.getElementById('btnExportLogs');
-    if (btnExportLogs) {
-        btnExportLogs.addEventListener('click', () => {
-            const table = document.getElementById('attendanceLogTable');
-            const tbody = document.getElementById('attendanceLogBody');
-            if (!table || !tbody || !tbody.children.length || tbody.innerText.includes('No attendance records')) {
-                alert('No attendance records available to export.');
-                return;
-            }
-            const tableHtml = table.outerHTML;
-            const pageTitle = document.title;
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <html>
-                    <head>
-                        <title>Export - ${pageTitle}</title>
-                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-                        <link rel="stylesheet" href="attendance_student.css">
-                        <style>
-                            body { padding: 2rem; }
-                            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>Attendance History</h1>
-                        ${tableHtml}
-                    </body>
-                </html>
-            `);
-            printWindow.document.close();
-            printWindow.onload = function() {
-                printWindow.focus();
-                printWindow.print();
-            };
-        });
+    const btnDownloadAttendanceExcel = document.getElementById('btnDownloadAttendanceExcel');
+    const btnDownloadAttendanceCsv = document.getElementById('btnDownloadAttendanceCsv');
+
+    function getExportRows() {
+        if (!allAttendanceHistory || !allAttendanceHistory.length) return [];
+        return allAttendanceHistory.map((row, idx) => ({
+            no: idx + 1,
+            date: formatDate(row.scan_date),
+            status: (row.status || '').toUpperCase(),
+            time: formatTime(row.scan_time),
+            remarks: row.status === 'present' ? 'On Time' : (row.remarks || 'Regular scan')
+        }));
     }
+
+    function printAttendanceReport() {
+        const rows = getExportRows();
+        if (!rows.length) {
+            alert('No attendance records available to print.');
+            return;
+        }
+
+        const studentName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Student';
+        const studentId = user ? (user.id_number || 'N/A') : 'N/A';
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert('Pop-up blocked. Please allow pop-ups to print your attendance report.');
+            return;
+        }
+
+        const rowsHtml = rows.map(r => `
+            <tr>
+                <td style="text-align: center;">${r.no}</td>
+                <td><strong>${r.date}</strong></td>
+                <td style="text-align: center;"><span class="badge-status status-${r.status.toLowerCase()}">${r.status}</span></td>
+                <td style="text-align: center;">${r.time}</td>
+                <td>${r.remarks}</td>
+            </tr>
+        `).join('');
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Attendance History - ${studentName}</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                <style>
+                    @page { size: portrait; margin: 1.2cm; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; padding: 1rem; }
+                    .header-box { border-bottom: 2px solid #0a5c2c; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+                    .badge-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: bold; }
+                    .status-present { background-color: #d1e7dd; color: #0f5132; }
+                    .status-late { background-color: #fff3cd; color: #664d03; }
+                    .status-excused { background-color: #cff4fc; color: #055160; }
+                    .status-absent { background-color: #f8d7da; color: #842029; }
+                    @media print { .no-print { display: none !important; } }
+                </style>
+            </head>
+            <body>
+                <div class="no-print d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Student Attendance History Report</span>
+                    <button class="btn btn-sm btn-primary" onclick="window.print()">Print Document</button>
+                </div>
+                <div class="header-box d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
+                        <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History</div>
+                        <div class="small text-muted mt-1">Student: <strong>${studentName}</strong> (ID: <code>${studentId}</code>)</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="small text-muted">Generated: ${new Date().toLocaleDateString()}</div>
+                        <div class="small fw-semibold text-success">Total Records: ${rows.length}</div>
+                    </div>
+                </div>
+                <table class="table table-bordered table-sm align-middle mt-2">
+                    <thead style="background-color: #0a5c2c; color: white;">
+                        <tr>
+                            <th style="width: 8%; text-align: center;">#</th>
+                            <th style="width: 25%;">Date</th>
+                            <th style="width: 18%; text-align: center;">Status</th>
+                            <th style="width: 20%; text-align: center;">Time Logged</th>
+                            <th style="width: 29%;">Remarks / Verification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+    }
+
+    function exportAttendanceExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert('Excel library is loading. Please try again in a moment.');
+            return;
+        }
+        const rows = getExportRows();
+        if (!rows.length) {
+            alert('No attendance records available to export.');
+            return;
+        }
+
+        const studentName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Student';
+        const studentId = user ? (user.id_number || 'N/A') : 'N/A';
+
+        const data = [
+            ["TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT"],
+            ["Learner Name:", studentName, "Student ID / LRN:", studentId],
+            ["Export Date:", new Date().toLocaleDateString(), "Total Logs:", rows.length],
+            [],
+            ["No.", "Date", "Status", "Time In / Out", "Remarks / Source"]
+        ];
+
+        rows.forEach(r => {
+            data.push([r.no, r.date, r.status, r.time, r.remarks]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 30 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
+        const filename = `Attendance_History_${studentId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, filename);
+    }
+
+    function exportAttendanceCsv() {
+        const rows = getExportRows();
+        if (!rows.length) {
+            alert('No attendance records available to export.');
+            return;
+        }
+        const studentId = user ? (user.id_number || 'student') : 'student';
+        let csv = "No,Date,Status,Time Logged,Remarks\n";
+        rows.forEach(r => {
+            csv += `${r.no},"${r.date}","${r.status}","${r.time}","${r.remarks.replace(/"/g, '""')}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Attendance_History_${studentId}_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    if (btnExportLogs) btnExportLogs.addEventListener('click', printAttendanceReport);
+    if (btnDownloadAttendanceExcel) btnDownloadAttendanceExcel.addEventListener('click', exportAttendanceExcel);
+    if (btnDownloadAttendanceCsv) btnDownloadAttendanceCsv.addEventListener('click', exportAttendanceCsv);
 
     loadSummary();
     loadHistory();

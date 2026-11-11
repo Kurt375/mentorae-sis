@@ -227,12 +227,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 8. Export / Print Attendance Logs
+    // 8. Export / Print Attendance Logs (Print, .xlsx, .csv)
+    const btnDownloadAttendanceExcel = document.getElementById('btnDownloadAttendanceExcel');
+    const btnDownloadAttendanceCsv = document.getElementById('btnDownloadAttendanceCsv');
+
+    function getParentAttendanceData() {
+        const rows = attendanceTableBody ? Array.from(attendanceTableBody.querySelectorAll('tr[data-status]')) : [];
+        return rows.map((tr, idx) => {
+            const cells = tr.querySelectorAll('td');
+            return {
+                no: idx + 1,
+                date: cells[0] ? cells[0].textContent.trim() : '',
+                status: cells[1] ? cells[1].textContent.trim().toUpperCase() : '',
+                time: cells[2] ? cells[2].textContent.trim() : '',
+                remarks: cells[3] ? cells[3].textContent.trim() : ''
+            };
+        });
+    }
+
     if (btnExportLogs) {
         btnExportLogs.addEventListener('click', () => {
-            const table = document.getElementById('attendanceLogTable');
-            const tbody = document.getElementById('attendanceLogBody');
-            if (!table || !tbody || !tbody.children.length || tbody.innerText.includes('No attendance records')) {
+            const logs = getParentAttendanceData();
+            if (!logs.length) {
                 alert('No attendance records available to export.');
                 return;
             }
@@ -240,47 +256,130 @@ document.addEventListener('DOMContentLoaded', async () => {
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentMeta = activeChild ? `${activeChild.section} | ID: ${activeChild.idNumber || '—'}` : '';
 
-            const tableHtml = table.outerHTML;
-            const pageTitle = `Attendance Records - ${studentName}`;
-
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
                 window.print();
                 return;
             }
 
+            const rowsHtml = logs.map(r => `
+                <tr>
+                    <td style="text-align: center;">${r.no}</td>
+                    <td><strong>${r.date}</strong></td>
+                    <td style="text-align: center;">${r.status}</td>
+                    <td style="text-align: center;">${r.time}</td>
+                    <td>${r.remarks}</td>
+                </tr>
+            `).join('');
+
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html>
                     <head>
-                        <title>Export - ${pageTitle}</title>
+                        <title>Attendance Records - ${studentName}</title>
                         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-                        <link rel="stylesheet" href="attendance_parent.css">
                         <style>
-                            body { padding: 2.5rem; font-family: sans-serif; }
-                            .header-box { border-bottom: 2px solid #0a5c2c; padding-bottom: 1rem; margin-bottom: 1.5rem; }
-                            @media print {
-                                body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                            }
+                            body { padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; }
+                            .header-box { border-bottom: 2px solid #0a5c2c; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+                            @media print { .no-print { display: none !important; } }
                         </style>
                     </head>
                     <body>
-                        <div class="header-box">
-                            <h2 style="color: #0a5c2c; font-weight: bold; margin: 0;">Mentorae Portal - Attendance Report</h2>
-                            <p style="margin: 0.25rem 0 0; color: #333;">Student: <strong>${studentName}</strong> | ${studentMeta}</p>
-                            <p style="margin: 0; color: #777; font-size: 0.85rem;">Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+                        <div class="no-print d-flex justify-content-between align-items-center mb-3">
+                            <span class="text-muted small">Parent Portal - Attendance History</span>
+                            <button class="btn btn-sm btn-primary" onclick="window.print()">Print Document</button>
                         </div>
-                        <h4 style="margin-bottom: 1rem;">Official Attendance History</h4>
-                        ${tableHtml}
+                        <div class="header-box d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 style="color: #0a5c2c; font-weight: bold; margin: 0;">TALISAY SENIOR HIGH SCHOOL</h4>
+                                <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History (Parent View)</div>
+                                <div class="small text-muted mt-1">Student: <strong>${studentName}</strong> (${studentMeta})</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="small text-muted">Generated: ${new Date().toLocaleDateString()}</div>
+                                <div class="small fw-semibold text-success">Total Records: ${logs.length}</div>
+                            </div>
+                        </div>
+                        <table class="table table-bordered table-sm align-middle mt-2">
+                            <thead style="background-color: #0a5c2c; color: white;">
+                                <tr>
+                                    <th style="width: 8%; text-align: center;">#</th>
+                                    <th style="width: 25%;">Date</th>
+                                    <th style="width: 18%; text-align: center;">Status</th>
+                                    <th style="width: 20%; text-align: center;">Time Logged</th>
+                                    <th style="width: 29%;">Remarks / Verification</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
                     </body>
                 </html>
             `);
             
             printWindow.document.close();
-            printWindow.onload = function() {
-                printWindow.focus();
-                printWindow.print();
-            };
+            printWindow.focus();
+        });
+    }
+
+    if (btnDownloadAttendanceExcel) {
+        btnDownloadAttendanceExcel.addEventListener('click', () => {
+            if (typeof XLSX === 'undefined') {
+                alert('Excel library is loading. Please try again in a moment.');
+                return;
+            }
+            const logs = getParentAttendanceData();
+            if (!logs.length) {
+                alert('No attendance records available to export.');
+                return;
+            }
+
+            const studentName = activeChild ? activeChild.name : 'Student';
+            const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
+            const studentSec = activeChild ? activeChild.section : '—';
+
+            const data = [
+                ["TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT (PARENT COPY)"],
+                ["Learner Name:", studentName, "Student ID / LRN:", studentId],
+                ["Class Section:", studentSec, "Export Date:", new Date().toLocaleDateString()],
+                [],
+                ["No.", "Date", "Status", "Time In / Out", "Remarks / Source"]
+            ];
+
+            logs.forEach(r => {
+                data.push([r.no, r.date, r.status, r.time, r.remarks]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            ws['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 30 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
+            const filename = `Attendance_${studentId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        });
+    }
+
+    if (btnDownloadAttendanceCsv) {
+        btnDownloadAttendanceCsv.addEventListener('click', () => {
+            const logs = getParentAttendanceData();
+            if (!logs.length) {
+                alert('No attendance records available to export.');
+                return;
+            }
+            const studentId = activeChild ? (activeChild.idNumber || 'student') : 'student';
+            let csv = "No,Date,Status,Time Logged,Remarks\n";
+            logs.forEach(r => {
+                csv += `${r.no},"${r.date}","${r.status}","${r.time}","${r.remarks.replace(/"/g, '""')}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Attendance_${studentId}_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
     }
 
