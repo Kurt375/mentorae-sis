@@ -142,19 +142,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 6. Fetch Attendance History Logs for Active Student
         try {
-            const historyRes = await authedFetch(`/api/attendance/history?studentId=${activeChild.id}&limit=100`, token);
+            const historyRes = await authedFetch(`/api/attendance/history?studentId=${activeChild.id}&limit=500`, token);
             if (attendanceTableBody) {
                 if (historyRes && historyRes.success && Array.isArray(historyRes.history) && historyRes.history.length > 0) {
                     attendanceTableBody.innerHTML = '';
                     historyRes.history.forEach(log => {
                         if (!log.scan_date) return;
-                        const checkDate = new Date(log.scan_date + 'T00:00:00');
+                        const dateOnly = String(log.scan_date).slice(0, 10);
+                        const checkDate = new Date(dateOnly + 'T00:00:00');
                         if (checkDate.getDay() === 0 || checkDate.getDay() === 6) return; // Skip weekends
 
                         const tr = document.createElement('tr');
                         const statusLower = (log.status || '').toLowerCase();
                         tr.setAttribute('data-status', statusLower);
-                        tr.setAttribute('data-date', log.scan_date || '');
+                        tr.setAttribute('data-date', dateOnly);
 
                         // Format date
                         let dateStr = log.scan_date || '';

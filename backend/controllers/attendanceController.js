@@ -1031,20 +1031,37 @@ async function getSummary(req, res) {
   }
 }
 
-/** GET /api/attendance/history?studentId=&page=&limit= */
+/** GET /api/attendance/history?studentId=&page=&limit=&term= */
 async function getHistory(req, res) {
   try {
     const studentId = await resolveStudentId(req);
     if (studentId.error) return res.status(studentId.code).json({ success: false, message: studentId.error });
 
-    const { page, limit, offset } = parsePagination(req.query, { limit: 30 });
+    const { page, limit, offset } = parsePagination(req.query, { limit: 500 });
+    const { term } = req.query;
+
+    let whereSql = 'WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)';
+    let params = [studentId.id];
+
+    if (term === 'term1' || term === '1st Term') {
+      whereSql += ' AND scan_date >= "2026-06-08" AND scan_date <= "2026-09-15"';
+    } else if (term === 'term2' || term === '2nd Term') {
+      whereSql += ' AND scan_date >= "2026-09-16" AND scan_date <= "2026-11-30"';
+    } else if (term === 'term3' || term === '3rd Term') {
+      whereSql += ' AND scan_date >= "2027-01-04" AND scan_date <= "2027-04-08"';
+    }
+
     const [[{ total }]] = await pool.query(
-      'SELECT COUNT(*) AS total FROM attendance_logs WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)',
-      [studentId.id]
+      `SELECT COUNT(*) AS total FROM attendance_logs ${whereSql}`,
+      params
     );
     const [rows] = await pool.query(
-      'SELECT scan_date, scan_time, status FROM attendance_logs WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7) ORDER BY scan_date DESC LIMIT ? OFFSET ?',
-      [studentId.id, limit, offset]
+      `SELECT DATE_FORMAT(scan_date, '%Y-%m-%d') AS scan_date, scan_time, status 
+       FROM attendance_logs 
+       ${whereSql} 
+       ORDER BY scan_date DESC, scan_time DESC 
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
 
     return res.json({ success: true, history: rows, ...paginatedMeta(total, page, limit) });

@@ -286,14 +286,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return allAttendanceHistory.filter(row => {
             if (!row.scan_date) return false;
-            const d = new Date(row.scan_date + 'T00:00:00');
+            const dateStr = String(row.scan_date).slice(0, 10);
+            const d = new Date(dateStr + 'T00:00:00');
             const day = d.getDay();
             if (day === 0 || day === 6) return false; // Exclude weekends
 
             if (term !== 'all' && TERM_DATES[term]) {
                 const start = TERM_DATES[term].start;
                 const end = TERM_DATES[term].end;
-                if (row.scan_date < start || row.scan_date > end) {
+                if (dateStr < start || dateStr > end) {
                     return false;
                 }
             }
@@ -302,8 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             }
             if (search) {
-                const formatted = formatDate(row.scan_date).toLowerCase();
-                const rawDate = (row.scan_date || '').toLowerCase();
+                const formatted = formatDate(dateStr).toLowerCase();
+                const rawDate = dateStr.toLowerCase();
                 const statusText = (row.status || '').toLowerCase();
                 if (!formatted.includes(search) && !rawDate.includes(search) && !statusText.includes(search)) {
                     return false;
@@ -355,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadHistory() {
         try {
-            const data = await authedFetch('/api/attendance/history', token);
+            const data = await authedFetch('/api/attendance/history?limit=500', token);
             if (!data.success || !Array.isArray(data.history)) {
                 allAttendanceHistory = [];
             } else {
