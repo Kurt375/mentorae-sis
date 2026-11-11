@@ -1037,18 +1037,45 @@ async function getHistory(req, res) {
     const studentId = await resolveStudentId(req);
     if (studentId.error) return res.status(studentId.code).json({ success: false, message: studentId.error });
 
-    const { page, limit, offset } = parsePagination(req.query, { limit: 500 });
-    const { term } = req.query;
+    const { page, limit, offset } = parsePagination(req.query, { limit: 1000 });
+    const { term, school_year, sy } = req.query;
+    const requestedSy = school_year || sy;
 
     let whereSql = 'WHERE student_id = ? AND DAYOFWEEK(scan_date) NOT IN (1, 7)';
     let params = [studentId.id];
 
-    if (term === 'term1' || term === '1st Term') {
-      whereSql += ' AND scan_date >= "2026-06-08" AND scan_date <= "2026-09-15"';
-    } else if (term === 'term2' || term === '2nd Term') {
-      whereSql += ' AND scan_date >= "2026-09-16" AND scan_date <= "2026-11-30"';
-    } else if (term === 'term3' || term === '3rd Term') {
-      whereSql += ' AND scan_date >= "2027-01-04" AND scan_date <= "2027-04-08"';
+    let syStartYear = null;
+    let syEndYear = null;
+    if (requestedSy && requestedSy !== 'all') {
+      const match = String(requestedSy).match(/(\d{4})\s*[-–—]\s*(\d{4})/);
+      if (match) {
+        syStartYear = parseInt(match[1], 10);
+        syEndYear = parseInt(match[2], 10);
+      }
+    }
+
+    if (syStartYear && syEndYear) {
+      if (term === 'term1' || term === '1st Term') {
+        whereSql += ' AND scan_date >= ? AND scan_date <= ?';
+        params.push(`${syStartYear}-06-08`, `${syStartYear}-09-15`);
+      } else if (term === 'term2' || term === '2nd Term') {
+        whereSql += ' AND scan_date >= ? AND scan_date <= ?';
+        params.push(`${syStartYear}-09-16`, `${syStartYear}-11-30`);
+      } else if (term === 'term3' || term === '3rd Term') {
+        whereSql += ' AND scan_date >= ? AND scan_date <= ?';
+        params.push(`${syEndYear}-01-04`, `${syEndYear}-04-08`);
+      } else {
+        whereSql += ' AND scan_date >= ? AND scan_date <= ?';
+        params.push(`${syStartYear}-06-01`, `${syEndYear}-04-30`);
+      }
+    } else {
+      if (term === 'term1' || term === '1st Term') {
+        whereSql += ' AND ((MONTH(scan_date) IN (6,7,8)) OR (MONTH(scan_date) = 9 AND DAY(scan_date) <= 15))';
+      } else if (term === 'term2' || term === '2nd Term') {
+        whereSql += ' AND ((MONTH(scan_date) = 9 AND DAY(scan_date) >= 16) OR MONTH(scan_date) IN (10, 11, 12))';
+      } else if (term === 'term3' || term === '3rd Term') {
+        whereSql += ' AND ((MONTH(scan_date) IN (1, 2, 3)) OR (MONTH(scan_date) = 4 AND DAY(scan_date) <= 8))';
+      }
     }
 
     const [[{ total }]] = await pool.query(

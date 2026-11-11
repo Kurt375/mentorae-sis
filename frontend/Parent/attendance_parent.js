@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 6. Fetch Attendance History Logs for Active Student
         try {
-            const historyRes = await authedFetch(`/api/attendance/history?studentId=${activeChild.id}&limit=500`, token);
+            const historyRes = await authedFetch(`/api/attendance/history?studentId=${activeChild.id}&limit=1000`, token);
             if (attendanceTableBody) {
                 if (historyRes && historyRes.success && Array.isArray(historyRes.history) && historyRes.history.length > 0) {
                     attendanceTableBody.innerHTML = '';
@@ -197,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         `;
                         attendanceTableBody.appendChild(tr);
                     });
+                    syncParentYearDropdown();
                     filterParentAttendanceTable();
                 } else {
                     attendanceTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No attendance records found for this student yet.</td></tr>';
@@ -213,12 +214,96 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Error loading student context:', err);
     }
 
-    // 7. Attendance Status and Academic Term Filter Logic
+    // 7. Attendance Status, School Year, and Academic Term Filter Logic
+    const filterYearSelect = document.getElementById('filterYearSelect');
     const filterTermSelect = document.getElementById('filterTermSelect');
+
+    function getSchoolYearFromDate(dateStr) {
+        if (!dateStr) return '';
+        const parts = String(dateStr).slice(0, 10).split('-');
+        if (parts.length < 3) return '';
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(y) || isNaN(m)) return '';
+        return m >= 6 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+    }
+
+    function getTermFromDate(dateStr) {
+        if (!dateStr) return '';
+        const parts = String(dateStr).slice(0, 10).split('-');
+        if (parts.length < 3) return '';
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if (isNaN(m) || isNaN(d)) return '';
+        // 1st Term: June 8 – September 15
+        if ((m === 6 && d >= 8) || m === 7 || m === 8 || (m === 9 && d <= 15)) {
+            return 'term1';
+        }
+        // 2nd Term: September 16 – December
+        if ((m === 9 && d >= 16) || m === 10 || m === 11 || m === 12) {
+            return 'term2';
+        }
+        // 3rd Term: January – May
+        if (m >= 1 && m <= 5) {
+            return 'term3';
+        }
+        return '';
+    }
+
+    function syncParentYearDropdown() {
+        if (!attendanceTableBody || !filterYearSelect) return;
+        const rows = attendanceTableBody.querySelectorAll('tr[data-status]');
+        const yearsFound = new Set();
+        rows.forEach(r => {
+            const d = r.getAttribute('data-date');
+            const sy = getSchoolYearFromDate(d);
+            if (sy) yearsFound.add(sy);
+        });
+        yearsFound.forEach(sy => {
+            let exists = false;
+            for (let i = 0; i < filterYearSelect.options.length; i++) {
+                if (filterYearSelect.options[i].value === sy) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                const opt = document.createElement('option');
+                opt.value = sy;
+                opt.textContent = `S.Y. ${sy}`;
+                filterYearSelect.appendChild(opt);
+            }
+        });
+    }
+
+    function getParentFilterMetadata() {
+        const year = filterYearSelect ? filterYearSelect.value : 'all';
+        const term = filterTermSelect ? filterTermSelect.value : 'all';
+        const yearText = (filterYearSelect && filterYearSelect.selectedIndex >= 0)
+            ? filterYearSelect.options[filterYearSelect.selectedIndex].text
+            : 'All School Years';
+        const termText = (filterTermSelect && filterTermSelect.selectedIndex >= 0)
+            ? filterTermSelect.options[filterTermSelect.selectedIndex].text
+            : 'All Terms';
+
+        let tag = 'All';
+        if (year !== 'all') tag = `SY_${year}`;
+        if (term !== 'all') tag += `_${term}`;
+
+        return {
+            year,
+            term,
+            yearText,
+            termText,
+            tag,
+            fullScope: `${yearText} • ${termText}`
+        };
+    }
 
     function filterParentAttendanceTable() {
         if (!attendanceTableBody) return;
         const selectedStatus = filterStatusSelect ? filterStatusSelect.value : 'all';
+        const selectedYear = filterYearSelect ? filterYearSelect.value : 'all';
         const selectedTerm = filterTermSelect ? filterTermSelect.value : 'all';
         const rows = attendanceTableBody.querySelectorAll('tr[data-status]');
 
@@ -227,17 +312,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const rowDate = row.getAttribute('data-date') || '';
 
             let matchesStatus = (selectedStatus === 'all' || rowStatus === selectedStatus);
+            let matchesYear = true;
             let matchesTerm = true;
 
-            if (selectedTerm === 'term1') {
-                matchesTerm = (rowDate >= '2026-06-08' && rowDate <= '2026-09-15');
-            } else if (selectedTerm === 'term2') {
-                matchesTerm = (rowDate >= '2026-09-16' && rowDate <= '2026-11-30');
-            } else if (selectedTerm === 'term3') {
-                matchesTerm = (rowDate >= '2027-01-04' && rowDate <= '2027-04-08');
+            if (selectedYear !== 'all') {
+                const sy = getSchoolYearFromDate(rowDate);
+                matchesYear = (sy === selectedYear);
             }
 
-            if (matchesStatus && matchesTerm) {
+            if (selectedTerm !== 'all') {
+                const term = getTermFromDate(rowDate);
+                matchesTerm = (term === selectedTerm);
+            }
+
+            if (matchesStatus && matchesYear && matchesTerm) {
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
@@ -247,6 +335,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (filterStatusSelect) {
         filterStatusSelect.addEventListener('change', filterParentAttendanceTable);
+    }
+    if (filterYearSelect) {
+        filterYearSelect.addEventListener('change', filterParentAttendanceTable);
     }
     if (filterTermSelect) {
         filterTermSelect.addEventListener('change', filterParentAttendanceTable);
@@ -283,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
             const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
+            const meta = getParentFilterMetadata();
 
             const presentCount = logs.filter(r => r.status === 'PRESENT').length;
             const lateCount = logs.filter(r => r.status === 'LATE').length;
@@ -311,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <!DOCTYPE html>
                 <html>
                     <head>
-                        <title>Attendance Records - ${studentName}</title>
+                        <title>Attendance Records - ${studentName} (${meta.fullScope})</title>
                         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                         <style>
                             @page { size: portrait; margin: 1.2cm; }
@@ -328,13 +420,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </head>
                     <body>
                         <div class="no-print d-flex justify-content-between align-items-center mb-3">
-                            <span class="text-muted small">Parent Portal - Official Child Attendance Report</span>
+                            <span class="text-muted small">Parent Portal - Official Child Attendance Report (${meta.fullScope})</span>
                             <button class="btn btn-sm btn-primary" onclick="window.print()">Print Document</button>
                         </div>
                         <div class="header-box d-flex justify-content-between align-items-center">
                             <div>
                                 <h4 style="color: #0a5c2c; font-weight: bold; margin: 0;">TALISAY SENIOR HIGH SCHOOL</h4>
-                                <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History (Parent & Guardian Copy)</div>
+                                <div class="small fw-semibold text-secondary">Learner Individual Attendance Log History — ${meta.fullScope}</div>
                                 <div class="small text-muted mt-1">Learner: <strong>${studentName}</strong> | Class: <strong>${studentSec}</strong> | ID / LRN: <code>${studentId}</code></div>
                             </div>
                             <div class="text-end">
@@ -387,6 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'N/A') : 'N/A';
             const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
+            const meta = getParentFilterMetadata();
 
             const presentCount = logs.filter(r => r.status === 'PRESENT').length;
             const lateCount = logs.filter(r => r.status === 'LATE').length;
@@ -423,7 +516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             rowHeights.push({ hpt: 20 });
             merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
             for (let c = 0; c <= 4; c++) {
-                setCell(1, c, c === 0 ? "MENTORAE — ATTENDANCE LOG REPORT (PARENT & GUARDIAN COPY)" : "", {
+                setCell(1, c, c === 0 ? `MENTORAE — ATTENDANCE LOG REPORT (${meta.fullScope.toUpperCase()})` : "", {
                     font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "E6F4EA" } },
                     fill: { fgColor: { rgb: "074520" } },
                     alignment: { horizontal: "center", vertical: "center" }
@@ -551,10 +644,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             ];
 
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
+            XLSX.utils.book_append_sheet(wb, ws, `Attendance ${meta.tag.slice(0, 20)}`);
 
             const safeName = studentName.replace(/[^a-zA-Z0-9_-]/g, '_');
-            const filename = `Attendance_ParentCopy_${safeName}_${studentId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            const filename = `Attendance_ParentCopy_${safeName}_${meta.tag}_${studentId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
             XLSX.writeFile(wb, filename);
         });
     }
@@ -569,10 +662,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const studentName = activeChild ? activeChild.name : 'Student';
             const studentId = activeChild ? (activeChild.idNumber || 'student') : 'student';
             const studentSec = activeChild ? (activeChild.sectionName || activeChild.section || 'Medical Sciences') : 'Medical Sciences';
+            const meta = getParentFilterMetadata();
             const safeName = studentName.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-            let csv = "TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT (PARENT COPY)\n";
-            csv += `Learner: "${studentName}",Student ID / LRN: "${studentId}",Section: "${studentSec}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
+            let csv = `TALISAY SENIOR HIGH SCHOOL - ATTENDANCE LOG REPORT (${meta.fullScope})\n`;
+            csv += `Learner: "${studentName}",Student ID / LRN: "${studentId}",Section: "${studentSec}",Academic Period: "${meta.fullScope}",Export Date: "${new Date().toLocaleDateString()}"\n\n`;
             csv += "No,Date,Status,Time In/Out,Remarks\n";
             logs.forEach(r => {
                 csv += `${r.no},"${r.date}","${r.status}","${r.time || '—'}","${(r.remarks || 'Regular scan').replace(/"/g, '""')}"\n`;
@@ -581,7 +675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Attendance_ParentCopy_${safeName}_${studentId}_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.setAttribute('download', `Attendance_ParentCopy_${safeName}_${meta.tag}_${studentId}_${new Date().toISOString().slice(0, 10)}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
