@@ -291,7 +291,7 @@ async function computeStudentGradePerformance(studentId) {
   const [scheduledRows] = s.section_id
     ? await pool.query(
         `SELECT sc.subject_id, sc.teacher_id, CONCAT(t.first_name, ' ', t.last_name) AS teacherName,
-                sub.id, sub.code, sub.name, sub.classification,
+                sub.id, sub.code, sub.name, sub.classification, sc.quarter,
                 COALESCE(sub.ww_weight, 20.00) AS ww_weight,
                 COALESCE(sub.pt_weight, 50.00) AS pt_weight,
                 COALESCE(sub.qa_weight, 30.00) AS qa_weight
@@ -351,32 +351,54 @@ async function computeStudentGradePerformance(studentId) {
 
   // Merge subjects to show all real enrolled/curriculum/scheduled subjects
   const subjectsMap = new Map();
+  const scheduledTerms = new Set();
+  const scheduledSpecializedByTerm = new Set();
 
   // Scheduled subjects
   for (const sc of scheduledRows) {
+    const scTerm = normalizeCanonicalTerm(sc.quarter);
+    scheduledTerms.add(scTerm);
+    if ((sc.classification || '').toLowerCase().includes('specialized')) {
+      scheduledSpecializedByTerm.add(scTerm);
+    }
     subjectsMap.set(sc.subject_id, {
       subjectId: sc.subject_id,
       subjectCode: sc.code || 'SUBJ',
       subject: sc.name,
       teacherName: sc.teacherName || null,
       classification: sc.classification || 'Specialized',
-      defaultTerm: normalizeCanonicalTerm(sc.quarter),
+      defaultTerm: scTerm,
       ww_weight: Number(sc.ww_weight) || 20,
       pt_weight: Number(sc.pt_weight) || 50,
       qa_weight: Number(sc.qa_weight) || 30,
     });
   }
 
-  // Curriculum subjects
+  // Curriculum subjects (fallback for terms without active section schedules)
   for (const cur of curriculumRows) {
     if (!subjectsMap.has(cur.id)) {
+      const curTerm = quarterToTerm(cur.quarter);
+      const isCurSpecialized = (cur.classification || '').toLowerCase().includes('specialized');
+
+      // If the section already has a scheduled specialized subject for this term (e.g. BIO1),
+      // do not inject specialized subjects from other sections (e.g. FINMATH1).
+      if (isCurSpecialized && scheduledSpecializedByTerm.has(curTerm)) {
+        continue;
+      }
+
+      // If the student's section already has an official timetable for this term,
+      // do not inject unscheduled subjects that have no teacher, schedule, or grades in that term.
+      if (cur.quarter !== 0 && scheduledTerms.has(curTerm)) {
+        continue;
+      }
+
       subjectsMap.set(cur.id, {
         subjectId: cur.id,
         subjectCode: cur.code || 'SUBJ',
         subject: cur.name,
         teacherName: null,
         classification: cur.classification || 'Core Subject',
-        defaultTerm: quarterToTerm(cur.quarter),
+        defaultTerm: curTerm,
         ww_weight: Number(cur.ww_weight) || 20,
         pt_weight: Number(cur.pt_weight) || 50,
         qa_weight: Number(cur.qa_weight) || 30,
@@ -504,6 +526,20 @@ async function computeStudentGradePerformance(studentId) {
   // 3. Curriculum subjects that have no recorded grade in their curriculum term
   for (const cur of curriculumRows) {
     const curTerm = quarterToTerm(cur.quarter);
+    const isCurSpecialized = (cur.classification || '').toLowerCase().includes('specialized');
+
+    // If section already has scheduled specialized subjects for this term (e.g. BIO1 for Medical Sciences),
+    // do not inject specialized subjects from other sections (e.g. FINMATH1 for Engineering).
+    if (isCurSpecialized && scheduledSpecializedByTerm.has(curTerm)) {
+      continue;
+    }
+
+    // If the student's section already has an official timetable for this term,
+    // do not inject unscheduled subjects that have no teacher, schedule, or grades in that term.
+    if (cur.quarter !== 0 && scheduledTerms.has(curTerm)) {
+      continue;
+    }
+
     const key = `${cur.id}_${curTerm}`;
     if (!processedKeys.has(key)) {
       processedKeys.add(key);

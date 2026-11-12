@@ -223,6 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                 </div>
                 <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-mortarboard"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterSubjectGrade" title="Filter by Grade Level">
+                        <option value="">All Grade Levels</option>
+                        <option value="11">Grade 11</option>
+                        <option value="12">Grade 12</option>
+                    </select>
+                </div>
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-tags"></i></span>
                     <select class="form-select border-0 py-2 text-sm" id="filterSubjectCategory" title="Filter by Subject Category">
                         <option value="">All Subject Categories</option>
@@ -430,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let studentSection = '';
 
         let subjectCluster = '';
+        let subjectGrade = '';
         let subjectCategory = '';
         let subjectTerm = '';
 
@@ -452,9 +461,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elSection) studentSection = elSection.value;
         } else if (currentCategory === 'subjects') {
             const elCluster = document.getElementById('filterSubjectCluster');
+            const elGrade = document.getElementById('filterSubjectGrade');
             const elCat = document.getElementById('filterSubjectCategory');
             const elTerm = document.getElementById('filterSubjectTerm');
             if (elCluster) subjectCluster = elCluster.value;
+            if (elGrade) subjectGrade = elGrade.value;
             if (elCat) subjectCategory = elCat.value;
             if (elTerm) subjectTerm = elTerm.value;
         } else if (currentCategory === 'strands') {
@@ -482,6 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (subjectCluster) {
                     const clusterVal = (r.strand || r.f5 || '').toLowerCase();
                     if (clusterVal !== subjectCluster.toLowerCase()) return false;
+                }
+                if (subjectGrade) {
+                    const gradeVal = String(r.gradeLevel || r.f4 || '');
+                    if (!gradeVal.includes(subjectGrade)) return false;
                 }
                 if (subjectCategory) {
                     const c = (r.classification || r.f3 || '').toLowerCase();
