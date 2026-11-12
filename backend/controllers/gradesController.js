@@ -619,41 +619,34 @@ async function computeStudentGradePerformance(studentId) {
     if (termGraded.length > 0) {
       const sum = termGraded.reduce((acc, r) => acc + transmuteDepEdGrade(Number(r.average)), 0);
       gwa = Number((sum / termGraded.length).toFixed(1));
-    } else if (termName === canonicalTerm && overall !== null) {
-      gwa = Number(overall);
     }
 
     let termWw = null;
-    const wwRows = termGraded.filter((r) => r.quiz_score !== null);
+    const wwRows = termRows.filter((r) => r.quiz_score !== null && !isNaN(Number(r.quiz_score)));
     if (wwRows.length > 0) {
       termWw = Math.min(100, Math.max(0, Math.round(wwRows.reduce((acc, r) => acc + (Number(r.quiz_score) / (Number(r.ww_weight) || 20)) * 100, 0) / wwRows.length)));
-    } else if (termName === canonicalTerm) {
-      termWw = writtenWorkAvg;
     }
 
     let termPt = null;
-    const ptRows = termGraded.filter((r) => r.activity_score !== null);
+    const ptRows = termRows.filter((r) => r.activity_score !== null && !isNaN(Number(r.activity_score)));
     if (ptRows.length > 0) {
       termPt = Math.min(100, Math.max(0, Math.round(ptRows.reduce((acc, r) => acc + (Number(r.activity_score) / (Number(r.pt_weight) || 50)) * 100, 0) / ptRows.length)));
-    } else if (termName === canonicalTerm) {
-      termPt = performanceTaskAvg;
     }
 
     let termQa = null;
-    const qaRows = termGraded.filter((r) => r.exam_score !== null);
+    const qaRows = termRows.filter((r) => r.exam_score !== null && !isNaN(Number(r.exam_score)));
     if (qaRows.length > 0) {
       termQa = Math.min(100, Math.max(0, Math.round(qaRows.reduce((acc, r) => acc + (Number(r.exam_score) / (Number(r.qa_weight) || 30)) * 100, 0) / qaRows.length)));
-    } else if (termName === canonicalTerm) {
-      termQa = quarterlyExamAvg;
     }
 
     return {
       term: termName,
-      gwa: gwa !== null ? gwa : Number(overall || 75),
-      writtenWorkAvg: termWw !== null ? termWw : (writtenWorkAvg || 75),
-      performanceTaskAvg: termPt !== null ? termPt : (performanceTaskAvg || 75),
-      quarterlyExamAvg: termQa !== null ? termQa : (quarterlyExamAvg || 75),
+      gwa: gwa,
+      writtenWorkAvg: termWw,
+      performanceTaskAvg: termPt,
+      quarterlyExamAvg: termQa,
       hasRecordedGrades: termGraded.length > 0,
+      hasPartialScores: (wwRows.length > 0 || ptRows.length > 0 || qaRows.length > 0),
     };
   });
 

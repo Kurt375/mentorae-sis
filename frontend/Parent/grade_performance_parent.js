@@ -1502,27 +1502,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 8. TOP 4 RADIAL GAUGES CLICK-TO-VIEW TREND MODAL
     // =========================================================================
     function getGaugeProfiles() {
-        const gwa = gradeState.overallGrade !== null ? parseFloat(gradeState.overallGrade) : 90;
-        const pt = gradeState.performanceTaskAvg || 92;
-        const ww = gradeState.writtenWorkAvg || 90;
-        const exam = gradeState.quarterlyExamAvg || 85;
-
         // Use backend termTrends for terms taken or currently taking (e.g. 1st Term, 2nd Term, 3rd Term)
         const activeTerm = gradeState.activeTerm || '1st Term';
         const trends = Array.isArray(gradeState.termTrends) && gradeState.termTrends.length > 0
             ? gradeState.termTrends
-            : [{ term: activeTerm, gwa: gwa, performanceTaskAvg: pt, writtenWorkAvg: ww, quarterlyExamAvg: exam }];
+            : [{ term: activeTerm, gwa: gradeState.overallGrade, performanceTaskAvg: gradeState.performanceTaskAvg, writtenWorkAvg: gradeState.writtenWorkAvg, quarterlyExamAvg: gradeState.quarterlyExamAvg }];
+
+        const currentTermTrend = trends.find(t => (t.term || '').trim().toLowerCase() === (currentTermFilter || '').trim().toLowerCase()) 
+            || trends.find(t => (t.term || '').trim().toLowerCase() === activeTerm.trim().toLowerCase()) 
+            || trends[0];
 
         const labels = trends.map(t => t.term);
-        const gwaData = trends.map(t => Number(t.gwa != null ? t.gwa : gwa));
-        const ptData = trends.map(t => Number(t.performanceTaskAvg != null ? t.performanceTaskAvg : pt));
-        const wwData = trends.map(t => Number(t.writtenWorkAvg != null ? t.writtenWorkAvg : ww));
-        const examData = trends.map(t => Number(t.quarterlyExamAvg != null ? t.quarterlyExamAvg : exam));
+        const gwaData = trends.map(t => (t.gwa !== null && t.gwa !== undefined) ? Number(t.gwa) : null);
+        const ptData = trends.map(t => (t.performanceTaskAvg !== null && t.performanceTaskAvg !== undefined) ? Number(t.performanceTaskAvg) : null);
+        const wwData = trends.map(t => (t.writtenWorkAvg !== null && t.writtenWorkAvg !== undefined) ? Number(t.writtenWorkAvg) : null);
+        const examData = trends.map(t => (t.quarterlyExamAvg !== null && t.quarterlyExamAvg !== undefined) ? Number(t.quarterlyExamAvg) : null);
 
         const getStats = (dataArr) => {
-            const high = Math.max(...dataArr);
-            const low = Math.min(...dataArr);
-            const avg = (dataArr.reduce((a, b) => a + b, 0) / dataArr.length).toFixed(1);
+            const valid = dataArr.filter(v => v !== null && v !== undefined && !isNaN(Number(v)));
+            if (!valid.length) {
+                return { high: 'Pending', low: 'Pending', avg: 'Pending' };
+            }
+            const high = Math.max(...valid);
+            const low = Math.min(...valid);
+            const avg = (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1);
             return { high: `${high}%`, low: `${low}%`, avg: `${avg}%` };
         };
 
@@ -1531,10 +1534,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wwStats = getStats(wwData);
         const examStats = getStats(examData);
 
+        const displayGwa = currentTermTrend && currentTermTrend.gwa !== null ? `${currentTermTrend.gwa}%` : (currentTermFilter === 'all' && gradeState.overallGrade ? `${gradeState.overallGrade}%` : 'Pending');
+        const displayPt = currentTermTrend && currentTermTrend.performanceTaskAvg !== null ? `${currentTermTrend.performanceTaskAvg}%` : (currentTermFilter === 'all' && gradeState.performanceTaskAvg ? `${gradeState.performanceTaskAvg}%` : 'Pending');
+        const displayWw = currentTermTrend && currentTermTrend.writtenWorkAvg !== null ? `${currentTermTrend.writtenWorkAvg}%` : (currentTermFilter === 'all' && gradeState.writtenWorkAvg ? `${gradeState.writtenWorkAvg}%` : 'Pending');
+        const displayExam = currentTermTrend && currentTermTrend.quarterlyExamAvg !== null ? `${currentTermTrend.quarterlyExamAvg}%` : (currentTermFilter === 'all' && gradeState.quarterlyExamAvg ? `${gradeState.quarterlyExamAvg}%` : 'Pending');
+
         return {
             'average': {
                 title: 'Average Grade Trend',
-                score: `${gwa}%`,
+                score: displayGwa,
                 labels: labels,
                 trendData: gwaData,
                 high: gwaStats.high,
@@ -1544,7 +1552,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             'performance': {
                 title: 'Performance Task Trend',
-                score: `${pt}%`,
+                score: displayPt,
                 labels: labels,
                 trendData: ptData,
                 high: ptStats.high,
@@ -1554,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             'written': {
                 title: 'Written Work Trend',
-                score: `${ww}%`,
+                score: displayWw,
                 labels: labels,
                 trendData: wwData,
                 high: wwStats.high,
@@ -1564,7 +1572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             'exam': {
                 title: 'Quarterly Assessment Trend',
-                score: `${exam}%`,
+                score: displayExam,
                 labels: labels,
                 trendData: examData,
                 high: examStats.high,
@@ -1590,7 +1598,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         grad.addColorStop(0, 'rgba(10, 92, 44, 0.3)');
         grad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
 
-        const rawScores = (profile.trendData || []).map(v => Number(v) || 0);
+        const rawScores = (profile.trendData || []).filter(v => v !== null && v !== undefined && !isNaN(Number(v))).map(v => Number(v));
         const dataMax = rawScores.length ? Math.max(...rawScores) : 100;
         const dataMin = rawScores.length ? Math.min(...rawScores) : 75;
         const yMax = dataMax > 100 ? Math.ceil((dataMax + 5) / 10) * 10 : 100;
@@ -1603,6 +1611,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 datasets: [{
                     label: profile.legend,
                     data: profile.trendData,
+                    spanGaps: false,
                     borderColor: '#0a5c2c',
                     borderWidth: 3,
                     backgroundColor: grad,
@@ -1634,7 +1643,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         padding: 10,
                         displayColors: false,
                         callbacks: {
-                            label: (context) => `${context.parsed.y}%`
+                            label: (context) => {
+                                const val = context.parsed.y;
+                                if (val === null || val === undefined || isNaN(val)) {
+                                    return `${context.dataset.label || 'Score'}: Pending Examination`;
+                                }
+                                return `${val}%`;
+                            }
                         }
                     }
                 },
