@@ -407,72 +407,117 @@ async function computeStudentGradePerformance(studentId) {
   }
 
   const grades = [];
-  for (const [subjId, meta] of subjectsMap.entries()) {
-    // Find matching grade for active term, or fallback to any recorded grade for that subject
-    const existing = rows.find((r) => r.subjectId === subjId && activeTermList.includes(r.term)) ||
-      rows.find((r) => r.subjectId === subjId);
+  const processedKeys = new Set();
 
-    const subjectTerm = existing
-      ? normalizeCanonicalTerm(existing.term)
-      : (meta.defaultTerm || canonicalTerm);
+  // 1. First, include all recorded grades for the student across all terms
+  for (const gr of rows) {
+    const subjectTerm = normalizeCanonicalTerm(gr.term);
+    const key = `${gr.subjectId}_${subjectTerm}`;
+    if (processedKeys.has(key)) continue;
+    processedKeys.add(key);
 
-    const wwMax = Number(meta.ww_weight) || 20;
-    const ptMax = Number(meta.pt_weight) || 50;
-    const qaMax = Number(meta.qa_weight) || 30;
+    const meta = subjectsMap.get(gr.subjectId) || {};
+    const wwMax = Number(gr.ww_weight || meta.ww_weight) || 20;
+    const ptMax = Number(gr.pt_weight || meta.pt_weight) || 50;
+    const qaMax = Number(gr.qa_weight || meta.qa_weight) || 30;
 
-    if (existing && existing.average !== null) {
-      const rawAvg = Number(existing.average);
-      const transmuted = transmuteDepEdGrade(rawAvg);
-      const q = existing.quiz_score !== null ? Number(existing.quiz_score) : null;
-      const a = existing.activity_score !== null ? Number(existing.activity_score) : null;
-      const e = existing.exam_score !== null ? Number(existing.exam_score) : null;
+    const q = gr.quiz_score !== null ? Number(gr.quiz_score) : null;
+    const a = gr.activity_score !== null ? Number(gr.activity_score) : null;
+    const e = gr.exam_score !== null ? Number(gr.exam_score) : null;
 
-      const qPct = q !== null ? Math.min(100, Math.max(0, Math.round((q / wwMax) * 100))) : null;
-      const aPct = a !== null ? Math.min(100, Math.max(0, Math.round((a / ptMax) * 100))) : null;
-      const ePct = e !== null ? Math.min(100, Math.max(0, Math.round((e / qaMax) * 100))) : null;
+    const qPct = q !== null ? Math.min(100, Math.max(0, Math.round((q / wwMax) * 100))) : null;
+    const aPct = a !== null ? Math.min(100, Math.max(0, Math.round((a / ptMax) * 100))) : null;
+    const ePct = e !== null ? Math.min(100, Math.max(0, Math.round((e / qaMax) * 100))) : null;
 
-      let parsedRaw = null;
-      if (existing.raw_scores) {
-        try {
-          parsedRaw = typeof existing.raw_scores === 'string' ? JSON.parse(existing.raw_scores) : existing.raw_scores;
-        } catch (_) {
-          parsedRaw = null;
-        }
+    let parsedRaw = null;
+    if (gr.raw_scores) {
+      try {
+        parsedRaw = typeof gr.raw_scores === 'string' ? JSON.parse(gr.raw_scores) : gr.raw_scores;
+      } catch (_) {
+        parsedRaw = null;
       }
+    }
 
+    const hasAvg = gr.average !== null && !isNaN(Number(gr.average));
+    const rawAvg = hasAvg ? Number(gr.average) : null;
+    const transmuted = hasAvg ? transmuteDepEdGrade(rawAvg) : null;
+
+    grades.push({
+      gradeId: gr.gradeId,
+      subjectId: gr.subjectId,
+      subjectCode: gr.subjectCode || meta.subjectCode || 'SUBJ',
+      subject: gr.subject || meta.subject,
+      classification: gr.classification || meta.classification || 'Core Subject',
+      teacherName: gr.teacherName || meta.teacherName || 'No Teacher Assigned',
+      term: subjectTerm,
+      quiz_score: q,
+      activity_score: a,
+      exam_score: e,
+      average: transmuted,
+      rawAverage: rawAvg,
+      quizPct: qPct,
+      activityPct: aPct,
+      examPct: ePct,
+      ww_weight: wwMax,
+      pt_weight: ptMax,
+      qa_weight: qaMax,
+      remarks: hasAvg ? getRemarks(transmuted) : 'Pending',
+      status: hasAvg ? (transmuted >= 75 ? 'Passed' : 'Needs Remediation') : 'Pending',
+      raw_scores: parsedRaw,
+    });
+  }
+
+  // 2. Scheduled subjects that do not yet have a recorded grade in their scheduled quarter
+  for (const sc of scheduledRows) {
+    const scTerm = normalizeCanonicalTerm(sc.quarter);
+    const key = `${sc.subject_id}_${scTerm}`;
+    if (!processedKeys.has(key)) {
+      processedKeys.add(key);
+      const wwMax = Number(sc.ww_weight) || 20;
+      const ptMax = Number(sc.pt_weight) || 50;
+      const qaMax = Number(sc.qa_weight) || 30;
       grades.push({
-        gradeId: existing.gradeId,
-        subjectId: subjId,
-        subjectCode: meta.subjectCode,
-        subject: meta.subject,
-        classification: meta.classification,
-        teacherName: meta.teacherName || existing.teacherName || 'No Teacher Assigned',
-        term: subjectTerm,
-        quiz_score: q,
-        activity_score: a,
-        exam_score: e,
-        average: transmuted,
-        rawAverage: rawAvg,
-        quizPct: qPct,
-        activityPct: aPct,
-        examPct: ePct,
+        gradeId: null,
+        subjectId: sc.subject_id,
+        subjectCode: sc.code || 'SUBJ',
+        subject: sc.name,
+        classification: sc.classification || 'Specialized',
+        teacherName: sc.teacherName || 'No Teacher Assigned',
+        term: scTerm,
+        quiz_score: null,
+        activity_score: null,
+        exam_score: null,
+        average: null,
+        rawAverage: null,
+        quizPct: null,
+        activityPct: null,
+        examPct: null,
         ww_weight: wwMax,
         pt_weight: ptMax,
         qa_weight: qaMax,
-        remarks: getRemarks(transmuted),
-        status: transmuted >= 75 ? 'Passed' : 'Needs Remediation',
-        raw_scores: parsedRaw,
+        remarks: 'Pending',
+        status: 'Pending',
       });
-    } else {
-      // Pending subject (student enrolled, grade not yet encoded)
+    }
+  }
+
+  // 3. Curriculum subjects that have no recorded grade in their curriculum term
+  for (const cur of curriculumRows) {
+    const curTerm = quarterToTerm(cur.quarter);
+    const key = `${cur.id}_${curTerm}`;
+    if (!processedKeys.has(key)) {
+      processedKeys.add(key);
+      const wwMax = Number(cur.ww_weight) || 20;
+      const ptMax = Number(cur.pt_weight) || 50;
+      const qaMax = Number(cur.qa_weight) || 30;
       grades.push({
         gradeId: null,
-        subjectId: subjId,
-        subjectCode: meta.subjectCode,
-        subject: meta.subject,
-        classification: meta.classification,
-        teacherName: meta.teacherName || 'No Teacher Assigned',
-        term: subjectTerm,
+        subjectId: cur.id,
+        subjectCode: cur.code || 'SUBJ',
+        subject: cur.name,
+        classification: cur.classification || 'Core Subject',
+        teacherName: 'No Teacher Assigned',
+        term: curTerm,
         quiz_score: null,
         activity_score: null,
         exam_score: null,

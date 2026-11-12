@@ -134,9 +134,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             gradeState = data;
-            if (data.activeTerm) {
+            const termSelect = document.getElementById('termFilterSelect');
+            if (termSelect && termSelect.value) {
+                currentTermFilter = termSelect.value;
+            } else if (data.activeTerm) {
                 currentTermFilter = data.activeTerm;
-                const termSelect = document.getElementById('termFilterSelect');
                 if (termSelect) {
                     termSelect.value = currentTermFilter;
                 }
@@ -246,6 +248,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
+        // Sort: graded subjects first, then alphabetically by subject name
+        filtered.sort((a, b) => {
+            const aHas = a.average !== null && a.average !== undefined && !isNaN(Number(a.average));
+            const bHas = b.average !== null && b.average !== undefined && !isNaN(Number(b.average));
+            if (aHas && !bHas) return -1;
+            if (!aHas && bHas) return 1;
+            return (a.subject || '').localeCompare(b.subject || '');
+        });
+
         renderSubjectCards(filtered);
     }
 
@@ -273,22 +284,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             termGwa = (sum / graded.length).toFixed(1);
             const numGwa = Number(termGwa);
             termRemarks = numGwa >= 90 ? 'Outstanding' : (numGwa >= 85 ? 'Very Satisfactory' : (numGwa >= 80 ? 'Satisfactory' : (numGwa >= 75 ? 'Fairly Satisfactory' : 'Did Not Meet Expectations')));
-
-            const withWw = graded.filter(g => g.quizPct !== null && g.quizPct !== undefined);
-            if (withWw.length) wwAvg = Math.round(withWw.reduce((s, g) => s + g.quizPct, 0) / withWw.length);
-
-            const withPt = graded.filter(g => g.activityPct !== null && g.activityPct !== undefined);
-            if (withPt.length) ptAvg = Math.round(withPt.reduce((s, g) => s + g.activityPct, 0) / withPt.length);
-
-            const withExam = graded.filter(g => g.examPct !== null && g.examPct !== undefined);
-            if (withExam.length) examAvg = Math.round(withExam.reduce((s, g) => s + g.examPct, 0) / withExam.length);
         } else if (term === 'all' && gradeState.overallGrade !== null) {
             termGwa = gradeState.overallGrade;
             termRemarks = gradeState.overallRemarks || 'Good Performance';
-            wwAvg = gradeState.writtenWorkAvg || 0;
-            ptAvg = gradeState.performanceTaskAvg || 0;
-            examAvg = gradeState.quarterlyExamAvg || 0;
         }
+
+        const withWw = relevantGrades.filter(g => g.quizPct !== null && g.quizPct !== undefined);
+        if (withWw.length) wwAvg = Math.round(withWw.reduce((s, g) => s + g.quizPct, 0) / withWw.length);
+        else if (term === 'all' && gradeState.writtenWorkAvg) wwAvg = gradeState.writtenWorkAvg;
+
+        const withPt = relevantGrades.filter(g => g.activityPct !== null && g.activityPct !== undefined);
+        if (withPt.length) ptAvg = Math.round(withPt.reduce((s, g) => s + g.activityPct, 0) / withPt.length);
+        else if (term === 'all' && gradeState.performanceTaskAvg) ptAvg = gradeState.performanceTaskAvg;
+
+        const withExam = relevantGrades.filter(g => g.examPct !== null && g.examPct !== undefined);
+        if (withExam.length) examAvg = Math.round(withExam.reduce((s, g) => s + g.examPct, 0) / withExam.length);
+        else if (term === 'all' && gradeState.quarterlyExamAvg) examAvg = gradeState.quarterlyExamAvg;
 
         const improvingCount = graded.filter(g => Number(g.average) >= 75).length;
 
@@ -403,9 +414,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const badgeBg = !hasGrade ? 'bg-light text-secondary border' : (isPassing ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
 
             const defaultGoal = hasGrade ? Math.min(100, Math.max(75, Math.round(avgNum + 4))) : 85;
+            const safeTermKey = escapeHtml((g.term || 'term').replace(/\s+/g, ''));
 
             html += `
-                <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer" data-subject-id="${g.subjectId}">
+                <div class="card subject-grade-card border p-3 rounded-4 bg-white cursor-pointer" data-subject-id="${g.subjectId}" data-term="${escapeHtml(g.term || '')}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
                             <h3 class="fw-bold fs-6 text-dark m-0">
@@ -432,11 +444,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
 
                     <!-- Expandable Drawer for Subject Breakdown & Target Calculator -->
-                    <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-${g.subjectId}">
+                    <div class="subject-details-drawer d-none mt-4 pt-3 border-top" id="details-${g.subjectId}-${safeTermKey}">
                         ${hasGrade ? `
                         <div class="row g-4 align-items-center">
                             <div class="col-12 col-lg-7">
-                                <div class="chart-box p-2 subject-chart-wrapper" title="Click to view detailed line graph of Written Works, Performance Tasks, and Quarterly Assessments" data-subject-id="${g.subjectId}">
+                                <div class="chart-box p-2 subject-chart-wrapper" title="Click to view detailed line graph of Written Works, Performance Tasks, and Quarterly Assessments" data-subject-id="${g.subjectId}" data-term="${escapeHtml(g.term || '')}">
                                     <div class="d-flex justify-content-between align-items-center px-2 mb-1">
                                         <span class="micro-text fw-bold text-dark text-uppercase d-flex align-items-center gap-1">
                                             DepEd Component Breakdown
@@ -447,7 +459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         <span class="micro-text text-muted">Weights: WW ${g.ww_weight || 20}% &bull; PT ${g.pt_weight || 50}% &bull; QA ${g.qa_weight || 30}%</span>
                                     </div>
                                     <div style="height: 200px; width: 100%;">
-                                        <canvas id="chart-${g.subjectId}" class="subject-analytics-canvas cursor-pointer"></canvas>
+                                        <canvas id="chart-${g.subjectId}-${safeTermKey}" class="subject-analytics-canvas cursor-pointer"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -507,7 +519,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 const subjectId = card.getAttribute('data-subject-id');
-                const drawer = document.getElementById(`details-${subjectId}`);
+                const cardTerm = card.getAttribute('data-term');
+                const drawer = card.querySelector('.subject-details-drawer');
                 if (!drawer) return;
 
                 const isCurrentlyOpen = !drawer.classList.contains('d-none');
@@ -519,10 +532,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     drawer.classList.remove('d-none');
                     card.classList.add('active-card');
 
-                    const targetGradeObj = gradeState.grades.find((g) => String(g.subjectId) === String(subjectId));
+                    const targetGradeObj = gradeState.grades.find(
+                        (g) => String(g.subjectId) === String(subjectId) &&
+                               (cardTerm ? (g.term || '').trim().toLowerCase() === cardTerm.trim().toLowerCase() : true)
+                    ) || gradeState.grades.find((g) => String(g.subjectId) === String(subjectId));
+
                     if (targetGradeObj && targetGradeObj.average !== null) {
                         setTimeout(() => {
-                            renderSubjectDrawerChart(targetGradeObj);
+                            renderSubjectDrawerChart(targetGradeObj, card);
                         }, 50);
                     }
                 }
@@ -637,12 +654,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Render multi-bar/line chart inside expanded subject drawer
-    function renderSubjectDrawerChart(g) {
-        const canvasId = `chart-${g.subjectId}`;
-        const canvas = document.getElementById(canvasId);
+    function renderSubjectDrawerChart(g, cardEl) {
+        const safeTerm = (g.term || 'term').replace(/\s+/g, '');
+        const chartKey = `${g.subjectId}_${safeTerm}`;
+        const canvas = cardEl ? cardEl.querySelector('.subject-analytics-canvas') : (document.getElementById(`chart-${g.subjectId}-${safeTerm}`) || document.getElementById(`chart-${g.subjectId}`));
         if (!canvas) return;
 
-        if (subjectChartsCache[g.subjectId]) {
+        if (subjectChartsCache[chartKey]) {
+            subjectChartsCache[chartKey].destroy();
+        } else if (subjectChartsCache[g.subjectId]) {
             subjectChartsCache[g.subjectId].destroy();
         }
 
@@ -669,7 +689,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const aPct = g.activityPct != null ? g.activityPct : Math.min(100, Math.round((Number(g.activity_score) / ptMax) * 100));
         const ePct = g.examPct != null ? g.examPct : Math.min(100, Math.round((Number(g.exam_score) / qaMax) * 100));
 
-        subjectChartsCache[g.subjectId] = new Chart(ctx, {
+        subjectChartsCache[chartKey] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: [`Written Works (${wwMax}%)`, `Performance Tasks (${ptMax}%)`, `Quarterly Assessment (${qaMax}%)`],
@@ -1723,13 +1743,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (rcTableBody) {
-            if (!grades || grades.length === 0) {
-                rcTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">No subject grades recorded yet.</td></tr>`;
+            if (rcGradingPeriod) {
+                rcGradingPeriod.textContent = currentTermFilter === 'all' ? 'All Terms' : (currentTermFilter || '1st Term');
+            }
+
+            const modalGrades = Array.isArray(grades)
+                ? (currentTermFilter && currentTermFilter !== 'all'
+                    ? grades.filter((g) => (g.term || '').trim().toLowerCase() === currentTermFilter.trim().toLowerCase())
+                    : grades)
+                : [];
+
+            if (!modalGrades || modalGrades.length === 0) {
+                rcTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">No subject grades recorded yet for this term.</td></tr>`;
                 return;
             }
 
             let bodyHtml = '';
-            grades.forEach((g) => {
+            modalGrades.forEach((g) => {
                 const hasGrade = g.average !== null && g.average !== undefined && g.average !== '' && !isNaN(Number(g.average));
                 const isPassed = hasGrade && Number(g.average) >= 75;
                 const remarksText = hasGrade ? (g.remarks || (isPassed ? 'Passed' : 'Needs Remediation')) : 'Pending';
