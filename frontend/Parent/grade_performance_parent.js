@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         </span>
                                         <span class="micro-text text-muted">Weights: WW ${g.ww_weight || 20}% &bull; PT ${g.pt_weight || 50}% &bull; QA ${g.qa_weight || 30}%</span>
                                     </div>
-                                    <div style="height: 200px; width: 100%;">
+                                    <div style="height: 220px; width: 100%;">
                                         <canvas id="chart-${g.subjectId}-${safeTermKey}" class="subject-analytics-canvas cursor-pointer"></canvas>
                                     </div>
                                 </div>
@@ -538,9 +538,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ) || gradeState.grades.find((g) => String(g.subjectId) === String(subjectId));
 
                     if (targetGradeObj && targetGradeObj.average !== null) {
-                        setTimeout(() => {
+                        requestAnimationFrame(() => {
                             renderSubjectDrawerChart(targetGradeObj, card);
-                        }, 50);
+                            const safeTerm = (targetGradeObj.term || 'term').replace(/\s+/g, '');
+                            const chartKey = `${targetGradeObj.subjectId}_${safeTerm}`;
+                            if (subjectChartsCache[chartKey]) {
+                                subjectChartsCache[chartKey].resize();
+                            }
+                        });
                     }
                 }
             });
@@ -685,14 +690,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wwMax = g.ww_weight || 20;
         const ptMax = g.pt_weight || 50;
         const qaMax = g.qa_weight || 30;
-        const qPct = g.quizPct != null ? g.quizPct : Math.min(100, Math.round((Number(g.quiz_score) / wwMax) * 100));
-        const aPct = g.activityPct != null ? g.activityPct : Math.min(100, Math.round((Number(g.activity_score) / ptMax) * 100));
-        const ePct = g.examPct != null ? g.examPct : Math.min(100, Math.round((Number(g.exam_score) / qaMax) * 100));
+        const qPct = g.quizPct != null ? Math.min(100, Math.max(0, Number(g.quizPct))) : Math.min(100, Math.max(0, Math.round((Number(g.quiz_score) / wwMax) * 100)));
+        const aPct = g.activityPct != null ? Math.min(100, Math.max(0, Number(g.activityPct))) : Math.min(100, Math.max(0, Math.round((Number(g.activity_score) / ptMax) * 100)));
+        const ePct = g.examPct != null ? Math.min(100, Math.max(0, Number(g.examPct))) : Math.min(100, Math.max(0, Math.round((Number(g.exam_score) / qaMax) * 100)));
 
         subjectChartsCache[chartKey] = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: [`Written Works (${wwMax}%)`, `Performance Tasks (${ptMax}%)`, `Quarterly Assessment (${qaMax}%)`],
+                labels: [
+                    ['Written Works', `(${wwMax}%)`],
+                    ['Performance Tasks', `(${ptMax}%)`],
+                    ['Quarterly Exam', `(${qaMax}%)`]
+                ],
                 datasets: [
                     {
                         label: 'Current Score %',
@@ -705,7 +714,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         borderColor: ['#2e7d32', '#0a5c2c', '#f59e0b'],
                         borderWidth: 1.5,
                         borderRadius: 8,
-                        barPercentage: 0.55
+                        barPercentage: 0.55,
+                        clip: false
                     },
                     {
                         type: 'line',
@@ -715,13 +725,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         borderWidth: 2,
                         borderDash: [5, 5],
                         pointRadius: 0,
-                        fill: false
+                        fill: false,
+                        clip: false
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 14,
+                        right: 12,
+                        bottom: 4,
+                        left: 8
+                    }
+                },
                 onClick: (e) => {
                     openAssessmentBreakdownModal(g);
                 },
@@ -754,6 +773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     y: {
                         min: 0,
                         max: 100,
+                        grace: '5%',
                         ticks: {
                             stepSize: 25,
                             callback: (v) => `${v}%`,
@@ -765,7 +785,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     x: {
                         ticks: {
                             font: { size: 10, weight: 'bold' },
-                            color: '#334155'
+                            color: '#334155',
+                            autoSkip: false,
+                            maxRotation: 0,
+                            minRotation: 0
                         },
                         grid: { display: false }
                     }
@@ -1042,6 +1065,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             ];
         }
 
+        datasets.forEach(ds => { ds.clip = false; });
+
         assessmentTrendChartInstance = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1051,6 +1076,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 16,
+                        right: 20,
+                        bottom: 6,
+                        left: 10
+                    }
+                },
                 plugins: {
                     legend: {
                         position: 'top',
@@ -1089,6 +1122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     y: {
                         min: 0,
                         max: 100,
+                        grace: '5%',
                         ticks: {
                             stepSize: 25,
                             callback: (v) => `${v}%`,
@@ -1286,7 +1320,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Render line graph once modal is rendered
         setTimeout(() => {
             renderAssessmentTrendChart(breakdown, 'all');
-        }, 120);
+        }, 300);
+
+        const assessmentModalEl = document.getElementById('subjectAssessmentModal');
+        if (assessmentModalEl && !assessmentModalEl.dataset.listenerAttached) {
+            assessmentModalEl.dataset.listenerAttached = 'true';
+            assessmentModalEl.addEventListener('shown.bs.modal', () => {
+                if (currentAssessmentSubject) {
+                    const bd = getSubjectAssessmentBreakdown(currentAssessmentSubject);
+                    renderAssessmentTrendChart(bd, currentAssessmentFilter || 'all');
+                } else if (assessmentTrendChartInstance) {
+                    assessmentTrendChartInstance.resize();
+                }
+            });
+        }
     }
 
     // =========================================================================
@@ -1528,6 +1575,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    let currentActiveGaugeProfile = null;
+
     function renderGaugeTrendLine(profile) {
         const canvas = document.getElementById('gaugeTrendCanvas');
         if (!canvas) return;
@@ -1541,6 +1590,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         grad.addColorStop(0, 'rgba(10, 92, 44, 0.3)');
         grad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
 
+        const rawScores = (profile.trendData || []).map(v => Number(v) || 0);
+        const dataMax = rawScores.length ? Math.max(...rawScores) : 100;
+        const dataMin = rawScores.length ? Math.min(...rawScores) : 75;
+        const yMax = dataMax > 100 ? Math.ceil((dataMax + 5) / 10) * 10 : 100;
+        const yMin = Math.max(0, Math.min(60, Math.floor((dataMin - 10) / 10) * 10));
+
         gaugeLineChartInstance = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1552,8 +1607,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     borderWidth: 3,
                     backgroundColor: grad,
                     fill: true,
+                    clip: false,
                     pointBackgroundColor: '#0a5c2c',
                     pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
                     pointRadius: 6,
                     pointHoverRadius: 8,
                     tension: 0.2
@@ -1562,6 +1619,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 20,
+                        right: 24,
+                        bottom: 8,
+                        left: 12
+                    }
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -1575,8 +1640,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 scales: {
                     y: {
-                        min: 60,
-                        max: 100,
+                        min: yMin,
+                        max: yMax,
+                        grace: '5%',
                         ticks: {
                             stepSize: 10,
                             callback: (v) => `${v}%`,
@@ -1618,14 +1684,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (modalAvgEl) modalAvgEl.textContent = profile.avg;
             if (modalLegendEl) modalLegendEl.textContent = profile.legend;
 
+            currentActiveGaugeProfile = profile;
             if (gaugeAnalyticsModalInstance) {
                 gaugeAnalyticsModalInstance.show();
                 setTimeout(() => {
                     renderGaugeTrendLine(profile);
-                }, 180);
+                }, 300);
             }
         });
     });
+
+    const gaugeModalEl = document.getElementById('gaugeAnalyticsModal');
+    if (gaugeModalEl && !gaugeModalEl.dataset.listenerAttached) {
+        gaugeModalEl.dataset.listenerAttached = 'true';
+        gaugeModalEl.addEventListener('shown.bs.modal', () => {
+            if (currentActiveGaugeProfile) {
+                renderGaugeTrendLine(currentActiveGaugeProfile);
+            } else if (gaugeLineChartInstance) {
+                gaugeLineChartInstance.resize();
+            }
+        });
+    }
 
     // =========================================================================
     // 9. QUARTERLY PROGRESS & ACADEMIC INSIGHTS

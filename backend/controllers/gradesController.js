@@ -626,7 +626,7 @@ async function computeStudentGradePerformance(studentId) {
     let termWw = null;
     const wwRows = termGraded.filter((r) => r.quiz_score !== null);
     if (wwRows.length > 0) {
-      termWw = Math.round(wwRows.reduce((acc, r) => acc + (Number(r.quiz_score) / (Number(r.ww_weight) || 20)) * 100, 0) / wwRows.length);
+      termWw = Math.min(100, Math.max(0, Math.round(wwRows.reduce((acc, r) => acc + (Number(r.quiz_score) / (Number(r.ww_weight) || 20)) * 100, 0) / wwRows.length)));
     } else if (termName === canonicalTerm) {
       termWw = writtenWorkAvg;
     }
@@ -634,7 +634,7 @@ async function computeStudentGradePerformance(studentId) {
     let termPt = null;
     const ptRows = termGraded.filter((r) => r.activity_score !== null);
     if (ptRows.length > 0) {
-      termPt = Math.round(ptRows.reduce((acc, r) => acc + (Number(r.activity_score) / (Number(r.pt_weight) || 50)) * 100, 0) / ptRows.length);
+      termPt = Math.min(100, Math.max(0, Math.round(ptRows.reduce((acc, r) => acc + (Number(r.activity_score) / (Number(r.pt_weight) || 50)) * 100, 0) / ptRows.length)));
     } else if (termName === canonicalTerm) {
       termPt = performanceTaskAvg;
     }
@@ -642,7 +642,7 @@ async function computeStudentGradePerformance(studentId) {
     let termQa = null;
     const qaRows = termGraded.filter((r) => r.exam_score !== null);
     if (qaRows.length > 0) {
-      termQa = Math.round(qaRows.reduce((acc, r) => acc + (Number(r.exam_score) / (Number(r.qa_weight) || 30)) * 100, 0) / qaRows.length);
+      termQa = Math.min(100, Math.max(0, Math.round(qaRows.reduce((acc, r) => acc + (Number(r.exam_score) / (Number(r.qa_weight) || 30)) * 100, 0) / qaRows.length)));
     } else if (termName === canonicalTerm) {
       termQa = quarterlyExamAvg;
     }

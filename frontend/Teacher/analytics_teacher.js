@@ -173,6 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 data: histData,
                                 borderColor: '#2b78bc',
                                 borderWidth: 2.5,
+                                clip: false,
                                 pointBackgroundColor: '#2b78bc',
                                 pointBorderColor: '#ffffff',
                                 pointBorderWidth: 2,
@@ -188,6 +189,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         responsive: true,
                         maintainAspectRatio: false,
                         devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
+                        layout: {
+                            padding: {
+                                top: 14,
+                                right: 18,
+                                bottom: 6,
+                                left: 8
+                            }
+                        },
                         plugins: {
                             legend: { display: false },
                             tooltip: {
@@ -203,6 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             y: {
                                 min: 65,
                                 max: 100,
+                                grace: '5%',
                                 ticks: { stepSize: 5, color: '#64748b', font: { size: 10 } },
                                 grid: { color: '#f1f5f9' }
                             },
