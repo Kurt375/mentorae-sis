@@ -319,8 +319,8 @@ async function computeStudentGradePerformance(studentId) {
             COALESCE(sub.pt_weight, 50.00) AS pt_weight,
             COALESCE(sub.qa_weight, 30.00) AS qa_weight
      FROM subjects sub
-     WHERE (sub.grade_level = ? OR sub.grade_level = 0)
-       AND (sub.strand = 'Common' OR sub.strand = 'ALL' OR sub.strand IS NULL OR sub.strand = '' OR sub.strand = ?)
+     WHERE (sub.grade_level = ? OR (sub.grade_level = 0 AND sub.classification != 'Specialized Subject'))
+       AND ((sub.strand IN ('Common', 'ALL') AND sub.classification != 'Specialized Subject') OR sub.strand = ?)
        AND (
          sub.strand_section IS NULL 
          OR sub.strand_section = '' 

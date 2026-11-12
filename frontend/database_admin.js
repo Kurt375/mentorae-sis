@@ -206,7 +206,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         } else if (category === 'subjects') {
+            let clusterOpts = '<option value="">All Clusters</option><option value="Common">Common (Core / Shared)</option>';
+            const defaultClusters = ['STEM', 'ASSH', 'BAE', 'HE', 'HUMSS', 'ABM'];
+            const foundClusters = currentCategoryRecords && currentCategoryRecords.length
+                ? [...new Set(currentCategoryRecords.map(r => r.strand || r.f5).filter(Boolean))]
+                : defaultClusters;
+            [...new Set([...defaultClusters, ...foundClusters])].filter(c => c !== 'Common').sort().forEach(code => {
+                clusterOpts += `<option value="${escapeHtml(code)}">${escapeHtml(code)}</option>`;
+            });
+
             html = `
+                <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
+                    <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-bookmark"></i></span>
+                    <select class="form-select border-0 py-2 text-sm" id="filterSubjectCluster" title="Filter by Cluster / Strand">
+                        ${clusterOpts}
+                    </select>
+                </div>
                 <div class="input-group shadow-sm rounded-3 overflow-hidden bg-white border db-filter-item">
                     <span class="input-group-text bg-white border-0 text-muted ps-2.5 pe-1"><i class="bi bi-tags"></i></span>
                     <select class="form-select border-0 py-2 text-sm" id="filterSubjectCategory" title="Filter by Subject Category">
@@ -414,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let studentGrade = '';
         let studentSection = '';
 
+        let subjectCluster = '';
         let subjectCategory = '';
         let subjectTerm = '';
 
@@ -435,8 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elGrade) studentGrade = elGrade.value;
             if (elSection) studentSection = elSection.value;
         } else if (currentCategory === 'subjects') {
+            const elCluster = document.getElementById('filterSubjectCluster');
             const elCat = document.getElementById('filterSubjectCategory');
             const elTerm = document.getElementById('filterSubjectTerm');
+            if (elCluster) subjectCluster = elCluster.value;
             if (elCat) subjectCategory = elCat.value;
             if (elTerm) subjectTerm = elTerm.value;
         } else if (currentCategory === 'strands') {
@@ -461,6 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (studentGrade && String(r.gradeLevel || '') !== studentGrade) return false;
                 if (studentSection && (r.sectionName || '') !== studentSection && !(r.sectionName || '').toLowerCase().includes(studentSection.toLowerCase())) return false;
             } else if (currentCategory === 'subjects') {
+                if (subjectCluster) {
+                    const clusterVal = (r.strand || r.f5 || '').toLowerCase();
+                    if (clusterVal !== subjectCluster.toLowerCase()) return false;
+                }
                 if (subjectCategory) {
                     const c = (r.classification || r.f3 || '').toLowerCase();
                     if (subjectCategory === 'Core' && !c.includes('core')) return false;
@@ -468,7 +490,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (subjectCategory === 'Specialized' && !c.includes('specialized')) return false;
                     if (subjectCategory === 'Institutional' && (c.includes('core') || c.includes('applied') || c.includes('specialized'))) return false;
                 }
-                if (subjectTerm && (r.f4 || '') !== subjectTerm && !(r.f4 || '').includes(subjectTerm)) return false;
+                const termVal = r.f6 || r.f4 || '';
+                if (subjectTerm && termVal !== subjectTerm && !termVal.includes(subjectTerm)) return false;
             } else if (currentCategory === 'strands') {
                 if (strandTrack && (r.department || r.f3) !== strandTrack) return false;
             } else if (currentCategory === 'sections') {
@@ -594,17 +617,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
         } else if (currentCategory === 'subjects') {
             tableBody.innerHTML = filtered.map(r => {
+                const termVal = r.f6 || r.f4 || '1st Term';
                 let badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
-                if (r.f4 === 'All Terms') badgeClass = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
-                else if (r.f4 === '2nd Term') badgeClass = 'bg-info-subtle text-info border border-info-subtle';
-                else if (r.f4 === '3rd Term') badgeClass = 'bg-warning-subtle text-dark border border-warning-subtle';
+                if (termVal === 'All Terms') badgeClass = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+                else if (termVal === '2nd Term') badgeClass = 'bg-info-subtle text-info border border-info-subtle';
+                else if (termVal === '3rd Term') badgeClass = 'bg-warning-subtle text-dark border border-warning-subtle';
+
+                const gradeVal = r.f4 || `Grade ${r.gradeLevel || 11}`;
+                const clusterVal = r.f5 || r.strand || 'Common';
+                let clusterBadge = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+                if (clusterVal === 'Common') clusterBadge = 'bg-light text-dark border';
+                else if (clusterVal === 'STEM') clusterBadge = 'bg-success-subtle text-success border border-success-subtle';
+                else if (clusterVal === 'HUMSS' || clusterVal === 'ASSH') clusterBadge = 'bg-primary-subtle text-primary border border-primary-subtle';
+                else if (clusterVal === 'BAE' || clusterVal === 'ABM') clusterBadge = 'bg-warning-subtle text-dark border border-warning-subtle';
+                else if (clusterVal === 'HE') clusterBadge = 'bg-danger-subtle text-danger border border-danger-subtle';
 
                 return `
                     <tr class="align-middle text-nowrap">
                         <td class="px-3 py-2 fw-semibold text-dark text-nowrap">${escapeHtml(r.f1)}</td>
                         <td class="px-3 py-2 text-nowrap">${escapeHtml(r.f2)}</td>
                         <td class="px-3 py-2 text-nowrap"><span class="badge bg-light text-dark border text-nowrap">${escapeHtml(r.f3)}</span></td>
-                        <td class="px-3 py-2 text-nowrap"><span class="badge ${badgeClass} px-2 py-1 rounded-pill text-nowrap">${escapeHtml(r.f4)}</span></td>
+                        <td class="px-3 py-2 text-nowrap"><span class="badge bg-light text-dark border text-nowrap">${escapeHtml(gradeVal)}</span></td>
+                        <td class="px-3 py-2 text-nowrap"><span class="badge ${clusterBadge} px-2 py-1 rounded-pill text-nowrap">${escapeHtml(clusterVal)}</span></td>
+                        <td class="px-3 py-2 text-nowrap"><span class="badge ${badgeClass} px-2 py-1 rounded-pill text-nowrap">${escapeHtml(termVal)}</span></td>
                     </tr>
                 `;
             }).join('');

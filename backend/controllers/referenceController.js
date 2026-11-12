@@ -830,7 +830,8 @@ async function getMyEnrolledSubjects(req, res) {
       if (subGrade !== 0 && subGrade !== gradeLevel) return false;
 
       // Strand match (Common, All Sections, or matches student's strand / section)
-      const isCommon = subStrand === 'COMMON' || subStrand === 'ALL' || subStrand === '' || subSec.includes('ALL SECTIONS');
+      const isCommon = (subStrand === 'COMMON' || subStrand === 'ALL' || subStrand === '' || subSec.includes('ALL SECTIONS'))
+        && r.classification !== 'Specialized Subject';
       const strandMatches = isCommon || (strandCode && subStrand === strandCode) || (strandCode && subSec.includes(strandCode));
       if (!strandMatches) return false;
 

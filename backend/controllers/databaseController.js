@@ -102,17 +102,30 @@ function formatSubjectTerm(quarter) {
   return '1st Term';
 }
 
-/** GET /api/database/subjects — Subject Code / Name / Classification / Term */
+/** GET /api/database/subjects — Subject Code / Name / Classification / Grade Level / Cluster / Term */
 async function browseSubjects(req, res) {
   try {
-    const [rows] = await pool.query('SELECT * FROM subjects ORDER BY name');
+    const [rows] = await pool.query('SELECT * FROM subjects ORDER BY grade_level ASC, strand ASC, name ASC');
     const records = rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      name: r.name,
+      classification: r.classification,
+      gradeLevel: r.grade_level != null ? Number(r.grade_level) : 11,
+      strand: r.strand || 'Common',
+      quarter: r.quarter,
       f1: r.code,
       f2: r.name,
       f3: r.classification,
-      f4: formatSubjectTerm(r.quarter),
+      f4: `Grade ${r.grade_level != null && r.grade_level !== 0 ? r.grade_level : 11}`,
+      f5: r.strand || 'Common',
+      f6: formatSubjectTerm(r.quarter),
     }));
-    return res.json({ success: true, headers: ['Subject Code', 'Subject Name', 'Classification', 'Term'], records });
+    return res.json({
+      success: true,
+      headers: ['Subject Code', 'Subject Name', 'Classification', 'Grade Level', 'Cluster', 'Term'],
+      records,
+    });
   } catch (err) {
     console.error('browseSubjects error:', err);
     return res.status(500).json({ success: false, message: 'Could not load subjects.' });
@@ -490,12 +503,14 @@ async function exportStudentsCSV(req, res) {
 async function exportSubjectsCSV(req, res) {
   try {
     const format = req.path.endsWith('.xlsx') || req.query.format === 'xlsx' ? 'xlsx' : 'csv';
-    const [rows] = await pool.query('SELECT code, name, classification, quarter FROM subjects ORDER BY name');
-    const headers = ['Subject Code', 'Subject Name', 'Classification', 'Term'];
+    const [rows] = await pool.query('SELECT code, name, classification, grade_level, strand, quarter FROM subjects ORDER BY grade_level ASC, strand ASC, name ASC');
+    const headers = ['Subject Code', 'Subject Name', 'Classification', 'Grade Level', 'Cluster', 'Term'];
     const dataRows = rows.map((r) => [
       r.code || '',
       r.name || '',
       r.classification || '',
+      `Grade ${r.grade_level != null && r.grade_level !== 0 ? r.grade_level : 11}`,
+      r.strand || 'Common',
       formatSubjectTerm(r.quarter),
     ]);
     return sendDataExport(res, {
@@ -504,7 +519,7 @@ async function exportSubjectsCSV(req, res) {
       filenameBase: 'subjects-export',
       format,
       sheetName: 'Subjects',
-      colWidths: [{ wch: 16 }, { wch: 32 }, { wch: 18 }, { wch: 14 }],
+      colWidths: [{ wch: 16 }, { wch: 32 }, { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 14 }],
     });
   } catch (err) {
     console.error('exportSubjectsCSV error:', err);
