@@ -358,7 +358,20 @@
 #termFilterSelect,
 #subjectSearchInput {
     border-color: #e2e8f0;
+    font-size: 0.9375rem;
     transition: all 0.2s ease;
+}
+
+#termFilterSelect {
+    cursor: pointer;
+    font-size: 0.9375rem !important;
+}
+
+#termFilterSelect option {
+    font-size: 0.9375rem !important;
+    padding: 10px 14px !important;
+    color: #1e293b !important;
+    background-color: #ffffff !important;
 }
 
 #termFilterSelect:focus,
