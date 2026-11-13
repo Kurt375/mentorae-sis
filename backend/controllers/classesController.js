@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
-const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent, isTeacherAdviserOfStudent } = require('../utils/authz');
+const { teacherTeachesSection, teacherTeachesStudent, getAdviserIdForStudent, isTeacherAdviserOfStudent, teacherIsSectionAdviser } = require('../utils/authz');
 const { getManilaDate } = require('../utils/dateUtils');
 
 /**
@@ -156,10 +156,27 @@ async function getMySections(req, res) {
   }
 }
 
-/** GET /api/classes/my-subjects?sectionId= — subjects this teacher actually teaches (optionally scoped to one section) */
+/** GET /api/classes/my-subjects?sectionId=&term= — subjects this teacher actually teaches (scoped to section and academic term) */
 async function getMySubjects(req, res) {
   try {
     const params = [req.user.id];
+    let targetTermStr = null;
+    let targetQuarterNum = null;
+
+    if (req.query.term && req.query.term !== 'all') {
+      const termStr = String(req.query.term).toLowerCase();
+      if (termStr.includes('2') || termStr.includes('second')) {
+        targetTermStr = '2nd Term';
+        targetQuarterNum = 2;
+      } else if (termStr.includes('3') || termStr.includes('third')) {
+        targetTermStr = '3rd Term';
+        targetQuarterNum = 3;
+      } else {
+        targetTermStr = '1st Term';
+        targetQuarterNum = 1;
+      }
+    }
+
     let sql = `
       SELECT DISTINCT sub.id, sub.code, sub.name, sub.classification, sub.grade_level, sub.quarter,
                       COALESCE(sub.ww_weight, 20.00) AS ww_weight,
@@ -167,52 +184,47 @@ async function getMySubjects(req, res) {
                       COALESCE(sub.qa_weight, 30.00) AS qa_weight
       FROM schedules sch JOIN subjects sub ON sub.id = sch.subject_id
       WHERE sch.teacher_id = ?`;
+
     if (req.query.sectionId && req.query.sectionId !== 'all') {
       sql += ' AND sch.section_id = ?';
       params.push(req.query.sectionId);
     }
+
+    if (targetTermStr) {
+      sql += ' AND (sch.quarter = ? OR sch.quarter = "All Terms")';
+      params.push(targetTermStr);
+    }
+
     sql += ' ORDER BY sub.name';
     let [rows] = await pool.query(sql, params);
-    if (!rows.length && req.query.sectionId && req.query.sectionId !== 'all') {
-      [rows] = await pool.query(`
-        SELECT DISTINCT sub.id, sub.code, sub.name, sub.classification, sub.grade_level, sub.quarter,
-               COALESCE(sub.ww_weight, 20.00) AS ww_weight,
-               COALESCE(sub.pt_weight, 50.00) AS pt_weight,
-               COALESCE(sub.qa_weight, 30.00) AS qa_weight
-        FROM schedules sch
-        JOIN subjects sub ON sub.id = sch.subject_id
-        WHERE sch.section_id = ?
-        ORDER BY sub.name
-      `, [req.query.sectionId]);
 
-      if (!rows.length) {
-        const [secRows] = await pool.query('SELECT grade_level, strand_id FROM sections WHERE id = ?', [req.query.sectionId]);
-        if (secRows.length) {
-          const [subRows] = await pool.query(`
-            SELECT DISTINCT sub.id, sub.code, sub.name, sub.classification, sub.grade_level, sub.quarter,
-                   COALESCE(sub.ww_weight, 20.00) AS ww_weight,
-                   COALESCE(sub.pt_weight, 50.00) AS pt_weight,
-                   COALESCE(sub.qa_weight, 30.00) AS qa_weight
-            FROM subjects sub
-            WHERE sub.grade_level = ? OR sub.grade_level = 0 OR sub.name = 'General Mathematics'
-            ORDER BY sub.name
-          `, [secRows[0].grade_level]);
-          rows = subRows;
+    // If teacher has no direct teaching schedule in this section, check if they are the section adviser
+    if (!rows.length && req.query.sectionId && req.query.sectionId !== 'all') {
+      const isAdv = await teacherIsSectionAdviser(req.user.id, req.query.sectionId);
+      if (isAdv) {
+        let advSql = `
+          SELECT DISTINCT sub.id, sub.code, sub.name, sub.classification, sub.grade_level, sub.quarter,
+                 COALESCE(sub.ww_weight, 20.00) AS ww_weight,
+                 COALESCE(sub.pt_weight, 50.00) AS pt_weight,
+                 COALESCE(sub.qa_weight, 30.00) AS qa_weight
+          FROM schedules sch
+          JOIN subjects sub ON sub.id = sch.subject_id
+          WHERE sch.section_id = ?`;
+        const advParams = [req.query.sectionId];
+        if (targetTermStr) {
+          advSql += ' AND (sch.quarter = ? OR sch.quarter = "All Terms")';
+          advParams.push(targetTermStr);
         }
+        advSql += ' ORDER BY sub.name';
+        [rows] = await pool.query(advSql, advParams);
       }
     }
 
-    // Filter subjects by academic term if provided
-    if (req.query.term && req.query.term !== 'all') {
-      const termStr = String(req.query.term).toLowerCase();
-      let targetTerm = 1;
-      if (termStr.includes('2') || termStr.includes('second')) targetTerm = 2;
-      else if (termStr.includes('3') || termStr.includes('third')) targetTerm = 3;
-
+    // Filter by subject quarter curriculum rule if applicable (quarter 0 = year-round)
+    if (targetQuarterNum) {
       rows = rows.filter(sub => {
         const q = sub.quarter != null ? Number(sub.quarter) : 0;
-        // 0 = All terms (year-round), targetTerm = specific term
-        return q === 0 || q === targetTerm;
+        return q === 0 || q === targetQuarterNum;
       });
     }
 
@@ -224,12 +236,24 @@ async function getMySubjects(req, res) {
 }
 
 /**
- * GET /api/classes/my-assigned-classes
+ * GET /api/classes/my-assigned-classes?term=
  * Returns the teacher's scheduled teaching classes (unique subject + section combinations),
  * along with student counts, strand, grade level, and category.
  */
 async function getMyAssignedClasses(req, res) {
   try {
+    const params = [req.user.id, req.user.id, req.user.id];
+    let termSql = '';
+
+    if (req.query.term && req.query.term !== 'all') {
+      const termStr = String(req.query.term).toLowerCase();
+      let targetTerm = '1st Term';
+      if (termStr.includes('2') || termStr.includes('second')) targetTerm = '2nd Term';
+      else if (termStr.includes('3') || termStr.includes('third')) targetTerm = '3rd Term';
+      termSql = ' AND (sch.quarter = ? OR sch.quarter = "All Terms")';
+      params.push(targetTerm);
+    }
+
     const [rows] = await pool.query(
       `SELECT DISTINCT
          sub.id AS subjectId,
@@ -247,9 +271,9 @@ async function getMyAssignedClasses(req, res) {
        JOIN subjects sub ON sub.id = sch.subject_id
        JOIN sections sec ON sec.id = sch.section_id
        JOIN strands st ON st.id = sec.strand_id
-       WHERE sch.teacher_id = ?
+       WHERE sch.teacher_id = ?${termSql}
        ORDER BY sec.name, sub.name`,
-      [req.user.id, req.user.id, req.user.id]
+      params
     );
 
     return res.json({ success: true, assignedClasses: rows });

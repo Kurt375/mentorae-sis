@@ -2304,8 +2304,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
-        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
-        const term = encodeTermFilter ? encodeTermFilter.value : '1st';
+        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : currentSubjectId;
+        const rawTerm = encodeTermFilter ? encodeTermFilter.value : 't1';
+        let term = '1st Term';
+        if (rawTerm === 't2' || rawTerm.includes('2')) term = '2nd Term';
+        else if (rawTerm === 't3' || rawTerm.includes('3')) term = '3rd Term';
 
         const quizVal = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : null;
         const actVal = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : null;
@@ -2783,19 +2786,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentSubjects = [];
             }
 
-            // 1. Populate top filter bar (filterSubject)
+            // 1. Determine active subject ID (retain previously selected subject if it still exists in the new list)
+            const prevSubId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : currentSubjectId;
+            const subjectStillExists = currentSubjects.some(s => String(s.id) === String(prevSubId));
+            if (subjectStillExists) {
+                currentSubjectId = prevSubId;
+            } else if (currentSubjects.length) {
+                currentSubjectId = currentSubjects[0].id;
+            } else {
+                currentSubjectId = null;
+            }
+
+            // 2. Populate top filter bar (filterSubject)
             if (filterSubject) {
                 if (!currentSubjects.length) {
-                    filterSubject.innerHTML = '<option value="">No subjects assigned</option>';
-                    currentSubjectId = null;
+                    filterSubject.innerHTML = '<option value="">No subjects scheduled for this term</option>';
+                    filterSubject.value = '';
                 } else if (sectionId === 'all') {
                     let subHtml = `<option value="all">All Subjects Taught (${currentSubjects.length})</option>`;
                     subHtml += currentSubjects.map(sub => `
                         <option value="${sub.id}">${sub.name} (${sub.code || ''})</option>
                     `).join('');
                     filterSubject.innerHTML = subHtml;
-                    currentSubjectId = 'all';
-                    filterSubject.value = 'all';
+                    filterSubject.value = currentSubjectId || 'all';
                 } else {
                     let subHtml = '';
                     if (currentSubjects.length > 1) {
@@ -2805,26 +2818,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <option value="${sub.id}">${sub.name} (${sub.code || ''})</option>
                     `).join('');
                     filterSubject.innerHTML = subHtml;
-                    currentSubjectId = currentSubjects[0].id;
-                    filterSubject.value = currentSubjectId;
+                    filterSubject.value = currentSubjectId || currentSubjects[0].id;
                 }
             }
 
-            // 2. Populate E-Class Record subject filter
+            // 3. Populate E-Class Record subject filter
             if (encodeSubjectFilter) {
                 if (currentSubjects.length) {
                     encodeSubjectFilter.innerHTML = currentSubjects.map(sub => `
                         <option value="${sub.id}">${sub.name} (${sub.code || ''})</option>
                     `).join('');
-                    if (currentSubjectId && currentSubjectId !== 'all') {
-                        encodeSubjectFilter.value = currentSubjectId;
-                    } else {
-                        encodeSubjectFilter.value = currentSubjects[0].id;
-                    }
+                    encodeSubjectFilter.value = currentSubjectId || currentSubjects[0].id;
                 } else {
-                    encodeSubjectFilter.innerHTML = '<option value="11">General Mathematics (GENMATH)</option>';
-                    encodeSubjectFilter.value = '11';
-                    currentSubjectId = '11';
+                    encodeSubjectFilter.innerHTML = '<option value="">No subjects scheduled for this term</option>';
+                    encodeSubjectFilter.value = '';
                 }
             }
 
@@ -2838,10 +2845,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadGradeSheet() {
         if (!gradeTableBody) return;
         const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
-        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
-        const term = encodeTermFilter ? encodeTermFilter.value : '1st';
+        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : currentSubjectId;
+        const rawTerm = encodeTermFilter ? encodeTermFilter.value : 't1';
+        let term = '1st Term';
+        if (rawTerm === 't2' || rawTerm.includes('2')) term = '2nd Term';
+        else if (rawTerm === 't3' || rawTerm.includes('3')) term = '3rd Term';
 
-        if (!sectionId || !subjectId) return;
+        if (!sectionId || !subjectId) {
+            gradeTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-5">
+                <i class="bi bi-calendar-x fs-2 d-block mb-2 text-secondary"></i>
+                <strong class="d-block mb-1">No Scheduled Classes for ${escapeHtml(term)}</strong>
+                <span class="small text-muted">Classes and grades for this term will appear once the schedule is assigned to the designated teacher by the school administration.</span>
+            </td></tr>`;
+            return;
+        }
 
         const weights = getActiveSubjectWeights();
 
