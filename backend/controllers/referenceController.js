@@ -106,6 +106,7 @@ const INITIAL_TOPICS = {
 let columnsChecked = false;
 async function ensureSubjectColumns() {
   if (columnsChecked) return;
+  columnsChecked = true;
   try {
     const [cols] = await pool.query('SHOW COLUMNS FROM subjects');
     const colNames = cols.map(c => c.Field.toLowerCase());
@@ -142,10 +143,8 @@ async function ensureSubjectColumns() {
       await pool.query("ALTER TABLE subjects MODIFY COLUMN classification VARCHAR(64) DEFAULT 'Core Subject'");
     } catch (e) {}
 
-    // Seed or update curriculum subjects into the database
+    // Seed or update curriculum subjects into the database only if table is empty
     await seedCurriculumSubjects();
-
-    columnsChecked = true;
   } catch (err) {
     console.error('ensureSubjectColumns notice:', err.message);
   }
@@ -153,6 +152,12 @@ async function ensureSubjectColumns() {
 
 async function seedCurriculumSubjects() {
   try {
+    const [countRows] = await pool.query('SELECT COUNT(*) AS cnt FROM subjects');
+    if (countRows[0]?.cnt > 0) {
+      // Subjects already populated. Skip full seeding loop to preserve TiDB performance and avoid unnecessary RUs.
+      return;
+    }
+
     for (const sub of CURRICULUM_SUBJECTS) {
       // Check if subject exists by code or name
       const [existing] = await pool.query(
@@ -310,39 +315,31 @@ async function listSubjects(req, res) {
       return res.json({ success: true, subjects: cached });
     }
 
-    await ensureSubjectColumns();
     const [rows] = await pool.query('SELECT * FROM subjects ORDER BY grade_level ASC, name ASC');
 
-    // Fetch approved topics for all subjects
+    // Fetch approved topics for all subjects WITHOUT heavy content_payload (files/quizzes/flashcards)
+    // Detailed file and quiz payloads are fetched on demand when studying or managing that topic.
     let topicsBySubject = {};
     let recsBySubject = {};
     try {
       const [topicRows] = await pool.query(
-        `SELECT t.id, t.subject_id, t.title, t.description, t.color, t.comment, t.is_recommendation, t.content_payload 
+        `SELECT t.id, t.subject_id, t.title, t.description, t.color, t.comment, t.is_recommendation 
          FROM topics t 
          WHERE t.status = 'approved' 
          ORDER BY t.created_at ASC`
       );
       topicRows.forEach(t => {
-        let payload = {};
-        if (t.content_payload) {
-          try {
-            payload = typeof t.content_payload === 'string' ? JSON.parse(t.content_payload) : (t.content_payload || {});
-          } catch (e) {
-            payload = {};
-          }
-        }
         const item = {
           id: t.id,
           title: t.title,
           description: t.description || '',
           color: t.color || 'bg-card-purple',
           comment: t.comment || '',
-          resources: payload.resources || [],
-          quiz: payload.quiz || [],
-          flashcards: payload.flashcards || [],
-          visibleTo: payload.visibleTo || ['All Sections'],
-          files: (payload.files || []).map(f => ({ name: f.name, type: f.type, size: f.size }))
+          resources: [],
+          quiz: [],
+          flashcards: [],
+          visibleTo: ['All Sections'],
+          files: []
         };
         if (t.is_recommendation) {
           if (!recsBySubject[t.subject_id]) recsBySubject[t.subject_id] = [];
@@ -723,7 +720,6 @@ async function deleteSubject(req, res) {
 
 /** GET /api/reference/my-enrolled-subjects — returns subjects the logged in student is taking this term */
 async function getMyEnrolledSubjects(req, res) {
-  await ensureSubjectColumns();
   try {
     const userId = req.user?.id;
     if (!userId) {

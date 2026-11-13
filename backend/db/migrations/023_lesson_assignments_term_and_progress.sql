@@ -53,3 +53,4 @@ ON DUPLICATE KEY UPDATE
   quiz_score = VALUES(quiz_score),
   quiz_total = VALUES(quiz_total),
   quiz_percentage = VALUES(quiz_percentage);
+

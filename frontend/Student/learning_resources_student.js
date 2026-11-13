@@ -365,43 +365,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadData() {
         try {
-            await loadStudentProfile();
+            // Fetch student profile, all subjects catalog, and enrolled subjects concurrently in parallel
+            const [profileResult, subjectsResult, enrolledResult] = await Promise.allSettled([
+                loadStudentProfile(),
+                authedFetch('/api/reference/subjects', token),
+                authedFetch('/api/reference/my-enrolled-subjects', token)
+            ]);
 
-            // 1. Authoritative: Fetch ALL subjects created by the Admin from API
-            try {
-                const data = await authedFetch('/api/reference/subjects', token);
-                if (data && data.success && Array.isArray(data.subjects) && data.subjects.length > 0) {
-                    allSubjects = data.subjects;
-                } else {
-                    const cached = localStorage.getItem(SUBJECTS_STORAGE_KEY);
-                    allSubjects = cached ? JSON.parse(cached) : [];
-                }
-            } catch (e) {
-                console.warn('Failed to fetch subjects from API, checking local storage:', e);
+            // 1. Authoritative: Process ALL subjects created by Admin
+            if (subjectsResult.status === 'fulfilled' && subjectsResult.value?.success && Array.isArray(subjectsResult.value.subjects) && subjectsResult.value.subjects.length > 0) {
+                allSubjects = subjectsResult.value.subjects;
+            } else if (!allSubjects || allSubjects.length === 0) {
                 const cached = localStorage.getItem(SUBJECTS_STORAGE_KEY);
                 allSubjects = cached ? JSON.parse(cached) : [];
             }
 
-            // 2. Authoritative: Fetch student's ENROLLED subjects this term
-            try {
-                const enrolledRes = await authedFetch('/api/reference/my-enrolled-subjects', token);
-                if (enrolledRes && enrolledRes.success && Array.isArray(enrolledRes.subjects)) {
-                    myEnrolledSubjects = enrolledRes.subjects;
-                    if (enrolledRes.activeTerm) activeTerm = enrolledRes.activeTerm;
-                    if (enrolledRes.activeTermNum) activeTermNum = enrolledRes.activeTermNum;
-                    if (enrolledRes.studentProfile) {
-                        studentProfile = { ...studentProfile, ...enrolledRes.studentProfile };
-                    }
-                } else {
-                    // Fallback: calculate enrolled subjects for this term locally
-                    myEnrolledSubjects = allSubjects.filter(sub => {
-                        const matchesCurriculum = isSubjectForStudentCurriculum(sub);
-                        const q = sub.quarter != null ? Number(sub.quarter) : 1;
-                        return matchesCurriculum && (q === 0 || q === activeTermNum);
-                    });
+            // 2. Authoritative: Process student's ENROLLED subjects this term
+            if (enrolledResult.status === 'fulfilled' && enrolledResult.value?.success && Array.isArray(enrolledResult.value.subjects)) {
+                const enrolledRes = enrolledResult.value;
+                myEnrolledSubjects = enrolledRes.subjects;
+                if (enrolledRes.activeTerm) activeTerm = enrolledRes.activeTerm;
+                if (enrolledRes.activeTermNum) activeTermNum = enrolledRes.activeTermNum;
+                if (enrolledRes.studentProfile) {
+                    studentProfile = { ...studentProfile, ...enrolledRes.studentProfile };
                 }
-            } catch (e) {
-                console.warn('Failed to fetch enrolled subjects from dedicated endpoint, computing locally:', e);
+            } else {
+                // Fallback: calculate enrolled subjects for this term locally
                 myEnrolledSubjects = allSubjects.filter(sub => {
                     const matchesCurriculum = isSubjectForStudentCurriculum(sub);
                     const q = sub.quarter != null ? Number(sub.quarter) : 1;
@@ -433,22 +422,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         title: t.title,
                         description: t.description,
                         color: t.color,
-                        comment: t.comment,
-                        quiz: t.quiz || [],
-                        flashcards: t.flashcards || [],
-                        resources: t.resources || [],
-                        files: (t.files || []).map(f => ({ name: f.name, type: f.type, size: f.size }))
+                        comment: t.comment
                     })),
                     recommendations: (s.recommendations || []).map(r => ({
                         id: r.id,
                         title: r.title,
                         description: r.description,
                         color: r.color,
-                        comment: r.comment,
-                        quiz: r.quiz || [],
-                        flashcards: r.flashcards || [],
-                        resources: r.resources || [],
-                        files: (r.files || []).map(f => ({ name: f.name, type: f.type, size: f.size }))
+                        comment: r.comment
                     }))
                 }));
                 localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(safeSubjects));
@@ -494,6 +475,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     if (libraryFilterCategory) libraryFilterCategory.addEventListener('change', applyLibraryFilter);
+
+    // Instant initial cache render so UI renders with zero waiting
+    try {
+        const cached = localStorage.getItem(SUBJECTS_STORAGE_KEY);
+        if (cached) {
+            allSubjects = JSON.parse(cached);
+            myEnrolledSubjects = allSubjects.filter(sub => {
+                const matchesCurriculum = isSubjectForStudentCurriculum(sub);
+                const q = sub.quarter != null ? Number(sub.quarter) : 1;
+                return matchesCurriculum && (q === 0 || q === activeTermNum);
+            });
+            updateProfileHeader();
+            populateStrandFilter();
+            applyMySubjectsFilter();
+            applyLibraryFilter();
+        }
+    } catch (e) {
+        console.warn('Initial cache render notice:', e);
+    }
 
     await loadData();
 });
