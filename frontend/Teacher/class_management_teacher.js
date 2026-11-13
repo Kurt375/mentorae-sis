@@ -2768,10 +2768,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    async function loadSubjects(sectionId) {
+    async function loadSubjects(sectionId, term) {
         const targetSec = (sectionId === 'all' || !sectionId) ? '' : sectionId;
+        const targetTerm = term || (encodeTermFilter ? encodeTermFilter.value : 't1');
         try {
-            const data = await authedFetch(`/api/classes/my-subjects${targetSec ? `?sectionId=${targetSec}` : ''}`, token);
+            let queryUrl = `/api/classes/my-subjects?sectionId=${encodeURIComponent(targetSec || 'all')}`;
+            if (targetTerm) {
+                queryUrl += `&term=${encodeURIComponent(targetTerm)}`;
+            }
+            const data = await authedFetch(queryUrl, token);
             if (data.success && data.subjects.length) {
                 currentSubjects = data.subjects;
             } else {
@@ -3033,7 +3038,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             ]);
         });
     }
-    if (encodeTermFilter) encodeTermFilter.addEventListener('change', loadGradeSheet);
+    if (encodeTermFilter) {
+        encodeTermFilter.addEventListener('change', async () => {
+            const secId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
+            const termVal = encodeTermFilter.value;
+            await loadSubjects(secId, termVal);
+        });
+    }
 
     // =========================================================================
     // Assessment Column Management: Add, Edit, Delete & Constraints

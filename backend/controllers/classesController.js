@@ -201,6 +201,21 @@ async function getMySubjects(req, res) {
         }
       }
     }
+
+    // Filter subjects by academic term if provided
+    if (req.query.term && req.query.term !== 'all') {
+      const termStr = String(req.query.term).toLowerCase();
+      let targetTerm = 1;
+      if (termStr.includes('2') || termStr.includes('second')) targetTerm = 2;
+      else if (termStr.includes('3') || termStr.includes('third')) targetTerm = 3;
+
+      rows = rows.filter(sub => {
+        const q = sub.quarter != null ? Number(sub.quarter) : 0;
+        // 0 = All terms (year-round), targetTerm = specific term
+        return q === 0 || q === targetTerm;
+      });
+    }
+
     return res.json({ success: true, subjects: rows });
   } catch (err) {
     console.error('getMySubjects error:', err);

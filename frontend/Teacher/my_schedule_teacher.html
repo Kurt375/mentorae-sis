@@ -83,9 +83,18 @@
             </div>
 
             <div class="card border-0 shadow-sm rounded-3 overflow-hidden print-card">
-                <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center d-print-none">
-                    <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Weekly Timetable</h3>
+                <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center flex-wrap gap-2 d-print-none">
                     <div class="d-flex align-items-center gap-2">
+                        <h3 class="h6 fw-bold m-0 text-dark text-uppercase tracking-sm">Weekly Timetable</h3>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill micro-text px-2.5 py-1" id="activeTermPill">2nd Term</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <select class="form-select form-select-sm rounded-pill border-secondary-subtle py-1 micro-text" id="scheduleTermSelect" style="width: auto; min-width: 140px; padding-left: 0.85rem; padding-right: 2.25rem; font-weight: 500; cursor: pointer;">
+                            <option value="2nd Term" selected>2nd Term (Current)</option>
+                            <option value="1st Term">1st Term</option>
+                            <option value="3rd Term">3rd Term</option>
+                            <option value="all">All Terms</option>
+                        </select>
                         <button class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5" id="btnCustomizeSignatories" data-bs-toggle="modal" data-bs-target="#signatoriesModal">
                             <i class="bi bi-pencil-square"></i> Customize Signatories
                         </button>
@@ -93,6 +102,10 @@
                             <i class="bi bi-printer-fill"></i> Print Schedule
                         </button>
                     </div>
+                </div>
+                <div id="scheduleNoticeBanner" class="p-3 bg-light border-bottom text-muted small d-none align-items-center gap-2">
+                    <i class="bi bi-info-circle text-success fs-5"></i>
+                    <span id="scheduleNoticeText">No classes scheduled yet for <strong>2nd Term</strong>. Classes will appear here once configured by the school administration.</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-bordered text-center m-0 schedule-table">

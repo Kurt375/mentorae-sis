@@ -4,6 +4,7 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
+const { getActiveTermConfig } = require('../utils/termUtils');
 
 const SCHOOL_OPEN = '07:00:00';
 const SCHOOL_CLOSE = '15:30:00';
@@ -609,17 +610,26 @@ async function updateSchedule(req, res) {
 /** GET /api/schedules/mine — the logged-in teacher's weekly grid */
 async function getMySchedule(req, res) {
   try {
-    const [rows] = await pool.query(
-      `SELECT sch.day_of_week, sch.start_time, sch.end_time, sch.quarter, sub.name AS subjectName,
-              st.code AS strandCode, sec.grade_level, sec.name AS sectionName
-       FROM schedules sch
-       JOIN subjects sub ON sub.id = sch.subject_id
-       JOIN sections sec ON sec.id = sch.section_id
-       JOIN strands st ON st.id = sec.strand_id
-       WHERE sch.teacher_id = ?
-       ORDER BY sch.start_time`,
-      [req.user.id]
-    );
+    const { currentTerm } = await getActiveTermConfig();
+    const requestedTerm = req.query.term || currentTerm || '2nd Term';
+
+    const params = [req.user.id];
+    let sql = `
+      SELECT sch.day_of_week, sch.start_time, sch.end_time, sch.quarter, sub.name AS subjectName,
+             st.code AS strandCode, sec.grade_level, sec.name AS sectionName
+      FROM schedules sch
+      JOIN subjects sub ON sub.id = sch.subject_id
+      JOIN sections sec ON sec.id = sch.section_id
+      JOIN strands st ON st.id = sec.strand_id
+      WHERE sch.teacher_id = ?`;
+
+    if (requestedTerm !== 'all') {
+      sql += ' AND (sch.quarter = ? OR sch.quarter = \'All Terms\')';
+      params.push(requestedTerm);
+    }
+    sql += ' ORDER BY sch.start_time';
+
+    const [rows] = await pool.query(sql, params);
 
     // Fetch teacher's name from database
     const [teacherRows] = await pool.query(
@@ -637,6 +647,13 @@ async function getMySchedule(req, res) {
     const settingsMap = {};
     settingRows.forEach((r) => (settingsMap[r.setting_key] = r.setting_value));
 
+    // Also get all distinct terms that exist in the database for schedule selection
+    const [termRows] = await pool.query(
+      'SELECT DISTINCT quarter FROM schedules WHERE teacher_id = ?',
+      [req.user.id]
+    );
+    const availableTerms = Array.from(new Set(termRows.map(r => r.quarter).filter(Boolean)));
+
     const schedule = rows.map((r) => ({
       day: r.day_of_week,
       startTime: r.start_time,
@@ -649,6 +666,9 @@ async function getMySchedule(req, res) {
 
     return res.json({
       success: true,
+      activeTerm: currentTerm,
+      selectedTerm: requestedTerm,
+      availableTerms,
       teacherName,
       principalName: settingsMap.school_principal || 'SCHOOL PRINCIPAL / HEAD',
       principalTitle: settingsMap.school_principal_title || 'Talisay Senior High School',

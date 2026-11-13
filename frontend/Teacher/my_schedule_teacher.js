@@ -197,21 +197,58 @@ document.addEventListener('DOMContentLoaded', () => {
         return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
-    async function load() {
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    const scheduleTermSelect = document.getElementById('scheduleTermSelect');
+    const activeTermPill = document.getElementById('activeTermPill');
+    const noticeBanner = document.getElementById('scheduleNoticeBanner');
+    const noticeText = document.getElementById('scheduleNoticeText');
+
+    async function load(termParam = null) {
         const tbody = document.getElementById('schedule-body');
         if (!tbody) return;
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading schedule...</td></tr>';
 
         try {
-            const data = await authedFetch('/api/schedules/mine', token);
+            const selectedTerm = termParam || (scheduleTermSelect ? scheduleTermSelect.value : '2nd Term');
+            const queryUrl = selectedTerm ? `/api/schedules/mine?term=${encodeURIComponent(selectedTerm)}` : '/api/schedules/mine';
+            const data = await authedFetch(queryUrl, token);
             tbody.innerHTML = '';
 
-            if (!data.success || !data.schedule || !data.schedule.length) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No schedule assigned yet.</td></tr>';
-                return;
+            const schedules = (data && data.success && Array.isArray(data.schedule)) ? data.schedule : [];
+
+            if (data && data.activeTerm && activeTermPill) {
+                activeTermPill.textContent = data.activeTerm;
             }
 
-            const schedules = data.schedule;
+            if (scheduleTermSelect && data && data.selectedTerm && scheduleTermSelect.value !== data.selectedTerm) {
+                if (Array.from(scheduleTermSelect.options).some(o => o.value === data.selectedTerm)) {
+                    scheduleTermSelect.value = data.selectedTerm;
+                }
+            }
+
+            // Show or hide empty schedule notice banner
+            if (noticeBanner) {
+                if (schedules.length === 0) {
+                    noticeBanner.classList.remove('d-none');
+                    noticeBanner.classList.add('d-flex');
+                    if (noticeText) {
+                        const termName = selectedTerm === 'all' ? 'All Terms' : selectedTerm;
+                        noticeText.innerHTML = `No classes scheduled yet for <strong>${escapeHtml(termName)}</strong>. Classes will appear here once configured by the school administration.`;
+                    }
+                } else {
+                    noticeBanner.classList.add('d-none');
+                    noticeBanner.classList.remove('d-flex');
+                }
+            }
 
             serverDefaultSignatories = {
                 teacherName: data.teacherName || '',
@@ -228,11 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 applySignatories(currentSignatories);
             }
 
-            // Populate Quarter/Term name in header
-            const terms = Array.from(new Set(schedules.map(s => s.quarter).filter(Boolean)));
+            // Populate Quarter/Term name in print header
             const termEl = document.getElementById('printTermName');
             if (termEl) {
-                termEl.textContent = terms.length === 1 ? terms[0] : (terms.length > 1 ? terms.join(', ') : 'All Terms');
+                termEl.textContent = selectedTerm === 'all' ? 'All Terms' : selectedTerm;
             }
 
             // Extract all unique start and end boundaries (classes + fixed school routines + baseline periods)
@@ -421,6 +457,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error loading schedule:', err);
             tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Failed to load schedule. Please try again later.</td></tr>';
         }
+    }
+
+    if (scheduleTermSelect) {
+        scheduleTermSelect.addEventListener('change', () => {
+            load(scheduleTermSelect.value);
+        });
     }
 
     document.getElementById('btnPrintSchedule')?.addEventListener('click', () => window.print());
