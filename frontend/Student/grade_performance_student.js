@@ -281,9 +281,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Circular gauges
         const gwaNum = termGwa !== null ? parseFloat(termGwa) : 0;
         setGauge('gaugeWrapAverage', 'gaugeValAverage', gwaNum, gwaNum > 0 ? `${gwaNum}` : '--');
-        setGauge('gaugeWrapPT', 'gaugeValPT', ptAvg, ptAvg > 0 ? `${ptAvg}%` : '--');
-        setGauge('gaugeWrapWW', 'gaugeValWW', wwAvg, wwAvg > 0 ? `${wwAvg}%` : '--');
-        setGauge('gaugeWrapExam', 'gaugeValExam', examAvg, examAvg > 0 ? `${examAvg}%` : '--');
+        setGauge('gaugeWrapPT', 'gaugeValPT', withPt.length ? ptAvg : 0, withPt.length ? `${ptAvg}%` : 'Pending');
+        setGauge('gaugeWrapWW', 'gaugeValWW', withWw.length ? wwAvg : 0, withWw.length ? `${wwAvg}%` : 'Pending');
+        setGauge('gaugeWrapExam', 'gaugeValExam', withExam.length ? examAvg : 0, withExam.length ? `${examAvg}%` : 'Pending');
     }
 
     // =========================================================================
@@ -401,6 +401,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="progress-bar ${progressColor}" role="progressbar" 
                              style="width: ${hasGrade ? Math.min(100, Math.max(0, avgNum)) : 0}%;"
                              aria-valuenow="${hasGrade ? avgNum : 0}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+
+                    <div class="mt-2.5 d-flex align-items-center justify-content-between flex-wrap gap-1">
+                        <div class="d-flex align-items-center gap-1.5">
+                            ${hasGrade ? `
+                                <span class="badge ${g.isFullyGraded ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle'} micro-text rounded-pill py-1 px-2.5">
+                                    <i class="bi ${g.isFullyGraded ? 'bi-check2-circle' : 'bi-hourglass-split'} me-1"></i>
+                                    ${g.isFullyGraded ? 'Final Term Grade' : 'Running Grade'} &bull; Based on ${g.gradedItems !== undefined ? g.gradedItems : (g.quizPct !== null ? 1 : 0)} of ${g.totalItems || 11} graded items
+                                </span>
+                            ` : `
+                                <span class="badge bg-light text-secondary border micro-text rounded-pill py-1 px-2.5">
+                                    <i class="bi bi-clock-history me-1"></i> No graded items yet &bull; Upcoming
+                                </span>
+                            `}
+                        </div>
+                        <span class="micro-text text-muted">
+                            Weights: WW ${g.ww_weight || 20}% &bull; PT ${g.pt_weight || 50}% &bull; QA ${g.qa_weight || 30}%
+                        </span>
                     </div>
 
                     <!-- Expandable Drawer for Subject Breakdown & Target Calculator -->
@@ -802,65 +820,90 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 1. Written Works (WW 1 - WW 5)
         let wwItems = [];
-        if (raw && Array.isArray(raw.wwCols) && raw.wwCols.length && raw.scores && Array.isArray(raw.scores.ww) && raw.scores.ww.length) {
+        if (raw && Array.isArray(raw.wwCols) && raw.wwCols.length && raw.scores && Array.isArray(raw.scores.ww)) {
             wwItems = raw.wwCols.map((col, idx) => {
-                const s = Number(raw.scores.ww[idx]) || 0;
+                const rawVal = raw.scores.ww[idx];
+                const isPending = rawVal === '' || rawVal === null || rawVal === undefined;
+                const isExcused = rawVal === 'E' || rawVal === 'EX';
+                const s = (!isPending && !isExcused && !isNaN(rawVal)) ? Number(rawVal) : null;
                 const max = Number(col.max) || 20;
-                const pct = Math.min(100, Math.max(0, Math.round((s / max) * 100)));
+                const pct = s !== null ? Math.min(100, Math.max(0, Math.round((s / max) * 100))) : null;
                 return {
                     id: col.id || `ww_${idx + 1}`,
                     label: col.label || `WW ${idx + 1}`,
                     score: s,
                     max,
                     pct,
-                    isPassing: pct >= 75
+                    isPassing: pct !== null ? pct >= 75 : false,
+                    isPending,
+                    isExcused
                 };
             });
-        } else {
+        } else if (qPct !== null) {
             wwItems = synthesizeItems(5, 'WW', 20, qPct);
+        } else {
+            wwItems = [1, 2, 3, 4, 5].map(i => ({ id: `ww_${i}`, label: `WW ${i}`, score: null, max: 20, pct: null, isPassing: false, isPending: true }));
         }
 
         // 2. Performance Tasks (PT 1 - PT 3)
         let ptItems = [];
-        if (raw && Array.isArray(raw.ptCols) && raw.ptCols.length && raw.scores && Array.isArray(raw.scores.pt) && raw.scores.pt.length) {
+        if (raw && Array.isArray(raw.ptCols) && raw.ptCols.length && raw.scores && Array.isArray(raw.scores.pt)) {
             ptItems = raw.ptCols.map((col, idx) => {
-                const s = Number(raw.scores.pt[idx]) || 0;
+                const rawVal = raw.scores.pt[idx];
+                const isPending = rawVal === '' || rawVal === null || rawVal === undefined;
+                const isExcused = rawVal === 'E' || rawVal === 'EX';
+                const s = (!isPending && !isExcused && !isNaN(rawVal)) ? Number(rawVal) : null;
                 const max = Number(col.max) || 50;
-                const pct = Math.min(100, Math.max(0, Math.round((s / max) * 100)));
+                const pct = s !== null ? Math.min(100, Math.max(0, Math.round((s / max) * 100))) : null;
                 return {
                     id: col.id || `pt_${idx + 1}`,
                     label: col.label || `PT ${idx + 1}`,
                     score: s,
                     max,
                     pct,
-                    isPassing: pct >= 75
+                    isPassing: pct !== null ? pct >= 75 : false,
+                    isPending,
+                    isExcused
                 };
             });
-        } else {
+        } else if (aPct !== null) {
             ptItems = synthesizeItems(3, 'PT', 50, aPct);
+        } else {
+            ptItems = [1, 2, 3].map(i => ({ id: `pt_${i}`, label: `PT ${i}`, score: null, max: 50, pct: null, isPassing: false, isPending: true }));
         }
 
         // 3. Quarterly Assessments (SA 1, SA 2, Term Exam)
         let qaItems = [];
-        if (raw && Array.isArray(raw.qaCols) && raw.qaCols.length && raw.scores && Array.isArray(raw.scores.qa) && raw.scores.qa.length) {
+        if (raw && Array.isArray(raw.qaCols) && raw.qaCols.length && raw.scores && Array.isArray(raw.scores.qa)) {
             qaItems = raw.qaCols.map((col, idx) => {
-                const s = Number(raw.scores.qa[idx]) || 0;
+                const rawVal = raw.scores.qa[idx];
+                const isPending = rawVal === '' || rawVal === null || rawVal === undefined;
+                const isExcused = rawVal === 'E' || rawVal === 'EX';
+                const s = (!isPending && !isExcused && !isNaN(rawVal)) ? Number(rawVal) : null;
                 const max = Number(col.max) || (idx === 2 ? 50 : 25);
-                const pct = Math.min(100, Math.max(0, Math.round((s / max) * 100)));
+                const pct = s !== null ? Math.min(100, Math.max(0, Math.round((s / max) * 100))) : null;
                 return {
                     id: col.id || `qa_${idx + 1}`,
                     label: col.label || (idx === 2 ? 'Term Exam' : `Summative ${idx + 1}`),
                     score: s,
                     max,
                     pct,
-                    isPassing: pct >= 75
+                    isPassing: pct !== null ? pct >= 75 : false,
+                    isPending,
+                    isExcused
                 };
             });
+        } else if (ePct !== null) {
+            qaItems = [
+                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75, isPending: false },
+                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75, isPending: false },
+                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: Math.round((ePct / 100) * 50), pct: ePct, isPassing: ePct >= 75, isPending: false }
+            ];
         } else {
             qaItems = [
-                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75 },
-                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75 },
-                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: Math.round((ePct / 100) * 50), pct: ePct, isPassing: ePct >= 75 }
+                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: null, pct: null, isPassing: false, isPending: true },
+                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: null, pct: null, isPassing: false, isPending: true },
+                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: null, pct: null, isPassing: false, isPending: true }
             ];
         }
 
@@ -887,125 +930,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const ctx = canvas.getContext('2d');
+        let activeItems = [];
+        if (filter === 'ww') {
+            activeItems = breakdown.wwItems.filter(i => !i.isPending && !i.isExcused && i.pct !== null);
+        } else if (filter === 'pt') {
+            activeItems = breakdown.ptItems.filter(i => !i.isPending && !i.isExcused && i.pct !== null);
+        } else if (filter === 'qa') {
+            activeItems = breakdown.qaItems.filter(i => !i.isPending && !i.isExcused && i.pct !== null);
+        } else {
+            activeItems = [
+                ...breakdown.wwItems.filter(i => !i.isPending && !i.isExcused && i.pct !== null).map(i => ({ ...i, category: 'WW', color: '#10b981' })),
+                ...breakdown.ptItems.filter(i => !i.isPending && !i.isExcused && i.pct !== null).map(i => ({ ...i, category: 'PT', color: '#0a5c2c' })),
+                ...breakdown.qaItems.filter(i => !i.isPending && !i.isExcused && i.pct !== null).map(i => ({ ...i, category: 'QA', color: '#f59e0b' }))
+            ];
+        }
+
         let labels = [];
         let scores = [];
         let pointBgColors = [];
         let pointBorderColors = [];
         let datasets = [];
 
-        if (filter === 'ww') {
-            labels = breakdown.wwItems.map(i => i.label);
-            scores = breakdown.wwItems.map(i => i.pct);
-            pointBgColors = scores.map(s => s >= 75 ? '#10b981' : '#ef4444');
-            pointBorderColors = scores.map(s => s >= 75 ? '#065f46' : '#991b1b');
-
+        if (!activeItems.length) {
+            labels = ['Pending Assessments'];
+            scores = [0];
             datasets = [
                 {
-                    label: 'Written Works %',
-                    data: scores,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                    fill: true,
-                    tension: 0.35,
-                    borderWidth: 2.5,
-                    pointBackgroundColor: pointBgColors,
-                    pointBorderColor: pointBorderColors,
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
-                },
-                {
-                    label: 'Passing Baseline (75%)',
-                    data: labels.map(() => 75),
+                    label: 'No Graded Assessments Yet',
+                    data: [0],
                     borderColor: '#94a3b8',
-                    borderWidth: 1.5,
-                    borderDash: [5, 5],
+                    backgroundColor: 'rgba(148, 163, 184, 0.1)',
                     pointRadius: 0,
-                    fill: false
-                }
-            ];
-        } else if (filter === 'pt') {
-            labels = breakdown.ptItems.map(i => i.label);
-            scores = breakdown.ptItems.map(i => i.pct);
-            pointBgColors = scores.map(s => s >= 75 ? '#0a5c2c' : '#ef4444');
-            pointBorderColors = scores.map(s => s >= 75 ? '#053e1d' : '#991b1b');
-
-            datasets = [
-                {
-                    label: 'Performance Tasks %',
-                    data: scores,
-                    borderColor: '#0a5c2c',
-                    backgroundColor: 'rgba(10, 92, 44, 0.15)',
-                    fill: true,
-                    tension: 0.35,
-                    borderWidth: 2.5,
-                    pointBackgroundColor: pointBgColors,
-                    pointBorderColor: pointBorderColors,
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
-                },
-                {
-                    label: 'Passing Baseline (75%)',
-                    data: labels.map(() => 75),
-                    borderColor: '#94a3b8',
-                    borderWidth: 1.5,
-                    borderDash: [5, 5],
-                    pointRadius: 0,
-                    fill: false
-                }
-            ];
-        } else if (filter === 'qa') {
-            labels = breakdown.qaItems.map(i => i.label);
-            scores = breakdown.qaItems.map(i => i.pct);
-            pointBgColors = scores.map(s => s >= 75 ? '#f59e0b' : '#ef4444');
-            pointBorderColors = scores.map(s => s >= 75 ? '#b45309' : '#991b1b');
-
-            datasets = [
-                {
-                    label: 'Quarterly Assessment %',
-                    data: scores,
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                    fill: true,
-                    tension: 0.35,
-                    borderWidth: 2.5,
-                    pointBackgroundColor: pointBgColors,
-                    pointBorderColor: pointBorderColors,
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
-                },
-                {
-                    label: 'Passing Baseline (75%)',
-                    data: labels.map(() => 75),
-                    borderColor: '#94a3b8',
-                    borderWidth: 1.5,
-                    borderDash: [5, 5],
-                    pointRadius: 0,
-                    fill: false
+                    borderDash: [4, 4]
                 }
             ];
         } else {
-            // 'all': Unified Continuous Trajectory across WW1-WW5, PT1-PT3, and QA
-            const allItems = [
-                ...breakdown.wwItems.map(i => ({ ...i, category: 'WW', color: '#10b981' })),
-                ...breakdown.ptItems.map(i => ({ ...i, category: 'PT', color: '#0a5c2c' })),
-                ...breakdown.qaItems.map(i => ({ ...i, category: 'QA', color: '#f59e0b' }))
-            ];
-            labels = allItems.map(i => i.label);
-            scores = allItems.map(i => i.pct);
-            pointBgColors = allItems.map(i => i.pct >= 75 ? i.color : '#ef4444');
-            pointBorderColors = allItems.map(i => i.pct >= 75 ? '#ffffff' : '#991b1b');
+            labels = activeItems.map(i => i.label);
+            scores = activeItems.map(i => i.pct);
+            pointBgColors = activeItems.map(i => i.pct >= 75 ? (i.color || '#10b981') : '#ef4444');
+            pointBorderColors = activeItems.map(i => i.pct >= 75 ? '#ffffff' : '#991b1b');
+
+            const lineColor = filter === 'ww' ? '#10b981' : (filter === 'pt' ? '#0a5c2c' : (filter === 'qa' ? '#f59e0b' : '#2e7d32'));
+            const bgFill = filter === 'ww' ? 'rgba(16, 185, 129, 0.15)' : (filter === 'pt' ? 'rgba(10, 92, 44, 0.15)' : (filter === 'qa' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(46, 125, 50, 0.08)'));
 
             datasets = [
                 {
-                    label: 'Score %',
+                    label: filter === 'ww' ? 'Written Works %' : (filter === 'pt' ? 'Performance Tasks %' : (filter === 'qa' ? 'Summative & Exams %' : 'Assessment Score %')),
                     data: scores,
-                    borderColor: '#2e7d32',
-                    backgroundColor: 'rgba(46, 125, 50, 0.08)',
+                    borderColor: lineColor,
+                    backgroundColor: bgFill,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.35,
                     borderWidth: 2.5,
                     pointBackgroundColor: pointBgColors,
                     pointBorderColor: pointBorderColors,
@@ -1061,15 +1036,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         callbacks: {
                             label: (context) => {
                                 if (context.datasetIndex === 1) return 'Passing Baseline: 75%';
-                                const idx = context.dataIndex;
-                                let item = null;
-                                if (filter === 'ww') item = breakdown.wwItems[idx];
-                                else if (filter === 'pt') item = breakdown.ptItems[idx];
-                                else if (filter === 'qa') item = breakdown.qaItems[idx];
-                                else {
-                                    const all = [...breakdown.wwItems, ...breakdown.ptItems, ...breakdown.qaItems];
-                                    item = all[idx];
-                                }
+                                const item = activeItems[context.dataIndex];
                                 if (item) {
                                     return `${item.label}: ${item.score}/${item.max} (${item.pct}%) — ${item.isPassing ? 'Passed' : 'Needs Review'}`;
                                 }
@@ -1113,11 +1080,44 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const totalScore = items.reduce((sum, item) => sum + Number(item.score || 0), 0);
-        const totalMax = items.reduce((sum, item) => sum + Number(item.max || 0), 0);
-        const avgPct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+        const gradedItems = items.filter(item => !item.isPending && !item.isExcused && item.score !== null);
+        const totalScore = gradedItems.reduce((sum, item) => sum + Number(item.score || 0), 0);
+        const totalMax = gradedItems.reduce((sum, item) => sum + Number(item.max || 0), 0);
+        const avgPct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : null;
 
         el.innerHTML = items.map(item => {
+            if (item.isPending) {
+                return `
+                    <div class="assessment-item-row d-flex justify-content-between align-items-center opacity-75">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="item-tag-pill fw-bold text-muted bg-light border px-2 py-0.5 rounded">${escapeHtml(item.label)}</span>
+                            <span class="micro-text text-muted">Max: ${item.max} pts</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-secondary border micro-text fw-semibold px-2 py-1 rounded-pill">
+                                <i class="bi bi-clock me-1"></i> Pending
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (item.isExcused) {
+                return `
+                    <div class="assessment-item-row d-flex justify-content-between align-items-center opacity-75">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="item-tag-pill fw-bold text-muted bg-light border px-2 py-0.5 rounded">${escapeHtml(item.label)}</span>
+                            <span class="micro-text text-muted">Max: ${item.max} pts</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-info-subtle text-info border border-info-subtle micro-text fw-semibold px-2 py-1 rounded-pill">
+                                <i class="bi bi-shield-check me-1"></i> Excused
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+
             let badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
             let barColor = 'bg-danger';
             if (item.pct >= 75) {
@@ -1148,11 +1148,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const footerEl = document.getElementById(footerId);
         if (footerEl) {
-            const isPassing = avgPct >= 75;
-            footerEl.innerHTML = `
-                <span>Total: <strong class="text-dark">${totalScore}</strong> / ${totalMax} pts</span>
-                <span>Average: <strong class="${isPassing ? 'text-success' : (avgPct >= 60 ? 'text-warning' : 'text-danger')}">${avgPct}%</strong></span>
-            `;
+            if (!gradedItems.length) {
+                footerEl.innerHTML = `<span class="micro-text text-muted">No graded items yet (0 of ${items.length} graded)</span>`;
+            } else {
+                const isPassing = avgPct >= 75;
+                footerEl.innerHTML = `
+                    <span>Earned: <strong class="text-dark">${totalScore}</strong> / ${totalMax} pts (${gradedItems.length}/${items.length} graded)</span>
+                    <span>Average: <strong class="${isPassing ? 'text-success' : (avgPct >= 60 ? 'text-warning' : 'text-danger')}">${avgPct}%</strong></span>
+                `;
+            }
         }
     }
 

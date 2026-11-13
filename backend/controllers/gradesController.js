@@ -59,6 +59,161 @@ function getRemarks(average) {
   return 'Emerging';
 }
 
+/**
+ * Dynamic Category Re-weighting & NULL/Pending separation:
+ * Excludes upcoming/ungraded items (null/empty/excused) from both numerator and denominator.
+ * Dynamically recalculates the running grade across active components (WW, PT, QA).
+ */
+function computeDynamicRunningGrade(rawScores, q, a, e, weights) {
+  const wwWeight = Number(weights && weights.ww) || 20;
+  const ptWeight = Number(weights && weights.pt) || 50;
+  const qaWeight = Number(weights && weights.qa) || 30;
+
+  let wwPs = null;
+  let ptPs = null;
+  let qaPs = null;
+  let gradedItemCount = 0;
+  let totalItemCount = 0;
+
+  // 1. Try to compute from itemized raw_scores if available
+  let raw = rawScores;
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch (_) { raw = null; }
+  }
+
+  if (raw && raw.scores) {
+    // Written Works
+    if (Array.isArray(raw.wwCols) && Array.isArray(raw.scores.ww)) {
+      totalItemCount += raw.wwCols.length;
+      let earned = 0;
+      let possible = 0;
+      let active = false;
+      raw.wwCols.forEach((col, idx) => {
+        const val = raw.scores.ww[idx];
+        if (val !== '' && val !== null && val !== undefined && val !== 'E' && val !== 'EX' && !isNaN(val)) {
+          earned += parseFloat(val);
+          possible += parseFloat(col.max) || 20;
+          active = true;
+          gradedItemCount++;
+        }
+      });
+      if (active && possible > 0) {
+        wwPs = Math.min(100, Math.max(0, (earned / possible) * 100));
+      }
+    }
+
+    // Performance Tasks
+    if (Array.isArray(raw.ptCols) && Array.isArray(raw.scores.pt)) {
+      totalItemCount += raw.ptCols.length;
+      let earned = 0;
+      let possible = 0;
+      let active = false;
+      raw.ptCols.forEach((col, idx) => {
+        const val = raw.scores.pt[idx];
+        if (val !== '' && val !== null && val !== undefined && val !== 'E' && val !== 'EX' && !isNaN(val)) {
+          earned += parseFloat(val);
+          possible += parseFloat(col.max) || 50;
+          active = true;
+          gradedItemCount++;
+        }
+      });
+      if (active && possible > 0) {
+        ptPs = Math.min(100, Math.max(0, (earned / possible) * 100));
+      }
+    }
+
+    // Quarterly Assessments / Exams
+    if (Array.isArray(raw.qaCols) && Array.isArray(raw.scores.qa)) {
+      totalItemCount += raw.qaCols.length;
+      let earned = 0;
+      let possible = 0;
+      let active = false;
+      raw.qaCols.forEach((col, idx) => {
+        const val = raw.scores.qa[idx];
+        if (val !== '' && val !== null && val !== undefined && val !== 'E' && val !== 'EX' && !isNaN(val)) {
+          earned += parseFloat(val);
+          possible += parseFloat(col.max) || (idx === 2 ? 50 : 25);
+          active = true;
+          gradedItemCount++;
+        }
+      });
+      if (active && possible > 0) {
+        qaPs = Math.min(100, Math.max(0, (earned / possible) * 100));
+      }
+    }
+  }
+
+  // 2. Fallback to component percentage scores if raw_scores was not itemized
+  if (wwPs === null && q !== null && q !== undefined && q !== '' && !isNaN(q)) {
+    wwPs = Math.min(100, Math.max(0, (Number(q) / wwWeight) * 100));
+    gradedItemCount++;
+    totalItemCount++;
+  }
+  if (ptPs === null && a !== null && a !== undefined && a !== '' && !isNaN(a)) {
+    ptPs = Math.min(100, Math.max(0, (Number(a) / ptWeight) * 100));
+    gradedItemCount++;
+    totalItemCount++;
+  }
+  if (qaPs === null && e !== null && e !== undefined && e !== '' && !isNaN(e)) {
+    qaPs = Math.min(100, Math.max(0, (Number(e) / qaWeight) * 100));
+    gradedItemCount++;
+    totalItemCount++;
+  }
+
+  // 3. Dynamic Category Re-weighting
+  let weightedSum = 0;
+  let activeWeightSum = 0;
+
+  if (wwPs !== null) {
+    weightedSum += (wwPs / 100) * wwWeight;
+    activeWeightSum += wwWeight;
+  }
+  if (ptPs !== null) {
+    weightedSum += (ptPs / 100) * ptWeight;
+    activeWeightSum += ptWeight;
+  }
+  if (qaPs !== null) {
+    weightedSum += (qaPs / 100) * qaWeight;
+    activeWeightSum += qaWeight;
+  }
+
+  if (activeWeightSum === 0) {
+    return {
+      runningInitial: null,
+      transmuted: null,
+      wwPs,
+      ptPs,
+      qaPs,
+      wwWs: null,
+      ptWs: null,
+      qaWs: null,
+      activeWeightSum: 0,
+      gradedItemCount,
+      totalItemCount,
+      isFullyGraded: false
+    };
+  }
+
+  // Running Initial Grade normalized strictly by sum of active category weights
+  const runningInitial = Math.min(100, Math.max(0, (weightedSum / activeWeightSum) * 100));
+  const transmuted = transmuteDepEdGrade(runningInitial);
+
+  return {
+    runningInitial: Math.round(runningInitial * 100) / 100,
+    transmuted,
+    wwPs: wwPs !== null ? Math.round(wwPs * 100) / 100 : null,
+    ptPs: ptPs !== null ? Math.round(ptPs * 100) / 100 : null,
+    qaPs: qaPs !== null ? Math.round(qaPs * 100) / 100 : null,
+    wwWs: wwPs !== null ? Math.round(((wwPs / 100) * wwWeight) * 100) / 100 : null,
+    ptWs: ptPs !== null ? Math.round(((ptPs / 100) * ptWeight) * 100) / 100 : null,
+    qaWs: qaPs !== null ? Math.round(((qaPs / 100) * qaWeight) * 100) / 100 : null,
+    activeWeightSum,
+    gradedItemCount,
+    totalItemCount,
+    isFullyGraded: (activeWeightSum >= 99.5)
+  };
+}
+
 function getTermVariants(term) {
   const t = String(term || '').trim().toLowerCase();
   if (t === 't1' || t.includes('1st') || t.includes('first')) return ['1st Term', '1st Quarter', 't1'];
@@ -178,14 +333,16 @@ async function saveGrade(req, res) {
   if (!studentId || !subjectId || !sectionId || !term) {
     return res.status(400).json({ success: false, message: 'studentId, subjectId, sectionId, and term are required.' });
   }
-  const q = Number(quiz) || 0;
-  const a = Number(activity) || 0;
-  // exam is intentionally NOT coerced with "|| 0" -- an empty/omitted exam
-  // means "not recorded yet" (stored as NULL) and must stay distinguishable
-  // from a real, entered score of 0. See migration 007 for why this matters.
+
+  // Preserve null/undefined for upcoming/unscored items rather than defaulting to 0
+  const quizProvided = quiz !== undefined && quiz !== null && quiz !== '';
+  const q = quizProvided ? Number(quiz) : null;
+  const actProvided = activity !== undefined && activity !== null && activity !== '';
+  const a = actProvided ? Number(activity) : null;
   const examProvided = exam !== undefined && exam !== null && exam !== '';
   const e = examProvided ? Number(exam) : null;
-  if (q < 0 || q > 100 || a < 0 || a > 100 || (e !== null && (e < 0 || e > 100))) {
+
+  if ((q !== null && (q < 0 || q > 100)) || (a !== null && (a < 0 || a > 100)) || (e !== null && (e < 0 || e > 100))) {
     return res.status(400).json({ success: false, message: 'Component scores must be between 0 and 100.' });
   }
 
@@ -204,26 +361,60 @@ async function saveGrade(req, res) {
 
     const canonicalTerm = normalizeCanonicalTerm(term);
 
+    // Fetch the subject's configured grading weights
+    const [subRows] = await pool.query(
+      'SELECT ww_weight, pt_weight, qa_weight, classification FROM subjects WHERE id = ? LIMIT 1',
+      [subjectId]
+    );
+    const sub = subRows[0] || {};
+    const weights = {
+      ww: Number(sub.ww_weight) || 20,
+      pt: Number(sub.pt_weight) || 50,
+      qa: Number(sub.qa_weight) || 30
+    };
+
+    // Calculate dynamic re-weighted running grade (transmuted)
+    const calc = computeDynamicRunningGrade(raw_scores, q, a, e, weights);
+    const finalStoredAverage = req.body.average !== undefined && req.body.average !== null && req.body.average !== ''
+      ? Number(req.body.average)
+      : calc.transmuted;
+
+    const savedWw = calc.wwWs !== null ? calc.wwWs : q;
+    const savedPt = calc.ptWs !== null ? calc.ptWs : a;
+    const savedQa = calc.qaWs !== null ? calc.qaWs : e;
+
     await pool.query(
-      `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, raw_scores, recorded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, average, raw_scores, recorded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE 
          section_id = VALUES(section_id),
          quiz_score = VALUES(quiz_score),
          activity_score = VALUES(activity_score),
          exam_score = VALUES(exam_score),
+         average = VALUES(average),
          raw_scores = VALUES(raw_scores),
          recorded_by = VALUES(recorded_by)`,
-      [studentId, subjectId, sectionId, canonicalTerm, q, a, e, rawScoresJson, req.user.id]
+      [studentId, subjectId, sectionId, canonicalTerm, savedWw, savedPt, savedQa, finalStoredAverage, rawScoresJson, req.user.id]
     );
 
-    const average = q + a + e;
+    const logScore = finalStoredAverage !== null ? finalStoredAverage : 'Pending';
     await pool.query('INSERT INTO activity_log (student_id, description) VALUES (?, ?)', [
       studentId,
-      `Grade posted (${term}): ${average} — ${getRemarks(average)}`,
+      `Grade posted (${term}): ${logScore} — ${getRemarks(finalStoredAverage)}`,
     ]);
 
-    return res.json({ success: true, message: 'Grade saved.', average, remarks: getRemarks(average) });
+    return res.json({
+      success: true,
+      message: 'Grade saved.',
+      average: finalStoredAverage,
+      remarks: getRemarks(finalStoredAverage),
+      progress: {
+        gradedItems: calc.gradedItemCount,
+        totalItems: calc.totalItemCount,
+        activeWeightSum: calc.activeWeightSum,
+        isFullyGraded: calc.isFullyGraded
+      }
+    });
   } catch (err) {
     console.error('saveGrade error:', err);
     return res.status(500).json({ success: false, message: 'Could not save grade.' });
@@ -447,10 +638,6 @@ async function computeStudentGradePerformance(studentId) {
     const a = gr.activity_score !== null ? Number(gr.activity_score) : null;
     const e = gr.exam_score !== null ? Number(gr.exam_score) : null;
 
-    const qPct = q !== null ? Math.min(100, Math.max(0, Math.round((q / wwMax) * 100))) : null;
-    const aPct = a !== null ? Math.min(100, Math.max(0, Math.round((a / ptMax) * 100))) : null;
-    const ePct = e !== null ? Math.min(100, Math.max(0, Math.round((e / qaMax) * 100))) : null;
-
     let parsedRaw = null;
     if (gr.raw_scores) {
       try {
@@ -460,9 +647,19 @@ async function computeStudentGradePerformance(studentId) {
       }
     }
 
-    const hasAvg = gr.average !== null && !isNaN(Number(gr.average));
-    const rawAvg = hasAvg ? Number(gr.average) : null;
-    const transmuted = hasAvg ? transmuteDepEdGrade(rawAvg) : null;
+    // Dynamic Category Re-weighting calculation
+    const calc = computeDynamicRunningGrade(parsedRaw, q, a, e, { ww: wwMax, pt: ptMax, qa: qaMax });
+
+    // Determine final transmuted running grade
+    let finalTransmuted = null;
+    if (gr.average !== null && !isNaN(Number(gr.average))) {
+      const avgNum = Number(gr.average);
+      finalTransmuted = avgNum >= 60 ? Math.round(avgNum) : transmuteDepEdGrade(avgNum);
+    } else if (calc.transmuted !== null) {
+      finalTransmuted = calc.transmuted;
+    }
+
+    const hasAvg = finalTransmuted !== null && !isNaN(finalTransmuted);
 
     grades.push({
       gradeId: gr.gradeId,
@@ -475,16 +672,20 @@ async function computeStudentGradePerformance(studentId) {
       quiz_score: q,
       activity_score: a,
       exam_score: e,
-      average: transmuted,
-      rawAverage: rawAvg,
-      quizPct: qPct,
-      activityPct: aPct,
-      examPct: ePct,
+      average: finalTransmuted,
+      rawAverage: calc.runningInitial,
+      quizPct: calc.wwPs,
+      activityPct: calc.ptPs,
+      examPct: calc.qaPs,
       ww_weight: wwMax,
       pt_weight: ptMax,
       qa_weight: qaMax,
-      remarks: hasAvg ? getRemarks(transmuted) : 'Pending',
-      status: hasAvg ? (transmuted >= 75 ? 'Passed' : 'Needs Remediation') : 'Pending',
+      remarks: hasAvg ? getRemarks(finalTransmuted) : 'Pending',
+      status: hasAvg ? (finalTransmuted >= 75 ? 'Passed' : 'Needs Remediation') : 'Pending',
+      gradedItems: calc.gradedItemCount,
+      totalItems: calc.totalItemCount,
+      activeWeightSum: calc.activeWeightSum,
+      isFullyGraded: calc.isFullyGraded,
       raw_scores: parsedRaw,
     });
   }
@@ -519,6 +720,11 @@ async function computeStudentGradePerformance(studentId) {
         qa_weight: qaMax,
         remarks: 'Pending',
         status: 'Pending',
+        gradedItems: 0,
+        totalItems: 0,
+        activeWeightSum: 0,
+        isFullyGraded: false,
+        raw_scores: null
       });
     }
   }
@@ -528,14 +734,10 @@ async function computeStudentGradePerformance(studentId) {
     const curTerm = quarterToTerm(cur.quarter);
     const isCurSpecialized = (cur.classification || '').toLowerCase().includes('specialized');
 
-    // If section already has scheduled specialized subjects for this term (e.g. BIO1 for Medical Sciences),
-    // do not inject specialized subjects from other sections (e.g. FINMATH1 for Engineering).
     if (isCurSpecialized && scheduledSpecializedByTerm.has(curTerm)) {
       continue;
     }
 
-    // If the student's section already has an official timetable for this term,
-    // do not inject unscheduled subjects that have no teacher, schedule, or grades in that term.
     if (cur.quarter !== 0 && scheduledTerms.has(curTerm)) {
       continue;
     }
@@ -567,6 +769,11 @@ async function computeStudentGradePerformance(studentId) {
         qa_weight: qaMax,
         remarks: 'Pending',
         status: 'Pending',
+        gradedItems: 0,
+        totalItems: 0,
+        activeWeightSum: 0,
+        isFullyGraded: false,
+        raw_scores: null
       });
     }
   }

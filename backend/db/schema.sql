@@ -162,10 +162,10 @@ CREATE TABLE IF NOT EXISTS grades (
   subject_id   INT NOT NULL,
   section_id   INT NOT NULL,
   term         VARCHAR(50) NOT NULL,   -- e.g. "1st Semester"
-  quiz_score   DECIMAL(5,2) DEFAULT 0,  -- 0-30
-  activity_score DECIMAL(5,2) DEFAULT 0, -- 0-20
-  exam_score   DECIMAL(5,2) DEFAULT 0,  -- 0-50
-  average      DECIMAL(5,2) GENERATED ALWAYS AS (quiz_score + activity_score + exam_score) STORED,
+  quiz_score   DECIMAL(5,2) NULL DEFAULT NULL,
+  activity_score DECIMAL(5,2) NULL DEFAULT NULL,
+  exam_score   DECIMAL(5,2) NULL DEFAULT NULL,
+  average      DECIMAL(5,2) NULL DEFAULT NULL,
   recorded_by  INT NULL,
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

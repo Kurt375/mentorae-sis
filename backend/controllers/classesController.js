@@ -453,10 +453,22 @@ async function saveEclassGrades(req, res) {
       }
 
       if (g.written_works !== undefined || g.average !== undefined) {
-        const q = Math.max(0, Math.min(100, Number(g.written_works) || 0));
-        const a = Math.max(0, Math.min(100, Number(g.performance_tasks) || 0));
-        const e = Math.max(0, Math.min(100, Number(g.quarterly_assessment) || 0));
-        const avg = Number(g.average) || (q + a + e);
+        const q = (g.written_works !== undefined && g.written_works !== null && g.written_works !== '') ? Number(g.written_works) : null;
+        const a = (g.performance_tasks !== undefined && g.performance_tasks !== null && g.performance_tasks !== '') ? Number(g.performance_tasks) : null;
+        const e = (g.quarterly_assessment !== undefined && g.quarterly_assessment !== null && g.quarterly_assessment !== '') ? Number(g.quarterly_assessment) : null;
+        
+        let avg = (g.average !== undefined && g.average !== null && g.average !== '' && !isNaN(Number(g.average))) ? Number(g.average) : null;
+        if (avg === null) {
+          let weightedSum = 0;
+          let activeWeightSum = 0;
+          if (q !== null) { weightedSum += q; activeWeightSum += (subWwRatio * 100); }
+          if (a !== null) { weightedSum += a; activeWeightSum += (subPtRatio * 100); }
+          if (e !== null) { weightedSum += e; activeWeightSum += (subQaRatio * 100); }
+          if (activeWeightSum > 0) {
+            const initial = (weightedSum / activeWeightSum) * 100;
+            avg = initial >= 70 ? Math.round(75 + ((initial - 70) / 30) * 25) : Math.round(60 + (initial / 70) * 14);
+          }
+        }
         const rawScoresJson = g.raw_scores ? (typeof g.raw_scores === 'string' ? g.raw_scores : JSON.stringify(g.raw_scores)) : null;
 
         gradesValues.push([
@@ -467,13 +479,14 @@ async function saveEclassGrades(req, res) {
           q,
           a,
           e,
+          avg,
           rawScoresJson,
           req.user.id,
         ]);
 
         activityLogValues.push([
           targetStudentId,
-          `ECR Grade synchronized (${termName}): WW ${q}, PT ${a}, QA ${e} (Average: ${avg})`,
+          `ECR Grade synchronized (${termName}): WW ${q !== null ? q : 'Pending'}, PT ${a !== null ? a : 'Pending'}, QA ${e !== null ? e : 'Pending'} (Average: ${avg !== null ? avg : 'Pending'})`,
         ]);
         savedCount++;
       } else {
@@ -499,6 +512,7 @@ async function saveEclassGrades(req, res) {
               q,
               a,
               e,
+              score,
               null,
               req.user.id,
             ]);
@@ -511,13 +525,14 @@ async function saveEclassGrades(req, res) {
 
     if (gradesValues.length > 0) {
       await conn.query(
-        `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, raw_scores, recorded_by)
+        `INSERT INTO grades (student_id, subject_id, section_id, term, quiz_score, activity_score, exam_score, average, raw_scores, recorded_by)
          VALUES ?
          ON DUPLICATE KEY UPDATE
            section_id = VALUES(section_id),
            quiz_score = VALUES(quiz_score),
            activity_score = VALUES(activity_score),
            exam_score = VALUES(exam_score),
+           average = VALUES(average),
            raw_scores = VALUES(raw_scores),
            recorded_by = VALUES(recorded_by)`,
         [gradesValues]

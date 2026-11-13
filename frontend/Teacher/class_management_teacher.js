@@ -2149,58 +2149,87 @@ document.addEventListener('DOMContentLoaded', async () => {
         const st = activeGradeBreakdown.students[studentId];
         if (!st) return;
 
-        // 1. Written Works (calculated against active columns only)
-        const wwHpsTotal = getComponentEffectiveHpsTotal('ww');
+        // 1. Written Works (calculated per-student based on graded items only)
         let wwSum = 0;
+        let wwEarnedPossible = 0;
         let hasWwScore = false;
-        (st.wwScores || []).forEach(v => {
-            if (v !== '' && v !== null && v !== undefined && !isNaN(v)) {
+        let wwGradedCount = 0;
+        (st.wwScores || []).forEach((v, idx) => {
+            if (v !== '' && v !== null && v !== undefined && v !== 'E' && v !== 'EX' && !isNaN(v)) {
                 wwSum += parseFloat(v);
+                const colMax = parseFloat(activeGradeBreakdown.wwCols[idx]?.max) || 20;
+                wwEarnedPossible += colMax;
                 hasWwScore = true;
+                wwGradedCount++;
             }
         });
         st.wwTotal = hasWwScore ? Math.round(wwSum * 100) / 100 : '';
-        st.wwPs = hasWwScore && wwHpsTotal > 0 ? Math.round(((wwSum / wwHpsTotal) * 100) * 100) / 100 : '';
-        st.wwWs = hasWwScore && wwHpsTotal > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : '';
+        st.wwPs = hasWwScore && wwEarnedPossible > 0 ? Math.round(((wwSum / wwEarnedPossible) * 100) * 100) / 100 : '';
+        st.wwWs = hasWwScore && wwEarnedPossible > 0 ? Math.round(((st.wwPs / 100) * weights.ww) * 100) / 100 : '';
 
-        // 2. Performance Tasks (calculated against active columns only)
-        const ptHpsTotal = getComponentEffectiveHpsTotal('pt');
+        // 2. Performance Tasks (calculated per-student based on graded items only)
         let ptSum = 0;
+        let ptEarnedPossible = 0;
         let hasPtScore = false;
-        (st.ptScores || []).forEach(v => {
-            if (v !== '' && v !== null && v !== undefined && !isNaN(v)) {
+        let ptGradedCount = 0;
+        (st.ptScores || []).forEach((v, idx) => {
+            if (v !== '' && v !== null && v !== undefined && v !== 'E' && v !== 'EX' && !isNaN(v)) {
                 ptSum += parseFloat(v);
+                const colMax = parseFloat(activeGradeBreakdown.ptCols[idx]?.max) || 50;
+                ptEarnedPossible += colMax;
                 hasPtScore = true;
+                ptGradedCount++;
             }
         });
         st.ptTotal = hasPtScore ? Math.round(ptSum * 100) / 100 : '';
-        st.ptPs = hasPtScore && ptHpsTotal > 0 ? Math.round(((ptSum / ptHpsTotal) * 100) * 100) / 100 : '';
-        st.ptWs = hasPtScore && ptHpsTotal > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : '';
+        st.ptPs = hasPtScore && ptEarnedPossible > 0 ? Math.round(((ptSum / ptEarnedPossible) * 100) * 100) / 100 : '';
+        st.ptWs = hasPtScore && ptEarnedPossible > 0 ? Math.round(((st.ptPs / 100) * weights.pt) * 100) / 100 : '';
 
-        // 3. Summative Tests & Term Exam (calculated against active columns only)
-        const qaHpsTotal = getComponentEffectiveHpsTotal('qa');
+        // 3. Summative Tests & Term Exam (calculated per-student based on graded items only)
         let qaSum = 0;
+        let qaEarnedPossible = 0;
         let hasQaScore = false;
-        (st.qaScores || []).forEach(v => {
-            if (v !== '' && v !== null && v !== undefined && !isNaN(v)) {
+        let qaGradedCount = 0;
+        (st.qaScores || []).forEach((v, idx) => {
+            if (v !== '' && v !== null && v !== undefined && v !== 'E' && v !== 'EX' && !isNaN(v)) {
                 qaSum += parseFloat(v);
+                const colMax = parseFloat(activeGradeBreakdown.qaCols[idx]?.max) || (idx === 2 ? 50 : 25);
+                qaEarnedPossible += colMax;
                 hasQaScore = true;
+                qaGradedCount++;
             }
         });
         st.qaTotal = hasQaScore ? Math.round(qaSum * 100) / 100 : '';
-        st.qaPs = hasQaScore && qaHpsTotal > 0 ? Math.round(((qaSum / qaHpsTotal) * 100) * 100) / 100 : '';
-        st.qaWs = hasQaScore && qaHpsTotal > 0 ? Math.round(((st.qaPs / 100) * weights.qa) * 100) / 100 : '';
+        st.qaPs = hasQaScore && qaEarnedPossible > 0 ? Math.round(((qaSum / qaEarnedPossible) * 100) * 100) / 100 : '';
+        st.qaWs = hasQaScore && qaEarnedPossible > 0 ? Math.round(((st.qaPs / 100) * weights.qa) * 100) / 100 : '';
 
-        // 4. Initial & Transmuted Final Grade
-        const wWw = st.wwWs !== '' && st.wwWs !== undefined ? parseFloat(st.wwWs) : 0;
-        const wPt = st.ptWs !== '' && st.ptWs !== undefined ? parseFloat(st.ptWs) : 0;
-        const wQa = st.qaWs !== '' && st.qaWs !== undefined ? parseFloat(st.qaWs) : 0;
-        const anyScoreEntered = hasWwScore || hasPtScore || hasQaScore;
+        // 4. Initial & Transmuted Running Grade (Dynamic Category Re-weighting)
+        let weightedSum = 0;
+        let activeWeightSum = 0;
 
-        if (anyScoreEntered) {
-            const initial = Math.min(100, Math.max(0, wWw + wPt + wQa));
-            st.initial = Math.round(initial * 100) / 100;
-            st.transmuted = transmuteDepEdGrade(initial);
+        if (hasWwScore && st.wwPs !== '') {
+            weightedSum += (st.wwPs / 100) * weights.ww;
+            activeWeightSum += weights.ww;
+        }
+        if (hasPtScore && st.ptPs !== '') {
+            weightedSum += (st.ptPs / 100) * weights.pt;
+            activeWeightSum += weights.pt;
+        }
+        if (hasQaScore && st.qaPs !== '') {
+            weightedSum += (st.qaPs / 100) * weights.qa;
+            activeWeightSum += weights.qa;
+        }
+
+        const totalItemsPossible = activeGradeBreakdown.wwCols.length + activeGradeBreakdown.ptCols.length + activeGradeBreakdown.qaCols.length;
+        const totalGradedCount = wwGradedCount + ptGradedCount + qaGradedCount;
+        st.gradedCount = totalGradedCount;
+        st.totalItems = totalItemsPossible;
+
+        if (activeWeightSum > 0) {
+            // Running Grade normalized strictly by sum of active category weights
+            const runningInitial = Math.min(100, Math.max(0, (weightedSum / activeWeightSum) * 100));
+            st.initial = Math.round(runningInitial * 100) / 100;
+            st.transmuted = transmuteDepEdGrade(runningInitial);
             const desc = getDepEdDescriptor(st.transmuted);
             st.descriptor = desc.text;
             st.descriptorClass = desc.class;
@@ -2250,7 +2279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (eEl) eEl.textContent = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : '—';
 
             if (avgEl) {
-                avgEl.textContent = st.transmuted;
+                avgEl.innerHTML = `${st.transmuted} ${st.gradedCount !== undefined ? `<div class="micro-text text-muted fw-normal" style="font-size: 10px;">${st.gradedCount}/${st.totalItems} items</div>` : ''}`;
                 avgEl.className = `computed-avg-cell-box average-grade fw-bold ${st.transmuted !== '—' && Number(st.transmuted) >= 75 ? 'text-success' : (st.transmuted !== '—' ? 'text-danger' : 'text-primary')}`;
             }
             if (remEl) {
@@ -2278,9 +2307,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
         const term = encodeTermFilter ? encodeTermFilter.value : '1st';
 
-        const quizVal = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : 0;
-        const actVal = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : 0;
-        const examVal = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : 0;
+        const quizVal = (st.wwWs !== '' && st.wwWs !== undefined) ? st.wwWs : null;
+        const actVal = (st.ptWs !== '' && st.ptWs !== undefined) ? st.ptWs : null;
+        const examVal = (st.qaWs !== '' && st.qaWs !== undefined) ? st.qaWs : null;
+        const finalAvg = st.transmuted !== '—' && !isNaN(Number(st.transmuted)) ? Number(st.transmuted) : null;
 
         const rawData = {
             wwCols: activeGradeBreakdown.wwCols,
@@ -2304,6 +2334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     quiz: quizVal,
                     activity: actVal,
                     exam: examVal,
+                    average: finalAvg,
                     raw_scores: rawData
                 })
             });
@@ -3260,10 +3291,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (!hasScore) continue;
 
-                const quiz = st.wwWs !== '' && st.wwWs !== undefined ? Number(st.wwWs) : 0;
-                const activity = st.ptWs !== '' && st.ptWs !== undefined ? Number(st.ptWs) : 0;
-                const exam = st.qaWs !== '' && st.qaWs !== undefined ? Number(st.qaWs) : 0;
-                const transmuted = st.transmuted !== '—' && !isNaN(Number(st.transmuted)) ? Number(st.transmuted) : (quiz + activity + exam);
+                const quiz = (st.wwWs !== '' && st.wwWs !== undefined) ? Number(st.wwWs) : null;
+                const activity = (st.ptWs !== '' && st.ptWs !== undefined) ? Number(st.ptWs) : null;
+                const exam = (st.qaWs !== '' && st.qaWs !== undefined) ? Number(st.qaWs) : null;
+                const transmuted = st.transmuted !== '—' && !isNaN(Number(st.transmuted)) ? Number(st.transmuted) : null;
 
                 gradesToSave.push({
                     studentId: st.studentId,
@@ -3320,6 +3351,64 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadGradeSheet();
                 loadRoster(currentSectionId);
             }
+        });
+    }
+
+    // Zero Out Remaining Pending Scores Utility (End of Term / Finalization Action)
+    const btnZeroOutPending = document.getElementById('btnZeroOutPending');
+    if (btnZeroOutPending) {
+        btnZeroOutPending.addEventListener('click', () => {
+            const students = Object.values(activeGradeBreakdown.students);
+            if (!students.length) {
+                alert('No students loaded in the current grade matrix.');
+                return;
+            }
+
+            const ok = confirm(
+                'Convert Remaining Pending Items to 0?\n\n' +
+                'This will fill all currently empty/pending assessment cells across Written Works, ' +
+                'Performance Tasks, and Exams with 0 (e.g. for missed or unsubmitted requirements at the end of the term).\n\n' +
+                'All running grades will be recomputed immediately. You can review the updated marks before clicking "Save All Grades".\n\n' +
+                'Continue?'
+            );
+            if (!ok) return;
+
+            let convertedCount = 0;
+            const weights = getActiveSubjectWeights();
+
+            students.forEach(st => {
+                ['ww', 'pt', 'qa'].forEach(type => {
+                    const cols = type === 'ww' ? activeGradeBreakdown.wwCols : (type === 'pt' ? activeGradeBreakdown.ptCols : activeGradeBreakdown.qaCols);
+                    const scoresKey = type === 'ww' ? 'wwScores' : (type === 'pt' ? 'ptScores' : 'qaScores');
+                    if (!st[scoresKey]) st[scoresKey] = [];
+                    cols.forEach((col, idx) => {
+                        const cur = st[scoresKey][idx];
+                        if (cur === '' || cur === null || cur === undefined) {
+                            st[scoresKey][idx] = 0;
+                            convertedCount++;
+                        }
+                    });
+                });
+                recomputeStudentBreakdown(st.studentId, weights);
+            });
+
+            // Update DOM inputs and highlight modified cells
+            document.querySelectorAll('.sub-activity-input').forEach(input => {
+                if (input.value === '') {
+                    input.value = 0;
+                    input.classList.add('bg-warning-subtle');
+                }
+            });
+
+            ['ww', 'pt', 'qa'].forEach(type => {
+                students.forEach(st => {
+                    updateStudentDomAcrossAllTables(st.studentId, type, weights);
+                });
+            });
+
+            renderSummaryGradeTable(weights);
+
+            alert(`✅ Converted ${convertedCount} pending score(s) to 0.\n\nPlease review the updated grades and click "Save All Grades" to finalize.`);
         });
     }
 
