@@ -249,13 +249,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =========================================================================
     // 4. Load Sections (Backend API)
     // =========================================================================
-    async function loadSections() {
+    async function loadSections(term) {
         try {
-            const data = await authedFetch('/api/classes/my-sections', token);
+            const rawTerm = term || (encodeTermFilter ? encodeTermFilter.value : 't1');
+            let termQuery = '';
+            if (rawTerm) {
+                let canonicalTerm = '1st Term';
+                if (rawTerm === 't2' || rawTerm.includes('2')) canonicalTerm = '2nd Term';
+                else if (rawTerm === 't3' || rawTerm.includes('3')) canonicalTerm = '3rd Term';
+                termQuery = `?term=${encodeURIComponent(canonicalTerm)}`;
+            }
+
+            const data = await authedFetch(`/api/classes/my-sections${termQuery}`, token);
             if (!data.success || !data.sections.length) {
-                if (filterSection) filterSection.innerHTML = '<option value="">No sections assigned</option>';
-                if (encodeSectionFilter) encodeSectionFilter.innerHTML = '<option value="">No sections assigned</option>';
-                if (badgeSectionFilter) badgeSectionFilter.innerHTML = '<option value="">No sections assigned</option>';
+                if (filterSection) filterSection.innerHTML = '<option value="">No sections scheduled</option>';
+                if (encodeSectionFilter) encodeSectionFilter.innerHTML = '<option value="">No sections scheduled for this term</option>';
+                if (badgeSectionFilter) badgeSectionFilter.innerHTML = '<option value="">No sections scheduled</option>';
+                currentSectionId = null;
+                await loadSubjects(null, rawTerm);
                 return;
             }
 
@@ -275,9 +286,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (encodeSectionFilter) encodeSectionFilter.innerHTML = singleSectionsHtml;
             if (badgeSectionFilter) badgeSectionFilter.innerHTML = singleSectionsHtml;
 
-            // Prefer advisory section if assigned, otherwise first section
-            const advSection = mySections.find(s => s.isAdvisory === 1 || s.isAdvisory === true);
-            currentSectionId = advSection ? advSection.id : mySections[0].id;
+            // Retain currently selected section if it exists in the new sections list; otherwise prefer advisory or first
+            const sectionStillExists = mySections.some(s => String(s.id) === String(currentSectionId));
+            if (!sectionStillExists) {
+                const advSection = mySections.find(s => s.isAdvisory === 1 || s.isAdvisory === true);
+                currentSectionId = advSection ? advSection.id : mySections[0].id;
+            }
+
             if (filterSection) filterSection.value = currentSectionId;
             if (encodeSectionFilter) encodeSectionFilter.value = currentSectionId;
             if (badgeSectionFilter) badgeSectionFilter.value = currentSectionId;
@@ -286,7 +301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateAdvisoryBanner();
 
             // Trigger data load for initial section (load subjects first, then roster and leaderboard)
-            await loadSubjects(currentSectionId);
+            await loadSubjects(currentSectionId, rawTerm);
             await Promise.all([
                 loadRoster(currentSectionId, currentSubjectId),
                 loadLeaderboard(currentSectionId)
@@ -3057,9 +3072,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (encodeTermFilter) {
         encodeTermFilter.addEventListener('change', async () => {
-            const secId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
             const termVal = encodeTermFilter.value;
-            await loadSubjects(secId, termVal);
+            await loadSections(termVal);
         });
     }
 

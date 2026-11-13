@@ -119,23 +119,49 @@ async function getRosterOverview(req, res) {
   }
 }
 
-/** GET /api/classes/my-sections — sections this teacher has a schedule in or advises (for the filter dropdowns) */
+/** GET /api/classes/my-sections?term= — sections this teacher has a schedule in or advises (for the filter dropdowns) */
 async function getMySections(req, res) {
   try {
+    let targetTermStr = null;
+    if (req.query.term && req.query.term !== 'all') {
+      const termStr = String(req.query.term).toLowerCase();
+      if (termStr.includes('2') || termStr.includes('second')) {
+        targetTermStr = '2nd Term';
+      } else if (termStr.includes('3') || termStr.includes('third')) {
+        targetTermStr = '3rd Term';
+      } else {
+        targetTermStr = '1st Term';
+      }
+    }
+
+    const params = [req.user.id, req.user.id, req.user.id];
+    let schTermJoin = '';
+    let schTermWhere = 'sch.teacher_id = ?';
+
+    if (targetTermStr) {
+      schTermJoin = ' AND (sch.quarter = ? OR sch.quarter = "All Terms")';
+      params.push(targetTermStr);
+      schTermWhere = '(sch.teacher_id = ? AND (sch.quarter = ? OR sch.quarter = "All Terms"))';
+      params.push(req.user.id, targetTermStr);
+    } else {
+      params.push(req.user.id);
+    }
+    params.push(req.user.id, req.user.id);
+
     let [rows] = await pool.query(
       `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
               IF(sec.adviser_id = ? OR sec.co_adviser_id = ?, 1, 0) AS isAdvisory,
               GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') AS subjectsTaught
        FROM sections sec
        JOIN strands st ON st.id = sec.strand_id
-       LEFT JOIN schedules sch ON sch.section_id = sec.id AND sch.teacher_id = ?
+       LEFT JOIN schedules sch ON sch.section_id = sec.id AND sch.teacher_id = ?${schTermJoin}
        LEFT JOIN subjects sub ON sub.id = sch.subject_id
-       WHERE sch.teacher_id = ? OR sec.adviser_id = ? OR sec.co_adviser_id = ?
+       WHERE ${schTermWhere} OR sec.adviser_id = ? OR sec.co_adviser_id = ?
        GROUP BY sec.id, sec.name, sec.grade_level, st.code, sec.adviser_id, sec.co_adviser_id
        ORDER BY isAdvisory DESC, st.code, sec.grade_level, sec.name`,
-      [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
+      params
     );
-    if (!rows.length || req.user.role === 'admin') {
+    if ((!rows.length || req.user.role === 'admin') && req.user.role === 'admin') {
       [rows] = await pool.query(
         `SELECT sec.id, sec.name, sec.grade_level, st.code AS strandCode,
                 IF(sec.adviser_id = ? OR sec.co_adviser_id = ?, 1, 0) AS isAdvisory,

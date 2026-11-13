@@ -526,39 +526,51 @@
 
             <!-- Enter Grades Content -->
             <section id="enterGradesSection" class="card border-0 rounded-3 p-4 shadow-sm bg-white mt-4">
-                <div
-                    class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 pb-2 border-bottom">
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <h3 class="h4 fw-bold m-0 text-dark">Enter Grades</h3>
-                            <span
-                                class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2.5 py-1"
-                                id="badgeEcrSyncStatus">
-                                <i class="bi bi-check-circle-fill me-1"></i> ECR Synced
-                            </span>
-                        </div>
-                        <p class="m-0 micro-text text-secondary mt-1">Select a subject and enter or synchronize student
-                            scores directly from DepEd E-Class Records.</p>
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <h3 class="h4 fw-bold m-0 text-dark">Enter Grades</h3>
+                        <span
+                            class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2.5 py-1"
+                            id="badgeEcrSyncStatus">
+                            <i class="bi bi-check-circle-fill me-1"></i> ECR Synced
+                        </span>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <select class="form-select form-select-sm grade-filter-dropdown" id="encodeSectionFilter"
-                            aria-label="Section select">
-                            <option value="Medical Sciences" selected>Medical Sciences</option>
-                            <option value="Arts & Social Sciences 1">Arts & Social Sciences 1</option>
-                            <option value="Engineering">Engineering</option>
-                            <option value="Sigma Technocrats">Sigma Technocrats</option>
-                        </select>
-                        <select class="form-select form-select-sm grade-filter-dropdown" id="encodeTermFilter"
-                            aria-label="Term select">
+                    <p class="m-0 micro-text text-secondary mt-1">Select a subject and enter or synchronize student
+                        scores directly from DepEd E-Class Records.</p>
+                </div>
+
+                <!-- Term, Section & Subject Filter Bar (1 Balanced Row) -->
+                <div class="row g-3 mb-4 pb-3 border-bottom align-items-end">
+                    <!-- 1st: Academic Term -->
+                    <div class="col-12 col-md-4">
+                        <label class="form-label micro-text fw-semibold text-secondary mb-1" for="encodeTermFilter">
+                            <i class="bi bi-calendar3 me-1 text-primary"></i> Academic Term
+                        </label>
+                        <select class="form-select form-select-sm grade-filter-dropdown w-100" id="encodeTermFilter"
+                            aria-label="Academic Term select">
                             <option value="t1" selected>1st Term</option>
                             <option value="t2">2nd Term</option>
                             <option value="t3">3rd Term</option>
                         </select>
-                        <select class="form-select form-select-sm grade-filter-dropdown" id="encodeSubjectFilter"
+                    </div>
+                    <!-- 2nd: Section / Class -->
+                    <div class="col-12 col-md-4">
+                        <label class="form-label micro-text fw-semibold text-secondary mb-1" for="encodeSectionFilter">
+                            <i class="bi bi-people me-1 text-success"></i> Section / Class
+                        </label>
+                        <select class="form-select form-select-sm grade-filter-dropdown w-100" id="encodeSectionFilter"
+                            aria-label="Section select">
+                            <option value="">Loading sections...</option>
+                        </select>
+                    </div>
+                    <!-- 3rd: Subject -->
+                    <div class="col-12 col-md-4">
+                        <label class="form-label micro-text fw-semibold text-secondary mb-1" for="encodeSubjectFilter">
+                            <i class="bi bi-book me-1 text-warning"></i> Subject
+                        </label>
+                        <select class="form-select form-select-sm grade-filter-dropdown w-100" id="encodeSubjectFilter"
                             aria-label="Subject select">
-                            <option value="core" selected>Core Subject (General Mathematics)</option>
-                            <option value="effective_comm">Effective Communication</option>
-                            <option value="academic_elective">Academic Elective</option>
+                            <option value="">Loading subjects...</option>
                         </select>
                     </div>
                 </div>
