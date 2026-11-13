@@ -684,7 +684,7 @@ async function updateProfile(req, res) {
  */
 async function getStatusSummary(req, res) {
   try {
-    const { currentTerm, schoolYear, termStartDate } = await getActiveTermConfig();
+    const { currentTerm, schoolYear, termStartDate, termEndDate } = await getActiveTermConfig();
 
     const [userRows] = await pool.query(
       `SELECT u.program, u.enrollment_status, sec.grade_level, sec.name AS sectionName, st.code AS strandCode
