@@ -290,6 +290,49 @@ CREATE TABLE IF NOT EXISTS sf9_report_cards (
 );
 
 -- ---------------------------------------------------------
+-- TARGETED STUDENT LESSON ASSIGNMENTS (Term-Aware Interventions)
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS student_lesson_assignments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  teacher_id INT NOT NULL,
+  subject_id INT NOT NULL,
+  topic_id INT NOT NULL,
+  term VARCHAR(50) NOT NULL DEFAULT '1st Term',
+  note TEXT,
+  status ENUM('pending', 'completed') NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_student_term (student_id, term),
+  INDEX idx_topic (topic_id),
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+-- ---------------------------------------------------------
+-- STUDENT TOPIC PROGRESS (Files, Flashcards & Practice Quiz Completion)
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS student_topic_progress (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  topic_id INT NOT NULL,
+  files_viewed TINYINT(1) NOT NULL DEFAULT 0,
+  flashcards_completed TINYINT(1) NOT NULL DEFAULT 0,
+  quiz_completed TINYINT(1) NOT NULL DEFAULT 0,
+  quiz_score INT NULL,
+  quiz_total INT NULL,
+  quiz_percentage DECIMAL(5,2) NULL,
+  is_completed TINYINT(1) NOT NULL DEFAULT 0,
+  completed_at TIMESTAMP NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_student_topic (student_id, topic_id),
+  INDEX idx_student_topic_status (student_id, is_completed),
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+-- ---------------------------------------------------------
 -- Seed data: strands, subjects, and the fixed badge catalog
 -- ---------------------------------------------------------
 INSERT INTO strands (code, title, department) VALUES

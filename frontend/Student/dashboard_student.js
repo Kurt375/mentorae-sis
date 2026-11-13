@@ -198,19 +198,31 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#039;');
     }
 
-    async function loadRecommendations() {
+    async function loadRecommendations(termParam = null) {
         const container = document.getElementById('studentRecommendationsList');
+        const termBadge = document.getElementById('recCurrentTermBadge');
+        const termSelect = document.getElementById('recTermFilterSelect');
         if (!container) return;
 
         try {
-            const data = await authedFetch('/api/content/my-recommendations', token);
+            const selectedTerm = termParam || (termSelect ? termSelect.value : 'current');
+            const queryUrl = selectedTerm && selectedTerm !== 'current'
+                ? `/api/content/my-recommendations?term=${encodeURIComponent(selectedTerm)}`
+                : '/api/content/my-recommendations';
+
+            const data = await authedFetch(queryUrl, token);
+            const activeTermLabel = data.selectedTerm && data.selectedTerm !== 'all' ? data.selectedTerm : (data.activeTerm || 'Active Term');
+            if (termBadge) {
+                termBadge.textContent = selectedTerm === 'all' ? 'All Terms' : activeTermLabel;
+            }
+
             if (!data.success || !Array.isArray(data.recommendations) || data.recommendations.length === 0) {
                 container.innerHTML = `
                     <div class="col-12">
                         <div class="card border-0 p-4 shadow-sm bg-white rounded-3 text-center text-muted">
-                            <i class="bi bi-check-circle fs-3 text-success d-block mb-2"></i>
-                            <h5 class="fw-bold text-dark m-0 fs-6">No recommendations at this time</h5>
-                            <span class="micro-text text-muted mt-1 d-block">You have no assigned lessons or recommendations. Keep up the good work!</span>
+                            <i class="bi bi-check-circle-fill fs-3 text-success d-block mb-2"></i>
+                            <h5 class="fw-bold text-dark m-0 fs-6">No pending recommendations for ${escapeHtml(activeTermLabel)}</h5>
+                            <span class="micro-text text-muted mt-1 d-block">You're all caught up! Keep up the great work in your classes.</span>
                         </div>
                     </div>
                 `;
@@ -221,31 +233,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 const subjectParam = encodeURIComponent(rec.subjectName || '');
                 const topicParam = encodeURIComponent(rec.title || '');
                 
+                const fileDoneIcon = rec.filesViewed ? '<i class="bi bi-check-circle-fill text-success ms-1"></i>' : '';
                 const fileBtn = rec.hasFiles
-                    ? `<a href="subject_detail_student.html?subject=${subjectParam}&topic=${topicParam}&action=file" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-file-earmark-text"></i> File
-                       </a>`
-                    : '';
-                const quizBtn = rec.hasQuiz
-                    ? `<a href="quiz_taker_student.html?subject=${subjectParam}&topic=${topicParam}&source=recommendation" class="btn btn-sm btn-success rounded-pill px-3 py-1 text-white text-nowrap d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-question-circle"></i> Quiz
-                       </a>`
-                    : '';
-                const flashcardBtn = rec.hasFlashcards
-                    ? `<a href="flashcard_viewer_student.html?subject=${subjectParam}&topic=${topicParam}&source=recommendation" class="btn btn-sm btn-chip-flashcard rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-stack"></i> Flashcards
+                    ? `<a href="subject_detail_student.html?subject=${subjectParam}&topic=${topicParam}&action=file" class="btn btn-sm ${rec.filesViewed ? 'btn-outline-success fw-semibold' : 'btn-outline-secondary'} rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-file-earmark-text"></i> File ${fileDoneIcon}
                        </a>`
                     : '';
 
+                const quizDoneIcon = rec.quizCompleted ? `<i class="bi bi-check-circle-fill text-white ms-1"></i>${rec.quizPercentage !== null ? ` <span class="badge bg-white text-success rounded-pill px-1.5 py-0.5 ms-0.5" style="font-size: 0.68rem;">${rec.quizPercentage}%</span>` : ''}` : '';
+                const quizBtn = rec.hasQuiz
+                    ? `<a href="quiz_taker_student.html?subject=${subjectParam}&topic=${topicParam}&source=recommendation" class="btn btn-sm ${rec.quizCompleted ? 'btn-success text-white fw-semibold' : 'btn-outline-success'} rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-question-circle"></i> Quiz ${quizDoneIcon}
+                       </a>`
+                    : '';
+
+                const flashcardDoneIcon = rec.flashcardsCompleted ? '<i class="bi bi-check-circle-fill text-success ms-1"></i>' : '';
+                const flashcardBtn = rec.hasFlashcards
+                    ? `<a href="flashcard_viewer_student.html?subject=${subjectParam}&topic=${topicParam}&source=recommendation" class="btn btn-sm ${rec.flashcardsCompleted ? 'btn-chip-flashcard border-success fw-semibold' : 'btn-chip-flashcard'} rounded-pill px-3 py-1 text-nowrap d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-stack"></i> Flashcards ${flashcardDoneIcon}
+                       </a>`
+                    : '';
+
+                const statusBadge = rec.isCompleted
+                    ? `<span class="badge bg-success text-white rounded-pill text-xs px-2.5 py-1 d-inline-flex align-items-center gap-1"><i class="bi bi-patch-check-fill"></i> Completed</span>`
+                    : (rec.isDirectAssignment
+                        ? '<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill text-xs px-2 py-0.5"><i class="bi bi-pin-angle-fill me-1"></i>Assigned</span>'
+                        : '<span class="badge bg-primary-subtle text-primary rounded-pill text-xs px-2 py-0.5">Recommended</span>');
+
+                const cardBorder = rec.isCompleted
+                    ? 'border-left: 4px solid #198754 !important; background: #fbfdfa !important;'
+                    : 'border-left: 4px solid #0a5c2c !important;';
+
                 return `
                     <div class="col-12 col-md-6">
-                        <div class="card border-0 shadow-sm p-3 bg-white rounded-3 h-100 d-flex flex-column justify-content-between position-relative" style="border-left: 4px solid #0a5c2c !important;">
+                        <div class="card border-0 shadow-sm p-3 bg-white rounded-3 h-100 d-flex flex-column justify-content-between position-relative" style="${cardBorder}">
                             <div>
                                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill text-xs px-2.5 py-1">
                                         <i class="bi bi-book-half me-1"></i>${escapeHtml(rec.subjectName || 'Lesson')}
                                     </span>
-                                    ${rec.isDirectAssignment ? '<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill text-xs px-2 py-0.5"><i class="bi bi-pin-angle-fill me-1"></i>Assigned</span>' : ''}
+                                    <div class="d-flex align-items-center gap-1.5">
+                                        ${rec.term ? `<span class="badge bg-light text-secondary border rounded-pill micro-text px-2 py-0.5">${escapeHtml(rec.term)}</span>` : ''}
+                                        ${statusBadge}
+                                    </div>
                                 </div>
                                 <h5 class="fw-bold fs-6 text-dark mb-1">
                                     <a href="subject_detail_student.html?subject=${subjectParam}&topic=${topicParam}" class="text-decoration-none text-dark hover-green">
@@ -273,6 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('loadRecommendations error:', err);
             container.innerHTML = '<div class="col-12 text-center text-muted small py-3">Could not load recommendations.</div>';
         }
+    }
+
+    const recTermSelect = document.getElementById('recTermFilterSelect');
+    if (recTermSelect) {
+        recTermSelect.addEventListener('change', () => {
+            loadRecommendations(recTermSelect.value);
+        });
     }
 
     loadRecommendations();

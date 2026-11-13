@@ -8,6 +8,7 @@ const { teacherTeachesSection, getParentIdsForStudent } = require('../utils/auth
 const { sendInterventionEmail, sendTopicRequestUpdateEmail } = require('../utils/mailer');
 const { notify, notifyMany } = require('../utils/notifications');
 const { convertOfficeToPdf } = require('../utils/documentConverter');
+const { getActiveTermConfig } = require('../utils/termUtils');
 
 function fullName(user) {
   if (!user) return 'User';
@@ -1995,6 +1996,49 @@ async function submitTopicQuizAttempt(req, res) {
       ]
     );
 
+    // Auto-track practice quiz completion for student
+    if (!previewFlag && finalTopicId) {
+      try {
+        await pool.query(
+          `INSERT INTO student_topic_progress (student_id, topic_id, quiz_completed, quiz_score, quiz_total, quiz_percentage)
+           VALUES (?, ?, 1, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE quiz_completed = 1, quiz_score = VALUES(quiz_score), quiz_total = VALUES(quiz_total), quiz_percentage = VALUES(quiz_percentage)`,
+          [req.user.id, finalTopicId, numScore, numTotal, percentage]
+        );
+
+        const [topRows] = await pool.query('SELECT content_payload FROM topics WHERE id = ? LIMIT 1', [finalTopicId]);
+        if (topRows.length > 0) {
+          let p = {};
+          try {
+            p = typeof topRows[0].content_payload === 'string' ? JSON.parse(topRows[0].content_payload) : (topRows[0].content_payload || {});
+          } catch (e) {}
+          const hasFiles = Array.isArray(p.files) && p.files.length > 0;
+          const hasFlashcards = Array.isArray(p.flashcards) && p.flashcards.length > 0;
+
+          const [progRows] = await pool.query(
+            'SELECT files_viewed, flashcards_completed FROM student_topic_progress WHERE student_id = ? AND topic_id = ? LIMIT 1',
+            [req.user.id, finalTopicId]
+          );
+          const prog = progRows[0] || {};
+          const filesDone = !hasFiles || Boolean(prog.files_viewed);
+          const flashcardsDone = !hasFlashcards || Boolean(prog.flashcards_completed);
+
+          if (filesDone && flashcardsDone) {
+            await pool.query(
+              'UPDATE student_topic_progress SET is_completed = 1, completed_at = COALESCE(completed_at, NOW()) WHERE student_id = ? AND topic_id = ?',
+              [req.user.id, finalTopicId]
+            );
+            await pool.query(
+              "UPDATE student_lesson_assignments SET status = 'completed' WHERE student_id = ? AND topic_id = ?",
+              [req.user.id, finalTopicId]
+            );
+          }
+        }
+      } catch (progErr) {
+        console.warn('Could not auto-update topic progress on quiz submit:', progErr.message);
+      }
+    }
+
     return res.json({
       success: true,
       attemptId: insertResult.insertId,
@@ -2275,14 +2319,18 @@ async function assignLesson(req, res) {
     const isRec = !!topic.is_recommendation;
     const studentIdsList = studentRows.map((s) => s.id);
 
+    // Resolve active academic term for this assignment
+    const { currentTerm } = await getActiveTermConfig();
+    const activeTerm = req.body.term || currentTerm || '1st Term';
+
     // 3. High-Performance Batch INSERT for all assignments (1 atomic SQL query)
-    const placeholders = studentIdsList.map(() => '(?, ?, ?, ?, ?)').join(', ');
+    const placeholders = studentIdsList.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
     const flatParams = [];
     for (const sId of studentIdsList) {
-      flatParams.push(sId, req.user.id, resolvedSubjectId, topic.id, note || null);
+      flatParams.push(sId, req.user.id, resolvedSubjectId, topic.id, activeTerm, note || null, 'pending');
     }
     await pool.query(
-      `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, note)
+      `INSERT INTO student_lesson_assignments (student_id, teacher_id, subject_id, topic_id, term, note, status)
        VALUES ${placeholders}`,
       flatParams
     );
@@ -2387,34 +2435,52 @@ async function assignLesson(req, res) {
 async function getMyRecommendations(req, res) {
   try {
     const studentId = req.user.role === 'student' ? req.user.id : (req.query.studentId || req.user.id);
+    const { currentTerm } = await getActiveTermConfig();
+    const termFilter = req.query.term || currentTerm;
 
-    // 1. Fetch targeted assignments
+    // 1. Fetch targeted assignments filtered by term
     const [assignedRows] = await pool.query(
-      `SELECT sla.id AS assignment_id, sla.note, sla.created_at AS assigned_at,
+      `SELECT sla.id AS assignment_id, sla.note, sla.term, sla.status AS assignment_status, sla.created_at AS assigned_at,
               t.id AS topic_id, t.title, t.description, t.comment, t.color, t.content_payload, t.is_recommendation,
               s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
-              u.first_name AS teacher_first_name, u.last_name AS teacher_last_name
+              u.first_name AS teacher_first_name, u.last_name AS teacher_last_name,
+              stp.files_viewed, stp.flashcards_completed, stp.quiz_completed,
+              stp.quiz_score, stp.quiz_total, stp.quiz_percentage, stp.is_completed, stp.completed_at
        FROM student_lesson_assignments sla
        JOIN topics t ON t.id = sla.topic_id
        LEFT JOIN subjects s ON s.id = sla.subject_id
        LEFT JOIN users u ON u.id = sla.teacher_id
+       LEFT JOIN student_topic_progress stp ON stp.student_id = sla.student_id AND stp.topic_id = t.id
        WHERE sla.student_id = ?
+         AND (sla.term = ? OR ? = 'all' OR sla.term IS NULL)
        ORDER BY sla.created_at DESC`,
-      [studentId]
+      [studentId, termFilter, termFilter]
     );
 
-    // 2. Fetch general approved recommendations for student
-    const [generalRecRows] = await pool.query(
-      `SELECT t.id AS topic_id, t.title, t.description, t.comment, t.color, t.content_payload, t.is_recommendation, t.created_at AS assigned_at,
-              s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
-              u.first_name AS teacher_first_name, u.last_name AS teacher_last_name
-       FROM topics t
-       JOIN subjects s ON s.id = t.subject_id
-       LEFT JOIN users u ON u.id = t.created_by
-       WHERE t.is_recommendation = 1 AND t.status = 'approved'
-       ORDER BY t.created_at DESC
-       LIMIT 10`
-    );
+    // 2. Fetch general approved recommendations for student's active subjects in this term
+    let generalRecRows = [];
+    if (assignedRows.length < 4) {
+      const [genRows] = await pool.query(
+        `SELECT t.id AS topic_id, t.title, t.description, t.comment, t.color, t.content_payload, t.is_recommendation, t.created_at AS assigned_at,
+                s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+                u.first_name AS teacher_first_name, u.last_name AS teacher_last_name,
+                stp.files_viewed, stp.flashcards_completed, stp.quiz_completed,
+                stp.quiz_score, stp.quiz_total, stp.quiz_percentage, stp.is_completed, stp.completed_at
+         FROM topics t
+         JOIN subjects s ON s.id = t.subject_id
+         LEFT JOIN users u ON u.id = t.created_by
+         LEFT JOIN student_topic_progress stp ON stp.student_id = ? AND stp.topic_id = t.id
+         WHERE t.is_recommendation = 1 AND t.status = 'approved'
+           AND (
+             s.id IN (SELECT subject_id FROM grades WHERE student_id = ? AND (term = ? OR ? = 'all'))
+             OR s.quarter = 0
+           )
+         ORDER BY t.created_at DESC
+         LIMIT 6`,
+        [studentId, studentId, termFilter, termFilter]
+      );
+      generalRecRows = genRows;
+    }
 
     const formatRec = (row, isDirectAssignment = false) => {
       let payload = {};
@@ -2426,8 +2492,24 @@ async function getMyRecommendations(req, res) {
       const quiz = Array.isArray(payload.quiz) ? payload.quiz : [];
       const flashcards = Array.isArray(payload.flashcards) ? payload.flashcards : [];
 
+      const hasFiles = files.length > 0;
+      const hasQuiz = quiz.length > 0;
+      const hasFlashcards = flashcards.length > 0;
+
+      const filesViewed = Boolean(row.files_viewed);
+      const flashcardsCompleted = Boolean(row.flashcards_completed);
+      const quizCompleted = Boolean(row.quiz_completed);
+
+      const filesDone = !hasFiles || filesViewed;
+      const flashcardsDone = !hasFlashcards || flashcardsCompleted;
+      const quizDone = !hasQuiz || quizCompleted;
+
+      const hasAnyResource = hasFiles || hasQuiz || hasFlashcards;
+      const isCompleted = Boolean(row.is_completed) || (row.assignment_status === 'completed') || (hasAnyResource ? (filesDone && flashcardsDone && quizDone) : false);
+
       return {
         id: row.topic_id,
+        assignmentId: row.assignment_id || null,
         title: row.title,
         description: row.description,
         comment: row.comment || row.note,
@@ -2435,14 +2517,22 @@ async function getMyRecommendations(req, res) {
         subjectName: row.subject_name,
         subjectCode: row.subject_code,
         teacherName: `${row.teacher_first_name || ''} ${row.teacher_last_name || ''}`.trim() || 'Teacher',
-        hasFiles: files.length > 0,
+        term: row.term || termFilter,
+        hasFiles,
         filesCount: files.length,
-        hasQuiz: quiz.length > 0,
+        hasQuiz,
         quizCount: quiz.length,
-        hasFlashcards: flashcards.length > 0,
+        hasFlashcards,
         flashcardsCount: flashcards.length,
         isDirectAssignment,
         assignedAt: row.assigned_at,
+        isCompleted,
+        completedAt: row.completed_at || null,
+        filesViewed,
+        flashcardsCompleted,
+        quizCompleted,
+        quizScore: row.quiz_score !== null && row.quiz_score !== undefined ? row.quiz_score : null,
+        quizPercentage: row.quiz_percentage !== null && row.quiz_percentage !== undefined ? Number(row.quiz_percentage) : null,
       };
     };
 
@@ -2456,10 +2546,122 @@ async function getMyRecommendations(req, res) {
       }
     }
 
-    return res.json({ success: true, recommendations });
+    for (const r of generalRecRows) {
+      if (!seenTopicIds.has(r.topic_id)) {
+        seenTopicIds.add(r.topic_id);
+        recommendations.push(formatRec(r, false));
+      }
+    }
+
+    return res.json({
+      success: true,
+      activeTerm: currentTerm,
+      selectedTerm: termFilter,
+      recommendations,
+    });
   } catch (err) {
     console.error('getMyRecommendations error:', err);
     return res.status(500).json({ success: false, message: 'Could not load recommendations.' });
+  }
+}
+
+/** POST /api/content/topics/track-progress
+ * Body: { topicId, topicTitle, subjectName, action: 'view_files' | 'complete_flashcards' | 'complete_quiz' }
+ */
+async function trackTopicProgress(req, res) {
+  try {
+    const studentId = req.user.id;
+    let { topicId, topicTitle, subjectName, action } = req.body;
+
+    if (!topicId && topicTitle && subjectName) {
+      const [matched] = await pool.query(
+        `SELECT t.id FROM topics t
+         JOIN subjects s ON s.id = t.subject_id
+         WHERE LOWER(t.title) = LOWER(?) AND LOWER(s.name) = LOWER(?) LIMIT 1`,
+        [topicTitle.trim(), subjectName.trim()]
+      );
+      if (matched && matched.length > 0) {
+        topicId = matched[0].id;
+      }
+    }
+
+    if (!topicId) {
+      return res.status(400).json({ success: false, message: 'Valid topicId or (topicTitle and subjectName) is required.' });
+    }
+
+    const [topicRows] = await pool.query('SELECT id, content_payload FROM topics WHERE id = ? LIMIT 1', [topicId]);
+    if (!topicRows.length) {
+      return res.status(404).json({ success: false, message: 'Topic not found.' });
+    }
+
+    let payload = {};
+    try {
+      payload = typeof topicRows[0].content_payload === 'string'
+        ? JSON.parse(topicRows[0].content_payload)
+        : (topicRows[0].content_payload || {});
+    } catch (e) {}
+
+    const hasFiles = Array.isArray(payload.files) && payload.files.length > 0;
+    const hasFlashcards = Array.isArray(payload.flashcards) && payload.flashcards.length > 0;
+    const hasQuiz = Array.isArray(payload.quiz) && payload.quiz.length > 0;
+
+    let updateField = '';
+    if (action === 'view_files') {
+      updateField = 'files_viewed';
+    } else if (action === 'complete_flashcards') {
+      updateField = 'flashcards_completed';
+    } else if (action === 'complete_quiz') {
+      updateField = 'quiz_completed';
+    }
+
+    if (!updateField) {
+      return res.status(400).json({ success: false, message: 'Invalid action provided.' });
+    }
+
+    await pool.query(
+      `INSERT INTO student_topic_progress (student_id, topic_id, ${updateField})
+       VALUES (?, ?, 1)
+       ON DUPLICATE KEY UPDATE ${updateField} = 1`,
+      [studentId, topicId]
+    );
+
+    const [progRows] = await pool.query(
+      'SELECT files_viewed, flashcards_completed, quiz_completed FROM student_topic_progress WHERE student_id = ? AND topic_id = ? LIMIT 1',
+      [studentId, topicId]
+    );
+
+    const prog = progRows[0] || {};
+    const filesDone = !hasFiles || Boolean(prog.files_viewed);
+    const flashcardsDone = !hasFlashcards || Boolean(prog.flashcards_completed);
+    const quizDone = !hasQuiz || Boolean(prog.quiz_completed);
+
+    const isAllDone = filesDone && flashcardsDone && quizDone;
+
+    if (isAllDone) {
+      await pool.query(
+        'UPDATE student_topic_progress SET is_completed = 1, completed_at = COALESCE(completed_at, NOW()) WHERE student_id = ? AND topic_id = ?',
+        [studentId, topicId]
+      );
+      await pool.query(
+        "UPDATE student_lesson_assignments SET status = 'completed' WHERE student_id = ? AND topic_id = ?",
+        [studentId, topicId]
+      );
+    }
+
+    return res.json({
+      success: true,
+      topicId,
+      action,
+      isCompleted: isAllDone,
+      progress: {
+        filesDone,
+        flashcardsDone,
+        quizDone,
+      }
+    });
+  } catch (err) {
+    console.error('trackTopicProgress error:', err);
+    return res.status(500).json({ success: false, message: 'Could not track progress.' });
   }
 }
 
@@ -2559,4 +2761,5 @@ module.exports = {
   assignLesson,
   getMyRecommendations,
   listAssignableTopics,
+  trackTopicProgress,
 };

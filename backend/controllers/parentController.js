@@ -107,15 +107,16 @@ async function getStudentRecommendationsForParent(req, res) {
     // Check for active teacher intervention assignment
     let activeAssignment = null;
     try {
+      const { currentTerm } = await getActiveTermConfig();
       const [assignRows] = await pool.query(
-        `SELECT sla.created_at, t.title AS topicTitle, sub.name AS subjectName, sla.notes
+        `SELECT sla.created_at, t.title AS topicTitle, sub.name AS subjectName, sla.note, sla.status
          FROM student_lesson_assignments sla
          JOIN topics t ON t.id = sla.topic_id
          JOIN subjects sub ON sub.id = sla.subject_id
-         WHERE sla.student_id = ?
+         WHERE sla.student_id = ? AND (sla.term = ? OR sla.term IS NULL)
          ORDER BY sla.created_at DESC
          LIMIT 1`,
-        [studentId]
+        [studentId, currentTerm]
       );
       if (assignRows.length > 0) {
         activeAssignment = assignRows[0];

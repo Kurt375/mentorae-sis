@@ -546,12 +546,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (s.action && s.action.disabled) {
                 actionButton = `<button type="button" class="btn btn-action-recommend btn-secondary w-100" disabled>Not Applicable</button>`;
             } else if (s.isAssigned) {
-                actionButton = `
-                    <button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 shadow-xs text-truncate" data-index="${idx}"
-                        style="background-color: #e8f5e9; border: 1.5px solid #2e7d32; color: #1b5e20; font-weight: 600;"
-                        title="Assigned: ${escapeHtml(s.assignedTopicTitle || 'Remedial Lesson')} (Click to view or change)">
-                        <i class="bi bi-check-circle-fill text-success me-1"></i> Assigned
-                    </button>`;
+                if (s.isCompleted) {
+                    actionButton = `
+                        <button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 shadow-xs text-truncate" data-index="${idx}"
+                            style="background-color: #e8f5e9; border: 1.5px solid #2e7d32; color: #1b5e20; font-weight: 600;"
+                            title="Completed / Studied: ${escapeHtml(s.assignedTopicTitle || 'Remedial Lesson')} (Click to view or change)">
+                            <i class="bi bi-patch-check-fill text-success me-1"></i> Studied
+                        </button>`;
+                } else {
+                    actionButton = `
+                        <button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 shadow-xs text-truncate" data-index="${idx}"
+                            style="background-color: #fff9c4; border: 1.5px solid #fbc02d; color: #7f6000; font-weight: 600;"
+                            title="Assigned (Pending): ${escapeHtml(s.assignedTopicTitle || 'Remedial Lesson')} (Click to view or change)">
+                            <i class="bi bi-clock-history text-warning-emphasis me-1"></i> Assigned
+                        </button>`;
+                }
             } else {
                 actionButton = `
                     <button type="button" class="btn btn-action-recommend btn-assign-lesson w-100 text-white shadow-xs text-truncate" data-index="${idx}">

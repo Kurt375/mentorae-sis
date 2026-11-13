@@ -2013,6 +2013,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalTitle = document.getElementById('modalTopicTitle');
         const modalFilesList = document.getElementById('modalFilesList');
         if (modalTitle) modalTitle.textContent = title;
+
+        // Auto-track file viewing progress for this topic
+        if (topic && (topic.id || title)) {
+            const token = localStorage.getItem('mentorae_token');
+            if (token) {
+                authedFetch('/api/content/topics/track-progress', token, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topicId: topic.id || null,
+                        topicTitle: title,
+                        subjectName: decodedSubjectName || '',
+                        action: 'view_files'
+                    })
+                }).catch(() => {});
+            }
+        }
         if (modalFilesList) {
             modalFilesList.innerHTML = '';
             modalFilesList.scrollTop = 0;

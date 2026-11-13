@@ -155,16 +155,50 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Flashcards have been shuffled!');
     }
 
+    function trackFlashcardProgress() {
+        const token = localStorage.getItem('mentorae_token');
+        if (!token) return;
+        const urlParams = new URLSearchParams(window.location.search);
+        const subName = (currentSubject && currentSubject.name) || urlParams.get('subject') || '';
+        const tTitle = (currentTopic && currentTopic.title) || urlParams.get('topic') || '';
+        const tId = currentTopic ? currentTopic.id : null;
+        if (!tId && !tTitle) return;
+
+        authedFetch('/api/content/topics/track-progress', token, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                topicId: tId,
+                topicTitle: tTitle,
+                subjectName: subName,
+                action: 'complete_flashcards'
+            })
+        }).catch(() => {});
+    }
+
     function init() {
         loadData();
 
-        flashcard.addEventListener('click', () => flashcard.classList.toggle('is-flipped'));
-        flipCardBtn.addEventListener('click', () => flashcard.classList.toggle('is-flipped'));
+        flashcard.addEventListener('click', () => {
+            flashcard.classList.toggle('is-flipped');
+            if (currentIndex === flashcards.length - 1) {
+                trackFlashcardProgress();
+            }
+        });
+        flipCardBtn.addEventListener('click', () => {
+            flashcard.classList.toggle('is-flipped');
+            if (currentIndex === flashcards.length - 1) {
+                trackFlashcardProgress();
+            }
+        });
 
         nextCardBtn.addEventListener('click', () => {
             if (currentIndex < flashcards.length - 1) {
                 currentIndex++;
                 displayCard(currentIndex);
+                if (currentIndex === flashcards.length - 1) {
+                    trackFlashcardProgress();
+                }
             }
         });
 

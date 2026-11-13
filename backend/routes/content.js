@@ -36,12 +36,14 @@ const {
   assignLesson,
   getMyRecommendations,
   listAssignableTopics,
+  trackTopicProgress,
 } = require('../controllers/contentController');
 
 // Recommendations and Targeted Lesson Assignments
 router.post('/assign-lesson', requireAuth, requireRole('teacher', 'admin'), assignLesson);
 router.get('/my-recommendations', requireAuth, getMyRecommendations);
 router.get('/assignable-topics', requireAuth, requireRole('teacher', 'admin'), listAssignableTopics);
+router.post('/topics/track-progress', requireAuth, trackTopicProgress);
 
 // Document conversion and previews (Google Classroom / Office Online / Raw)
 router.post('/convert-document', requireAuth, convertDocument);

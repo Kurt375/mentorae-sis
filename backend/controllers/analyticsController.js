@@ -262,12 +262,12 @@ async function getRiskAssessment(req, res) {
     if (studentIds.length > 0) {
       try {
         const [assignRows] = await pool.query(
-          `SELECT sla.student_id, sla.subject_id, sla.topic_id, sla.created_at, t.title AS topic_title
+          `SELECT sla.student_id, sla.subject_id, sla.topic_id, sla.created_at, sla.term, sla.status, t.title AS topic_title
            FROM student_lesson_assignments sla
            JOIN topics t ON t.id = sla.topic_id
-           WHERE sla.student_id IN (?)
+           WHERE sla.student_id IN (?) AND (sla.term = ? OR sla.term IS NULL)
            ORDER BY sla.created_at DESC`,
-          [studentIds]
+          [studentIds, currentTerm]
         );
         for (const a of assignRows) {
           const subjectKey = `${a.student_id}_${a.subject_id}`;
@@ -301,6 +301,7 @@ async function getRiskAssessment(req, res) {
           : assignmentMap[r.studentId];
 
         const isAssigned = !!assignment;
+        const isCompleted = assignment ? (assignment.status === 'completed') : false;
         const assignedTopicId = assignment ? assignment.topic_id : null;
         const assignedTopicTitle = assignment ? assignment.topic_title : null;
         const assignedAt = assignment ? assignment.created_at : null;
@@ -383,6 +384,7 @@ async function getRiskAssessment(req, res) {
           subjectName: lowest ? lowest.subjectName : null,
           failingAverage: lowest ? lowest.average : null,
           isAssigned,
+          isCompleted,
           assignedTopicId,
           assignedTopicTitle,
           assignedAt,
