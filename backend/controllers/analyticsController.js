@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const pool = require('../config/db');
 const { classifyRisk, toFeatureVector } = require('../ml/features');
 const riskModel = require('../ml/riskModel');
@@ -871,14 +872,92 @@ async function getDemographics(req, res) {
   }
 }
 
+// ============================================================================
+// Mentorae Brand Palette & Shared Excel Styling Helpers
+// ============================================================================
+const MENTORAE_EXCEL_COLORS = {
+  primaryGreen: 'FF0A5C2C',    // #0A5C2C - Deep Forest Emerald Green (Main Headers & Banners)
+  subRibbonGreen: 'FF074520',  // #074520 - Dark Forest Green (Subtitles & Group Bars)
+  mintTint: 'FFE8F5E9',        // #E8F5E9 - Light Green Tint (Card Backgrounds & Accents)
+  mintLight: 'FFF0FDF4',       // #F0FDF4 - Ultra-soft mint zebra stripe
+  white: 'FFFFFFFF',           // #FFFFFF
+  darkText: 'FF1F2937',        // #1F2937 - Modern charcoal text (High legibility)
+  mutedText: 'FF4B5563',       // #4B5563 - Subtle gray for meta labels
+  lightGrayBorder: 'FFE5E7EB', // #E5E7EB - Light cell borders
+  mediumGreenBorder: 'FF0A5C2C',// #0A5C2C - Accent borders
+  badge4Ps: 'FF15803D',        // #15803D - Green for 4Ps
+  badgeAral: 'FFB45309',       // #B45309 - Amber for ARAL
+  honorsGreen: 'FF15803D',     // #15803D - Green for Honors
+  riskRed: 'FFDC2626',         // #DC2626 - Red for At-Risk
+};
+
+const BORDER_THIN = {
+  top: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.lightGrayBorder } },
+  bottom: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.lightGrayBorder } },
+  left: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.lightGrayBorder } },
+  right: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.lightGrayBorder } },
+};
+
+const BORDER_TOTAL_ROW = {
+  top: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.mediumGreenBorder } },
+  bottom: { style: 'double', color: { argb: MENTORAE_EXCEL_COLORS.mediumGreenBorder } },
+  left: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.lightGrayBorder } },
+  right: { style: 'thin', color: { argb: MENTORAE_EXCEL_COLORS.lightGrayBorder } },
+};
+
+function styleMergedRange(ws, startCol, startRow, endCol, endRow, { value, font, fill, alignment, border }) {
+  ws.mergeCells(startRow, startCol, endRow, endCol);
+  for (let r = startRow; r <= endRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = startCol; c <= endCol; c++) {
+      const cell = row.getCell(c);
+      if (font) cell.font = font;
+      if (fill) cell.fill = fill;
+      if (alignment) cell.alignment = alignment;
+      if (border) cell.border = border;
+    }
+  }
+  if (value !== undefined) {
+    ws.getCell(startRow, startCol).value = value;
+  }
+}
+
+async function getSchoolMetadata() {
+  try {
+    const [rows] = await pool.query(
+      "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('school_name', 'school_year', 'current_semester')"
+    );
+    const map = {};
+    rows.forEach(r => { map[r.setting_key] = r.setting_value; });
+    return {
+      schoolName: map.school_name || 'Talisay Senior High School',
+      schoolYear: map.school_year || '2026-2027',
+      currentSemester: map.current_semester || '1st Semester'
+    };
+  } catch (err) {
+    return {
+      schoolName: 'Talisay Senior High School',
+      schoolYear: '2026-2027',
+      currentSemester: '1st Semester'
+    };
+  }
+}
+
 /** GET /api/analytics/export-demographics — Generates official Excel workbook for demographic reporting */
 async function exportDemographics(req, res) {
   try {
+    const { schoolName, schoolYear } = await getSchoolMetadata();
+    const exportDateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
     const [[totalRow]] = await pool.query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'");
     const total = Number(totalRow.total || 0);
 
     const [strandRows] = await pool.query(
-      `SELECT st.code, st.title,
+      `SELECT st.id, st.code, st.title,
               SUM(CASE WHEN sec.grade_level = 11 THEN 1 ELSE 0 END) AS g11Count,
               SUM(CASE WHEN sec.grade_level = 12 THEN 1 ELSE 0 END) AS g12Count,
               SUM(CASE WHEN LOWER(u.sex) = 'male' THEN 1 ELSE 0 END) AS maleCount,
@@ -894,58 +973,448 @@ async function exportDemographics(req, res) {
     );
 
     const [secRows] = await pool.query(
-      `SELECT sec.name AS sectionName, sec.grade_level, st.code AS strandCode,
+      `SELECT sec.name AS sectionName, sec.grade_level, st.code AS strandCode, st.title AS strandTitle,
               COUNT(u.id) AS enrolledCount,
               SUM(CASE WHEN LOWER(u.sex) = 'male' THEN 1 ELSE 0 END) AS maleCount,
-              SUM(CASE WHEN LOWER(u.sex) = 'female' THEN 1 ELSE 0 END) AS femaleCount
+              SUM(CASE WHEN LOWER(u.sex) = 'female' THEN 1 ELSE 0 END) AS femaleCount,
+              SUM(CASE WHEN LOWER(u.program) = '4ps' THEN 1 ELSE 0 END) AS fourPsCount,
+              SUM(CASE WHEN LOWER(u.program) = 'aral' THEN 1 ELSE 0 END) AS aralCount
        FROM sections sec
        JOIN strands st ON st.id = sec.strand_id
        LEFT JOIN users u ON u.section_id = sec.id AND u.role = 'student'
-       GROUP BY sec.id, sec.name, sec.grade_level, st.code
+       GROUP BY sec.id, sec.name, sec.grade_level, st.code, st.title
        ORDER BY sec.grade_level ASC, st.code ASC, sec.name ASC`
     );
 
-    // Sheet 1: Executive Summary
-    const sheet1Data = [
-      ["TALISAY SENIOR HIGH SCHOOL - INSTITUTIONAL DEMOGRAPHIC REPORT"],
-      ["Academic Year:", "2026-2027", "Generated On:", new Date().toLocaleDateString()],
-      ["Total Enrolled Learners:", total],
-      [],
-      ["DEMOGRAPHIC CATEGORY", "CLASSIFICATION", "ENROLLED COUNT", "PERCENTAGE OF TOTAL"],
-    ];
+    const [studentRows] = await pool.query(
+      `SELECT u.id_number, u.last_name, u.first_name, u.middle_initial, u.sex,
+              COALESCE(u.program, 'none') AS program,
+              sec.grade_level, sec.name AS section_name,
+              st.code AS strand_code, st.title AS strand_title
+       FROM users u
+       LEFT JOIN sections sec ON sec.id = u.section_id
+       LEFT JOIN strands st ON st.id = sec.strand_id
+       WHERE u.role = 'student'
+       ORDER BY sec.grade_level ASC, st.code ASC, sec.name ASC, u.last_name ASC, u.first_name ASC`
+    );
 
     let maleTotal = 0;
     let femaleTotal = 0;
     let fourPsTotal = 0;
     let aralTotal = 0;
+    let g11Total = 0;
+    let g12Total = 0;
 
     strandRows.forEach(r => {
       maleTotal += Number(r.maleCount || 0);
       femaleTotal += Number(r.femaleCount || 0);
       fourPsTotal += Number(r.fourPsCount || 0);
       aralTotal += Number(r.aralCount || 0);
+      g11Total += Number(r.g11Count || 0);
+      g12Total += Number(r.g12Count || 0);
     });
 
-    const mPct = total > 0 ? ((maleTotal / total) * 100).toFixed(1) + '%' : '0%';
-    const fPct = total > 0 ? ((femaleTotal / total) * 100).toFixed(1) + '%' : '0%';
-    sheet1Data.push(["Sex / Gender", "Male Learners", maleTotal, mPct]);
-    sheet1Data.push(["Sex / Gender", "Female Learners", femaleTotal, fPct]);
-
-    const fourPsPct = total > 0 ? ((fourPsTotal / total) * 100).toFixed(1) + '%' : '0%';
-    const aralPct = total > 0 ? ((aralTotal / total) * 100).toFixed(1) + '%' : '0%';
     const regTotal = Math.max(0, total - fourPsTotal - aralTotal);
-    const regPct = total > 0 ? ((regTotal / total) * 100).toFixed(1) + '%' : '0%';
-    sheet1Data.push(["Assistance Program", "4Ps Beneficiaries", fourPsTotal, fourPsPct]);
-    sheet1Data.push(["Assistance Program", "ARAL Program (Remedial)", aralTotal, aralPct]);
-    sheet1Data.push(["Assistance Program", "Regular Learners", regTotal, regPct]);
+    const mShare = total > 0 ? (maleTotal / total) : 0;
+    const fShare = total > 0 ? (femaleTotal / total) : 0;
+    const fourPsShare = total > 0 ? (fourPsTotal / total) : 0;
+    const aralShare = total > 0 ? (aralTotal / total) : 0;
+    const regShare = total > 0 ? (regTotal / total) : 0;
+    const g11Share = total > 0 ? (g11Total / total) : 0;
+    const g12Share = total > 0 ? (g12Total / total) : 0;
 
-    // Sheet 2: Cluster & Strand Details
-    const sheet2Data = [
-      ["No.", "Cluster Code", "Cluster Title", "Grade 11", "Grade 12", "Male", "Female", "4Ps", "ARAL", "Total Learners", "Percentage"]
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Mentorae SIS';
+    wb.lastModifiedBy = 'Mentorae SIS System';
+    wb.created = new Date();
+    wb.modified = new Date();
+
+    // =========================================================================
+    // Tab 1: Executive Overview
+    // =========================================================================
+    const ws1 = wb.addWorksheet('Executive Overview', {
+      views: [{ showGridLines: true }],
+      properties: { defaultRowHeight: 20 }
+    });
+
+    ws1.columns = [
+      { key: 'colA', width: 28 },
+      { key: 'colB', width: 28 },
+      { key: 'colC', width: 44 },
+      { key: 'colD', width: 18 },
+      { key: 'colE', width: 18 },
     ];
+
+    // Banner Block
+    styleMergedRange(ws1, 1, 1, 5, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws1.getRow(1).height = 30;
+
+    styleMergedRange(ws1, 1, 2, 5, 2, {
+      value: 'MENTORAE STUDENT INFORMATION SYSTEM — INSTITUTIONAL DEMOGRAPHIC REPORT',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws1.getRow(2).height = 22;
+
+    styleMergedRange(ws1, 1, 3, 5, 3, {
+      value: 'OFFICIAL POPULATION SUMMARY, GENDER DISTRIBUTION & ASSISTANCE PROGRAMS',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws1.getRow(3).height = 20;
+
+    styleMergedRange(ws1, 1, 4, 5, 4, {
+      value: `Academic Year: ${schoolYear}   |   Generated: ${exportDateStr}   |   Classification: DepEd SHS Official Institutional Profile`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws1.getRow(4).height = 18;
+
+    // KPI Summary Scorecards (Rows 6 to 8)
+    // Card 1: Total Enrolled (Cols A-B)
+    styleMergedRange(ws1, 1, 6, 2, 6, {
+      value: 'TOTAL ENROLLED LEARNERS',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 1, 7, 2, 7, {
+      value: total,
+      font: { name: 'Segoe UI', size: 18, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 1).numFmt = '#,##0';
+    styleMergedRange(ws1, 1, 8, 2, 8, {
+      value: '100% Student Population',
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    // Card 2: Gender Balance (Col C)
+    styleMergedRange(ws1, 3, 6, 3, 6, {
+      value: 'GENDER BALANCE',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 3, 7, 3, 7, {
+      value: `${maleTotal} M / ${femaleTotal} F`,
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.darkText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 3, 8, 3, 8, {
+      value: `${(mShare * 100).toFixed(1)}% Male • ${(fShare * 100).toFixed(1)}% Female`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    // Card 3: 4Ps Beneficiaries (Col D)
+    styleMergedRange(ws1, 4, 6, 4, 6, {
+      value: '4Ps BENEFICIARIES',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 4, 7, 4, 7, {
+      value: fourPsTotal,
+      font: { name: 'Segoe UI', size: 16, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.badge4Ps } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 4).numFmt = '#,##0';
+    styleMergedRange(ws1, 4, 8, 4, 8, {
+      value: `${(fourPsShare * 100).toFixed(1)}% of Student Body`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    // Card 4: ARAL Remedial (Col E)
+    styleMergedRange(ws1, 5, 6, 5, 6, {
+      value: 'ARAL REMEDIAL',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 5, 7, 5, 7, {
+      value: aralTotal,
+      font: { name: 'Segoe UI', size: 16, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.badgeAral } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 5).numFmt = '#,##0';
+    styleMergedRange(ws1, 5, 8, 5, 8, {
+      value: `${(aralShare * 100).toFixed(1)}% Remedial Support`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    ws1.getRow(5).height = 10;
+    ws1.getRow(6).height = 20;
+    ws1.getRow(7).height = 28;
+    ws1.getRow(8).height = 18;
+    ws1.getRow(9).height = 14;
+
+    // --- Table 1: Sex & Gender Demographics ---
+    styleMergedRange(ws1, 1, 10, 5, 10, {
+      value: '1. SEX & GENDER DEMOGRAPHICS',
+      font: { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'left' }
+    });
+    ws1.getRow(10).height = 24;
+
+    const hRow1 = ws1.getRow(11);
+    hRow1.height = 22;
+    const headers1 = ['Classification', 'Gender Group', 'Description / Cohort Coverage', 'Enrolled Count', 'Percentage Share'];
+    headers1.forEach((h, idx) => {
+      const c = hRow1.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 3 ? 'right' : (idx === 0 ? 'center' : 'left') };
+      c.border = BORDER_THIN;
+    });
+
+    const genderRows = [
+      ['Sex / Gender', 'Male Learners', 'Official Enrolled Male Students', maleTotal, mShare],
+      ['Sex / Gender', 'Female Learners', 'Official Enrolled Female Students', femaleTotal, fShare],
+    ];
+
+    genderRows.forEach((r, idx) => {
+      const row = ws1.getRow(12 + idx);
+      row.height = 22;
+      r.forEach((val, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = val;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 0 ? 'center' : 'left') };
+        if (cIdx === 3) c.numFmt = '#,##0';
+        if (cIdx === 4) c.numFmt = '0.0%';
+      });
+    });
+
+    const gTotalRow = ws1.getRow(14);
+    gTotalRow.height = 24;
+    const gTotalVals = ['Total', 'All Learners', 'Consolidated Senior High School Enrolment', total, 1.0];
+    gTotalVals.forEach((val, cIdx) => {
+      const c = gTotalRow.getCell(cIdx + 1);
+      c.value = val;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } };
+      c.border = BORDER_TOTAL_ROW;
+      c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 0 ? 'center' : 'left') };
+      if (cIdx === 3) c.numFmt = '#,##0';
+      if (cIdx === 4) c.numFmt = '0.0%';
+    });
+
+    ws1.getRow(15).height = 14;
+
+    // --- Table 2: Government Assistance & Remedial Programs ---
+    styleMergedRange(ws1, 1, 16, 5, 16, {
+      value: '2. GOVERNMENT ASSISTANCE & REMEDIAL INTERVENTION PROGRAMS',
+      font: { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'left' }
+    });
+    ws1.getRow(16).height = 24;
+
+    const hRow2 = ws1.getRow(17);
+    hRow2.height = 22;
+    const headers2 = ['Program Classification', 'Program Name / Tag', 'Description / Target Beneficiary', 'Beneficiaries Count', 'Percentage of Total'];
+    headers2.forEach((h, idx) => {
+      const c = hRow2.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 3 ? 'right' : (idx === 0 ? 'center' : 'left') };
+      c.border = BORDER_THIN;
+    });
+
+    const progRows = [
+      ['Assistance Program', '4Ps Beneficiaries', 'Pantawid Pamilyang Pilipino Program Beneficiaries', fourPsTotal, fourPsShare],
+      ['Assistance Program', 'ARAL Program', 'Academic Recovery and Accessible Learning (Remedial Support)', aralTotal, aralShare],
+      ['Assistance Program', 'Regular Learners', 'General Senior High School Student Population', regTotal, regShare],
+    ];
+
+    progRows.forEach((r, idx) => {
+      const row = ws1.getRow(18 + idx);
+      row.height = 22;
+      r.forEach((val, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = val;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 0 ? 'center' : 'left') };
+        if (cIdx === 3) c.numFmt = '#,##0';
+        if (cIdx === 4) c.numFmt = '0.0%';
+      });
+    });
+
+    const pTotalRow = ws1.getRow(21);
+    pTotalRow.height = 24;
+    const pTotalVals = ['Total', 'All Programs', 'Consolidated Student Assistance Distribution', total, 1.0];
+    pTotalVals.forEach((val, cIdx) => {
+      const c = pTotalRow.getCell(cIdx + 1);
+      c.value = val;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } };
+      c.border = BORDER_TOTAL_ROW;
+      c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 0 ? 'center' : 'left') };
+      if (cIdx === 3) c.numFmt = '#,##0';
+      if (cIdx === 4) c.numFmt = '0.0%';
+    });
+
+    ws1.getRow(22).height = 14;
+
+    // --- Table 3: Grade Level Enrolment ---
+    styleMergedRange(ws1, 1, 23, 5, 23, {
+      value: '3. SENIOR HIGH SCHOOL GRADE LEVEL ENROLMENT',
+      font: { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'left' }
+    });
+    ws1.getRow(23).height = 24;
+
+    const hRow3 = ws1.getRow(24);
+    hRow3.height = 22;
+    const headers3 = ['Grade Level', 'Academic Stage', 'Level Description', 'Enrolled Count', 'Percentage Share'];
+    headers3.forEach((h, idx) => {
+      const c = hRow3.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 3 ? 'right' : (idx === 0 ? 'center' : 'left') };
+      c.border = BORDER_THIN;
+    });
+
+    const gradeSummaryRows = [
+      ['Grade 11', 'Senior High School - Year 1', 'Incoming Senior High School Cohort', g11Total, g11Share],
+      ['Grade 12', 'Senior High School - Year 2', 'Graduating Senior High School Cohort', g12Total, g12Share],
+    ];
+
+    gradeSummaryRows.forEach((r, idx) => {
+      const row = ws1.getRow(25 + idx);
+      row.height = 22;
+      r.forEach((val, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = val;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 0 ? 'center' : 'left') };
+        if (cIdx === 3) c.numFmt = '#,##0';
+        if (cIdx === 4) c.numFmt = '0.0%';
+      });
+    });
+
+    const grTotalRow = ws1.getRow(27);
+    grTotalRow.height = 24;
+    const grTotalVals = ['Total Enrolled', 'All Grade Levels', 'Consolidated Grade 11 & Grade 12', total, 1.0];
+    grTotalVals.forEach((val, cIdx) => {
+      const c = grTotalRow.getCell(cIdx + 1);
+      c.value = val;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } };
+      c.border = BORDER_TOTAL_ROW;
+      c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 0 ? 'center' : 'left') };
+      if (cIdx === 3) c.numFmt = '#,##0';
+      if (cIdx === 4) c.numFmt = '0.0%';
+    });
+
+    // =========================================================================
+    // Tab 2: Clusters & Strands
+    // =========================================================================
+    const ws2 = wb.addWorksheet('Clusters & Strands', {
+      views: [{ state: 'frozen', ySplit: 5, showGridLines: true }],
+      properties: { defaultRowHeight: 22 }
+    });
+
+    ws2.columns = [
+      { key: 'no', width: 6 },
+      { key: 'code', width: 16 },
+      { key: 'title', width: 44 },
+      { key: 'g11', width: 13 },
+      { key: 'g12', width: 13 },
+      { key: 'male', width: 12 },
+      { key: 'female', width: 12 },
+      { key: 'fourPs', width: 11 },
+      { key: 'aral', width: 11 },
+      { key: 'total', width: 16 },
+      { key: 'pct', width: 14 },
+    ];
+
+    styleMergedRange(ws2, 1, 1, 11, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws2.getRow(1).height = 30;
+
+    styleMergedRange(ws2, 1, 2, 11, 2, {
+      value: 'MENTORAE SIS — ACADEMIC TRACK & STRAND DEMOGRAPHICS',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws2.getRow(2).height = 22;
+
+    styleMergedRange(ws2, 1, 3, 11, 3, {
+      value: 'Official Breakdown by Academic Track, Grade Level, Gender, and Assistance Programs',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws2.getRow(3).height = 20;
+
+    styleMergedRange(ws2, 1, 4, 11, 4, {
+      value: `Academic Year: ${schoolYear}   |   Export Date: ${exportDateStr}   |   Classification: DepEd SHS Curriculum Strands`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws2.getRow(4).height = 18;
+
+    const t2Header = ws2.getRow(5);
+    t2Header.height = 26;
+    const t2Headers = ['No.', 'Cluster Code', 'Cluster / Strand Title', 'Grade 11', 'Grade 12', 'Male', 'Female', '4Ps', 'ARAL', 'Total Learners', '% Share'];
+    t2Headers.forEach((h, idx) => {
+      const c = t2Header.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 3 ? 'right' : (idx === 2 ? 'left' : 'center') };
+      c.border = BORDER_THIN;
+    });
+
     strandRows.forEach((r, idx) => {
-      const pct = total > 0 ? ((Number(r.totalCount) / total) * 100).toFixed(1) + '%' : '0%';
-      sheet2Data.push([
+      const row = ws2.getRow(6 + idx);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+      const vals = [
         idx + 1,
         r.code,
         r.title,
@@ -956,46 +1425,286 @@ async function exportDemographics(req, res) {
         Number(r.fourPsCount || 0),
         Number(r.aralCount || 0),
         Number(r.totalCount || 0),
-        pct
-      ]);
+        total > 0 ? (Number(r.totalCount || 0) / total) : 0
+      ];
+      vals.forEach((v, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = v;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        if (cIdx === 1) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 2 ? 'left' : 'center') };
+        if (cIdx >= 3 && cIdx <= 9) c.numFmt = '#,##0';
+        if (cIdx === 10) c.numFmt = '0.0%';
+      });
     });
 
-    // Sheet 3: Section Roster Counts
-    const sheet3Data = [
-      ["No.", "Grade Level", "Cluster / Track", "Section Name", "Male Learners", "Female Learners", "Total Enrolled"]
+    const totRow2 = ws2.getRow(6 + strandRows.length);
+    totRow2.height = 26;
+    const totVals2 = ['', 'TOTAL', 'Institutional Enrolment Total', g11Total, g12Total, maleTotal, femaleTotal, fourPsTotal, aralTotal, total, 1.0];
+    totVals2.forEach((v, cIdx) => {
+      const c = totRow2.getCell(cIdx + 1);
+      c.value = v;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } };
+      c.border = BORDER_TOTAL_ROW;
+      c.alignment = { vertical: 'middle', horizontal: cIdx >= 3 ? 'right' : (cIdx === 2 ? 'left' : 'center') };
+      if (cIdx >= 3 && cIdx <= 9) c.numFmt = '#,##0';
+      if (cIdx === 10) c.numFmt = '0.0%';
+    });
+    ws2.autoFilter = 'A5:K5';
+
+    // =========================================================================
+    // Tab 3: Sections Distribution
+    // =========================================================================
+    const ws3 = wb.addWorksheet('Sections Distribution', {
+      views: [{ state: 'frozen', ySplit: 5, showGridLines: true }],
+      properties: { defaultRowHeight: 22 }
+    });
+
+    ws3.columns = [
+      { key: 'no', width: 6 },
+      { key: 'grade', width: 14 },
+      { key: 'strand', width: 16 },
+      { key: 'section', width: 34 },
+      { key: 'male', width: 15 },
+      { key: 'female', width: 15 },
+      { key: 'fourPs', width: 16 },
+      { key: 'aral', width: 15 },
+      { key: 'total', width: 16 },
     ];
+
+    styleMergedRange(ws3, 1, 1, 9, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws3.getRow(1).height = 30;
+
+    styleMergedRange(ws3, 1, 2, 9, 2, {
+      value: 'MENTORAE SIS — SECTION ENROLMENT & GENDER DISTRIBUTION',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws3.getRow(2).height = 22;
+
+    styleMergedRange(ws3, 1, 3, 9, 3, {
+      value: 'Class Section Rosters and Assistance Beneficiary Counts',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws3.getRow(3).height = 20;
+
+    styleMergedRange(ws3, 1, 4, 9, 4, {
+      value: `Academic Year: ${schoolYear}   |   Export Date: ${exportDateStr}   |   Active Section Rosters`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws3.getRow(4).height = 18;
+
+    const t3Header = ws3.getRow(5);
+    t3Header.height = 26;
+    const t3Headers = ['No.', 'Grade Level', 'Cluster / Track', 'Section Name', 'Male Learners', 'Female Learners', '4Ps Beneficiaries', 'ARAL Remedial', 'Total Enrolled'];
+    t3Headers.forEach((h, idx) => {
+      const c = t3Header.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 4 ? 'right' : (idx === 3 ? 'left' : 'center') };
+      c.border = BORDER_THIN;
+    });
+
+    let secMaleSum = 0;
+    let secFemaleSum = 0;
+    let secFourPsSum = 0;
+    let secAralSum = 0;
+    let secTotalSum = 0;
+
     secRows.forEach((r, idx) => {
-      sheet3Data.push([
+      const row = ws3.getRow(6 + idx);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+
+      const m = Number(r.maleCount || 0);
+      const f = Number(r.femaleCount || 0);
+      const fourPs = Number(r.fourPsCount || 0);
+      const aral = Number(r.aralCount || 0);
+      const enr = Number(r.enrolledCount || 0);
+
+      secMaleSum += m;
+      secFemaleSum += f;
+      secFourPsSum += fourPs;
+      secAralSum += aral;
+      secTotalSum += enr;
+
+      const vals = [
         idx + 1,
         `Grade ${r.grade_level}`,
         r.strandCode,
         r.sectionName,
-        Number(r.maleCount || 0),
-        Number(r.femaleCount || 0),
-        Number(r.enrolledCount || 0)
-      ]);
+        m,
+        f,
+        fourPs,
+        aral,
+        enr
+      ];
+
+      vals.forEach((v, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = v;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        if (cIdx === 2) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 4 ? 'right' : (cIdx === 3 ? 'left' : 'center') };
+        if (cIdx >= 4) c.numFmt = '#,##0';
+      });
     });
 
-    const wb = XLSX.utils.book_new();
-    const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
-    ws1['!cols'] = [{ wch: 25 }, { wch: 28 }, { wch: 18 }, { wch: 22 }];
+    const totRow3 = ws3.getRow(6 + secRows.length);
+    totRow3.height = 26;
+    const totVals3 = ['', 'TOTAL', '', 'Consolidated Section Totals', secMaleSum, secFemaleSum, secFourPsSum, secAralSum, secTotalSum];
+    totVals3.forEach((v, cIdx) => {
+      const c = totRow3.getCell(cIdx + 1);
+      c.value = v;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } };
+      c.border = BORDER_TOTAL_ROW;
+      c.alignment = { vertical: 'middle', horizontal: cIdx >= 4 ? 'right' : (cIdx === 3 ? 'left' : 'center') };
+      if (cIdx >= 4) c.numFmt = '#,##0';
+    });
+    ws3.autoFilter = 'A5:I5';
 
-    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
-    ws2['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 38 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
+    // =========================================================================
+    // Tab 4: Learner Directory (Student Demographic Masterlist)
+    // =========================================================================
+    const ws4 = wb.addWorksheet('Learner Directory', {
+      views: [{ state: 'frozen', ySplit: 5, showGridLines: true }],
+      properties: { defaultRowHeight: 22 }
+    });
 
-    const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data);
-    ws3['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 18 }, { wch: 25 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+    ws4.columns = [
+      { key: 'no', width: 6 },
+      { key: 'idNumber', width: 20 },
+      { key: 'fullName', width: 34 },
+      { key: 'sex', width: 10 },
+      { key: 'grade', width: 14 },
+      { key: 'strand', width: 16 },
+      { key: 'section', width: 30 },
+      { key: 'program', width: 22 },
+    ];
 
-    XLSX.utils.book_append_sheet(wb, ws1, "Executive Demographics");
-    XLSX.utils.book_append_sheet(wb, ws2, "Clusters & Strands");
-    XLSX.utils.book_append_sheet(wb, ws3, "Sections Distribution");
+    styleMergedRange(ws4, 1, 1, 8, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws4.getRow(1).height = 30;
 
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    styleMergedRange(ws4, 1, 2, 8, 2, {
+      value: 'MENTORAE SIS — STUDENT DEMOGRAPHIC DIRECTORY & ROSTER',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws4.getRow(2).height = 22;
+
+    styleMergedRange(ws4, 1, 3, 8, 3, {
+      value: 'Comprehensive Senior High School Learner Demographic Masterlist',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws4.getRow(3).height = 20;
+
+    styleMergedRange(ws4, 1, 4, 8, 4, {
+      value: `Academic Year: ${schoolYear}   |   Export Date: ${exportDateStr}   |   Total Enrolled Learners: ${studentRows.length}`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws4.getRow(4).height = 18;
+
+    const t4Header = ws4.getRow(5);
+    t4Header.height = 26;
+    const t4Headers = ['No.', 'LRN / ID Number', 'Learner Full Name', 'Sex', 'Grade Level', 'Cluster / Track', 'Section Name', 'Assistance Program'];
+    t4Headers.forEach((h, idx) => {
+      const c = t4Header.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+      c.alignment = { vertical: 'middle', horizontal: (idx === 2 || idx === 6) ? 'left' : 'center' };
+      c.border = BORDER_THIN;
+    });
+
+    studentRows.forEach((r, idx) => {
+      const row = ws4.getRow(6 + idx);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+      const mi = r.middle_initial ? ` ${r.middle_initial}.` : '';
+      const fullName = `${r.last_name}, ${r.first_name}${mi}`;
+      let progLabel = 'Regular';
+      let progColor = MENTORAE_EXCEL_COLORS.darkText;
+      let progBold = false;
+      if (String(r.program).toLowerCase() === '4ps') {
+        progLabel = '4Ps Beneficiary';
+        progColor = MENTORAE_EXCEL_COLORS.badge4Ps;
+        progBold = true;
+      } else if (String(r.program).toLowerCase() === 'aral') {
+        progLabel = 'ARAL Program';
+        progColor = MENTORAE_EXCEL_COLORS.badgeAral;
+        progBold = true;
+      }
+
+      const vals = [
+        idx + 1,
+        r.id_number,
+        fullName,
+        r.sex || 'Unspecified',
+        `Grade ${r.grade_level || '11'}`,
+        r.strand_code || 'N/A',
+        r.section_name || 'Unassigned',
+        progLabel
+      ];
+
+      vals.forEach((v, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = v;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        if (cIdx === 1) c.numFmt = '@';
+        if (cIdx === 5) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+        if (cIdx === 7) c.font = { name: 'Segoe UI', size: 10, bold: progBold, color: { argb: progColor } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: (cIdx === 2 || cIdx === 6) ? 'left' : 'center' };
+      });
+    });
+
+    const totRow4 = ws4.getRow(6 + studentRows.length);
+    totRow4.height = 26;
+    styleMergedRange(ws4, 1, 6 + studentRows.length, 8, 6 + studentRows.length, {
+      value: `TOTAL ACTIVE ENROLLED LEARNERS: ${studentRows.length}`,
+      font: { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      border: BORDER_TOTAL_ROW,
+      alignment: { vertical: 'middle', horizontal: 'left' }
+    });
+    ws4.autoFilter = 'A5:H5';
+
+    const buffer = await wb.xlsx.writeBuffer();
     const filename = `TSHS_School_Demographics_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(buf);
+    return res.send(buffer);
   } catch (err) {
     console.error('exportDemographics error:', err);
     return res.status(500).json({ success: false, message: 'Could not export school-wide demographics.' });
@@ -1005,7 +1714,14 @@ async function exportDemographics(req, res) {
 /** GET /api/analytics/export-academic-trends — Generates official Excel workbook for multi-term academic progression */
 async function exportAcademicTrends(req, res) {
   try {
-    // School-wide term averages
+    const { schoolName, schoolYear } = await getSchoolMetadata();
+    const exportDateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // 1. School-wide term averages
     const [trendRows] = await pool.query(
       `SELECT g.term,
               COUNT(g.id) AS recordedGradesCount,
@@ -1018,7 +1734,7 @@ async function exportAcademicTrends(req, res) {
        ORDER BY g.term ASC`
     );
 
-    // Strand averages per term
+    // 2. Strand averages per term
     const [strandTrendRows] = await pool.query(
       `SELECT st.code AS strandCode, st.title AS strandTitle, g.term,
               ROUND(AVG(g.average), 2) AS avgGrade,
@@ -1030,7 +1746,7 @@ async function exportAcademicTrends(req, res) {
        ORDER BY st.code ASC, g.term ASC`
     );
 
-    // Subject averages
+    // 3. Subject performance overview
     const [subjectRows] = await pool.query(
       `SELECT sub.code AS subjectCode, sub.name AS subjectName, sub.classification,
               ROUND(AVG(g.average), 2) AS avgGrade,
@@ -1042,53 +1758,400 @@ async function exportAcademicTrends(req, res) {
        ORDER BY avgGrade DESC`
     );
 
-    // Sheet 1: Academic Progression
-    const sheet1Data = [
-      ["TALISAY SENIOR HIGH SCHOOL - AGGREGATE ACADEMIC TRENDS REPORT"],
-      ["Academic Year:", "2026-2027", "Export Date:", new Date().toLocaleDateString()],
-      [],
-      ["GRADING TERM", "EVALUATED GRADES", "TERM AVERAGE GPA", "PASSED COUNT", "PASSING RATE (%)", "HONORS (90+)", "AT-RISK (<75)"]
-    ];
+    let totalEvaluated = 0;
+    let totalPassed = 0;
+    let totalHonors = 0;
+    let totalAtRisk = 0;
+    let sumGpa = 0;
 
     trendRows.forEach(r => {
-      const total = Number(r.recordedGradesCount || 0);
-      const passed = Number(r.passedCount || 0);
-      const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) + '%' : '0%';
-      sheet1Data.push([
-        r.term,
-        total,
-        Number(r.averageGrade || 0),
-        passed,
-        passRate,
-        Number(r.honorsCount || 0),
-        Number(r.atRiskCount || 0)
-      ]);
+      totalEvaluated += Number(r.recordedGradesCount || 0);
+      totalPassed += Number(r.passedCount || 0);
+      totalHonors += Number(r.honorsCount || 0);
+      totalAtRisk += Number(r.atRiskCount || 0);
+      sumGpa += Number(r.averageGrade || 0);
     });
 
-    // Sheet 2: Cluster Performance Trends
-    const sheet2Data = [
-      ["No.", "Cluster Code", "Cluster Title", "Grading Term", "Term GPA Average", "Grades Sample Size"]
+    const overallGpa = trendRows.length > 0 ? (sumGpa / trendRows.length) : 0;
+    const overallPassingRate = totalEvaluated > 0 ? (totalPassed / totalEvaluated) : 0;
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Mentorae SIS';
+    wb.lastModifiedBy = 'Mentorae SIS System';
+    wb.created = new Date();
+    wb.modified = new Date();
+
+    // =========================================================================
+    // Tab 1: Academic Trends Summary
+    // =========================================================================
+    const ws1 = wb.addWorksheet('Academic Trends Summary', {
+      views: [{ state: 'frozen', ySplit: 11, showGridLines: true }],
+      properties: { defaultRowHeight: 22 }
+    });
+
+    ws1.columns = [
+      { key: 'term', width: 22 },
+      { key: 'evaluated', width: 20 },
+      { key: 'avgGpa', width: 20 },
+      { key: 'passed', width: 18 },
+      { key: 'rate', width: 18 },
+      { key: 'honors', width: 18 },
+      { key: 'atRisk', width: 18 },
     ];
+
+    styleMergedRange(ws1, 1, 1, 7, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws1.getRow(1).height = 30;
+
+    styleMergedRange(ws1, 1, 2, 7, 2, {
+      value: 'MENTORAE SIS — MULTI-TERM ACADEMIC PROGRESSION REPORT',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws1.getRow(2).height = 22;
+
+    styleMergedRange(ws1, 1, 3, 7, 3, {
+      value: 'DepEd Senior High School Term GPA, Passing Rates, and Academic Distribution',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws1.getRow(3).height = 20;
+
+    styleMergedRange(ws1, 1, 4, 7, 4, {
+      value: `Academic Year: ${schoolYear}   |   Export Date: ${exportDateStr}   |   Institutional Aggregate Trends`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws1.getRow(4).height = 18;
+
+    // KPI Scorecards (Rows 6 to 8)
+    // Card 1: School GPA (Cols A-B)
+    styleMergedRange(ws1, 1, 6, 2, 6, {
+      value: 'OVERALL SCHOOL GPA',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 1, 7, 2, 7, {
+      value: overallGpa,
+      font: { name: 'Segoe UI', size: 18, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 1).numFmt = '0.00';
+    styleMergedRange(ws1, 1, 8, 2, 8, {
+      value: 'Institutional Average',
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    // Card 2: Passing Rate (Cols C-D)
+    styleMergedRange(ws1, 3, 6, 4, 6, {
+      value: 'OVERALL PASSING RATE',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 3, 7, 4, 7, {
+      value: overallPassingRate,
+      font: { name: 'Segoe UI', size: 18, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.honorsGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 3).numFmt = '0.0%';
+    styleMergedRange(ws1, 3, 8, 4, 8, {
+      value: `${totalPassed.toLocaleString()} Total Grades >= 75`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    // Card 3: Honors (Col E)
+    styleMergedRange(ws1, 5, 6, 5, 6, {
+      value: 'HONORS (90+)',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 5, 7, 5, 7, {
+      value: totalHonors,
+      font: { name: 'Segoe UI', size: 16, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.honorsGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 5).numFmt = '#,##0';
+    styleMergedRange(ws1, 5, 8, 5, 8, {
+      value: 'High Academic Performers',
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    // Card 4: At-Risk (Cols F-G)
+    styleMergedRange(ws1, 6, 6, 7, 6, {
+      value: 'AT-RISK RECORDS (<75)',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { top: BORDER_THIN.top, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    styleMergedRange(ws1, 6, 7, 7, 7, {
+      value: totalAtRisk,
+      font: { name: 'Segoe UI', size: 16, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.riskRed } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+    ws1.getCell(7, 6).numFmt = '#,##0';
+    styleMergedRange(ws1, 6, 8, 7, 8, {
+      value: 'Subject Grades Needing Intervention',
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: BORDER_THIN.bottom, left: BORDER_THIN.left, right: BORDER_THIN.right }
+    });
+
+    ws1.getRow(5).height = 10;
+    ws1.getRow(6).height = 20;
+    ws1.getRow(7).height = 28;
+    ws1.getRow(8).height = 18;
+    ws1.getRow(9).height = 14;
+
+    // Table Header
+    styleMergedRange(ws1, 1, 10, 7, 10, {
+      value: 'GRADING TERM PROGRESSION & PERFORMANCE',
+      font: { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'left' }
+    });
+    ws1.getRow(10).height = 24;
+
+    const hRow1 = ws1.getRow(11);
+    hRow1.height = 24;
+    const headers1 = ['Grading Term', 'Evaluated Grades', 'Term Average (GPA)', 'Passed Count', 'Passing Rate (%)', 'Honors (90+)', 'At-Risk (<75)'];
+    headers1.forEach((h, idx) => {
+      const c = hRow1.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx === 0 ? 'center' : 'right' };
+      c.border = BORDER_THIN;
+    });
+
+    trendRows.forEach((r, idx) => {
+      const row = ws1.getRow(12 + idx);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+      const count = Number(r.recordedGradesCount || 0);
+      const passed = Number(r.passedCount || 0);
+      const passRate = count > 0 ? (passed / count) : 0;
+      const avg = Number(r.averageGrade || 0);
+      const honors = Number(r.honorsCount || 0);
+      const atRisk = Number(r.atRiskCount || 0);
+
+      const vals = [r.term, count, avg, passed, passRate, honors, atRisk];
+
+      vals.forEach((v, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = v;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        if (cIdx === 0) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+        if (cIdx === 5) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.honorsGreen } };
+        if (cIdx === 6) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.riskRed } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx === 0 ? 'center' : 'right' };
+        if ([1, 3, 5, 6].includes(cIdx)) c.numFmt = '#,##0';
+        if (cIdx === 2) c.numFmt = '0.00';
+        if (cIdx === 4) c.numFmt = '0.0%';
+      });
+    });
+
+    const totRow1 = ws1.getRow(12 + trendRows.length);
+    totRow1.height = 26;
+    const totVals1 = ['Consolidated Record', totalEvaluated, overallGpa, totalPassed, overallPassingRate, totalHonors, totalAtRisk];
+    totVals1.forEach((v, cIdx) => {
+      const c = totRow1.getCell(cIdx + 1);
+      c.value = v;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } };
+      c.border = BORDER_TOTAL_ROW;
+      c.alignment = { vertical: 'middle', horizontal: cIdx === 0 ? 'center' : 'right' };
+      if ([1, 3, 5, 6].includes(cIdx)) c.numFmt = '#,##0';
+      if (cIdx === 2) c.numFmt = '0.00';
+      if (cIdx === 4) c.numFmt = '0.0%';
+    });
+    ws1.autoFilter = 'A11:G11';
+
+    // =========================================================================
+    // Tab 2: Clusters Performance
+    // =========================================================================
+    const ws2 = wb.addWorksheet('Clusters Performance', {
+      views: [{ state: 'frozen', ySplit: 5, showGridLines: true }],
+      properties: { defaultRowHeight: 22 }
+    });
+
+    ws2.columns = [
+      { key: 'no', width: 6 },
+      { key: 'code', width: 16 },
+      { key: 'title', width: 44 },
+      { key: 'term', width: 16 },
+      { key: 'avgGpa', width: 20 },
+      { key: 'sample', width: 18 },
+    ];
+
+    styleMergedRange(ws2, 1, 1, 6, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws2.getRow(1).height = 30;
+
+    styleMergedRange(ws2, 1, 2, 6, 2, {
+      value: 'MENTORAE SIS — CLUSTER & STRAND PERFORMANCE TRENDS',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws2.getRow(2).height = 22;
+
+    styleMergedRange(ws2, 1, 3, 6, 3, {
+      value: 'Academic Track and Cluster Averages Across Evaluation Periods',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws2.getRow(3).height = 20;
+
+    styleMergedRange(ws2, 1, 4, 6, 4, {
+      value: `Academic Year: ${schoolYear}   |   Export Date: ${exportDateStr}   |   Tracks & Strands`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws2.getRow(4).height = 18;
+
+    const t2Header = ws2.getRow(5);
+    t2Header.height = 26;
+    const t2Headers = ['No.', 'Cluster Code', 'Cluster / Strand Title', 'Grading Term', 'Term GPA Average', 'Sample Records'];
+    t2Headers.forEach((h, idx) => {
+      const c = t2Header.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 4 ? 'right' : (idx === 2 ? 'left' : 'center') };
+      c.border = BORDER_THIN;
+    });
+
     strandTrendRows.forEach((r, idx) => {
-      sheet2Data.push([
+      const row = ws2.getRow(6 + idx);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+      const vals = [
         idx + 1,
         r.strandCode,
         r.strandTitle,
         r.term,
         Number(r.avgGrade || 0),
         Number(r.gradeCount || 0)
-      ]);
+      ];
+      vals.forEach((v, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = v;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        if (cIdx === 1) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 4 ? 'right' : (cIdx === 2 ? 'left' : 'center') };
+        if (cIdx === 4) c.numFmt = '0.00';
+        if (cIdx === 5) c.numFmt = '#,##0';
+      });
+    });
+    ws2.autoFilter = 'A5:F5';
+
+    // =========================================================================
+    // Tab 3: Subjects Ranking
+    // =========================================================================
+    const ws3 = wb.addWorksheet('Subjects Ranking', {
+      views: [{ state: 'frozen', ySplit: 5, showGridLines: true }],
+      properties: { defaultRowHeight: 22 }
     });
 
-    // Sheet 3: Subject Performance Overview
-    const sheet3Data = [
-      ["No.", "Subject Code", "Subject Name", "Classification", "Average Grade", "Passing Rate (%)", "Total Records"]
+    ws3.columns = [
+      { key: 'no', width: 6 },
+      { key: 'code', width: 16 },
+      { key: 'name', width: 38 },
+      { key: 'classification', width: 18 },
+      { key: 'avgGrade', width: 18 },
+      { key: 'passRate', width: 18 },
+      { key: 'totalRecords', width: 18 },
     ];
+
+    styleMergedRange(ws3, 1, 1, 7, 1, {
+      value: schoolName.toUpperCase(),
+      font: { name: 'Segoe UI', size: 14, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws3.getRow(1).height = 30;
+
+    styleMergedRange(ws3, 1, 2, 7, 2, {
+      value: 'MENTORAE SIS — SUBJECT PERFORMANCE & RANKING',
+      font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFE6F4EA' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.subRibbonGreen } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws3.getRow(2).height = 22;
+
+    styleMergedRange(ws3, 1, 3, 7, 3, {
+      value: 'Curriculum Course Performance, Average Grades, and Passing Percentages',
+      font: { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.mintTint } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: { bottom: { style: 'medium', color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } } }
+    });
+    ws3.getRow(3).height = 20;
+
+    styleMergedRange(ws3, 1, 4, 7, 4, {
+      value: `Academic Year: ${schoolYear}   |   Export Date: ${exportDateStr}   |   Curriculum Performance`,
+      font: { name: 'Segoe UI', size: 9, italic: true, color: { argb: MENTORAE_EXCEL_COLORS.mutedText } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    });
+    ws3.getRow(4).height = 18;
+
+    const t3Header = ws3.getRow(5);
+    t3Header.height = 26;
+    const t3Headers = ['No.', 'Subject Code', 'Subject Name', 'Classification', 'Average Grade (GPA)', 'Passing Rate (%)', 'Total Records Evaluated'];
+    t3Headers.forEach((h, idx) => {
+      const c = t3Header.getCell(idx + 1);
+      c.value = h;
+      c.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.white } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+      c.alignment = { vertical: 'middle', horizontal: idx >= 4 ? 'right' : (idx === 2 ? 'left' : 'center') };
+      c.border = BORDER_THIN;
+    });
+
     subjectRows.forEach((r, idx) => {
+      const row = ws3.getRow(6 + idx);
+      row.height = 22;
+      const isEven = idx % 2 === 0;
       const tot = Number(r.totalGrades || 0);
       const pass = Number(r.passedCount || 0);
-      const rate = tot > 0 ? ((pass / tot) * 100).toFixed(1) + '%' : '0%';
-      sheet3Data.push([
+      const rate = tot > 0 ? (pass / tot) : 0;
+      const vals = [
         idx + 1,
         r.subjectCode,
         r.subjectName,
@@ -1096,29 +2159,28 @@ async function exportAcademicTrends(req, res) {
         Number(r.avgGrade || 0),
         rate,
         tot
-      ]);
+      ];
+      vals.forEach((v, cIdx) => {
+        const c = row.getCell(cIdx + 1);
+        c.value = v;
+        c.font = { name: 'Segoe UI', size: 10, color: { argb: MENTORAE_EXCEL_COLORS.darkText } };
+        if (cIdx === 1) c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: MENTORAE_EXCEL_COLORS.primaryGreen } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? MENTORAE_EXCEL_COLORS.white : MENTORAE_EXCEL_COLORS.mintLight } };
+        c.border = BORDER_THIN;
+        c.alignment = { vertical: 'middle', horizontal: cIdx >= 4 ? 'right' : (cIdx === 2 ? 'left' : 'center') };
+        if (cIdx === 4) c.numFmt = '0.00';
+        if (cIdx === 5) c.numFmt = '0.0%';
+        if (cIdx === 6) c.numFmt = '#,##0';
+      });
     });
+    ws3.autoFilter = 'A5:G5';
 
-    const wb = XLSX.utils.book_new();
-    const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
-    ws1['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }];
-
-    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
-    ws2['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 35 }, { wch: 16 }, { wch: 18 }, { wch: 18 }];
-
-    const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data);
-    ws3['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 35 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 16 }];
-
-    XLSX.utils.book_append_sheet(wb, ws1, "Academic Trends Summary");
-    XLSX.utils.book_append_sheet(wb, ws2, "Clusters Performance");
-    XLSX.utils.book_append_sheet(wb, ws3, "Subjects Ranking");
-
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await wb.xlsx.writeBuffer();
     const filename = `TSHS_Academic_Trends_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(buf);
+    return res.send(buffer);
   } catch (err) {
     console.error('exportAcademicTrends error:', err);
     return res.status(500).json({ success: false, message: 'Could not export academic trends.' });
