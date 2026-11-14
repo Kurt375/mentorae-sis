@@ -118,6 +118,29 @@ async function getDeliverableEmailsForStudentAndParents(studentId) {
   }
 }
 
+async function getDeliverableEmailsForAdvisers(studentId) {
+  if (!studentId) return [];
+  try {
+    const [rows] = await pool.query(
+      `SELECT adv.id, adv.email, adv.personal_email
+       FROM users u
+       JOIN sections sec ON sec.id = u.section_id
+       JOIN users adv ON (adv.id = sec.adviser_id OR adv.id = sec.co_adviser_id)
+       WHERE u.id = ? AND adv.is_active = 1`,
+      [studentId]
+    );
+    const emails = [];
+    rows.forEach(r => {
+      if (isDeliverableEmail(r.personal_email)) emails.push(r.personal_email.trim().toLowerCase());
+      if (isDeliverableEmail(r.email)) emails.push(r.email.trim().toLowerCase());
+    });
+    return [...new Set(emails)];
+  } catch (err) {
+    console.error('getDeliverableEmailsForAdvisers error:', err.message);
+    return [];
+  }
+}
+
 function wrapEmailTemplate(title, preheader, bodyHtml) {
   return `
     <!DOCTYPE html>
@@ -253,8 +276,17 @@ async function sendAttendanceEmail(opts) {
   if (!enabled) return;
 
   const { studentId, status, time, date, remarks, isEarlyOut } = opts;
-  const { student, allEmails } = await getDeliverableEmailsForStudentAndParents(studentId);
-  if (!allEmails.length || !student) return;
+  const isEarly = String(status).toLowerCase() === 'early_leave' || Boolean(isEarlyOut);
+  const { student, allEmails: familyEmails } = await getDeliverableEmailsForStudentAndParents(studentId);
+  if (!student) return;
+
+  let allEmails = [...familyEmails];
+  // On early dismissal / departure prior to 3:30 PM, urgently alert the Section Adviser via Gmail as well
+  if (isEarly) {
+    const adviserEmails = await getDeliverableEmailsForAdvisers(studentId);
+    allEmails = [...new Set([...allEmails, ...adviserEmails])];
+  }
+  if (!allEmails.length) return;
 
   const formattedDate = date ? new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', weekday: 'long' }) : 'Today';
   const formattedTime = time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -666,6 +698,7 @@ module.exports = {
   isEmailNotificationEnabled,
   getDeliverableEmailsForUser,
   getDeliverableEmailsForStudentAndParents,
+  getDeliverableEmailsForAdvisers,
   sendOtpEmail,
   sendAnnouncementEmail,
   sendAttendanceEmail,

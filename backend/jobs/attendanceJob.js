@@ -173,10 +173,12 @@ async function runSevenAmAttendanceJob(force = false) {
       );
     }
 
-    // 6. Asynchronously dispatch background Gmail notifications
-    (async () => {
-      try {
-        for (const st of unscanned) {
+    // 6. Dispatch 7:00 AM tardy warning emails safely within serverless execution bounds
+    try {
+      const emailLimit = Math.min(unscanned.length, 30);
+      for (let i = 0; i < emailLimit; i++) {
+        const st = unscanned[i];
+        try {
           await sendAttendanceEmail({
             studentId: st.id,
             status: 'tardy_warning',
@@ -184,11 +186,13 @@ async function runSevenAmAttendanceJob(force = false) {
             time: '7:00 AM',
             remarks: '7:00 AM on-time cutoff has passed; subsequent scans will be logged as late-present.',
           });
+        } catch (singleErr) {
+          console.error(`[ATTENDANCE JOB] Single email error for student ${st.id}:`, singleErr.message);
         }
-      } catch (mailErr) {
-        console.error('[ATTENDANCE JOB] Background email dispatch error:', mailErr.message);
       }
-    })();
+    } catch (mailErr) {
+      console.error('[ATTENDANCE JOB] Email dispatch error:', mailErr.message);
+    }
 
     // 7. Persist execution date to system_settings
     await pool.query(
