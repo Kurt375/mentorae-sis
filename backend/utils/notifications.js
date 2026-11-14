@@ -134,9 +134,35 @@ async function notify(optsOrRecipientId, maybeOpts = {}) {
 
 /** Write the same notification to several recipients at once with recipient deduplication. */
 async function notifyMany(recipientIds, rest) {
-  if (!Array.isArray(recipientIds)) return;
+  if (!Array.isArray(recipientIds) || !recipientIds.length) return;
   // Deduplicate recipient IDs to avoid sending multiple duplicates to the same user
   const uniqueRecipients = [...new Set(recipientIds.filter(Boolean))];
+  if (!uniqueRecipients.length) return;
+
+  const { type = 'general', title, message, relatedStudentId = null, skipEmail = false } = rest || {};
+  if (!title || !message) return;
+
+  // Ultra-fast bulk insert for large batches (e.g. school announcements to hundreds of users).
+  // Avoids firing hundreds of separate SELECT and INSERT queries over the network.
+  if (skipEmail && uniqueRecipients.length > 5) {
+    try {
+      const values = uniqueRecipients.map((uid) => [
+        uid,
+        type,
+        title,
+        message,
+        relatedStudentId,
+      ]);
+      await pool.query(
+        'INSERT INTO notifications (recipient_id, type, title, message, related_student_id) VALUES ?',
+        [values]
+      );
+      return;
+    } catch (err) {
+      console.error('notifyMany bulk insert failed, falling back to individual inserts:', err.message);
+    }
+  }
+
   await Promise.all(uniqueRecipients.map((recipientId) => notify({ recipientId, ...rest })));
 }
 
