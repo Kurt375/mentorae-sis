@@ -1184,18 +1184,16 @@ async function reviewTopicRequest(req, res) {
         message: `Great news! Your request to add main topic "${request.title}" to ${request.subject_name || 'your subject'} has been approved by the school administrator.`
       });
 
-      (async () => {
-        try {
-          await sendTopicRequestUpdateEmail({
-            teacherId: request.teacher_id,
-            topicTitle: request.title,
-            subjectName: request.subject_name,
-            status: 'approved',
-          });
-        } catch (e) {
-          console.error('Background topic approve email error:', e.message);
-        }
-      })();
+      try {
+        await sendTopicRequestUpdateEmail({
+          teacherId: request.teacher_id,
+          topicTitle: request.title,
+          subjectName: request.subject_name,
+          status: 'approved',
+        });
+      } catch (e) {
+        console.error('Topic approve email error:', e.message);
+      }
 
       return res.json({ success: true, topicId, message: 'Topic request approved.' });
     } else {
@@ -1216,19 +1214,17 @@ async function reviewTopicRequest(req, res) {
         message: rejectionMsg
       });
 
-      (async () => {
-        try {
-          await sendTopicRequestUpdateEmail({
-            teacherId: request.teacher_id,
-            topicTitle: request.title,
-            subjectName: request.subject_name,
-            status: 'rejected',
-            reason: reason || '',
-          });
-        } catch (e) {
-          console.error('Background topic reject email error:', e.message);
-        }
-      })();
+      try {
+        await sendTopicRequestUpdateEmail({
+          teacherId: request.teacher_id,
+          topicTitle: request.title,
+          subjectName: request.subject_name,
+          status: 'rejected',
+          reason: reason || '',
+        });
+      } catch (e) {
+        console.error('Topic reject email error:', e.message);
+      }
 
       return res.json({ success: true, message: 'Topic request marked as not approved and teacher notified.' });
     }
@@ -2393,23 +2389,21 @@ async function assignLesson(req, res) {
     // Await all parallel in-app notifications so they are 100% saved before completing
     await Promise.allSettled(notificationPromises);
 
-    // 6. Asynchronously trigger background emails without blocking the teacher's UI
-    (async () => {
-      for (const student of studentRows) {
-        try {
-          await sendInterventionEmail({
-            studentId: student.id,
-            teacherName,
-            subjectName,
-            topicTitle: topic.title,
-            note: note || '',
-            isRecommendation: isRec,
-          });
-        } catch (e) {
-          console.error('Background intervention email error:', e.message);
-        }
+    // 6. Trigger emails and wait for delivery before completing serverless function
+    for (const student of studentRows) {
+      try {
+        await sendInterventionEmail({
+          studentId: student.id,
+          teacherName,
+          subjectName,
+          topicTitle: topic.title,
+          note: note || '',
+          isRecommendation: isRec,
+        });
+      } catch (e) {
+        console.error('Intervention email error:', e.message);
       }
-    })();
+    }
 
     const assignedCount = studentRows.length;
     const names = studentRows.map((s) => `${s.first_name} ${s.last_name}`).join(', ');

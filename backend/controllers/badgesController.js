@@ -174,20 +174,18 @@ async function awardBadges(req, res) {
       );
     }
 
-    // 5. Asynchronously dispatch celebratory emails in background without blocking the HTTP response
-    setImmediate(async () => {
-      for (const sId of cleanStudentIds) {
-        try {
-          await sendBadgeAwardedEmail({
-            studentId: sId,
-            teacherName,
-            badges: catalogRows,
-          });
-        } catch (e) {
-          console.error(`Background badge email error for student ${sId}:`, e.message);
-        }
+    // 5. Dispatch celebratory emails
+    for (const sId of cleanStudentIds) {
+      try {
+        await sendBadgeAwardedEmail({
+          studentId: sId,
+          teacherName,
+          badges: catalogRows,
+        });
+      } catch (e) {
+        console.error(`Badge email error for student ${sId}:`, e.message);
       }
-    });
+    }
     const countLabel = cleanStudentIds.length === 1 ? '1 student' : `${cleanStudentIds.length} students`;
     return res.json({
       success: true,

@@ -549,20 +549,18 @@ async function confirmAttendance(req, res) {
           });
         }
 
-        // 4. Dispatch Email Notification to Student & Linked Parents in background
-        (async () => {
-          try {
-            await sendAttendanceEmail({
-              studentId: sId,
-              status,
-              date: date || new Date().toISOString().slice(0, 10),
-              time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-              remarks: `Confirmed by Teacher ${formatUserFullName(req.user)}`,
-            });
-          } catch (e) {
-            console.error('Background confirmAttendance email error:', e.message);
-          }
-        })();
+        // 4. Dispatch Email Notification to Student & Linked Parents
+        try {
+          await sendAttendanceEmail({
+            studentId: sId,
+            status,
+            date: date || new Date().toISOString().slice(0, 10),
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            remarks: `Confirmed by Teacher ${formatUserFullName(req.user)}`,
+          });
+        } catch (e) {
+          console.error('ConfirmAttendance email error:', e.message);
+        }
       }
     }
 
@@ -667,21 +665,19 @@ async function confirmAttendanceOut(req, res) {
         });
       }
 
-      // 4. Dispatch Email Notification to Student & Linked Parents in background
-      (async () => {
-        try {
-          await sendAttendanceEmail({
-            studentId: sId,
-            status: isEarly ? 'early_leave' : 'checked_out',
-            date: new Date().toISOString().slice(0, 10),
-            time: record.time_out,
-            isEarlyOut: isEarly,
-            remarks: `Confirmed by Teacher ${formatUserFullName(req.user)}`,
-          });
-        } catch (e) {
-          console.error('Background confirmAttendanceOut email error:', e.message);
-        }
-      })();
+      // 4. Dispatch Email Notification to Student & Linked Parents
+      try {
+        await sendAttendanceEmail({
+          studentId: sId,
+          status: isEarly ? 'early_leave' : 'checked_out',
+          date: new Date().toISOString().slice(0, 10),
+          time: record.time_out,
+          isEarlyOut: isEarly,
+          remarks: `Confirmed by Teacher ${formatUserFullName(req.user)}`,
+        });
+      } catch (e) {
+        console.error('ConfirmAttendanceOut email error:', e.message);
+      }
     }
 
     return res.json({ success: true, count: confirmedCount, message: `Time-out confirmed for ${confirmedCount} student(s).` });
@@ -780,21 +776,19 @@ async function finishSectionConfirmation(req, res) {
         });
       }
 
-      // 4. Dispatch Email Notification to Student & Linked Parents in background
-      (async () => {
-        try {
-          await sendAttendanceEmail({
-            studentId: record.student_id,
-            status: isEarly ? 'early_leave' : 'checked_out',
-            date: new Date().toISOString().slice(0, 10),
-            time: record.time_out,
-            isEarlyOut: isEarly,
-            remarks: `Confirmed by Teacher ${formatUserFullName(req.user)}`,
-          });
-        } catch (e) {
-          console.error('Background batchOut email error:', e.message);
-        }
-      })();
+      // 4. Dispatch Email Notification to Student & Linked Parents
+      try {
+        await sendAttendanceEmail({
+          studentId: record.student_id,
+          status: isEarly ? 'early_leave' : 'checked_out',
+          date: new Date().toISOString().slice(0, 10),
+          time: record.time_out,
+          isEarlyOut: isEarly,
+          remarks: `Confirmed by Teacher ${formatUserFullName(req.user)}`,
+        });
+      } catch (e) {
+        console.error('BatchOut email error:', e.message);
+      }
     }
 
     // 2. Ensure all students in this section have a record for today (default absent if not scanned)
@@ -1370,18 +1364,16 @@ async function reviewExcuseNote(req, res) {
       relatedStudentId: note.student_id,
     });
 
-    (async () => {
-      try {
-        await sendGeneralNotificationEmail({
-          recipientId: note.parent_id,
-          title: `Excuse Note ${status === 'approved' ? 'Approved & Certified' : 'Declined'}`,
-          message: `Your excuse note for ${absenceDateStr} has been ${status === 'approved' ? 'approved & certified' : 'declined'} by ${reviewerName}.${remarksNote}`,
-          type: 'attendance_excused',
-        });
-      } catch (e) {
-        console.error('Background excuse review email error:', e.message);
-      }
-    })();
+    try {
+      await sendGeneralNotificationEmail({
+        recipientId: note.parent_id,
+        title: `Excuse Note ${status === 'approved' ? 'Approved & Certified' : 'Declined'}`,
+        message: `Your excuse note for ${absenceDateStr} has been ${status === 'approved' ? 'approved & certified' : 'declined'} by ${reviewerName}.${remarksNote}`,
+        type: 'attendance_excused',
+      });
+    } catch (e) {
+      console.error('Excuse review email error:', e.message);
+    }
 
     return res.json({ 
       success: true, 
