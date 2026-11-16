@@ -50,13 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <option value="3rd Term" ${settings.current_semester === '3rd Term' ? 'selected' : ''}>3rd Term</option>
                     </select>
                 </div>
-                <div>
-                    <label class="form-label text-dark fw-bold text-sm mb-1">Language</label>
-                    <select class="form-select custom-form-select w-50" id="cfgLanguage">
-                        <option value="en" ${settings.language === 'en' ? 'selected' : ''}>English</option>
-                        <option value="tl" ${settings.language === 'tl' ? 'selected' : ''}>Filipino</option>
-                    </select>
-                </div>
                 <div class="row g-2">
                     <div class="col-md-7">
                         <label class="form-label text-dark fw-bold text-sm mb-1">School Principal / Head</label>
@@ -202,7 +195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const elSchool = document.getElementById('cfgSchoolName');
             const elYear = document.getElementById('cfgSchoolYear');
             const elTerm = document.getElementById('cfgCurrentTerm');
-            const elLang = document.getElementById('cfgLanguage');
             const elMaint = document.getElementById('cfgMaintenance');
             const elPrincipal = document.getElementById('cfgSchoolPrincipal');
             const elPrincipalTitle = document.getElementById('cfgSchoolPrincipalTitle');
@@ -212,7 +204,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 school_year: elYear ? elYear.value : '',
                 current_semester: elTerm ? elTerm.value : '1st Term',
                 current_quarter: elTerm ? elTerm.value : '1st Term',
-                language: elLang ? elLang.value : 'en',
                 school_principal: elPrincipal ? elPrincipal.value.trim() : (settings.school_principal || ''),
                 school_principal_title: elPrincipalTitle ? elPrincipalTitle.value.trim() : (settings.school_principal_title || 'Principal II'),
                 maintenance_mode: elMaint && elMaint.checked ? '1' : '0',

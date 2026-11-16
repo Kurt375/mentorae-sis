@@ -198,7 +198,6 @@ async function login(req, res) {
       section: user.sectionName ? `Grade ${user.gradeLevel} - ${user.strandCode} (${user.sectionName})` : null,
       grade_level: user.gradeLevel || null,
       strand: user.strandCode || null,
-      preferred_language: user.preferred_language || 'en',
     };
     const secret = process.env.JWT_SECRET || 'mentorae-sis-jwt-secret-key-2026';
     const token = jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES_IN || '8h' });
@@ -221,7 +220,7 @@ async function login(req, res) {
       message: 'Login successful.',
       token,
       sessionTimeoutMinutes,
-      user: { ...payload, preferred_language: user.preferred_language || 'en', mustChangePassword: !!user.must_change_password },
+      user: { ...payload, mustChangePassword: !!user.must_change_password },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -534,7 +533,7 @@ async function getProfile(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT u.id, u.role, u.id_number, u.first_name, u.middle_initial, u.last_name, u.email,
-              u.personal_email, u.contact_number, u.address, u.preferred_language, u.profile_picture_url, u.program, u.enrollment_status,
+              u.personal_email, u.contact_number, u.address, u.profile_picture_url, u.program, u.enrollment_status,
               sec.grade_level, sec.name AS sectionName, st.code AS strandCode
        FROM users u
        LEFT JOIN sections sec ON sec.id = u.section_id
@@ -574,7 +573,6 @@ async function getProfile(req, res) {
         personalEmail: u.personal_email,
         contactNumber: u.contact_number,
         address: u.address || '',
-        preferredLanguage: u.preferred_language || 'en',
         role: u.role,
         program: u.program,
         enrollmentStatus: u.enrollment_status,
@@ -593,11 +591,11 @@ async function getProfile(req, res) {
 }
 
 /**
- * PATCH /api/auth/profile  { personalEmail?, contactNumber?, address?, preferredLanguage?, avatarBase64? }
- * Lets a user update contact info, address, personal email, preferred language, or avatar.
+ * PATCH /api/auth/profile  { personalEmail?, contactNumber?, address?, avatarBase64? }
+ * Lets a user update contact info, address, personal email, or avatar.
  */
 async function updateProfile(req, res) {
-  const { personalEmail, contactNumber, address, preferredLanguage, avatarBase64 } = req.body;
+  const { personalEmail, contactNumber, address, avatarBase64 } = req.body;
 
   if (personalEmail !== undefined && personalEmail !== null && personalEmail !== '') {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -655,10 +653,6 @@ async function updateProfile(req, res) {
     if (address !== undefined) {
       sets.push('address = ?');
       params.push(address ? String(address).trim() : null);
-    }
-    if (preferredLanguage !== undefined) {
-      sets.push('preferred_language = ?');
-      params.push(preferredLanguage === 'tl' ? 'tl' : 'en');
     }
     if (avatarBase64) {
       sets.push('profile_picture_url = ?');
