@@ -20,38 +20,38 @@ const validTerms = [
   '1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'
 ];
 
-function parseTerm(raw) {
-  if (!raw) return '1st Term';
+function parseTerm(raw, fallbackTerm = null) {
+  if (!raw) return fallbackTerm || '2nd Term';
   const str = String(raw).trim().toLowerCase();
-  if (str === 'all' || str === 'all terms' || str === 'all term' || str === 'all quarters') {
+  if (str === 'all' || str.includes('all term') || str.includes('all quarter')) {
     return 'All Terms';
   }
   // Quarters
-  if (str === '1st quarter' || str === 'quarter 1' || str === 'q1' || str === 'first quarter') {
+  if (str.includes('1st quarter') || str.includes('quarter 1') || str.includes('q1') || str.includes('first quarter')) {
     return '1st Quarter';
   }
-  if (str === '2nd quarter' || str === 'quarter 2' || str === 'q2' || str === 'second quarter') {
+  if (str.includes('2nd quarter') || str.includes('quarter 2') || str.includes('q2') || str.includes('second quarter')) {
     return '2nd Quarter';
   }
-  if (str === '3rd quarter' || str === 'quarter 3' || str === 'q3' || str === 'third quarter') {
+  if (str.includes('3rd quarter') || str.includes('quarter 3') || str.includes('q3') || str.includes('third quarter')) {
     return '3rd Quarter';
   }
-  if (str === '4th quarter' || str === 'quarter 4' || str === 'q4' || str === 'fourth quarter') {
+  if (str.includes('4th quarter') || str.includes('quarter 4') || str.includes('q4') || str.includes('fourth quarter')) {
     return '4th Quarter';
   }
-  // Terms
-  if (str === '1st term' || str === 'term 1' || str === 't1' || str === '1' || str === 'first term') {
-    return '1st Term';
-  }
-  if (str === '2nd term' || str === 'term 2' || str === 't2' || str === '2' || str === 'second term') {
+  // Terms / Semesters / Termino
+  if (/\b(2nd|second|termino\s*2|term\s*2|sem\s*2|semester\s*2)\b/i.test(str) || str.includes('2nd') || str.includes('termino')) {
     return '2nd Term';
   }
-  if (str === '3rd term' || str === 'term 3' || str === 't3' || str === '3' || str === 'third term') {
+  if (/\b(1st|first|termino\s*1|term\s*1|sem\s*1|semester\s*1)\b/i.test(str) || str.includes('1st')) {
+    return '1st Term';
+  }
+  if (/\b(3rd|third|termino\s*3|term\s*3|sem\s*3|semester\s*3)\b/i.test(str) || str.includes('3rd')) {
     return '3rd Term';
   }
 
-  const exactMatch = validTerms.find((t) => t.toLowerCase() === str);
-  return exactMatch || '1st Term';
+  const exactMatch = validTerms.find((t) => str.includes(t.toLowerCase()));
+  return exactMatch || fallbackTerm || '2nd Term';
 }
 
 function parseTime(val) {
@@ -894,6 +894,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
   const sheetResults = [];
   try {
     const overrideExisting = req.overrideExisting !== false;
+    const { currentTerm: systemActiveTerm } = await getActiveTermConfig();
 
     // 1. Fetch DB reference datasets
     const [teachers] = await pool.query("SELECT id, id_number, first_name, last_name, email FROM users WHERE role = 'teacher'");
@@ -1360,8 +1361,25 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       }
 
       try {
-        const termRaw = String((sheet['A13'] || {}).v || '1st Term').trim();
-        const term = parseTerm(termRaw);
+        const explicitTerm = req.body.targetTerm || req.query.targetTerm;
+        let term;
+        if (explicitTerm && explicitTerm !== 'auto') {
+          term = parseTerm(explicitTerm, systemActiveTerm || '2nd Term');
+        } else {
+          const a13Val = (sheet['A13'] || {}).v;
+          const a12Val = (sheet['A12'] || {}).v;
+          const fileName = (req.file && req.file.originalname) || '';
+
+          if (a13Val && String(a13Val).trim()) {
+            term = parseTerm(a13Val, systemActiveTerm || '2nd Term');
+          } else if (a12Val && String(a12Val).trim() && (String(a12Val).includes('Term') || String(a12Val).includes('Sem'))) {
+            term = parseTerm(a12Val, systemActiveTerm || '2nd Term');
+          } else if (fileName) {
+            term = parseTerm(fileName, systemActiveTerm || '2nd Term');
+          } else {
+            term = systemActiveTerm || '2nd Term';
+          }
+        }
 
         const teacher = await getOrCreateTeacher(teacherHeader, sheetName);
         if (teacher.isNew) newTeachersCount++;
@@ -1763,6 +1781,8 @@ async function importTabularSchedules(workbook, req, res) {
   }
 
   const overrideExisting = req.overrideExisting !== false;
+  const { currentTerm: systemActiveTerm } = await getActiveTermConfig();
+  const explicitTerm = req.body.targetTerm || req.query.targetTerm;
 
   const [existingSchedules] = await pool.query(`
     SELECT s.id, s.teacher_id, s.section_id, s.subject_id, s.quarter, s.day_of_week, s.start_time, s.end_time,
@@ -2003,7 +2023,9 @@ async function importTabularSchedules(workbook, req, res) {
       continue;
     }
 
-    const term = parseTerm(termRaw);
+    const term = (explicitTerm && explicitTerm !== 'auto')
+      ? parseTerm(explicitTerm, systemActiveTerm || '2nd Term')
+      : parseTerm(termRaw || (req.file && req.file.originalname), systemActiveTerm || '2nd Term');
     const startTime = parseTime(startTimeRaw);
     const endTime = parseTime(endTimeRaw);
     if (!startTime || !endTime) {

@@ -1362,13 +1362,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const chkOverride = document.getElementById('chkOverrideSchedules');
             const overrideExisting = chkOverride ? chkOverride.checked : true;
+            const termSelect = document.getElementById('bulkScheduleTermSelect');
+            const targetTerm = termSelect ? termSelect.value : '2nd Term';
 
             const formData = new FormData();
             formData.append('importFile', file);
             formData.append('overrideExisting', overrideExisting ? 'true' : 'false');
+            formData.append('targetTerm', targetTerm);
 
             try {
-                const res = await fetch(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import?overrideExisting=${overrideExisting ? 'true' : 'false'}&token=${encodeURIComponent(token)}`, {
+                const res = await fetch(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import?overrideExisting=${overrideExisting ? 'true' : 'false'}&targetTerm=${encodeURIComponent(targetTerm)}&token=${encodeURIComponent(token)}`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -1678,6 +1681,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (addQuarter && Array.from(addQuarter.options).some(o => o.value === term)) {
                     addQuarter.value = term;
+                }
+                const bulkTermSelect = document.getElementById('bulkScheduleTermSelect');
+                if (bulkTermSelect && Array.from(bulkTermSelect.options).some(o => o.value === term)) {
+                    bulkTermSelect.value = term;
                 }
             }
         } catch (e) {

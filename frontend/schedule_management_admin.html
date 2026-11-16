@@ -247,6 +247,22 @@
                                 <i class="bi bi-file-earmark-spreadsheet-fill text-success"></i> Download Official TSHS Template (.xlsx)
                             </a>
                         </div>
+                        <div class="mb-3">
+                            <label for="bulkScheduleTermSelect" class="form-label text-sm fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-calendar-check text-success me-1"></i> Target Academic Term</span>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 text-xs">Active: 2nd Term</span>
+                            </label>
+                            <select id="bulkScheduleTermSelect" class="form-select form-select-sm text-sm">
+                                <option value="2nd Term" selected>2nd Term (Current Active Semester)</option>
+                                <option value="1st Term">1st Term</option>
+                                <option value="3rd Term">3rd Term</option>
+                                <option value="All Terms">All Terms (Whole Year)</option>
+                                <option value="auto">✨ Auto-detect from file header / file name</option>
+                            </select>
+                            <div class="text-xs text-muted mt-1">
+                                Schedules will be assigned to this semester. <strong>2nd Term</strong> is selected by default.
+                            </div>
+                        </div>
                         <input type="file" id="bulkScheduleFileInput" accept=".xlsx,.xls,.csv"
                             class="form-control mb-3">
                         <div class="form-check form-switch mb-3 p-2 bg-light rounded border border-success-subtle">
