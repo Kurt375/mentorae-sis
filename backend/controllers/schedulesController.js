@@ -20,38 +20,38 @@ const validTerms = [
   '1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'
 ];
 
-function parseTerm(raw) {
-  if (!raw) return '1st Term';
+function parseTerm(raw, fallbackTerm = null) {
+  if (!raw) return fallbackTerm || '2nd Term';
   const str = String(raw).trim().toLowerCase();
-  if (str === 'all' || str === 'all terms' || str === 'all term' || str === 'all quarters') {
+  if (str === 'all' || str.includes('all term') || str.includes('all quarter')) {
     return 'All Terms';
   }
   // Quarters
-  if (str === '1st quarter' || str === 'quarter 1' || str === 'q1' || str === 'first quarter') {
+  if (str.includes('1st quarter') || str.includes('quarter 1') || str.includes('q1') || str.includes('first quarter')) {
     return '1st Quarter';
   }
-  if (str === '2nd quarter' || str === 'quarter 2' || str === 'q2' || str === 'second quarter') {
+  if (str.includes('2nd quarter') || str.includes('quarter 2') || str.includes('q2') || str.includes('second quarter')) {
     return '2nd Quarter';
   }
-  if (str === '3rd quarter' || str === 'quarter 3' || str === 'q3' || str === 'third quarter') {
+  if (str.includes('3rd quarter') || str.includes('quarter 3') || str.includes('q3') || str.includes('third quarter')) {
     return '3rd Quarter';
   }
-  if (str === '4th quarter' || str === 'quarter 4' || str === 'q4' || str === 'fourth quarter') {
+  if (str.includes('4th quarter') || str.includes('quarter 4') || str.includes('q4') || str.includes('fourth quarter')) {
     return '4th Quarter';
   }
-  // Terms
-  if (str === '1st term' || str === 'term 1' || str === 't1' || str === '1' || str === 'first term') {
-    return '1st Term';
-  }
-  if (str === '2nd term' || str === 'term 2' || str === 't2' || str === '2' || str === 'second term') {
+  // Terms / Semesters / Termino
+  if (/\b(2nd|second|termino\s*2|term\s*2|sem\s*2|semester\s*2)\b/i.test(str) || str.includes('2nd') || str.includes('termino')) {
     return '2nd Term';
   }
-  if (str === '3rd term' || str === 'term 3' || str === 't3' || str === '3' || str === 'third term') {
+  if (/\b(1st|first|termino\s*1|term\s*1|sem\s*1|semester\s*1)\b/i.test(str) || str.includes('1st')) {
+    return '1st Term';
+  }
+  if (/\b(3rd|third|termino\s*3|term\s*3|sem\s*3|semester\s*3)\b/i.test(str) || str.includes('3rd')) {
     return '3rd Term';
   }
 
-  const exactMatch = validTerms.find((t) => t.toLowerCase() === str);
-  return exactMatch || '1st Term';
+  const exactMatch = validTerms.find((t) => str.includes(t.toLowerCase()));
+  return exactMatch || fallbackTerm || '2nd Term';
 }
 
 function parseTime(val) {
@@ -891,11 +891,14 @@ function formatTime12(t) {
  * Bulk imports schedules from the official TSHS Teacher Program Timetable layout.
  */
 async function importTshsTeacherProgramGrid(workbook, req, res) {
+  const sheetResults = [];
   try {
     const overrideExisting = req.overrideExisting !== false;
+    const { currentTerm: systemActiveTerm } = await getActiveTermConfig();
 
     // 1. Fetch DB reference datasets
     const [teachers] = await pool.query("SELECT id, id_number, first_name, last_name, email FROM users WHERE role = 'teacher'");
+    const [allUsers] = await pool.query("SELECT id, id_number, email FROM users");
     const [strands] = await pool.query("SELECT id, code, title FROM strands");
     const [sections] = await pool.query(`
       SELECT sec.id, sec.name, sec.grade_level, sec.strand_id, st.code AS strand_code
@@ -1002,25 +1005,78 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
 
     const defaultPasswordHash = await bcrypt.hash('Teacher@2026', 10);
 
-    // Track max teacher id_number for auto-registration
-    let maxTeacherNum = 220;
-    teachers.forEach((t) => {
-      const m = String(t.id_number || '').match(/26-(\d+)/);
-      if (m) {
-        const num = parseInt(m[1], 10);
-        if (num > maxTeacherNum) maxTeacherNum = num;
+    // Track system-wide existing IDs and Emails to guarantee zero ID/Email collision
+    const existingIdNumbers = new Set();
+    const existingEmails = new Set();
+    let maxUserIdNum = 500;
+
+    allUsers.forEach((u) => {
+      const id = String(u.id_number || '').trim();
+      if (id) {
+        existingIdNumbers.add(id.toLowerCase());
+        const m = id.match(/26-(\d+)/);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (!isNaN(num) && num > maxUserIdNum) maxUserIdNum = num;
+        }
       }
+      const em = String(u.email || '').trim().toLowerCase();
+      if (em) existingEmails.add(em);
     });
+
+    function allocateTeacherId() {
+      while (true) {
+        maxUserIdNum++;
+        const candidate = `26-${String(maxUserIdNum).padStart(5, '0')}`;
+        if (!existingIdNumbers.has(candidate.toLowerCase())) {
+          existingIdNumbers.add(candidate.toLowerCase());
+          return candidate;
+        }
+      }
+    }
+
+    function allocateTeacherEmail(firstName, lastName) {
+      const first = (firstName || 'teacher').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const last = (lastName || 'tshs').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let candidate = `${first}.${last}@tshs.deped.gov.ph`;
+      let suffix = 1;
+      while (existingEmails.has(candidate.toLowerCase())) {
+        suffix++;
+        candidate = `${first}.${last}${suffix}@tshs.deped.gov.ph`;
+      }
+      existingEmails.add(candidate.toLowerCase());
+      return candidate;
+    }
+
+    function cleanTeacherString(raw) {
+      if (!raw) return '';
+      let s = String(raw).replace(/\s+/g, ' ').trim();
+      // Remove common prefix titles and honorifics
+      s = s.replace(/\b(Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?|Doctor|Engr\.?|Prof\.?|Atty\.?|Rev\.?)\b/gi, ' ');
+      // Remove professional ranks/titles
+      s = s.replace(/\b(LSB\s+Teacher|Special\s+Science\s+Teacher(?:\s+[I|V|X\d]+)?|Master\s+Teacher(?:\s+[I|V|X\d]+)?|Teacher(?:\s+[I|V|X\d]+)?)\b/gi, ' ');
+      s = s.replace(/\b(T-?I{1,3}|MT-?I{1,3}|SST-?I{1,3}|Faculty|Adviser|Instructor)\b/gi, ' ');
+      // Remove parenthetical details e.g. (Adviser)
+      s = s.replace(/\([^\)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ');
+      return s.replace(/\s+/g, ' ').trim();
+    }
 
     const teacherMap = new Map();
     teachers.forEach((t) => {
-      const full1 = `${t.first_name} ${t.last_name}`.toLowerCase().replace(/\s+/g, ' ').trim();
-      const full2 = `${t.last_name}, ${t.first_name}`.toLowerCase().replace(/\s+/g, ' ').trim();
-      const full3 = `${t.last_name} ${t.first_name}`.toLowerCase().replace(/\s+/g, ' ').trim();
-      teacherMap.set(full1, t);
-      teacherMap.set(full2, t);
-      teacherMap.set(full3, t);
-      if (t.id_number) teacherMap.set(t.id_number.toLowerCase(), t);
+      const fName = String(t.first_name || '').trim();
+      const lName = String(t.last_name || '').trim();
+      const full1 = `${fName} ${lName}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      const full2 = `${lName}, ${fName}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      const full3 = `${lName} ${fName}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (full1) teacherMap.set(full1, t);
+      if (full2) teacherMap.set(full2, t);
+      if (full3) teacherMap.set(full3, t);
+      if (t.id_number) teacherMap.set(String(t.id_number).toLowerCase().trim(), t);
+
+      const noPunct1 = full1.replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+      const noPunct2 = full2.replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+      if (noPunct1) teacherMap.set(noPunct1, t);
+      if (noPunct2) teacherMap.set(noPunct2, t);
     });
 
     const sectionMap = new Map();
@@ -1032,18 +1088,27 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
     });
 
     async function getOrCreateTeacher(teacherRawName, sheetName) {
-      let raw = (teacherRawName || sheetName || '').replace(/\s+/g, ' ').trim();
-      raw = raw.replace(/\b(LSB Teacher|Teacher\s+[I|V|X]+|Special Science Teacher\s+[I|V|X]+)\b/gi, '').trim();
+      const cleanedRaw = cleanTeacherString(teacherRawName);
+      const cleanedSheet = cleanTeacherString(sheetName);
+      const targetName = cleanedRaw || cleanedSheet || '';
 
-      const rawLower = raw.toLowerCase();
-      if (teacherMap.has(rawLower)) return teacherMap.get(rawLower);
+      const targetLower = targetName.toLowerCase().trim();
+      const targetNoPunct = targetLower.replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 
+      if (teacherMap.has(targetLower)) return teacherMap.get(targetLower);
+      if (teacherMap.has(targetNoPunct)) return teacherMap.get(targetNoPunct);
+
+      // Check last_name & first_name matching
       for (const t of teachers) {
-        const tLast = t.last_name.toLowerCase();
-        const tFirst = t.first_name.toLowerCase();
-        if (rawLower.includes(tLast) && (rawLower.includes(tFirst) || rawLower.includes(tFirst.split(' ')[0]))) {
-          teacherMap.set(rawLower, t);
-          return t;
+        const tLast = (t.last_name || '').toLowerCase().trim();
+        const tFirst = (t.first_name || '').toLowerCase().trim();
+        const tFirstRoot = tFirst.split(' ')[0];
+
+        if (tLast && (targetLower.includes(tLast) || targetNoPunct.includes(tLast))) {
+          if (targetLower.includes(tFirst) || (tFirstRoot && targetLower.includes(tFirstRoot))) {
+            teacherMap.set(targetLower, t);
+            return t;
+          }
         }
       }
 
@@ -1052,8 +1117,8 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       let lastName = '';
       let middleInitial = '';
 
-      if (raw.includes(',')) {
-        const parts = raw.split(',').map((s) => s.trim());
+      if (targetName.includes(',')) {
+        const parts = targetName.split(',').map((s) => s.trim());
         lastName = parts[0];
         const rest = parts[1] || '';
         const restParts = rest.split(' ');
@@ -1062,7 +1127,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         }
         firstName = restParts.join(' ');
       } else {
-        const parts = raw.split(' ');
+        const parts = targetName.split(' ');
         if (parts.length > 2 && parts[parts.length - 1].length <= 2) {
           middleInitial = parts.pop().replace('.', '');
         }
@@ -1076,9 +1141,8 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       firstName = titleCase(firstName) || 'Teacher';
       lastName = titleCase(lastName) || 'TSHS';
 
-      maxTeacherNum++;
-      const idNumber = `26-${String(maxTeacherNum).padStart(5, '0')}`;
-      const email = `${firstName.toLowerCase().replace(/[^a-z]/g, '')}.${lastName.toLowerCase().replace(/[^a-z]/g, '')}${maxTeacherNum}@tshs.deped.gov.ph`;
+      const idNumber = allocateTeacherId();
+      const email = allocateTeacherEmail(firstName, lastName);
 
       const [res] = await pool.query(
         `INSERT INTO users (role, id_number, first_name, middle_initial, last_name, email, password_hash, must_change_password, is_active)
@@ -1096,7 +1160,8 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       };
 
       teachers.push(newTeacher);
-      teacherMap.set(rawLower, newTeacher);
+      teacherMap.set(targetLower, newTeacher);
+      teacherMap.set(targetNoPunct, newTeacher);
       teacherMap.set(`${firstName} ${lastName}`.toLowerCase(), newTeacher);
       return newTeacher;
     }
@@ -1133,6 +1198,19 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         else targetStrand = strands[0];
       }
 
+      // Check existing in DB before insert to prevent duplicate key constraint
+      const [existingSec] = await pool.query(
+        'SELECT id, name, grade_level, strand_id FROM sections WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 1',
+        [secName]
+      );
+      if (existingSec.length > 0) {
+        const found = existingSec[0];
+        found.strand_code = targetStrand ? targetStrand.code : '';
+        sectionMap.set(key, found);
+        sectionMap.set(secName.toLowerCase(), found);
+        return found;
+      }
+
       const [res] = await pool.query(
         'INSERT INTO sections (strand_id, grade_level, name) VALUES (?, ?, ?)',
         [targetStrand.id, grade, secName]
@@ -1164,16 +1242,38 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       if (found) return found;
 
       const aliases = {
-        creativecomposition: 'Creative Composition',
+        creativecomposition: 'Creative Composition 1',
+        creativecomposition1: 'Creative Composition 1',
+        creativecomposition2: 'Creative Composition 2',
         phlippinegovernance: 'Philippine Governance',
         philippinegovernance: 'Philippine Governance',
+        introductiontothephilosophy: 'Introduction to the Philosophy of the Human Person',
         introductiontothephiliosophyofthehumanperson: 'Introduction to the Philosophy of the Human Person',
         lifeandcareerskills: 'Life and Career Skills',
-        peandhealth: 'P.E. and Health',
+        peandhealth: 'Physical Education and Health',
+        peandhealth1: 'Physical Education and Health',
+        peandhealth2: 'Physical Education and Health 2',
         communityengagementsolidarityandcititzenship: 'Community Engagement, Solidarity, and Citizenship',
         fundamentalsofaccountancybusinessandmanagement2: 'Fundamentals of Accountancy, Business and Management 2',
-        bakeryoperationsncii: 'Bakery Operations NC II',
-        cookeryncii: 'Cookery NC II',
+        bakeryoperationsncii: 'Bakery Operation NC II',
+        bakeryoperationncii: 'Bakery Operation NC II',
+        cookeryncii: 'Cookery',
+        cookery: 'Cookery',
+        bio1: 'Biology 1',
+        bio2: 'Biology 2',
+        bio3: 'Biology 3',
+        finmath1: 'Finite Mathematics 1',
+        finmath2: 'Finite Mathematics 2',
+        precalc: 'Pre-Calculus',
+        effcomm: 'Effective Communication',
+        mabkom: 'Mabisang Komunikasyon',
+        genmath: 'General Mathematics',
+        gensci: 'General Science',
+        pklp: 'Pag-aaral ng Kasaysayan at Lipunang Pilipino',
+        iom: 'Introduction to Organization and Management',
+        contempmarketing: 'Contemporary Marketing',
+        basicaccounting: 'Business 1 - Basic Accounting',
+        bus1: 'Business 1 - Basic Accounting',
       };
 
       if (aliases[rawClean]) {
@@ -1207,7 +1307,6 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
 
     const schedulesToInsert = [];
     const schedulesToReassign = [];
-    const sheetResults = [];
     let newTeachersCount = 0;
     let newSectionsCount = 0;
 
@@ -1220,152 +1319,258 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       const lowerSheet = sheetName.toLowerCase().trim();
       const lowerHeader = teacherHeader.toLowerCase().trim();
 
-      // Skip non-teacher helper sheets (e.g. Instructions, Blank Template, Reference Guides)
-      if (
+      // Skip non-teacher helper sheets (e.g. Instructions, Blank Template, Reference Guides, Summary)
+      const isHelperSheet = (
         lowerSheet.includes('instruction') ||
         lowerSheet.includes('guide') ||
         lowerSheet.includes('blank') ||
         lowerSheet.includes('reference') ||
         lowerSheet.includes('section') ||
         lowerSheet.includes('subject') ||
+        lowerSheet.includes('summary') ||
+        lowerSheet.includes('cover') ||
+        lowerSheet.includes('overview') ||
+        lowerSheet.includes('matrix') ||
+        lowerSheet.includes('master') ||
+        lowerSheet.includes('room') ||
+        lowerSheet.includes('template') ||
+        lowerSheet.includes('note') ||
         lowerHeader.includes('[teacher') ||
         lowerHeader.includes('teacher full name') ||
-        lowerHeader.includes('instructions')
-      ) {
+        lowerHeader.includes('instructions') ||
+        lowerHeader.includes('summary') ||
+        lowerHeader === 'teacher' ||
+        lowerHeader === 'name' ||
+        lowerHeader === ''
+      );
+
+      if (isHelperSheet) {
+        sheetResults.push({
+          row: sIdx + 1,
+          name: sheetName,
+          status: 'skipped',
+          createdCount: 0,
+          reassignedCount: 0,
+          unchangedCount: 0,
+          warningCount: 0,
+          message: `Auxiliary / non-schedule sheet skipped (${sheetName})`,
+          changes: [],
+          warnings: [`Sheet "${sheetName}" was recognized as a guide/summary/auxiliary sheet and skipped automatically.`],
+        });
         continue;
       }
 
-      const termRaw = String((sheet['A13'] || {}).v || '1st Term').trim();
-      const term = parseTerm(termRaw);
+      try {
+        const explicitTerm = req.body.targetTerm || req.query.targetTerm;
+        let term;
+        if (explicitTerm && explicitTerm !== 'auto') {
+          term = parseTerm(explicitTerm, systemActiveTerm || '2nd Term');
+        } else {
+          const a13Val = (sheet['A13'] || {}).v;
+          const a12Val = (sheet['A12'] || {}).v;
+          const fileName = (req.file && req.file.originalname) || '';
 
-      const teacher = await getOrCreateTeacher(teacherHeader, sheetName);
-      if (teacher.isNew) newTeachersCount++;
-
-      let footerRow = 40;
-      for (let r = 17; r <= 50; r++) {
-        const val = String((sheet['A' + r] || {}).v || '').toLowerCase();
-        if (val.includes('prepared by') || val.includes('reference:')) {
-          footerRow = r;
-          break;
-        }
-      }
-
-      const timeSlots = [];
-      for (let r = 17; r < footerRow; r++) {
-        const aVal = (sheet['A' + r] || {}).v;
-        if (!aVal) continue;
-        const t = parseTimeRangeBlock(aVal);
-        if (t) {
-          timeSlots.push({ row: r, startTime: t.startTime, endTime: t.endTime });
-        }
-      }
-
-      function getTimeAtRow(rowNum) {
-        for (let i = timeSlots.length - 1; i >= 0; i--) {
-          if (timeSlots[i].row <= rowNum) return timeSlots[i];
-        }
-        return timeSlots[0] || null;
-      }
-
-      const dayCols = [
-        { col: 'B', day: 'Monday' },
-        { col: 'C', day: 'Tuesday' },
-        { col: 'D', day: 'Wednesday' },
-        { col: 'E', day: 'Thursday' },
-        { col: 'F', day: 'Friday' },
-      ];
-
-      let sheetCreated = 0;
-      let sheetReassigned = 0;
-      let sheetUnchanged = 0;
-      const sheetChanges = [];
-      const sheetWarnings = [];
-
-      for (const { col, day } of dayCols) {
-        let r = 17;
-        while (r < footerRow) {
-          const cellVal = String((sheet[col + r] || {}).v || '').trim();
-          if (!cellVal) {
-            r++;
-            continue;
-          }
-
-          const lower = cellVal.toLowerCase();
-          if (lower.includes('flag ceremony') || lower.includes('break') || lower.includes('ground improvement')) {
-            r++;
-            continue;
-          }
-
-          let subjectName = cellVal;
-          let sectionName = '';
-          let slotTime = null;
-
-          if (cellVal.includes('(') || /\d:\d/.test(cellVal)) {
-            const inlineTime = parseTimeRangeBlock(cellVal);
-            slotTime = inlineTime || getTimeAtRow(r);
-
-            const cleanText = cellVal
-              .replace(/\(?\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–:]\s*\d{1,2}:\d{2}\s*(?:am|pm)?\)?/gi, '')
-              .replace(/\(?\d+\s*(?:minutes|mins|min)\.?\)?/gi, '')
-              .replace(/\s+/g, ' ')
-              .trim();
-
-            const m = cleanText.match(/^(.+?)\s+([A-Z&]{2,}\s*\d{2}\s*[-–].+|ALS\s*\d{2}.*)$/i);
-            if (m) {
-              subjectName = m[1].trim();
-              sectionName = m[2].trim();
-            } else {
-              subjectName = cleanText;
-              sectionName = String((sheet[col + (r + 1)] || {}).v || '').trim();
-            }
-            r++;
+          if (a13Val && String(a13Val).trim()) {
+            term = parseTerm(a13Val, systemActiveTerm || '2nd Term');
+          } else if (a12Val && String(a12Val).trim() && (String(a12Val).includes('Term') || String(a12Val).includes('Sem'))) {
+            term = parseTerm(a12Val, systemActiveTerm || '2nd Term');
+          } else if (fileName) {
+            term = parseTerm(fileName, systemActiveTerm || '2nd Term');
           } else {
-            let endRow = r + 1;
-            for (let nextR = r + 1; nextR < Math.min(footerRow, r + 5); nextR++) {
-              const nextVal = String((sheet[col + nextR] || {}).v || '').trim();
-              if (nextVal) {
-                const nl = nextVal.toLowerCase();
-                if (!nl.includes('break') && !nl.includes('ground improvement')) {
-                  sectionName = nextVal;
-                  endRow = nextR;
-                }
-                break;
+            term = systemActiveTerm || '2nd Term';
+          }
+        }
+
+        const teacher = await getOrCreateTeacher(teacherHeader, sheetName);
+        if (teacher.isNew) newTeachersCount++;
+
+        let footerRow = 40;
+        for (let r = 17; r <= 50; r++) {
+          const val = String((sheet['A' + r] || {}).v || '').toLowerCase();
+          if (val.includes('prepared by') || val.includes('reference:')) {
+            footerRow = r;
+            break;
+          }
+        }
+
+        const timeSlots = [];
+        for (let r = 17; r < footerRow; r++) {
+          const aVal = (sheet['A' + r] || {}).v;
+          if (!aVal) continue;
+          const t = parseTimeRangeBlock(aVal);
+          if (t) {
+            timeSlots.push({ row: r, startTime: t.startTime, endTime: t.endTime });
+          }
+        }
+
+        if (timeSlots.length === 0) {
+          sheetResults.push({
+            row: sIdx + 1,
+            name: `${teacher.first_name} ${teacher.last_name}`,
+            status: 'warning',
+            createdCount: 0,
+            reassignedCount: 0,
+            unchangedCount: 0,
+            warningCount: 1,
+            message: 'No time blocks found in column A (Rows 17–40). Please check the sheet time layout.',
+            changes: [],
+            warnings: [`Sheet "${sheetName}": Could not detect time blocks (e.g. "07:00 AM - 08:00 AM") in column A.`],
+          });
+          continue;
+        }
+
+        function getTimeAtRow(rowNum) {
+          for (let i = timeSlots.length - 1; i >= 0; i--) {
+            if (timeSlots[i].row <= rowNum) return timeSlots[i];
+          }
+          return timeSlots[0] || null;
+        }
+
+        const dayCols = [
+          { col: 'B', day: 'Monday' },
+          { col: 'C', day: 'Tuesday' },
+          { col: 'D', day: 'Wednesday' },
+          { col: 'E', day: 'Thursday' },
+          { col: 'F', day: 'Friday' },
+        ];
+
+        let sheetCreated = 0;
+        let sheetReassigned = 0;
+        let sheetUnchanged = 0;
+        const sheetChanges = [];
+        const sheetWarnings = [];
+
+        for (const { col, day } of dayCols) {
+          let r = 17;
+          while (r < footerRow) {
+            const cellVal = String((sheet[col + r] || {}).v || '').trim();
+            if (!cellVal) {
+              r++;
+              continue;
+            }
+
+            const lower = cellVal.toLowerCase();
+            if (lower.includes('flag ceremony') || lower.includes('break') || lower.includes('ground improvement')) {
+              r++;
+              continue;
+            }
+
+            let subjectName = cellVal;
+            let sectionName = '';
+            let slotTime = null;
+
+            if (cellVal.includes('(') || /\d:\d/.test(cellVal)) {
+              const inlineTime = parseTimeRangeBlock(cellVal);
+              slotTime = inlineTime || getTimeAtRow(r);
+
+              const cleanText = cellVal
+                .replace(/\(?\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–:]\s*\d{1,2}:\d{2}\s*(?:am|pm)?\)?/gi, '')
+                .replace(/\(?\d+\s*(?:minutes|mins|min)\.?\)?/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+              const m = cleanText.match(/^(.+?)\s+([A-Z&]{2,}\s*\d{2}\s*[-–].+|ALS\s*\d{2}.*)$/i);
+              if (m) {
+                subjectName = m[1].trim();
+                sectionName = m[2].trim();
+              } else {
+                subjectName = cleanText;
+                sectionName = String((sheet[col + (r + 1)] || {}).v || '').trim();
               }
+              r++;
+            } else {
+              let endRow = r + 1;
+              for (let nextR = r + 1; nextR < Math.min(footerRow, r + 5); nextR++) {
+                const nextVal = String((sheet[col + nextR] || {}).v || '').trim();
+                if (nextVal) {
+                  const nl = nextVal.toLowerCase();
+                  if (!nl.includes('break') && !nl.includes('ground improvement')) {
+                    sectionName = nextVal;
+                    endRow = nextR;
+                  }
+                  break;
+                }
+              }
+
+              const startTimeSlot = getTimeAtRow(r);
+              const endTimeSlot = getTimeAtRow(endRow) || startTimeSlot;
+              if (startTimeSlot && endTimeSlot) {
+                slotTime = { startTime: startTimeSlot.startTime, endTime: endTimeSlot.endTime };
+              }
+              r = Math.max(r + 1, endRow + 1);
             }
 
-            const startTimeSlot = getTimeAtRow(r);
-            const endTimeSlot = getTimeAtRow(endRow) || startTimeSlot;
-            if (startTimeSlot && endTimeSlot) {
-              slotTime = { startTime: startTimeSlot.startTime, endTime: endTimeSlot.endTime };
+            if (!slotTime || !slotTime.startTime || !slotTime.endTime) {
+              sheetWarnings.push(`Unrecognized or missing time slot on ${day} row ${r}. Skipped.`);
+              continue;
             }
-            r = Math.max(r + 1, endRow + 1);
-          }
 
-          if (!slotTime || !slotTime.startTime || !slotTime.endTime) continue;
-
-          const subject = resolveSubject(subjectName);
-          if (!subject) continue;
-
-          const section = await getOrCreateSection(sectionName);
-          if (!section) continue;
-          if (section.isNew) newSectionsCount++;
-
-          const schedKey = `${teacher.id}_${subject.id}_${section.id}_${term}_${day}_${slotTime.startTime}_${slotTime.endTime}`;
-          if (existingSchedSet.has(schedKey)) {
-            sheetUnchanged++;
-            continue;
-          }
-
-          const conflicts = findSlotConflicts(teacher.id, section.id, day, slotTime.startTime, slotTime.endTime, term);
-          const secConflict = conflicts.find((c) => c.type === 'section');
-          const teacherConflict = conflicts.find((c) => c.type === 'teacher');
-
-          if (secConflict) {
-            const prev = secConflict.slot;
             const timeFmt = `${formatTime12(slotTime.startTime)} – ${formatTime12(slotTime.endTime)}`;
-            if (prev.tId !== teacher.id) {
-              if (overrideExisting) {
-                if (prev.schedId) {
+
+            const subject = resolveSubject(subjectName);
+            if (!subject) {
+              sheetWarnings.push(`Subject "${subjectName}" on ${day} (${timeFmt}) not found in official curriculum. Skipped.`);
+              continue;
+            }
+
+            const section = await getOrCreateSection(sectionName);
+            if (!section) {
+              sheetWarnings.push(`Section "${sectionName}" for "${subject.name}" on ${day} (${timeFmt}) could not be resolved. Skipped.`);
+              continue;
+            }
+            if (section.isNew) newSectionsCount++;
+
+            const schedKey = `${teacher.id}_${subject.id}_${section.id}_${term}_${day}_${slotTime.startTime}_${slotTime.endTime}`;
+            if (existingSchedSet.has(schedKey)) {
+              sheetUnchanged++;
+              continue;
+            }
+
+            const conflicts = findSlotConflicts(teacher.id, section.id, day, slotTime.startTime, slotTime.endTime, term);
+            const secConflict = conflicts.find((c) => c.type === 'section');
+            const teacherConflict = conflicts.find((c) => c.type === 'teacher');
+
+            if (secConflict) {
+              const prev = secConflict.slot;
+              if (prev.tId !== teacher.id) {
+                if (overrideExisting) {
+                  if (prev.schedId) {
+                    schedulesToReassign.push({
+                      schedId: prev.schedId,
+                      newTeacherId: teacher.id,
+                      newSubjectId: subject.id,
+                      term,
+                      day,
+                      startTime: slotTime.startTime,
+                      endTime: slotTime.endTime,
+                    });
+                  } else {
+                    // Staged earlier in this same import batch
+                    const stagedIdx = schedulesToInsert.findIndex(
+                      (si) => si[2] === section.id && si[4] === day && si[5] === slotTime.startTime && si[6] === slotTime.endTime
+                    );
+                    if (stagedIdx >= 0) {
+                      schedulesToInsert[stagedIdx][0] = teacher.id;
+                      schedulesToInsert[stagedIdx][1] = subject.id;
+                    }
+                  }
+
+                  prev.tId = teacher.id;
+                  prev.subId = subject.id;
+                  const prevName = prev.teacherName || 'previous teacher';
+                  prev.teacherName = `${teacher.first_name} ${teacher.last_name}`;
+                  prev.subjectName = subject.name;
+
+                  sheetChanges.push(`Reassigned: ${subject.name} | ${section.name} (${day} ${timeFmt}) from ${prevName} to ${teacher.first_name} ${teacher.last_name}`);
+                  sheetReassigned++;
+                  continue;
+                } else {
+                  sheetWarnings.push(`Section Conflict on ${day} (${timeFmt}): ${section.name} is already assigned to ${prev.teacherName || 'another teacher'}. Skipped.`);
+                  continue;
+                }
+              } else {
+                // Same teacher, different subject/time overlap
+                if (overrideExisting && prev.schedId) {
                   schedulesToReassign.push({
                     schedId: prev.schedId,
                     newTeacherId: teacher.id,
@@ -1375,112 +1580,97 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
                     startTime: slotTime.startTime,
                     endTime: slotTime.endTime,
                   });
-                } else {
-                  // Staged earlier in this same import batch
-                  const stagedIdx = schedulesToInsert.findIndex(
-                    (si) => si[2] === section.id && si[4] === day && si[5] === slotTime.startTime && si[6] === slotTime.endTime
-                  );
-                  if (stagedIdx >= 0) {
-                    schedulesToInsert[stagedIdx][0] = teacher.id;
-                    schedulesToInsert[stagedIdx][1] = subject.id;
-                  }
+                  const prevSubName = prev.subjectName || 'previous subject';
+                  prev.subId = subject.id;
+                  prev.subjectName = subject.name;
+                  sheetChanges.push(`Updated Subject: ${section.name} (${day} ${timeFmt}) updated from ${prevSubName} to ${subject.name}`);
+                  sheetReassigned++;
+                  continue;
                 }
-
-                prev.tId = teacher.id;
-                prev.subId = subject.id;
-                const prevName = prev.teacherName || 'previous teacher';
-                prev.teacherName = `${teacher.first_name} ${teacher.last_name}`;
-                prev.subjectName = subject.name;
-
-                sheetChanges.push(`Reassigned: ${subject.name} | ${section.name} (${day} ${timeFmt}) from ${prevName} to ${teacher.first_name} ${teacher.last_name}`);
-                sheetReassigned++;
-                continue;
-              } else {
-                sheetWarnings.push(`Section Conflict on ${day} (${timeFmt}): ${section.name} is already assigned to ${prev.teacherName || 'another teacher'}. Skipped.`);
-                continue;
-              }
-            } else {
-              // Same teacher, different subject/time overlap
-              if (overrideExisting && prev.schedId) {
-                schedulesToReassign.push({
-                  schedId: prev.schedId,
-                  newTeacherId: teacher.id,
-                  newSubjectId: subject.id,
-                  term,
-                  day,
-                  startTime: slotTime.startTime,
-                  endTime: slotTime.endTime,
-                });
-                const prevSubName = prev.subjectName || 'previous subject';
-                prev.subId = subject.id;
-                prev.subjectName = subject.name;
-                sheetChanges.push(`Updated Subject: ${section.name} (${day} ${timeFmt}) updated from ${prevSubName} to ${subject.name}`);
-                sheetReassigned++;
-                continue;
               }
             }
-          }
 
-          if (teacherConflict) {
-            const prev = teacherConflict.slot;
-            const timeFmt = `${formatTime12(slotTime.startTime)} – ${formatTime12(slotTime.endTime)}`;
-            sheetWarnings.push(`Teacher Double-Booking on ${day} (${timeFmt}): ${teacher.first_name} ${teacher.last_name} is already scheduled with ${prev.sectionName || 'another section'}. Skipped.`);
-            continue;
-          }
+            if (teacherConflict) {
+              const prev = teacherConflict.slot;
+              sheetWarnings.push(`Teacher Double-Booking on ${day} (${timeFmt}): ${teacher.first_name} ${teacher.last_name} is already scheduled with ${prev.sectionName || 'another section'}. Skipped.`);
+              continue;
+            }
 
-          // No conflict: create new schedule
-          addSlotToMemory(
-            null,
-            teacher.id,
-            section.id,
-            subject.id,
-            day,
-            slotTime.startTime,
-            slotTime.endTime,
-            term,
-            `${teacher.first_name} ${teacher.last_name}`,
-            section.name,
-            subject.name
-          );
-          existingSchedSet.add(schedKey);
-          schedulesToInsert.push([
-            teacher.id,
-            subject.id,
-            section.id,
-            term,
-            day,
-            slotTime.startTime,
-            slotTime.endTime,
-          ]);
-          sheetCreated++;
+            // No conflict: create new schedule
+            addSlotToMemory(
+              null,
+              teacher.id,
+              section.id,
+              subject.id,
+              day,
+              slotTime.startTime,
+              slotTime.endTime,
+              term,
+              `${teacher.first_name} ${teacher.last_name}`,
+              section.name,
+              subject.name
+            );
+            existingSchedSet.add(schedKey);
+            schedulesToInsert.push([
+              teacher.id,
+              subject.id,
+              section.id,
+              term,
+              day,
+              slotTime.startTime,
+              slotTime.endTime,
+            ]);
+            sheetCreated++;
+          }
         }
+
+        let status = 'unchanged';
+        if (sheetCreated > 0 || sheetReassigned > 0) {
+          status = sheetWarnings.length > 0 ? 'partial' : (sheetReassigned > 0 && sheetCreated === 0 ? 'reassigned' : 'created');
+        } else if (sheetWarnings.length > 0) {
+          status = 'warning';
+        } else if (sheetUnchanged > 0) {
+          status = 'unchanged';
+        } else {
+          status = 'warning';
+        }
+
+        const summaryParts = [];
+        if (teacher.isNew) summaryParts.push('New Teacher Auto-Registered');
+        if (sheetCreated > 0) summaryParts.push(`${sheetCreated} scheduled`);
+        if (sheetReassigned > 0) summaryParts.push(`${sheetReassigned} reassigned/updated`);
+        if (sheetUnchanged > 0) summaryParts.push(`${sheetUnchanged} up to date`);
+        if (sheetWarnings.length > 0) summaryParts.push(`${sheetWarnings.length} warning(s)`);
+
+        sheetResults.push({
+          row: sIdx + 1,
+          name: `${teacher.first_name} ${teacher.last_name}`,
+          sheetName,
+          status,
+          createdCount: sheetCreated,
+          reassignedCount: sheetReassigned,
+          unchangedCount: sheetUnchanged,
+          warningCount: sheetWarnings.length,
+          message: summaryParts.join(', ') || 'No class entries in this sheet',
+          changes: sheetChanges,
+          warnings: sheetWarnings,
+        });
+      } catch (sheetErr) {
+        console.error(`Error processing sheet "${sheetName}":`, sheetErr);
+        sheetResults.push({
+          row: sIdx + 1,
+          name: sheetName,
+          sheetName,
+          status: 'error',
+          createdCount: 0,
+          reassignedCount: 0,
+          unchangedCount: 0,
+          warningCount: 1,
+          message: `Sheet processing issue: ${sheetErr.message}`,
+          changes: [],
+          warnings: [`Sheet "${sheetName}" could not be completed: ${sheetErr.message}`],
+        });
       }
-
-      let status = 'unchanged';
-      if (sheetCreated > 0 || sheetReassigned > 0) {
-        status = sheetWarnings.length > 0 ? 'partial' : (sheetReassigned > 0 && sheetCreated === 0 ? 'reassigned' : 'created');
-      } else if (sheetWarnings.length > 0) {
-        status = 'warning';
-      }
-
-      const summaryParts = [];
-      if (sheetCreated > 0) summaryParts.push(`${sheetCreated} scheduled`);
-      if (sheetReassigned > 0) summaryParts.push(`${sheetReassigned} reassigned/updated`);
-      if (sheetUnchanged > 0) summaryParts.push(`${sheetUnchanged} up to date`);
-      if (sheetWarnings.length > 0) summaryParts.push(`${sheetWarnings.length} warning(s)`);
-
-      sheetResults.push({
-        row: sIdx + 1,
-        name: `${teacher.first_name} ${teacher.last_name}`,
-        status,
-        createdCount: sheetCreated,
-        reassignedCount: sheetReassigned,
-        unchangedCount: sheetUnchanged,
-        warningCount: sheetWarnings.length,
-        message: summaryParts.join(', ') || 'No valid schedule cells in sheet',
-        changes: sheetChanges,
-        warnings: sheetWarnings,
-      });
     }
 
     // Execute DB reassignments
@@ -1505,14 +1695,26 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
     const totalReassigned = schedulesToReassign.length;
     const totalWarnings = sheetResults.reduce((acc, r) => acc + (r.warningCount || 0), 0);
     const totalUnchanged = sheetResults.reduce((acc, r) => acc + (r.unchangedCount || 0), 0);
+    const totalSkipped = sheetResults.filter((r) => r.status === 'skipped').length;
+    const totalErrors = sheetResults.filter((r) => r.status === 'error').length;
+
+    let overallStatus = 'success';
+    if (totalErrors > 0 && totalCreated === 0 && totalReassigned === 0) {
+      overallStatus = 'error';
+    } else if (totalErrors > 0 || totalWarnings > 0) {
+      overallStatus = 'warning';
+    }
 
     return res.json({
-      success: true,
-      message: `TSHS Timetable Import Complete: ${totalCreated} scheduled, ${totalReassigned} overridden/reassigned across ${workbook.SheetNames.length} teacher program sheet(s).`,
+      success: overallStatus !== 'error',
+      overallStatus,
+      message: `TSHS Timetable Import Complete: ${totalCreated} scheduled, ${totalReassigned} overridden/reassigned across ${workbook.SheetNames.length} sheet(s).`,
       totalEntriesCreated: totalCreated,
       totalEntriesReassigned: totalReassigned,
       totalEntriesUnchanged: totalUnchanged,
-      totalWarnings: totalWarnings,
+      totalWarnings,
+      totalSkipped,
+      totalErrors,
       totalSheets: workbook.SheetNames.length,
       newTeachersRegistered: newTeachersCount,
       newSectionsCreated: newSectionsCount,
@@ -1520,7 +1722,24 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
     });
   } catch (err) {
     console.error('importTshsTeacherProgramGrid error:', err);
-    return res.status(500).json({ success: false, message: 'Could not process TSHS schedule workbook: ' + err.message });
+    let friendlyMessage = 'Could not process TSHS schedule workbook.';
+    let suggestion = 'Please check that the file is not corrupted and follows the official TSHS timetable format.';
+
+    if (err.message && err.message.includes('Duplicate entry')) {
+      friendlyMessage = 'A user account conflict occurred while registering a teacher: ' + err.message;
+      suggestion = 'Verify teacher names under User Management or check for duplicate ID numbers.';
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: friendlyMessage,
+      errorDetails: {
+        title: 'Schedule Import Encountered An Issue',
+        reason: err.message,
+        suggestion,
+      },
+      results: sheetResults,
+    });
   }
 }
 
@@ -1562,6 +1781,8 @@ async function importTabularSchedules(workbook, req, res) {
   }
 
   const overrideExisting = req.overrideExisting !== false;
+  const { currentTerm: systemActiveTerm } = await getActiveTermConfig();
+  const explicitTerm = req.body.targetTerm || req.query.targetTerm;
 
   const [existingSchedules] = await pool.query(`
     SELECT s.id, s.teacher_id, s.section_id, s.subject_id, s.quarter, s.day_of_week, s.start_time, s.end_time,
@@ -1802,7 +2023,9 @@ async function importTabularSchedules(workbook, req, res) {
       continue;
     }
 
-    const term = parseTerm(termRaw);
+    const term = (explicitTerm && explicitTerm !== 'auto')
+      ? parseTerm(explicitTerm, systemActiveTerm || '2nd Term')
+      : parseTerm(termRaw || (req.file && req.file.originalname), systemActiveTerm || '2nd Term');
     const startTime = parseTime(startTimeRaw);
     const endTime = parseTime(endTimeRaw);
     if (!startTime || !endTime) {

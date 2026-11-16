@@ -1362,13 +1362,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const chkOverride = document.getElementById('chkOverrideSchedules');
             const overrideExisting = chkOverride ? chkOverride.checked : true;
+            const termSelect = document.getElementById('bulkScheduleTermSelect');
+            const targetTerm = termSelect ? termSelect.value : '2nd Term';
 
             const formData = new FormData();
             formData.append('importFile', file);
             formData.append('overrideExisting', overrideExisting ? 'true' : 'false');
+            formData.append('targetTerm', targetTerm);
 
             try {
-                const res = await fetch(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import?overrideExisting=${overrideExisting ? 'true' : 'false'}&token=${encodeURIComponent(token)}`, {
+                const res = await fetch(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/schedules/bulk-import?overrideExisting=${overrideExisting ? 'true' : 'false'}&targetTerm=${encodeURIComponent(targetTerm)}&token=${encodeURIComponent(token)}`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -1379,18 +1382,145 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 clearInterval(progressInterval);
 
+                const escapeHtml = (str) => {
+                    if (str === null || str === undefined) return '';
+                    return String(str)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+                };
+
+                const getStatusBadge = (status) => {
+                    switch (status) {
+                        case 'created':
+                            return { cls: 'bg-success-subtle text-success border border-success-subtle', icon: '<i class="bi bi-check-circle-fill me-1"></i>', text: 'SCHEDULED' };
+                        case 'reassigned':
+                            return { cls: 'bg-primary-subtle text-primary border border-primary-subtle', icon: '<i class="bi bi-arrow-repeat me-1"></i>', text: 'REASSIGNED' };
+                        case 'partial':
+                            return { cls: 'bg-warning-subtle text-warning-emphasis border border-warning-subtle', icon: '<i class="bi bi-exclamation-circle-fill me-1"></i>', text: 'PARTIAL' };
+                        case 'unchanged':
+                            return { cls: 'bg-secondary-subtle text-secondary border border-secondary-subtle', icon: '<i class="bi bi-check2-all me-1"></i>', text: 'UP TO DATE' };
+                        case 'warning':
+                            return { cls: 'bg-warning-subtle text-warning-emphasis border border-warning-subtle', icon: '<i class="bi bi-exclamation-triangle-fill me-1"></i>', text: 'CONFLICT / WARNING' };
+                        case 'skipped':
+                            return { cls: 'bg-secondary-subtle text-dark border border-secondary-subtle', icon: '<i class="bi bi-slash-circle me-1"></i>', text: 'SKIPPED' };
+                        case 'error':
+                            return { cls: 'bg-danger-subtle text-danger border border-danger-subtle', icon: '<i class="bi bi-x-circle-fill me-1"></i>', text: 'FAILED' };
+                        default:
+                            return { cls: 'bg-secondary-subtle text-secondary border border-secondary-subtle', icon: '<i class="bi bi-info-circle me-1"></i>', text: String(status || 'INFO').toUpperCase() };
+                    }
+                };
+
+                const renderSheetCards = (items, isWorkbook) => {
+                    const labelPrefix = isWorkbook ? 'Teacher Sheet' : 'Row';
+                    return items.map(r => {
+                        const badge = getStatusBadge(r.status);
+                        const hasWarnings = (Array.isArray(r.warnings) && r.warnings.length > 0) || r.status === 'warning';
+                        const sheetLabel = r.sheetName && r.sheetName !== r.name ? ` (${escapeHtml(r.sheetName)})` : '';
+
+                        let changesHtml = '';
+                        if (Array.isArray(r.changes) && r.changes.length > 0) {
+                            changesHtml = `
+                                <div class="mt-2 p-2 rounded bg-primary-subtle border border-primary-subtle text-xs text-primary-emphasis">
+                                    <strong><i class="bi bi-arrow-repeat me-1"></i> Applied Changes (${r.changes.length}):</strong>
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        ${r.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
+                        let warningsHtml = '';
+                        if (Array.isArray(r.warnings) && r.warnings.length > 0) {
+                            warningsHtml = `
+                                <div class="mt-2 p-2 rounded bg-warning-subtle border border-warning-subtle text-xs text-warning-emphasis">
+                                    <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Warnings &amp; Conflicts (${r.warnings.length}):</strong>
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        ${r.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="p-2.5 mb-2 rounded border bg-light text-sm shadow-xs bulk-result-card"
+                                 data-status="${escapeHtml(r.status)}"
+                                 data-has-warnings="${hasWarnings}">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong class="text-dark">${labelPrefix} ${r.row}: ${escapeHtml(r.name)}${sheetLabel}</strong>
+                                    <span class="badge ${badge.cls} px-2 py-1">${badge.icon}${badge.text}</span>
+                                </div>
+                                <div class="text-muted small">${escapeHtml(r.message)}</div>
+                                ${changesHtml}
+                                ${warningsHtml}
+                            </div>
+                        `;
+                    }).join('');
+                };
+
                 if (!data.success) {
                     setSchedProgressBar(100, 'Import Failed', data.message || 'Could not import schedules.', true);
+
+                    const errorTitle = (data.errorDetails && data.errorDetails.title) || 'Bulk Import Failed';
+                    const errorReason = (data.errorDetails && data.errorDetails.reason) || data.message || 'An unexpected error occurred while processing the schedule workbook.';
+                    const errorSuggestion = (data.errorDetails && data.errorDetails.suggestion) || 'Please check that the file follows the official schedule template and that all teacher names match existing user accounts under User Management.';
+
+                    let partialHtml = '';
+                    if (Array.isArray(data.results) && data.results.length > 0) {
+                        partialHtml = `
+                            <div class="mt-3">
+                                <h6 class="text-xs fw-bold text-muted text-uppercase mb-2">
+                                    <i class="bi bi-clock-history me-1"></i> Sheets Inspected Prior to Issue (${data.results.length})
+                                </h6>
+                                <div class="d-flex flex-column gap-2">
+                                    ${renderSheetCards(data.results, !!data.totalSheets)}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    resultsEl.innerHTML = `
+                        <div class="card border border-danger-subtle shadow-xs rounded-3 mb-3 bg-white">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-start gap-2.5">
+                                    <i class="bi bi-x-octagon-fill text-danger fs-4 mt-0.5"></i>
+                                    <div class="flex-grow-1">
+                                        <h6 class="fw-bold text-danger mb-1">${escapeHtml(errorTitle)}</h6>
+                                        <p class="text-sm text-dark mb-2">${escapeHtml(errorReason)}</p>
+                                        <div class="p-2.5 bg-danger-subtle bg-opacity-25 rounded-2 border border-danger-subtle text-xs text-danger-emphasis">
+                                            <strong class="d-block mb-1"><i class="bi bi-lightbulb-fill text-warning me-1"></i> How to Resolve:</strong>
+                                            <span>${escapeHtml(errorSuggestion)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ${partialHtml}
+                    `;
                     return;
                 }
 
-                setSchedProgressBar(100, 'Import Complete!', data.message || 'Schedules processed successfully.');
+                const hasOverallWarnings = (data.totalWarnings > 0) || (data.overallStatus === 'warning');
+                setSchedProgressBar(
+                    100,
+                    hasOverallWarnings ? 'Import Complete with Warnings' : 'Import Complete!',
+                    data.message || 'Schedules processed successfully.'
+                );
 
                 if (Array.isArray(data.results) && data.results.length) {
                     const totalCreated = data.totalEntriesCreated || 0;
                     const totalReassigned = data.totalEntriesReassigned || 0;
                     const totalUnchanged = data.totalEntriesUnchanged || 0;
                     const totalWarnings = data.totalWarnings || 0;
+                    const totalSkipped = data.totalSkipped || 0;
+
+                    const warningCount = data.results.filter(r => (Array.isArray(r.warnings) && r.warnings.length > 0) || r.status === 'warning').length;
+                    const reassignedCount = data.results.filter(r => r.status === 'reassigned' || r.status === 'partial').length;
+                    const createdCount = data.results.filter(r => r.status === 'created').length;
+                    const skippedCount = data.results.filter(r => r.status === 'skipped').length;
+                    const unchangedCount = data.results.filter(r => r.status === 'unchanged').length;
 
                     const summaryHeader = `
                         <div class="alert alert-light border shadow-xs py-2.5 px-3 mb-3 rounded-3 text-sm">
@@ -1403,7 +1533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${data.newSectionsCreated ? `<span class="badge bg-primary shadow-xs">+${data.newSectionsCreated} Sections Synced</span>` : ''}
                                 </div>
                             </div>
-                            <div class="d-flex flex-wrap gap-1.5">
+                            <div class="d-flex flex-wrap gap-1.5 mb-2">
                                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                                     <i class="bi bi-check-circle-fill me-1"></i>${totalCreated} New Scheduled
                                 </span>
@@ -1422,73 +1552,107 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <i class="bi bi-exclamation-triangle-fill me-1"></i>${totalWarnings} Warning(s)
                                     </span>
                                 ` : ''}
+                                ${totalSkipped > 0 ? `
+                                    <span class="badge bg-secondary-subtle text-dark border border-secondary-subtle px-2 py-1">
+                                        <i class="bi bi-slash-circle me-1"></i>${totalSkipped} Skipped Auxiliary
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top">
+                                <div class="d-flex flex-wrap gap-1" id="bulkResultFilterGroup">
+                                    <button type="button" class="btn btn-xs btn-dark rounded-pill active" data-filter="all">All (${data.results.length})</button>
+                                    ${warningCount > 0 ? `
+                                        <button type="button" class="btn btn-xs btn-outline-warning text-dark rounded-pill" data-filter="warnings">
+                                            <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Warnings (${warningCount})
+                                        </button>
+                                    ` : ''}
+                                    ${reassignedCount > 0 ? `
+                                        <button type="button" class="btn btn-xs btn-outline-primary rounded-pill" data-filter="reassigned">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Reassigned (${reassignedCount})
+                                        </button>
+                                    ` : ''}
+                                    ${createdCount > 0 ? `
+                                        <button type="button" class="btn btn-xs btn-outline-success rounded-pill" data-filter="created">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Scheduled (${createdCount})
+                                        </button>
+                                    ` : ''}
+                                    ${skippedCount > 0 ? `
+                                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill" data-filter="skipped">
+                                            <i class="bi bi-slash-circle me-1"></i>Skipped (${skippedCount})
+                                        </button>
+                                    ` : ''}
+                                    ${unchangedCount > 0 ? `
+                                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill" data-filter="unchanged">
+                                            <i class="bi bi-check2-all me-1"></i>Up to Date (${unchangedCount})
+                                        </button>
+                                    ` : ''}
+                                </div>
+                                <div style="min-width: 170px; max-width: 230px;" class="flex-grow-1">
+                                    <input type="text" id="bulkResultSearchInput" class="form-control form-control-sm text-xs py-1" placeholder="Filter teacher or sheet...">
+                                </div>
                             </div>
                         </div>
                     `;
 
-                    resultsEl.innerHTML = summaryHeader + data.results.map(r => {
-                        let badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
-                        let icon = '<i class="bi bi-x-circle-fill me-1"></i>';
-                        let statusText = String(r.status || 'STATUS').toUpperCase();
+                    resultsEl.innerHTML = summaryHeader + `<div id="bulkResultCardsContainer">${renderSheetCards(data.results, !!data.totalSheets)}</div>`;
 
-                        if (r.status === 'created') {
-                            badgeClass = 'bg-success-subtle text-success border border-success-subtle';
-                            icon = '<i class="bi bi-check-circle-fill me-1"></i>';
-                        } else if (r.status === 'reassigned') {
-                            badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
-                            icon = '<i class="bi bi-arrow-repeat me-1"></i>';
-                            statusText = 'OVERRIDDEN';
-                        } else if (r.status === 'partial') {
-                            badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                            icon = '<i class="bi bi-exclamation-circle-fill me-1"></i>';
-                        } else if (r.status === 'unchanged') {
-                            badgeClass = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
-                            icon = '<i class="bi bi-check2-all me-1"></i>';
-                            statusText = 'UP TO DATE';
-                        } else if (r.status === 'warning') {
-                            badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                            icon = '<i class="bi bi-exclamation-triangle-fill me-1"></i>';
-                            statusText = 'CONFLICT';
-                        }
+                    // Wire up interactive filters and search
+                    const filterButtons = resultsEl.querySelectorAll('#bulkResultFilterGroup button');
+                    const searchInput = resultsEl.querySelector('#bulkResultSearchInput');
+                    const cards = resultsEl.querySelectorAll('.bulk-result-card');
 
-                        const labelPrefix = data.totalSheets ? 'Teacher Sheet' : 'Row';
+                    const applyFilters = () => {
+                        const activeBtn = resultsEl.querySelector('#bulkResultFilterGroup button.active');
+                        const filter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
+                        const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-                        let changesHtml = '';
-                        if (Array.isArray(r.changes) && r.changes.length > 0) {
-                            changesHtml = `
-                                <div class="mt-2 p-2 rounded bg-primary-subtle border border-primary-subtle text-xs text-primary-emphasis">
-                                    <strong><i class="bi bi-arrow-repeat me-1"></i> Applied Changes:</strong>
-                                    <ul class="mb-0 ps-3 mt-1">
-                                        ${r.changes.map(c => `<li>${c}</li>`).join('')}
-                                    </ul>
-                                </div>
-                            `;
-                        }
+                        cards.forEach(card => {
+                            const cardStatus = card.getAttribute('data-status') || '';
+                            const cardHasWarnings = card.getAttribute('data-has-warnings') === 'true';
+                            const cardText = card.textContent.toLowerCase();
 
-                        let warningsHtml = '';
-                        if (Array.isArray(r.warnings) && r.warnings.length > 0) {
-                            warningsHtml = `
-                                <div class="mt-2 p-2 rounded bg-warning-subtle border border-warning-subtle text-xs text-warning-emphasis">
-                                    <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Warnings &amp; Conflicts:</strong>
-                                    <ul class="mb-0 ps-3 mt-1">
-                                        ${r.warnings.map(w => `<li>${w}</li>`).join('')}
-                                    </ul>
-                                </div>
-                            `;
-                        }
+                            let matchesFilter = true;
+                            if (filter === 'warnings') {
+                                matchesFilter = cardHasWarnings || cardStatus === 'warning' || cardStatus === 'error';
+                            } else if (filter === 'reassigned') {
+                                matchesFilter = cardStatus === 'reassigned' || cardStatus === 'partial';
+                            } else if (filter === 'created') {
+                                matchesFilter = cardStatus === 'created';
+                            } else if (filter === 'skipped') {
+                                matchesFilter = cardStatus === 'skipped';
+                            } else if (filter === 'unchanged') {
+                                matchesFilter = cardStatus === 'unchanged';
+                            }
 
-                        return `
-                            <div class="p-2.5 mb-2 rounded border bg-light text-sm shadow-xs">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <strong class="text-dark">${labelPrefix} ${r.row}: ${r.name}</strong>
-                                    <span class="badge ${badgeClass} px-2 py-1">${icon}${statusText}</span>
-                                </div>
-                                <div class="text-muted small">${r.message}</div>
-                                ${changesHtml}
-                                ${warningsHtml}
-                            </div>
-                        `;
-                    }).join('');
+                            const matchesQuery = !query || cardText.includes(query);
+
+                            if (matchesFilter && matchesQuery) {
+                                card.classList.remove('d-none');
+                            } else {
+                                card.classList.add('d-none');
+                            }
+                        });
+                    };
+
+                    filterButtons.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            filterButtons.forEach(b => {
+                                b.classList.remove('active', 'btn-dark');
+                                if (!b.classList.contains('btn-outline-warning') &&
+                                    !b.classList.contains('btn-outline-primary') &&
+                                    !b.classList.contains('btn-outline-success') &&
+                                    !b.classList.contains('btn-outline-secondary')) {
+                                    b.classList.add('btn-outline-secondary');
+                                }
+                            });
+                            btn.classList.add('active', 'btn-dark');
+                            applyFilters();
+                        });
+                    });
+
+                    if (searchInput) {
+                        searchInput.addEventListener('input', applyFilters);
+                    }
                 }
 
                 fileInput.value = '';
@@ -1517,6 +1681,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (addQuarter && Array.from(addQuarter.options).some(o => o.value === term)) {
                     addQuarter.value = term;
+                }
+                const bulkTermSelect = document.getElementById('bulkScheduleTermSelect');
+                if (bulkTermSelect && Array.from(bulkTermSelect.options).some(o => o.value === term)) {
+                    bulkTermSelect.value = term;
                 }
             }
         } catch (e) {
