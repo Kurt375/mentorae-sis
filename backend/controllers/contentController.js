@@ -51,6 +51,9 @@ const FORBIDDEN_CONTENT_EXTENSIONS = new Set(['exe', 'bat', 'cmd', 'sh', 'bin', 
 function validateContentFiles(files) {
   if (!Array.isArray(files)) return null;
   for (const file of files) {
+    if (file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url))) {
+      continue;
+    }
     const ext = (file.name || '').split('.').pop().toLowerCase();
     if (ext === 'pptx' || ext === 'ppt') {
       return 'Unsupported file type. PowerPoint presentations (.pptx, .ppt) are restricted to ensure optimal performance and mobile viewing. Please export or save your presentation as a PDF before uploading.';
@@ -240,6 +243,17 @@ async function listTopics(req, res) {
         resources: payload.resources || [],
         visibleTo: payload.visibleTo || [],
         files: (payload.files || []).map((f, fIdx) => {
+          const isLink = f.isExternal || f.type === 'link' || (!f.dataUrl && f.url && /^https?:\/\//i.test(f.url));
+          if (isLink) {
+            return {
+              name: f.name,
+              type: 'link',
+              url: f.url,
+              isExternal: true,
+              topicId: r.id,
+              fileIndex: fIdx
+            };
+          }
           const ext = (f.name || '').split('.').pop().toLowerCase();
           const isDocOrPpt = ['pptx', 'ppt', 'docx', 'doc', 'pdf'].includes(ext);
           const hasPdf = !!(f.pdfDataUrl || f.hasPdf || (isDocOrPpt && (f.dataUrl || f.url)));
@@ -364,6 +378,16 @@ async function createTopic(req, res) {
       }
       if (contentPayload && Array.isArray(contentPayload.files) && Array.isArray(exPayload.files)) {
         contentPayload.files = contentPayload.files.map((cf, idx) => {
+          if (cf.isExternal || cf.type === 'link' || (!cf.dataUrl && cf.url && /^https?:\/\//i.test(cf.url))) {
+            return {
+              name: cf.name,
+              type: 'link',
+              url: cf.url,
+              isExternal: true,
+              topicId: topicId,
+              fileIndex: idx
+            };
+          }
           const match = exPayload.files.find(ef => ef.name === cf.name) || exPayload.files[idx];
           if (match) {
             return {
@@ -443,6 +467,16 @@ async function updateTopic(req, res) {
     let finalPayload = contentPayload || exPayload;
     if (contentPayload && Array.isArray(contentPayload.files) && Array.isArray(exPayload.files)) {
       finalPayload.files = contentPayload.files.map((cf, idx) => {
+        if (cf.isExternal || cf.type === 'link' || (!cf.dataUrl && cf.url && /^https?:\/\//i.test(cf.url))) {
+          return {
+            name: cf.name,
+            type: 'link',
+            url: cf.url,
+            isExternal: true,
+            topicId: Number(id),
+            fileIndex: idx
+          };
+        }
         const match = exPayload.files.find(ef => ef.name === cf.name) || exPayload.files[idx];
         if (match) {
           return {
@@ -675,6 +709,10 @@ async function downloadTopicFile(req, res) {
       return res.status(404).json({ success: false, message: 'File not found in topic.' });
     }
 
+    if (file.url && /^https?:\/\//i.test(file.url)) {
+      return res.redirect(file.url);
+    }
+
     // If file has no binary dataUrl or pdfDataUrl, check donor topics in database with the same file name
     if (!file.dataUrl && !file.pdfDataUrl && file.name) {
       const [donorRows] = await pool.query(
@@ -888,6 +926,10 @@ async function downloadTopicRequestFile(req, res) {
       return res.status(404).json({ success: false, message: 'File not found in topic request.' });
     }
 
+    if (file.url && /^https?:\/\//i.test(file.url)) {
+      return res.redirect(file.url);
+    }
+
     // On-the-fly Office to PDF conversion if requested as PDF
     if (asPdf === 'true' && !file.pdfDataUrl && file.dataUrl) {
       const ext = (file.name || '').split('.').pop().toLowerCase();
@@ -1092,19 +1134,33 @@ async function listTopicRequests(req, res) {
           description: r.description,
           resources: payload.resources || [],
           visibleTo: payload.visibleTo || [],
-          files: (payload.files || []).map((f, fIdx) => ({
-            name: f.name,
-            type: f.type || getMimeType(f.name),
-            size: f.size,
-            topicId: r.id,
-            requestId: r.id,
-            fileIndex: fIdx,
-            url: `/api/content/topic-requests/${r.id}/files/${fIdx}/download`,
-            pdfUrl: f.pdfDataUrl ? `/api/content/topic-requests/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
-            hasPdf: !!f.pdfDataUrl,
-            dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
-            pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
-          })),
+          files: (payload.files || []).map((f, fIdx) => {
+            const isLink = f.isExternal || f.type === 'link' || (!f.dataUrl && f.url && /^https?:\/\//i.test(f.url));
+            if (isLink) {
+              return {
+                name: f.name,
+                type: 'link',
+                url: f.url,
+                isExternal: true,
+                topicId: r.id,
+                requestId: r.id,
+                fileIndex: fIdx
+              };
+            }
+            return {
+              name: f.name,
+              type: f.type || getMimeType(f.name),
+              size: f.size,
+              topicId: r.id,
+              requestId: r.id,
+              fileIndex: fIdx,
+              url: `/api/content/topic-requests/${r.id}/files/${fIdx}/download`,
+              pdfUrl: f.pdfDataUrl ? `/api/content/topic-requests/${r.id}/files/${fIdx}/download?asPdf=true` : undefined,
+              hasPdf: !!f.pdfDataUrl,
+              dataUrl: (f.dataUrl && f.dataUrl.length < 100000) ? f.dataUrl : undefined,
+              pdfDataUrl: (f.pdfDataUrl && f.pdfDataUrl.length < 100000) ? f.pdfDataUrl : undefined
+            };
+          }),
           quiz: payload.quiz || [],
           flashcards: payload.flashcards || [],
           createdAt: r.created_at,

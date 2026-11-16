@@ -2044,6 +2044,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 py-3 px-3.5';
 
+                    const isLink = file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url));
+                    if (isLink) {
+                        li.innerHTML = `
+                            <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                                <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                    <i class="bi bi-box-arrow-up-right text-primary fs-4"></i>
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <span class="fw-semibold text-dark d-block text-break fs-6 file-title-text" title="${escapeHtml(file.name || 'External Link')}">${escapeHtml(file.name || 'External Link')}</span>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;"><i class="bi bi-link-45deg me-0.5"></i>Link</span>
+                                        <span class="micro-text text-muted text-truncate" style="max-width: 250px;">${escapeHtml(file.url || '')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto ms-sm-0">
+                                <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary fw-semibold rounded-pill px-3 py-1.5 text-nowrap">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Open Link
+                                </a>
+                            </div>
+                        `;
+                        modalFilesList.appendChild(li);
+                        return;
+                    }
+
                     const fileUrl = getResolvedFileUrl(file, '', title) || '#';
                     const iconHtml = getFileIcon(file.name || '');
 

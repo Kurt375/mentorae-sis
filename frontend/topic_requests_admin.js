@@ -1569,6 +1569,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 file.requestId = activeFilesRequestId;
                 file.fileIndex = index;
             }
+
+            const isLink = file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url));
+            if (isLink) {
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3';
+                item.style.cursor = 'pointer';
+                item.title = 'Click to open link in new tab';
+                item.innerHTML = `
+                    <div class="d-flex align-items-center text-truncate me-2">
+                        <i class="bi bi-box-arrow-up-right text-primary me-2 fs-5 flex-shrink-0"></i>
+                        <span class="text-truncate fw-medium text-dark">${escapeHtml(file.name || 'External Link')}</span>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2 micro-text"><i class="bi bi-link-45deg me-0.5"></i>Link</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-0.5 fw-semibold view-file-action-btn" onclick="event.stopPropagation();">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Open
+                        </a>
+                    </div>
+                `;
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.open(file.url, '_blank', 'noopener,noreferrer');
+                });
+                list.appendChild(item);
+                return;
+            }
+
             const ext = (file.name || '').split('.').pop().toLowerCase();
             let iconClass = 'bi-file-earmark-text text-secondary';
             if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';

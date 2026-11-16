@@ -3486,6 +3486,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.createElement('div');
         list.className = 'list-group shadow-xs rounded-3 border';
         files.forEach((file, index) => {
+            const isLink = file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url));
+            if (isLink) {
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 border-bottom transition-all';
+                item.innerHTML = `
+                    <div class="d-flex align-items-center flex-grow-1 text-truncate me-3 preview-file-trigger" data-index="${index}" role="button" title="Click to open link in new tab" style="cursor: pointer;">
+                        <div class="rounded-3 p-2 bg-light d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 42px; height: 42px;">
+                            <i class="bi bi-box-arrow-up-right text-primary fs-4"></i>
+                        </div>
+                        <div class="text-truncate">
+                            <span class="fw-semibold text-dark text-truncate d-block">${escapeHtml(file.name || 'External Link')}</span>
+                            <div class="d-flex align-items-center gap-2 mt-0.5">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill micro-text"><i class="bi bi-link-45deg me-0.5"></i>Link</span>
+                                <small class="text-muted text-truncate" style="max-width: 250px;">${escapeHtml(file.url || '')}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                        <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-semibold shadow-xs" title="Open link in new tab" onclick="event.stopPropagation();">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Open
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger delete-existing-file-btn rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" data-index="${index}" title="Delete Link">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+                return;
+            }
+
             const meta = getFileDisplayMeta(file.name);
             const fileSizeText = file.size ? `${(file.size / 1024).toFixed(2)} KB` : '';
             const isReady = !!(file.pdfDataUrl || file.convertedToPdf);
@@ -3593,6 +3623,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const topic = subject?.topics?.[currentTopicIndexForEditing];
         if (!topic || !Array.isArray(topic.files) || !topic.files[index]) return;
         const file = topic.files[index];
+        const isLink = file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url));
+        if (isLink) {
+            window.open(file.url, '_blank', 'noopener,noreferrer');
+            return;
+        }
         if (topic.id && file.topicId === undefined) file.topicId = topic.id;
         if (file.fileIndex === undefined) file.fileIndex = index;
         openClassroomViewer(file, 'existingFileEditorModal', topic.title);

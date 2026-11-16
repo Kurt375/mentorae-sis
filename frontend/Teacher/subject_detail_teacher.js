@@ -2070,6 +2070,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 py-3 px-3.5';
 
+                    const isLink = file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url));
+                    if (isLink) {
+                        li.innerHTML = `
+                            <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                                <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                    <i class="bi bi-box-arrow-up-right text-primary fs-4"></i>
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <span class="fw-semibold text-dark d-block text-break fs-6 file-title-text" title="${escapeHtml(file.name || 'External Link')}">${escapeHtml(file.name || 'External Link')}</span>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem;"><i class="bi bi-link-45deg me-0.5"></i>Link</span>
+                                        <span class="micro-text text-muted text-truncate" style="max-width: 250px;">${escapeHtml(file.url || '')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto ms-sm-0">
+                                <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary fw-semibold rounded-pill px-3 py-1.5 text-nowrap">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Open Link
+                                </a>
+                            </div>
+                        `;
+                        modalFilesList.appendChild(li);
+                        return;
+                    }
+
                     const fileUrl = getResolvedFileUrl(file, '', title) || '#';
                     const iconHtml = getFileIcon(file.name || '');
 
@@ -2769,8 +2794,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRequestFiles() {
         const container = document.getElementById('requestFilesContainer');
         container.innerHTML = (newTopicRequestContent.files.length === 0)
-            ? '<p class="text-muted text-center">No files added yet.</p>'
-            : `<div class="list-group">${newTopicRequestContent.files.map((file, index) => `
+            ? '<p class="text-muted text-center">No files or links added yet.</p>'
+            : `<div class="list-group">${newTopicRequestContent.files.map((file, index) => {
+                const isLink = file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url));
+                if (isLink) {
+                    return `
+                    <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                        <div class="d-flex align-items-center text-truncate me-2 preview-request-file-trigger" data-index="${index}" role="button" style="cursor: pointer;" title="Click to open link in new tab">
+                            <i class="bi bi-box-arrow-up-right me-2 text-primary fs-5 flex-shrink-0"></i>
+                            <span class="text-truncate fw-medium">${escapeHtml(file.name)}</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2 micro-text"><i class="bi bi-link-45deg me-0.5"></i>Link</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                            <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5 fw-semibold" title="Open link in new tab">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Open
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-request-file rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;" data-index="${index}" title="Remove Link">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>`;
+                }
+                return `
                 <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
                     <div class="d-flex align-items-center text-truncate me-2 preview-request-file-trigger" data-index="${index}" role="button" style="cursor: pointer;" title="Click to view and check file contents">
                         <i class="bi bi-file-earmark-text me-2 text-primary fs-5 flex-shrink-0"></i>
@@ -2785,7 +2830,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
-                </div>`).join('')}</div>`;
+                </div>`;
+            }).join('')}</div>`;
     }
     const ALLOWED_RESOURCE_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'key', 'pages', 'numbers'];
     const FORBIDDEN_RESOURCE_EXTENSIONS = ['exe', 'bat', 'cmd', 'sh', 'bin', 'msi', 'com', 'vbs', 'ps1', 'zip', 'rar', '7z', 'tar', 'gz', 'apk', 'dmg', 'iso', 'dll', 'sys', 'scr', 'jar'];
@@ -2913,12 +2959,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (file.size > 35 * 1024 * 1024) {
-            alert(`File "${file.name}" is too large (max 35MB). Tip: Export presentations as "PDF Standard / Minimum Size" or compress the file using a free PDF compressor before uploading.`);
+        if (file.size > 25 * 1024 * 1024) {
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+            const wantLink = confirm(`File "${file.name}" is ${sizeMb} MB, which exceeds the 25 MB direct upload limit.\n\nWould you like to add it as a link instead?`);
+            if (wantLink) {
+                showAddLinkSection(file.name);
+            }
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add File';
+                submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Upload File';
             }
+            fileInput.value = '';
             return;
         }
         try {
@@ -2972,10 +3023,72 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add File';
+                submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Upload File';
             }
         }
     });
+    }
+
+    function showAddLinkSection(prefilledTitle = '') {
+        const section = document.getElementById('addLinkSection');
+        const titleInput = document.getElementById('topicLinkTitleInput');
+        const urlInput = document.getElementById('topicLinkUrlInput');
+        if (section) {
+            section.classList.remove('d-none');
+            section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        if (titleInput) titleInput.value = prefilledTitle || '';
+        if (urlInput) urlInput.value = '';
+        setTimeout(() => {
+            if (prefilledTitle && urlInput) urlInput.focus();
+            else if (titleInput) titleInput.focus();
+        }, 150);
+    }
+
+    const requestAddLinkBtn = document.getElementById('requestAddLinkBtn');
+    if (requestAddLinkBtn) {
+        requestAddLinkBtn.addEventListener('click', () => showAddLinkSection(''));
+    }
+
+    const closeAddLinkSectionBtn = document.getElementById('closeAddLinkSectionBtn');
+    if (closeAddLinkSectionBtn) {
+        closeAddLinkSectionBtn.addEventListener('click', () => {
+            const section = document.getElementById('addLinkSection');
+            if (section) section.classList.add('d-none');
+        });
+    }
+
+    const topicAddLinkForm = document.getElementById('topicAddLinkForm');
+    if (topicAddLinkForm) {
+        topicAddLinkForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const titleInput = document.getElementById('topicLinkTitleInput');
+            const urlInput = document.getElementById('topicLinkUrlInput');
+            const name = (titleInput?.value || '').trim();
+            let url = (urlInput?.value || '').trim();
+
+            if (!name || !url) {
+                alert('Please provide both a title and a URL for the link.');
+                return;
+            }
+
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+
+            if (!newTopicRequestContent.files) newTopicRequestContent.files = [];
+            newTopicRequestContent.files.push({
+                name: name,
+                url: url,
+                type: 'link',
+                isExternal: true
+            });
+
+            renderRequestFiles();
+            const section = document.getElementById('addLinkSection');
+            if (section) section.classList.add('d-none');
+            topicAddLinkForm.reset();
+        });
     }
 
     document.getElementById('requestFilesContainer').addEventListener('click', e => {
@@ -2992,6 +3105,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = parseInt(previewTrigger.dataset.index, 10);
             const file = newTopicRequestContent?.files?.[index];
             if (file) {
+                if (file.isExternal || file.type === 'link' || (!file.dataUrl && file.url && /^https?:\/\//i.test(file.url))) {
+                    window.open(file.url, '_blank', 'noopener,noreferrer');
+                    return;
+                }
                 isPreviewingRequestFile = true;
                 const reqModal = requestContentFileModal;
                 if (reqModal) reqModal.hide();

@@ -615,6 +615,17 @@ async function updateSubject(req, res) {
           // Merge incoming files with existing files to preserve dataUrl and pdfDataUrl
           let mergedFiles = Array.isArray(t.files) ? [...t.files] : [];
           mergedFiles = mergedFiles.map((incomingFile, idx) => {
+            if (incomingFile.isExternal || incomingFile.type === 'link' || (!incomingFile.dataUrl && incomingFile.url && /^https?:\/\//i.test(incomingFile.url))) {
+              const effectiveTopicId = existing ? existing.id : (incomingFile.topicId || null);
+              return {
+                name: incomingFile.name,
+                type: 'link',
+                url: incomingFile.url,
+                isExternal: true,
+                topicId: effectiveTopicId,
+                fileIndex: idx
+              };
+            }
             const match = existingFiles.find(ef => ef.name === incomingFile.name) || existingFiles[idx];
             if (match) {
               const effectiveTopicId = existing ? existing.id : (incomingFile.topicId || match.topicId);
