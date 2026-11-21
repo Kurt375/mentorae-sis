@@ -49,6 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const absenceAlertText = document.getElementById('absenceAlertText');
     const attendanceTableBody = document.getElementById('attendanceTableBody');
     const filterStatusSelect = document.getElementById('filterStatusSelect');
+    const filterYearSelect = document.getElementById('filterYearSelect');
+    const filterTermSelect = document.getElementById('filterTermSelect');
     const btnExportLogs = document.getElementById('btnExportLogs');
     const excuseForm = document.getElementById('excuseForm');
 
@@ -215,9 +217,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 7. Attendance Status, School Year, and Academic Term Filter Logic
-    const filterYearSelect = document.getElementById('filterYearSelect');
-    const filterTermSelect = document.getElementById('filterTermSelect');
-
     function getSchoolYearFromDate(dateStr) {
         if (!dateStr) return '';
         const parts = String(dateStr).slice(0, 10).split('-');
