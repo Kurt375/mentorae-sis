@@ -610,3 +610,60 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(10, 92, 44, 0.38);
 }
+
+/* ==========================================================================
+   Home Support Prescriptive Action Cards (Parent Dashboard)
+   ========================================================================== */
+
+.home-support-header-icon {
+    width: 44px;
+    height: 44px;
+    background-color: #e8f5e9;
+    color: var(--mentorae-green);
+    border-radius: 12px;
+}
+
+.home-action-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    border-radius: 14px;
+    transition: all 0.2s ease-in-out;
+}
+
+.home-action-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+.home-action-icon-box {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 1.2rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.home-action-title {
+    font-size: 0.93rem;
+    font-weight: 700;
+    letter-spacing: -0.15px;
+    color: #1e293b;
+    line-height: 1.35;
+}
+
+.home-action-desc {
+    font-size: 0.835rem;
+    line-height: 1.55;
+    color: #475569;
+}
+
+.home-action-metric-pill {
+    font-size: 0.72rem;
+    font-weight: 650;
+    padding: 0.25rem 0.65rem;
+    border-radius: 50rem;
+    letter-spacing: 0.2px;
+}

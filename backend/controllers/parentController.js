@@ -82,7 +82,7 @@ async function getStudentRecommendationsForParent(req, res) {
               COALESCE(sub.qa_weight, 30.00) AS qa_weight
        FROM grades g
        JOIN subjects sub ON sub.id = g.subject_id
-       WHERE g.student_id = ? AND g.term = ?
+       WHERE g.student_id = ? AND g.term = ? AND g.average IS NOT NULL
        ORDER BY g.average ASC
        LIMIT 1`,
       [studentId, currentTerm]
@@ -129,29 +129,43 @@ async function getStudentRecommendationsForParent(req, res) {
     const homeActions = [];
     if (student.attendanceRate !== null && student.attendanceRate < 85) {
       homeActions.push({
-        icon: 'bi-alarm-fill text-warning',
+        type: 'attendance',
+        icon: 'bi-alarm-fill',
+        iconColor: 'warning',
+        badge: `${student.attendanceRate}% Attendance`,
         title: 'Morning Routine & Daily Arrival',
         text: `Attendance is currently at ${student.attendanceRate}%. Ensure your child departs early to arrive and scan their attendance QR pass before 7:00 AM.`
       });
     }
 
-    if (lowest && lowest.average < 75) {
+    if (lowest && lowest.average !== null && !isNaN(lowest.average) && Number(lowest.average) < 75) {
+      const avgFormatted = Math.round(Number(lowest.average));
       homeActions.push({
-        icon: 'bi-journal-check text-danger',
+        type: 'remediation',
+        icon: 'bi-journal-x',
+        iconColor: 'danger',
+        badge: `${avgFormatted}% Grade`,
         title: `Remediation in ${lowest.subjectName}`,
-        text: `Current average is ${lowest.average}%. Encourage your child to complete the remedial review topics and practice quizzes in their student Learning Resources portal.`
+        text: `Current average is ${avgFormatted}%. Encourage your child to complete the remedial review topics and practice quizzes in their student Learning Resources portal.`
       });
-    } else if (lowest && lowest.average < 85) {
+    } else if (lowest && lowest.average !== null && !isNaN(lowest.average) && Number(lowest.average) < 85) {
+      const avgFormatted = Math.round(Number(lowest.average));
       homeActions.push({
-        icon: 'bi-lightbulb-fill text-warning',
+        type: 'reinforce',
+        icon: 'bi-lightbulb-fill',
+        iconColor: 'warning',
+        badge: `${avgFormatted}% Grade`,
         title: `Reinforce ${lowest.subjectName}`,
-        text: `Score is at ${lowest.average}%. Reviewing digital flashcards and homework activities together at home will help reinforce key learning competencies.`
+        text: `Score is at ${avgFormatted}%. Reviewing digital flashcards and homework activities together at home will help reinforce key learning competencies.`
       });
     }
 
     if (activeAssignment) {
       homeActions.push({
-        icon: 'bi-check2-circle text-success',
+        type: 'assignment',
+        icon: 'bi-check2-circle',
+        iconColor: 'success',
+        badge: 'Teacher Assigned',
         title: `Teacher Assigned Task: ${activeAssignment.topicTitle}`,
         text: `The subject teacher assigned targeted practice for ${activeAssignment.subjectName}. Confirm that your child has accessed and completed this study task.`
       });
@@ -159,7 +173,10 @@ async function getStudentRecommendationsForParent(req, res) {
 
     if (homeActions.length === 0) {
       homeActions.push({
-        icon: 'bi-hand-thumbs-up-fill text-success',
+        type: 'excellence',
+        icon: 'bi-hand-thumbs-up-fill',
+        iconColor: 'success',
+        badge: 'Good Standing',
         title: 'Maintain Excellent Study Habits',
         text: 'Your child is maintaining good academic performance and attendance. Continue encouraging their hard work and celebrate their earned badges!'
       });

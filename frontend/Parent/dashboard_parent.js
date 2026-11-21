@@ -187,11 +187,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadParentRecommendations(child.id);
     }
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     async function loadParentRecommendations(childId) {
         if (!parentRecommendationsContainer) return;
         parentRecommendationsContainer.innerHTML = `
-            <div class="text-center py-3 text-muted micro-text">
-                <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
+            <div class="text-center py-4 text-muted micro-text">
+                <div class="spinner-border spinner-border-sm text-success me-1.5" role="status"></div>
                 Analyzing academic indicators and generating home guidance...
             </div>
         `;
@@ -199,44 +209,78 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const res = await authedFetch(`/api/parent/student/${childId}/recommendations`, token);
             if (!res || !res.success || !res.prescriptive) {
-                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0">No active guidance recommendations at this time.</p>';
+                parentRecommendationsContainer.innerHTML = `
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-shield-check text-success fs-3 d-block mb-1"></i>
+                        <p class="micro-text m-0 fw-semibold text-dark">No active intervention guidance required.</p>
+                        <span class="micro-text text-muted">Your child is actively progressing across their enrolled subjects.</span>
+                    </div>
+                `;
                 if (parentRiskStatusBadge) parentRiskStatusBadge.textContent = 'Active Monitoring';
                 return;
             }
 
             const { student, prescriptive } = res;
             if (parentRiskStatusBadge) {
-                parentRiskStatusBadge.textContent = student.riskTier || 'Good Standing';
-                if (student.riskTier && student.riskTier.includes('High')) {
-                    parentRiskStatusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text fw-bold px-2.5 py-1.5';
-                } else if (student.riskTier && student.riskTier.includes('Medium')) {
-                    parentRiskStatusBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle micro-text fw-bold px-2.5 py-1.5';
+                const tier = student.riskTier || 'Good Standing';
+                parentRiskStatusBadge.textContent = tier;
+                if (tier.includes('High')) {
+                    parentRiskStatusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text fw-bold px-3 py-1.5 rounded-pill shadow-xs';
+                    parentRiskStatusBadge.innerHTML = '<i class="bi bi-exclamation-octagon-fill me-1"></i> High Attention Needed';
+                } else if (tier.includes('Medium')) {
+                    parentRiskStatusBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle micro-text fw-bold px-3 py-1.5 rounded-pill shadow-xs';
+                    parentRiskStatusBadge.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Moderate Support Recommended';
                 } else {
-                    parentRiskStatusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle micro-text fw-bold px-2.5 py-1.5';
+                    parentRiskStatusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle micro-text fw-bold px-3 py-1.5 rounded-pill shadow-xs';
+                    parentRiskStatusBadge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Good Standing';
                 }
             }
 
             const actions = prescriptive.homeActions || [];
             if (!actions.length) {
-                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0">Your child is performing well across all subjects.</p>';
+                parentRecommendationsContainer.innerHTML = `
+                    <div class="text-center py-3 text-muted">
+                        <i class="bi bi-stars text-success fs-3 d-block mb-1"></i>
+                        <p class="micro-text m-0 fw-semibold text-dark">Your child is performing consistently well.</p>
+                        <span class="micro-text text-muted">Encourage their positive study habits and celebrate their hard work!</span>
+                    </div>
+                `;
                 return;
             }
 
-            parentRecommendationsContainer.innerHTML = actions.map(act => `
-                <div class="p-2.5 rounded-3 border bg-light d-flex align-items-start gap-2.5">
-                    <div class="fs-5 flex-shrink-0 mt-0.5">
-                        <i class="bi ${act.icon}"></i>
+            parentRecommendationsContainer.innerHTML = actions.map(act => {
+                let iconClass = act.icon || 'bi-lightbulb-fill';
+                let colorName = act.iconColor || 'success';
+                // Handle legacy format "bi-alarm-fill text-warning" if passed
+                if (iconClass.includes('text-')) {
+                    const match = iconClass.match(/text-([a-z-]+)/);
+                    if (match) colorName = match[1];
+                    iconClass = iconClass.replace(/text-[a-z-]+/, '').trim();
+                }
+
+                const badgeHtml = act.badge
+                    ? `<span class="badge home-action-metric-pill bg-${colorName}-subtle text-${colorName} border border-${colorName}-subtle">${escapeHtml(act.badge)}</span>`
+                    : '';
+
+                return `
+                    <div class="home-action-card p-3 rounded-3 d-flex align-items-start gap-3 bg-white mb-2">
+                        <div class="home-action-icon-box rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 bg-${colorName}-subtle text-${colorName}">
+                            <i class="bi ${iconClass} fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                <h6 class="home-action-title m-0">${escapeHtml(act.title)}</h6>
+                                ${badgeHtml}
+                            </div>
+                            <p class="home-action-desc m-0">${escapeHtml(act.text)}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h6 class="fw-bold text-dark m-0 small">${act.title}</h6>
-                        <p class="micro-text text-secondary m-0 mt-0.5">${act.text}</p>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } catch (err) {
             console.warn('Could not load parent recommendations:', err);
             if (parentRecommendationsContainer) {
-                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0">Guidance recommendations could not be updated right now.</p>';
+                parentRecommendationsContainer.innerHTML = '<p class="text-muted micro-text m-0 py-2 text-center">Guidance recommendations could not be updated right now.</p>';
             }
         }
     }
