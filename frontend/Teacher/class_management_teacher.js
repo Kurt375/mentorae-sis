@@ -3314,6 +3314,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const term = encodeTermFilter ? encodeTermFilter.value : '1st';
             const students = Object.values(activeGradeBreakdown.students);
 
+            if (sectionId === 'all' || !sectionId) {
+                alert('Please select a specific section (not "All Sections") to encode and save grades.');
+                return;
+            }
+
             if (!students.length) {
                 alert('No students to save.');
                 return;

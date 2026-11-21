@@ -152,6 +152,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const labels = (data.labels && data.labels.length > 0) ? data.labels : ['No data yet'];
             const histData = (data.data && data.data.length > 0) ? data.data : [];
+            const kpiClassGwa = document.getElementById('kpiClassGwa');
+            if (kpiClassGwa) {
+                if (histData.length > 0) {
+                    const latest = histData[histData.length - 1];
+                    kpiClassGwa.textContent = Number(latest).toFixed(1) + '%';
+                } else {
+                    kpiClassGwa.textContent = '--';
+                }
+            }
 
             const ctx = gradeTrendCanvas.getContext('2d');
             const gradientFill = ctx.createLinearGradient(0, 0, 0, 160);
@@ -245,6 +254,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (atRiskCountEl) {
                 atRiskCountEl.textContent = atRiskCount;
+            }
+            const kpiAtRiskCount = document.getElementById('kpiAtRiskCount');
+            if (kpiAtRiskCount) {
+                kpiAtRiskCount.textContent = atRiskCount;
+            }
+            const kpiAtRiskSubtext = document.getElementById('kpiAtRiskSubtext');
+            if (kpiAtRiskSubtext) {
+                kpiAtRiskSubtext.textContent = `${counts.High} High, ${counts.Medium} Medium risk`;
             }
 
             const chartData = [counts.High, counts.Medium, counts.Low];
@@ -642,6 +659,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             currentRiskStudents = data.students;
+            const kpiPrescriptionsCount = document.getElementById('kpiPrescriptionsCount');
+            const kpiPrescriptionsSubtext = document.getElementById('kpiPrescriptionsSubtext');
+            if (kpiPrescriptionsCount) {
+                const prescribed = currentRiskStudents.filter(s => s.isAssigned || s.isCompleted).length;
+                kpiPrescriptionsCount.textContent = prescribed;
+                if (kpiPrescriptionsSubtext) {
+                    kpiPrescriptionsSubtext.textContent = `${prescribed} Active / ${currentRiskStudents.length} Flagged`;
+                }
+            }
             populateRiskSubjectDropdown(currentRiskStudents);
             applyRiskFiltersAndRender();
         } catch (err) {

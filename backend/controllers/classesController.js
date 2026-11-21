@@ -477,12 +477,16 @@ async function saveEclassGrades(req, res) {
     const subPtRatio = subRows[0] ? (Number(subRows[0].pt_weight) / 100) : 0.50;
     const subQaRatio = subRows[0] ? (Number(subRows[0].qa_weight) / 100) : 0.30;
 
-    // Fast-path: Pre-fetch valid student IDs in bulk
+    // Fast-path: Pre-fetch valid student IDs in bulk along with their enrolled section_id
     const numericIds = grades.map((g) => Number(g.studentId)).filter((id) => !isNaN(id) && id > 0);
     const validStudentIdSet = new Set();
+    const studentSectionMap = new Map();
     if (numericIds.length > 0) {
-      const [uRows] = await conn.query('SELECT id FROM users WHERE role = "student" AND id IN (?)', [numericIds]);
-      uRows.forEach((u) => validStudentIdSet.add(u.id));
+      const [uRows] = await conn.query('SELECT id, section_id FROM users WHERE role = "student" AND id IN (?)', [numericIds]);
+      uRows.forEach((u) => {
+        validStudentIdSet.add(u.id);
+        if (u.section_id) studentSectionMap.set(u.id, u.section_id);
+      });
     }
 
     // Fallback: If any entries have string names or id_number without a numeric studentId
@@ -492,14 +496,20 @@ async function saveEclassGrades(req, res) {
     });
     const fallbackMap = new Map();
     if (unresolved.length > 0) {
-      const [allStudentRows] = await conn.query('SELECT id, id_number, first_name, last_name FROM users WHERE role = "student"');
+      const [allStudentRows] = await conn.query('SELECT id, id_number, section_id, first_name, last_name FROM users WHERE role = "student"');
       for (const s of allStudentRows) {
         if (s.id_number) fallbackMap.set(String(s.id_number).trim().toLowerCase(), s.id);
         const fullName1 = `${s.first_name} ${s.last_name}`.trim().toLowerCase();
         const fullName2 = `${s.last_name}, ${s.first_name}`.trim().toLowerCase();
         fallbackMap.set(fullName1, s.id);
         fallbackMap.set(fullName2, s.id);
+        if (s.section_id) studentSectionMap.set(s.id, s.section_id);
       }
+    }
+
+    let resolvedSectionId = Number(sectionId);
+    if (isNaN(resolvedSectionId) || resolvedSectionId <= 0) {
+      resolvedSectionId = null;
     }
 
     const gradesValues = [];
@@ -515,6 +525,13 @@ async function saveEclassGrades(req, res) {
         const keyName = (g.name || '').toString().trim().toLowerCase();
         targetStudentId = fallbackMap.get(keyId) || fallbackMap.get(keyName);
         if (!targetStudentId) continue;
+      }
+
+      // Ensure valid section_id that satisfies FOREIGN KEY (section_id) REFERENCES sections(id)
+      const targetSectionId = resolvedSectionId || studentSectionMap.get(targetStudentId);
+      if (!targetSectionId || isNaN(targetSectionId) || targetSectionId <= 0) {
+        console.warn(`[saveEclassGrades] Skipping student ${targetStudentId}: no valid section_id found in database.`);
+        continue;
       }
 
       if (g.written_works !== undefined || g.average !== undefined) {
@@ -539,7 +556,7 @@ async function saveEclassGrades(req, res) {
         gradesValues.push([
           targetStudentId,
           subjectId,
-          sectionId || 0,
+          targetSectionId,
           termName,
           q,
           a,
@@ -572,7 +589,7 @@ async function saveEclassGrades(req, res) {
             gradesValues.push([
               targetStudentId,
               subjectId,
-              sectionId || 0,
+              targetSectionId,
               t.term,
               q,
               a,
