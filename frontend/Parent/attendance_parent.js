@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const absenceAlertBanner = document.getElementById('absenceAlertBanner');
     const absenceAlertText = document.getElementById('absenceAlertText');
     const attendanceTableBody = document.getElementById('attendanceTableBody');
+    const attendanceSearchInput = document.getElementById('attendanceSearchInput');
     const filterStatusSelect = document.getElementById('filterStatusSelect');
     const filterYearSelect = document.getElementById('filterYearSelect');
     const filterTermSelect = document.getElementById('filterTermSelect');
@@ -304,15 +305,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const selectedStatus = filterStatusSelect ? filterStatusSelect.value : 'all';
         const selectedYear = filterYearSelect ? filterYearSelect.value : 'all';
         const selectedTerm = filterTermSelect ? filterTermSelect.value : 'all';
+        const search = (attendanceSearchInput ? attendanceSearchInput.value : '').trim().toLowerCase();
         const rows = attendanceTableBody.querySelectorAll('tr[data-status]');
 
         rows.forEach(row => {
             const rowStatus = row.getAttribute('data-status');
             const rowDate = row.getAttribute('data-date') || '';
+            const rowText = row.textContent.toLowerCase();
 
             let matchesStatus = (selectedStatus === 'all' || rowStatus === selectedStatus);
             let matchesYear = true;
             let matchesTerm = true;
+            let matchesSearch = true;
 
             if (selectedYear !== 'all') {
                 const sy = getSchoolYearFromDate(rowDate);
@@ -324,7 +328,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 matchesTerm = (term === selectedTerm);
             }
 
-            if (matchesStatus && matchesYear && matchesTerm) {
+            if (search) {
+                matchesSearch = rowText.includes(search) || rowDate.includes(search);
+            }
+
+            if (matchesStatus && matchesYear && matchesTerm && matchesSearch) {
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
@@ -332,6 +340,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (attendanceSearchInput) {
+        attendanceSearchInput.addEventListener('input', filterParentAttendanceTable);
+    }
     if (filterStatusSelect) {
         filterStatusSelect.addEventListener('change', filterParentAttendanceTable);
     }
