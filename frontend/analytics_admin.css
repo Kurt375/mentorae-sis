@@ -295,3 +295,26 @@
 .risk-active-chip .btn-remove-chip:hover {
     color: #dc3545;
 }
+
+/* Checkbox Styling for Selection in Risk Directories */
+.risk-student-checkbox,
+.predictive-student-checkbox,
+#selectAllRisk,
+#selectAllPredictive {
+    width: 1.15rem;
+    height: 1.15rem;
+    cursor: pointer;
+    border-color: #cbd5e1;
+}
+
+.risk-student-checkbox:checked,
+.predictive-student-checkbox:checked,
+#selectAllRisk:checked,
+#selectAllPredictive:checked {
+    background-color: var(--mentorae-green);
+    border-color: var(--mentorae-green);
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}

@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let riskDistributionChart = null;
     let currentRiskStudents = [];
     let filteredRiskStudents = [];
+    const selectedRiskIds = new Set();
 
     // At-Risk Filter & Search DOM Elements
     const riskSearchInput = document.getElementById('riskSearchInput');
@@ -40,25 +41,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnRiskResetFilters = document.getElementById('btnRiskResetFilters');
     const riskResultsCounter = document.getElementById('riskResultsCounter');
     const riskActiveFiltersBadges = document.getElementById('riskActiveFiltersBadges');
+    const selectAllRisk = document.getElementById('selectAllRisk');
+    const riskSelectedBadge = document.getElementById('riskSelectedBadge');
+    const btnExportRiskText = document.getElementById('btnExportRiskText');
+    const btnPrintRiskText = document.getElementById('btnPrintRiskText');
 
-    try {
-        const optsRes = await authedFetch('/api/analytics/filter-options', token);
-        if (optsRes && optsRes.success) {
-            if (filterGradeLevel) {
-                filterGradeLevel.innerHTML = '<option value="all" selected>All Grade Levels</option>' +
-                    (optsRes.grades || []).map((g) => `<option value="${g}">Grade ${g}</option>`).join('');
-            }
-            if (filterStrand) {
-                filterStrand.innerHTML = '<option value="all" selected>All Clusters</option>' +
-                    (optsRes.strands || []).map((st) => `<option value="${st.id}">${st.code} - ${st.title}</option>`).join('');
-            }
-            if (filterSection) {
-                filterSection.innerHTML = '<option value="all" selected>All Sections</option>' +
-                    (optsRes.sections || []).map((sec) => `<option value="${sec.id}">Grade ${sec.grade_level} - ${sec.strandCode} (${sec.name})</option>`).join('');
-            }
+    function populateFilterOptions(optsRes) {
+        if (!optsRes || !optsRes.success) return;
+        if (filterGradeLevel) {
+            filterGradeLevel.innerHTML = '<option value="all" selected>All Grade Levels</option>' +
+                (optsRes.grades || []).map((g) => `<option value="${g}">Grade ${g}</option>`).join('');
         }
-    } catch (e) {
-        console.warn('Could not load analytics filter options:', e);
+        if (filterStrand) {
+            filterStrand.innerHTML = '<option value="all" selected>All Clusters</option>' +
+                (optsRes.strands || []).map((st) => `<option value="${st.id}">${st.code} - ${st.title}</option>`).join('');
+        }
+        if (filterSection) {
+            filterSection.innerHTML = '<option value="all" selected>All Sections</option>' +
+                (optsRes.sections || []).map((sec) => `<option value="${sec.id}">Grade ${sec.grade_level} - ${sec.strandCode} (${sec.name})</option>`).join('');
+        }
     }
 
     function getFilterQuery() {
@@ -76,9 +77,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadCharts() {
         const q = getFilterQuery();
 
-        // Grade Trend line chart
-        const trendData = await authedFetch(`/api/analytics/grade-trend${q}`, token);
-        if (trendData.success) {
+        // Grade Trend and Risk Distribution charts fetched concurrently in parallel
+        const [trendData, riskData] = await Promise.all([
+            authedFetch(`/api/analytics/grade-trend${q}`, token).catch(e => { console.warn(e); return { success: false }; }),
+            authedFetch(`/api/analytics/risk-distribution${q}`, token).catch(e => { console.warn(e); return { success: false }; })
+        ]);
+
+        if (trendData && trendData.success) {
             const canvas = document.getElementById('gradeTrendCanvas');
             if (gradeTrendChart) gradeTrendChart.destroy();
             gradeTrendChart = new Chart(canvas, {
@@ -104,9 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // Risk Distribution donut chart
-        const riskData = await authedFetch(`/api/analytics/risk-distribution${q}`, token);
-        if (riskData.success) {
+        if (riskData && riskData.success) {
             const canvas = document.getElementById('riskDistributionCanvas');
             const atRiskCountEl = document.getElementById('atRiskCount');
             if (atRiskCountEl) {
@@ -193,14 +196,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Predictive Risk Directory (ML: Random Forest forecast for in-progress terms)
-    // Fetched up front so the descriptive directory's "Study Lessons" button can
-    // pull a matching prescriptive recommendation when one exists.
-    const predictiveData = await authedFetch('/api/analytics/predictive-risk', token);
+    // Predictive Risk Directory state
+    let predictiveData = null;
     const predictiveByIdNumber = {};
-    if (predictiveData && predictiveData.success && Array.isArray(predictiveData.predictions)) {
-        predictiveData.predictions.forEach(p => { predictiveByIdNumber[p.idNumber] = p; });
-    }
 
     const modalTitleEl = document.getElementById('recommendModalTitle');
     const modalBodyEl = document.getElementById('recommendModalBody');
@@ -501,6 +499,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        function updateRiskSelectionUI() {
+            const visibleKeys = filteredRiskStudents.map(s => String(s.idNumber || s.studentId || ''));
+            const selectedCount = selectedRiskIds.size;
+
+            if (riskSelectedBadge) {
+                if (selectedCount > 0) {
+                    riskSelectedBadge.textContent = `${selectedCount} selected`;
+                    riskSelectedBadge.classList.remove('d-none');
+                } else {
+                    riskSelectedBadge.classList.add('d-none');
+                }
+            }
+
+            if (btnExportRiskText) {
+                btnExportRiskText.textContent = selectedCount > 0
+                    ? `Export Selected (${selectedCount}) (.xlsx)`
+                    : 'Export At-Risk Roster (.xlsx)';
+            }
+
+            if (btnPrintRiskText) {
+                btnPrintRiskText.textContent = selectedCount > 0
+                    ? `Print Selected (${selectedCount})`
+                    : 'Print Roster';
+            }
+
+            if (selectAllRisk) {
+                const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedRiskIds.has(k));
+                const someChecked = visibleKeys.some(k => selectedRiskIds.has(k));
+                selectAllRisk.checked = allChecked;
+                selectAllRisk.indeterminate = !allChecked && someChecked;
+            }
+        }
+
         const riskClass = {
             High: { badge: 'bg-high-risk text-danger', btn: 'btn-success', label: 'Study Lessons' },
             Medium: { badge: 'bg-medium-risk text-warning', btn: 'btn-success', label: 'Study Lessons' },
@@ -513,13 +544,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const gradeVal = s.overallGrade !== undefined && s.overallGrade !== null ? s.overallGrade : (s.grade !== undefined && s.grade !== null ? s.grade : '—');
             const attVal = s.attendanceRate !== undefined && s.attendanceRate !== null ? s.attendanceRate : '—';
             const sectionBadge = s.section ? `<span class="badge bg-light text-secondary border me-1">${escapeHtml(s.section)}</span>` : '';
+            const studentKey = String(s.idNumber || s.studentId || '');
+            const isChecked = selectedRiskIds.has(studentKey);
+
             return `
                 <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
                     <div class="row align-items-center g-3 text-center text-sm-start">
-                        <div class="col-12 col-sm-6 col-md-7">
-                            <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(s.name)}</h4>
-                            <p class="m-0 micro-text text-muted mt-1">${sectionBadge}Grade: <span class="fw-medium">${gradeVal}%</span> | Attendance: <span class="fw-medium">${attVal}%</span></p>
-                            ${s.detailText ? `<p class="m-0 micro-text ${s.detailColor || 'text-muted'} mt-1">${s.detailText}</p>` : ''}
+                        <div class="col-12 col-sm-6 col-md-7 d-flex align-items-center gap-3 text-start">
+                            <div class="form-check m-0 p-0 d-flex align-items-center flex-shrink-0">
+                                <input class="form-check-input risk-student-checkbox mt-0 cursor-pointer" type="checkbox" value="${escapeHtml(studentKey)}" ${isChecked ? 'checked' : ''} aria-label="Select ${escapeHtml(s.name)}">
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(s.name)}</h4>
+                                <p class="m-0 micro-text text-muted mt-1">${sectionBadge}Grade: <span class="fw-medium">${gradeVal}%</span> | Attendance: <span class="fw-medium">${attVal}%</span></p>
+                                ${s.detailText ? `<p class="m-0 micro-text ${s.detailColor || 'text-muted'} mt-1">${s.detailText}</p>` : ''}
+                            </div>
                         </div>
                         <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
                             <span class="badge risk-tag-badge ${cfg.badge} text-uppercase">${escapeHtml(rawRisk)} Risk</span>
@@ -532,11 +571,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }).join('');
 
+        directoryEl.querySelectorAll('.risk-student-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const val = cb.value;
+                if (cb.checked) {
+                    selectedRiskIds.add(val);
+                } else {
+                    selectedRiskIds.delete(val);
+                }
+                updateRiskSelectionUI();
+            });
+        });
+
         directoryEl.querySelectorAll('.btn-action-recommend').forEach(btn => {
             btn.addEventListener('click', () => {
                 showRecommendModal(btn.dataset.name, predictiveByIdNumber[btn.dataset.idNumber]);
             });
         });
+
+        updateRiskSelectionUI();
     }
 
     // Load and render Student Risk Assessment directory with active filters
@@ -579,8 +632,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await Promise.all([loadCharts(), loadRiskAssessment()]);
     }
 
-    await refreshAll();
-
     if (filterGradeLevel) filterGradeLevel.addEventListener('change', refreshAll);
     if (filterStrand) filterStrand.addEventListener('change', refreshAll);
     if (filterSection) filterSection.addEventListener('change', refreshAll);
@@ -608,6 +659,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnRiskResetFilters.addEventListener('click', resetRiskFilters);
     }
 
+    if (selectAllRisk) {
+        selectAllRisk.addEventListener('change', () => {
+            const checked = selectAllRisk.checked;
+            filteredRiskStudents.forEach(s => {
+                const key = String(s.idNumber || s.studentId || '');
+                if (checked) {
+                    selectedRiskIds.add(key);
+                } else {
+                    selectedRiskIds.delete(key);
+                }
+            });
+            const directoryEl = document.getElementById('riskAssessmentDirectory');
+            if (directoryEl) {
+                directoryEl.querySelectorAll('.risk-student-checkbox').forEach(cb => {
+                    cb.checked = checked;
+                });
+            }
+            if (riskSelectedBadge) {
+                if (selectedRiskIds.size > 0) {
+                    riskSelectedBadge.textContent = `${selectedRiskIds.size} selected`;
+                    riskSelectedBadge.classList.remove('d-none');
+                } else {
+                    riskSelectedBadge.classList.add('d-none');
+                }
+            }
+            if (btnExportRiskText) {
+                btnExportRiskText.textContent = selectedRiskIds.size > 0
+                    ? `Export Selected (${selectedRiskIds.size}) (.xlsx)`
+                    : 'Export At-Risk Roster (.xlsx)';
+            }
+            if (btnPrintRiskText) {
+                btnPrintRiskText.textContent = selectedRiskIds.size > 0
+                    ? `Print Selected (${selectedRiskIds.size})`
+                    : 'Print Roster';
+            }
+        });
+    }
+
     // =========================================================================
     // Export At-Risk Roster to Excel (.xlsx) using xlsx-js-style
     // =========================================================================
@@ -629,10 +718,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
             const activeStudentsList = (filteredRiskStudents && filteredRiskStudents.length > 0) ? filteredRiskStudents : currentRiskStudents;
-            const priorityStudents = activeStudentsList.filter(s => s.risk === 'High' || s.risk === 'Medium');
-            const highCount = currentRiskStudents.filter(s => s.risk === 'High').length;
-            const mediumCount = currentRiskStudents.filter(s => s.risk === 'Medium').length;
-            const lowCount = currentRiskStudents.filter(s => s.risk === 'Low').length;
+            const studentsToExport = selectedRiskIds.size > 0
+                ? activeStudentsList.filter(s => selectedRiskIds.has(String(s.idNumber || s.studentId || '')))
+                : activeStudentsList;
+
+            if (studentsToExport.length === 0) {
+                alert('No student records available or selected to export.');
+                return;
+            }
+
+            const priorityStudents = studentsToExport.filter(s => s.risk === 'High' || s.risk === 'Medium');
+            const highCount = studentsToExport.filter(s => s.risk === 'High').length;
+            const mediumCount = studentsToExport.filter(s => s.risk === 'Medium').length;
+            const lowCount = studentsToExport.filter(s => s.risk === 'Low').length;
 
             const wb = XLSX.utils.book_new();
 
@@ -917,8 +1015,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnPrintRiskRoster = document.getElementById('btnPrintRiskRoster');
     if (btnPrintRiskRoster) {
         btnPrintRiskRoster.addEventListener('click', () => {
-            if (!currentRiskStudents || currentRiskStudents.length === 0) {
-                alert('No student records available to print.');
+            const activeStudents = (filteredRiskStudents && filteredRiskStudents.length > 0) ? filteredRiskStudents : currentRiskStudents;
+            const printStudentsList = selectedRiskIds.size > 0
+                ? activeStudents.filter(s => selectedRiskIds.has(String(s.idNumber || s.studentId || '')))
+                : activeStudents;
+
+            if (!printStudentsList || printStudentsList.length === 0) {
+                alert('No student records available or selected to print.');
                 return;
             }
 
@@ -926,9 +1029,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const strandText = filterStrand && filterStrand.options[filterStrand.selectedIndex] ? filterStrand.options[filterStrand.selectedIndex].text : 'All Clusters';
             const sectionText = filterSection && filterSection.options[filterSection.selectedIndex] ? filterSection.options[filterSection.selectedIndex].text : 'All Sections';
 
-            const highCount = currentRiskStudents.filter(s => s.risk === 'High').length;
-            const mediumCount = currentRiskStudents.filter(s => s.risk === 'Medium').length;
-            const lowCount = currentRiskStudents.filter(s => s.risk === 'Low').length;
+            const highCount = printStudentsList.filter(s => s.risk === 'High').length;
+            const mediumCount = printStudentsList.filter(s => s.risk === 'Medium').length;
+            const lowCount = printStudentsList.filter(s => s.risk === 'Low').length;
 
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
@@ -937,7 +1040,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             let rowsHtml = '';
-            const printStudentsList = (filteredRiskStudents && filteredRiskStudents.length > 0) ? filteredRiskStudents : currentRiskStudents;
             printStudentsList.forEach((s, idx) => {
                 const cleanDetail = (s.detailText || '').replace(/<[^>]+>/g, '').trim();
                 let badgeColor = '#198754';
@@ -1034,6 +1136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =========================================================================
     let currentPredictiveStudents = [];
     let filteredPredictiveStudents = [];
+    const selectedPredictiveIds = new Set();
 
     const predictiveEl = document.getElementById('predictiveRiskDirectory');
     const modelStatusBadge = document.getElementById('modelStatusBadge');
@@ -1045,8 +1148,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnPredictiveResetFilters = document.getElementById('btnPredictiveResetFilters');
     const predictiveResultsCounter = document.getElementById('predictiveResultsCounter');
     const predictiveActiveFiltersBadges = document.getElementById('predictiveActiveFiltersBadges');
+    const selectAllPredictive = document.getElementById('selectAllPredictive');
+    const predictiveSelectedBadge = document.getElementById('predictiveSelectedBadge');
+    const btnExportPredictiveText = document.getElementById('btnExportPredictiveText');
+    const btnPrintPredictiveText = document.getElementById('btnPrintPredictiveText');
     const btnExportPredictiveExcel = document.getElementById('btnExportPredictiveExcel');
     const btnPrintPredictiveRoster = document.getElementById('btnPrintPredictiveRoster');
+
+    function updatePredictiveSelectionUI() {
+        const visibleKeys = filteredPredictiveStudents.map(p => String(p.idNumber || p.studentId || ''));
+        const selectedCount = selectedPredictiveIds.size;
+
+        if (predictiveSelectedBadge) {
+            if (selectedCount > 0) {
+                predictiveSelectedBadge.textContent = `${selectedCount} selected`;
+                predictiveSelectedBadge.classList.remove('d-none');
+            } else {
+                predictiveSelectedBadge.classList.add('d-none');
+            }
+        }
+
+        if (btnExportPredictiveText) {
+            btnExportPredictiveText.textContent = selectedCount > 0
+                ? `Export Selected (${selectedCount}) (.xlsx)`
+                : 'Export ML Forecast (.xlsx)';
+        }
+
+        if (btnPrintPredictiveText) {
+            btnPrintPredictiveText.textContent = selectedCount > 0
+                ? `Print Selected (${selectedCount})`
+                : 'Print Forecast';
+        }
+
+        if (selectAllPredictive) {
+            const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedPredictiveIds.has(k));
+            const someChecked = visibleKeys.some(k => selectedPredictiveIds.has(k));
+            selectAllPredictive.checked = allChecked;
+            selectAllPredictive.indeterminate = !allChecked && someChecked;
+        }
+    }
 
     function populatePredictiveSubjectDropdown(students) {
         if (!predictiveFilterSubject) return;
@@ -1248,23 +1388,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const riskBadge = { High: 'bg-high-risk text-danger', Medium: 'bg-medium-risk text-warning', Low: 'bg-success-subtle text-success' };
-        predictiveEl.innerHTML = filteredPredictiveStudents.map((p, idx) => `
-            <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
-                <div class="row align-items-center g-3 text-center text-sm-start">
-                    <div class="col-12 col-sm-6 col-md-7">
-                        <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(p.name)}</h4>
-                        <p class="m-0 micro-text text-muted mt-1">${escapeHtml(p.subject || '')} · ${escapeHtml(p.term || '')} · Attendance: <span class="fw-medium">${p.attendanceRate ?? '—'}%</span>${p.sectionName ? ' · ' + escapeHtml(p.sectionName) : ''}</p>
-                    </div>
-                    <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
-                        <span class="badge risk-tag-badge ${riskBadge[p.predictedRisk] || 'bg-light text-secondary'} text-uppercase">${escapeHtml(p.predictedRisk)} Risk</span>
-                        <div class="micro-text text-muted mt-1">${p.confidence !== null && p.confidence !== undefined ? Math.round(p.confidence * 100) + '% conf.' : ''}</div>
-                    </div>
-                    <div class="col-12 col-sm-3 col-md-3 text-center text-sm-end">
-                        <button type="button" class="btn btn-action-recommend btn-success w-100 predictive-recommend-btn" data-idx="${idx}">View Actions</button>
+        predictiveEl.innerHTML = filteredPredictiveStudents.map((p, idx) => {
+            const studentKey = String(p.idNumber || p.studentId || '');
+            const isChecked = selectedPredictiveIds.has(studentKey);
+
+            return `
+                <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
+                    <div class="row align-items-center g-3 text-center text-sm-start">
+                        <div class="col-12 col-sm-6 col-md-7 d-flex align-items-center gap-3 text-start">
+                            <div class="form-check m-0 p-0 d-flex align-items-center flex-shrink-0">
+                                <input class="form-check-input predictive-student-checkbox mt-0 cursor-pointer" type="checkbox" value="${escapeHtml(studentKey)}" ${isChecked ? 'checked' : ''} aria-label="Select ${escapeHtml(p.name)}">
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(p.name)}</h4>
+                                <p class="m-0 micro-text text-muted mt-1">${escapeHtml(p.subject || '')} · ${escapeHtml(p.term || '')} · Attendance: <span class="fw-medium">${p.attendanceRate ?? '—'}%</span>${p.sectionName ? ' · ' + escapeHtml(p.sectionName) : ''}</p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
+                            <span class="badge risk-tag-badge ${riskBadge[p.predictedRisk] || 'bg-light text-secondary'} text-uppercase">${escapeHtml(p.predictedRisk)} Risk</span>
+                            <div class="micro-text text-muted mt-1">${p.confidence !== null && p.confidence !== undefined ? Math.round(p.confidence * 100) + '% conf.' : ''}</div>
+                        </div>
+                        <div class="col-12 col-sm-3 col-md-3 text-center text-sm-end">
+                            <button type="button" class="btn btn-action-recommend btn-success w-100 predictive-recommend-btn" data-idx="${idx}">View Actions</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+
+        predictiveEl.querySelectorAll('.predictive-student-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const val = cb.value;
+                if (cb.checked) {
+                    selectedPredictiveIds.add(val);
+                } else {
+                    selectedPredictiveIds.delete(val);
+                }
+                updatePredictiveSelectionUI();
+            });
+        });
 
         predictiveEl.querySelectorAll('.predictive-recommend-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1275,6 +1437,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         });
+
+        updatePredictiveSelectionUI();
     }
 
     if (predictiveSearchInput) {
@@ -1299,24 +1463,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnPredictiveResetFilters.addEventListener('click', resetPredictiveFilters);
     }
 
+    if (selectAllPredictive) {
+        selectAllPredictive.addEventListener('change', () => {
+            const checked = selectAllPredictive.checked;
+            filteredPredictiveStudents.forEach(p => {
+                const key = String(p.idNumber || p.studentId || '');
+                if (checked) {
+                    selectedPredictiveIds.add(key);
+                } else {
+                    selectedPredictiveIds.delete(key);
+                }
+            });
+            predictiveEl.querySelectorAll('.predictive-student-checkbox').forEach(cb => {
+                cb.checked = checked;
+            });
+            if (predictiveSelectedBadge) {
+                if (selectedPredictiveIds.size > 0) {
+                    predictiveSelectedBadge.textContent = `${selectedPredictiveIds.size} selected`;
+                    predictiveSelectedBadge.classList.remove('d-none');
+                } else {
+                    predictiveSelectedBadge.classList.add('d-none');
+                }
+            }
+            if (btnExportPredictiveText) {
+                btnExportPredictiveText.textContent = selectedPredictiveIds.size > 0
+                    ? `Export Selected (${selectedPredictiveIds.size}) (.xlsx)`
+                    : 'Export ML Forecast (.xlsx)';
+            }
+            if (btnPrintPredictiveText) {
+                btnPrintPredictiveText.textContent = selectedPredictiveIds.size > 0
+                    ? `Print Selected (${selectedPredictiveIds.size})`
+                    : 'Print Forecast';
+            }
+        });
+    }
+
     // Initialize Predictive section data & status
-    if (!predictiveData || !predictiveData.success) {
-        if (predictiveEl) predictiveEl.innerHTML = '<p class="text-muted text-center py-3">Could not load predictive analytics.</p>';
-        if (modelStatusBadge) {
-            modelStatusBadge.textContent = 'Error';
-            modelStatusBadge.className = 'badge micro-text border bg-danger-subtle text-danger';
-        }
-    } else {
-        if (modelStatusBadge) {
-            modelStatusBadge.textContent = predictiveData.modelTrained
-                ? `Model trained ${new Date(predictiveData.trainedAt).toLocaleDateString()} · ${predictiveData.modelMeta?.sampleCount ?? '?'} samples`
-                : 'Rule-based fallback — model not trained yet';
-            modelStatusBadge.className = 'badge micro-text border ' + (predictiveData.modelTrained ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning');
+    function initPredictiveSection(data) {
+        predictiveData = data;
+        if (predictiveData && predictiveData.success && Array.isArray(predictiveData.predictions)) {
+            predictiveData.predictions.forEach(p => { predictiveByIdNumber[p.idNumber] = p; });
         }
 
-        currentPredictiveStudents = Array.isArray(predictiveData.predictions) ? predictiveData.predictions : [];
-        populatePredictiveSubjectDropdown(currentPredictiveStudents);
-        applyPredictiveFiltersAndRender();
+        if (!predictiveData || !predictiveData.success) {
+            if (predictiveEl) predictiveEl.innerHTML = '<p class="text-muted text-center py-3">Could not load predictive analytics.</p>';
+            if (modelStatusBadge) {
+                modelStatusBadge.textContent = 'Error';
+                modelStatusBadge.className = 'badge micro-text border bg-danger-subtle text-danger';
+            }
+        } else {
+            if (modelStatusBadge) {
+                modelStatusBadge.textContent = predictiveData.modelTrained
+                    ? `Model trained ${new Date(predictiveData.trainedAt).toLocaleDateString()} · ${predictiveData.modelMeta?.sampleCount ?? '?'} samples`
+                    : 'Rule-based fallback — model not trained yet';
+                modelStatusBadge.className = 'badge micro-text border ' + (predictiveData.modelTrained ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning');
+            }
+
+            currentPredictiveStudents = Array.isArray(predictiveData.predictions) ? predictiveData.predictions : [];
+            populatePredictiveSubjectDropdown(currentPredictiveStudents);
+            applyPredictiveFiltersAndRender();
+        }
     }
 
     // Export ML Predictive Forecast to Excel (.xlsx) using xlsx-js-style
@@ -1333,10 +1539,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const activeStudentsList = (filteredPredictiveStudents && filteredPredictiveStudents.length > 0) ? filteredPredictiveStudents : currentPredictiveStudents;
-            const priorityStudents = activeStudentsList.filter(s => s.predictedRisk === 'High' || s.predictedRisk === 'Medium');
-            const highCount = currentPredictiveStudents.filter(s => s.predictedRisk === 'High').length;
-            const mediumCount = currentPredictiveStudents.filter(s => s.predictedRisk === 'Medium').length;
-            const lowCount = currentPredictiveStudents.filter(s => s.predictedRisk === 'Low').length;
+            const studentsToExport = selectedPredictiveIds.size > 0
+                ? activeStudentsList.filter(s => selectedPredictiveIds.has(String(s.idNumber || s.studentId || '')))
+                : activeStudentsList;
+
+            if (studentsToExport.length === 0) {
+                alert('No student records available or selected to export.');
+                return;
+            }
+
+            const priorityStudents = studentsToExport.filter(s => s.predictedRisk === 'High' || s.predictedRisk === 'Medium');
+            const highCount = studentsToExport.filter(s => s.predictedRisk === 'High').length;
+            const mediumCount = studentsToExport.filter(s => s.predictedRisk === 'Medium').length;
+            const lowCount = studentsToExport.filter(s => s.predictedRisk === 'Low').length;
 
             const wb = XLSX.utils.book_new();
 
@@ -1527,11 +1742,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 XLSX.utils.book_append_sheet(wb, priorityWs, "Priority ML Forecast");
             }
 
-            const allWs = buildPredictiveWorksheet(activeStudentsList, "COMPLETE ML PREDICTIVE & PRESCRIPTIVE FORECAST");
-            XLSX.utils.book_append_sheet(wb, allWs, "All ML Forecasts");
+            const allWs = buildPredictiveWorksheet(studentsToExport, selectedPredictiveIds.size > 0 ? `SELECTED ML PREDICTIVE & PRESCRIPTIVE FORECAST (${studentsToExport.length} LEARNERS)` : "COMPLETE ML PREDICTIVE & PRESCRIPTIVE FORECAST");
+            XLSX.utils.book_append_sheet(wb, allWs, selectedPredictiveIds.size > 0 ? "Selected Forecasts" : "All ML Forecasts");
 
             const today = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `TalisaySHS_ML_Predictive_Prescriptive_Forecast_${today}.xlsx`);
+            const filename = selectedPredictiveIds.size > 0
+                ? `TalisaySHS_ML_Predictive_Selected_${studentsToExport.length}_Learners_${today}.xlsx`
+                : `TalisaySHS_ML_Predictive_Prescriptive_Forecast_${today}.xlsx`;
+            XLSX.writeFile(wb, filename);
         });
     }
 
@@ -1547,18 +1765,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? filteredPredictiveStudents
                 : currentPredictiveStudents;
 
+            const printStudentsList = selectedPredictiveIds.size > 0
+                ? activeStudents.filter(s => selectedPredictiveIds.has(String(s.idNumber || s.studentId || '')))
+                : activeStudents;
+
+            if (!printStudentsList || printStudentsList.length === 0) {
+                alert('No student records available or selected to print.');
+                return;
+            }
+
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
                 alert('Please allow popups to print the roster.');
                 return;
             }
 
-            const highCount = activeStudents.filter(s => s.predictedRisk === 'High').length;
-            const mediumCount = activeStudents.filter(s => s.predictedRisk === 'Medium').length;
-            const lowCount = activeStudents.filter(s => s.predictedRisk === 'Low').length;
+            const highCount = printStudentsList.filter(s => s.predictedRisk === 'High').length;
+            const mediumCount = printStudentsList.filter(s => s.predictedRisk === 'Medium').length;
+            const lowCount = printStudentsList.filter(s => s.predictedRisk === 'Low').length;
 
             let rowsHtml = '';
-            activeStudents.forEach((s, idx) => {
+            printStudentsList.forEach((s, idx) => {
                 let badgeColor = '#198754';
                 let badgeBg = '#d1e7dd';
                 if (s.predictedRisk === 'High') {
@@ -1615,7 +1842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="header-banner d-flex justify-content-between align-items-center">
                         <div>
                             <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
-                            <div class="small fw-semibold text-secondary">ML Predictive & Prescriptive Early Warning System Forecast (Admin)</div>
+                            <div class="small fw-semibold text-secondary">ML Predictive & Prescriptive Early Warning System Forecast (Admin)${selectedPredictiveIds.size > 0 ? ` &bull; Selected ${printStudentsList.length} Learners` : ''}</div>
                             <div class="small text-muted">Academic Year 2026-2027 | Random Forest Forecast for Terms in Progress</div>
                         </div>
                         <div class="text-end">
@@ -1724,5 +1951,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    loadDemographics();
+    async function initDashboard() {
+        try {
+            const [optsRes, predRes] = await Promise.all([
+                authedFetch('/api/analytics/filter-options', token).catch(e => { console.warn('Could not load filter options:', e); return null; }),
+                authedFetch('/api/analytics/predictive-risk', token).catch(e => { console.warn('Could not load predictive risk:', e); return null; }),
+                refreshAll(),
+                loadDemographics()
+            ]);
+
+            if (optsRes) {
+                populateFilterOptions(optsRes);
+            }
+            initPredictiveSection(predRes);
+        } catch (err) {
+            console.error('Error during analytics dashboard initialization:', err);
+        }
+    }
+
+    initDashboard();
 });

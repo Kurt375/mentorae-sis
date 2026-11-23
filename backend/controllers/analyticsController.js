@@ -281,21 +281,31 @@ async function getRiskAssessment(req, res) {
       }
     }
 
-    // Fetch lowest/failing subject per student for targeted intervention recommendations
-    const studentsWithRisk = await Promise.all(
-      rows.map(async (r) => {
-        const [subRows] = await pool.query(
-          `SELECT g.average, sub.id AS subjectId, sub.name AS subjectName
+    // Fetch lowest/failing subject per student for targeted intervention recommendations in a single batch query
+    const lowestSubjectMap = {};
+    if (studentIds.length > 0) {
+      try {
+        const [allGradeRows] = await pool.query(
+          `SELECT g.student_id, g.average, sub.id AS subjectId, sub.name AS subjectName
            FROM grades g
            JOIN subjects sub ON sub.id = g.subject_id
-           WHERE g.student_id = ? AND g.term = ?
-           ORDER BY g.average ASC
-           LIMIT 1`,
-          [r.studentId, currentTerm]
+           WHERE g.student_id IN (?) AND g.term = ?
+           ORDER BY g.student_id, g.average ASC`,
+          [studentIds, currentTerm]
         );
+        for (const gr of allGradeRows) {
+          if (!lowestSubjectMap[gr.student_id]) {
+            lowestSubjectMap[gr.student_id] = gr;
+          }
+        }
+      } catch (gradeErr) {
+        console.warn('Could not batch load student grades:', gradeErr.message);
+      }
+    }
 
-        const lowest = subRows.length > 0 ? subRows[0] : null;
-        const rawRisk = classifyRisk(r.overallGrade, r.attendanceRate);
+    const studentsWithRisk = rows.map((r) => {
+      const lowest = lowestSubjectMap[r.studentId] || null;
+      const rawRisk = classifyRisk(r.overallGrade, r.attendanceRate);
 
         // Check if an active intervention assignment already exists
         const assignment = lowest && lowest.subjectId
@@ -392,8 +402,7 @@ async function getRiskAssessment(req, res) {
           assignedAt,
           action,
         };
-      })
-    );
+    });
 
     // Sort: High Risk first, then Medium, then Low
     const riskOrder = { 'High Risk': 0, 'Medium Risk': 1, 'Low Risk': 2 };

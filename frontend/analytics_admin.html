@@ -215,22 +215,23 @@
             </section>
 
             <section class="mb-4">
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-3">
                     <div>
                         <h3 class="section-title fw-bold mb-0">Student Risk Assessment</h3>
                         <p class="micro-text text-muted mb-0">Summary of identified at-risk students and prescriptive action recommendations</p>
                     </div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-2 flex-nowrap flex-shrink-0">
                         <button type="button"
-                            class="btn btn-sm btn-success btn-export-roster fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            class="btn btn-sm btn-success btn-export-roster text-nowrap fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
                             id="btnExportRiskExcel"
-                            style="background-color: #0a5c2c !important; border-color: #0a5c2c !important; color: #ffffff !important;">
-                            <i class="bi bi-file-earmark-spreadsheet-fill"></i> Export At-Risk Roster (.xlsx)
+                            style="background-color: #0a5c2c !important; border-color: #0a5c2c !important; color: #ffffff !important; white-space: nowrap;">
+                            <i class="bi bi-file-earmark-spreadsheet-fill"></i> <span id="btnExportRiskText">Export At-Risk Roster (.xlsx)</span>
                         </button>
                         <button type="button"
-                            class="btn btn-sm btn-outline-secondary btn-print-roster fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
-                            id="btnPrintRiskRoster">
-                            <i class="bi bi-printer-fill"></i> Print Roster
+                            class="btn btn-sm btn-outline-secondary btn-print-roster text-nowrap fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            id="btnPrintRiskRoster"
+                            style="white-space: nowrap;">
+                            <i class="bi bi-printer-fill"></i> <span id="btnPrintRiskText">Print Roster</span>
                         </button>
                     </div>
                 </div>
@@ -282,8 +283,12 @@
                     </div>
                 </div>
 
-                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex">
-                    <div class="col-sm-6 col-md-7">Student</div>
+                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex align-items-center">
+                    <div class="col-sm-6 col-md-7 d-flex align-items-center gap-2.5">
+                        <input class="form-check-input mt-0 m-0 cursor-pointer" type="checkbox" id="selectAllRisk" title="Select / Deselect All">
+                        <label for="selectAllRisk" class="cursor-pointer mb-0 user-select-none">Student</label>
+                        <span id="riskSelectedBadge" class="badge bg-success-subtle text-success micro-text ms-1 d-none">0 selected</span>
+                    </div>
                     <div class="col-sm-3 col-md-2 text-center">Risk Tags</div>
                     <div class="col-sm-3 col-md-3 text-center text-sm-end">Action Recommendation</div>
                 </div>
@@ -296,7 +301,7 @@
             <hr class="my-5 opacity-25">
 
             <section class="mb-5 pt-1">
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-3">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-0.5">
                             <h3 class="section-title fw-bold mb-0"><i class="bi bi-cpu me-1 text-success"></i>ML Predictive &amp;
@@ -307,17 +312,18 @@
                         <p class="micro-text text-muted mb-0">Random Forest forecast for students with a term still in progress
                             (Quarterly Assessment not yet recorded), with recommended actions.</p>
                     </div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-2 flex-nowrap flex-shrink-0">
                         <button type="button"
-                            class="btn btn-sm btn-success btn-export-roster fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            class="btn btn-sm btn-success btn-export-roster text-nowrap fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
                             id="btnExportPredictiveExcel"
-                            style="background-color: #0a5c2c !important; border-color: #0a5c2c !important; color: #ffffff !important;">
-                            <i class="bi bi-file-earmark-spreadsheet-fill"></i> Export ML Forecast (.xlsx)
+                            style="background-color: #0a5c2c !important; border-color: #0a5c2c !important; color: #ffffff !important; white-space: nowrap;">
+                            <i class="bi bi-file-earmark-spreadsheet-fill"></i> <span id="btnExportPredictiveText">Export ML Forecast (.xlsx)</span>
                         </button>
                         <button type="button"
-                            class="btn btn-sm btn-outline-secondary btn-print-roster fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
-                            id="btnPrintPredictiveRoster">
-                            <i class="bi bi-printer-fill"></i> Print Forecast
+                            class="btn btn-sm btn-outline-secondary btn-print-roster text-nowrap fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            id="btnPrintPredictiveRoster"
+                            style="white-space: nowrap;">
+                            <i class="bi bi-printer-fill"></i> <span id="btnPrintPredictiveText">Print Forecast</span>
                         </button>
                     </div>
                 </div>
@@ -370,8 +376,12 @@
                     </div>
                 </div>
 
-                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex">
-                    <div class="col-sm-6 col-md-7">Student</div>
+                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex align-items-center">
+                    <div class="col-sm-6 col-md-7 d-flex align-items-center gap-2.5">
+                        <input class="form-check-input mt-0 m-0 cursor-pointer" type="checkbox" id="selectAllPredictive" title="Select / Deselect All">
+                        <label for="selectAllPredictive" class="cursor-pointer mb-0 user-select-none">Student</label>
+                        <span id="predictiveSelectedBadge" class="badge bg-success-subtle text-success micro-text ms-1 d-none">0 selected</span>
+                    </div>
                     <div class="col-sm-3 col-md-2 text-center">Predicted Risk</div>
                     <div class="col-sm-3 col-md-3 text-center text-sm-end">Action Recommendation</div>
                 </div>
