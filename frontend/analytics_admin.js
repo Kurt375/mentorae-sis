@@ -1029,48 +1029,627 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Predictive/Prescriptive section: students with a term in progress, ML-forecasted.
+    // =========================================================================
+    // ML Predictive & Prescriptive Insights Directory & Filter Pipeline
+    // =========================================================================
+    let currentPredictiveStudents = [];
+    let filteredPredictiveStudents = [];
+
     const predictiveEl = document.getElementById('predictiveRiskDirectory');
     const modelStatusBadge = document.getElementById('modelStatusBadge');
+    const predictiveSearchInput = document.getElementById('predictiveSearchInput');
+    const btnPredictiveSearchClear = document.getElementById('btnPredictiveSearchClear');
+    const predictiveFilterTier = document.getElementById('predictiveFilterTier');
+    const predictiveFilterCause = document.getElementById('predictiveFilterCause');
+    const predictiveFilterSubject = document.getElementById('predictiveFilterSubject');
+    const btnPredictiveResetFilters = document.getElementById('btnPredictiveResetFilters');
+    const predictiveResultsCounter = document.getElementById('predictiveResultsCounter');
+    const predictiveActiveFiltersBadges = document.getElementById('predictiveActiveFiltersBadges');
+    const btnExportPredictiveExcel = document.getElementById('btnExportPredictiveExcel');
+    const btnPrintPredictiveRoster = document.getElementById('btnPrintPredictiveRoster');
 
-    if (!predictiveData.success) {
-        predictiveEl.innerHTML = '<p class="text-muted text-center py-3">Could not load predictive analytics.</p>';
-        modelStatusBadge.textContent = 'Error';
-    } else {
-        modelStatusBadge.textContent = predictiveData.modelTrained
-            ? `Model trained ${new Date(predictiveData.trainedAt).toLocaleDateString()} · ${predictiveData.modelMeta?.sampleCount ?? '?'} samples`
-            : 'Rule-based fallback — model not trained yet';
-        modelStatusBadge.className = 'badge micro-text border ' + (predictiveData.modelTrained ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning');
+    function populatePredictiveSubjectDropdown(students) {
+        if (!predictiveFilterSubject) return;
+        const currentVal = predictiveFilterSubject.value;
+        const subjectsSet = new Set();
+        (students || []).forEach(s => {
+            const subj = s.subject || s.subjectName;
+            if (subj && subj.trim()) {
+                subjectsSet.add(subj.trim());
+            }
+        });
 
-        if (!predictiveData.predictions.length) {
-            predictiveEl.innerHTML = '<p class="text-muted text-center py-3">No students with a term in progress right now.</p>';
+        const subjects = Array.from(subjectsSet).sort();
+        let opts = '<option value="all">All Subjects</option>';
+        subjects.forEach(subj => {
+            opts += `<option value="${escapeHtml(subj)}">${escapeHtml(subj)}</option>`;
+        });
+        predictiveFilterSubject.innerHTML = opts;
+
+        if (subjectsSet.has(currentVal)) {
+            predictiveFilterSubject.value = currentVal;
         } else {
-            const riskBadge = { High: 'bg-high-risk text-danger', Medium: 'bg-medium-risk text-warning', Low: 'bg-success-subtle text-success' };
-            predictiveEl.innerHTML = predictiveData.predictions.map(p => `
-                <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
-                    <div class="row align-items-center g-3 text-center text-sm-start">
-                        <div class="col-12 col-sm-6 col-md-7">
-                            <h4 class="fw-bold m-0 fs-6 text-dark">${p.name}</h4>
-                            <p class="m-0 micro-text text-muted mt-1">${p.subject} · ${p.term} · Attendance: <span class="fw-medium">${p.attendanceRate ?? '—'}%</span></p>
-                        </div>
-                        <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
-                            <span class="badge risk-tag-badge ${riskBadge[p.predictedRisk]} text-uppercase">${p.predictedRisk} Risk</span>
-                            <div class="micro-text text-muted mt-1">${p.confidence !== null ? Math.round(p.confidence * 100) + '% conf.' : ''}</div>
-                        </div>
-                        <div class="col-12 col-sm-3 col-md-3 text-center text-sm-end">
-                            <button type="button" class="btn btn-action-recommend btn-success w-100 predictive-recommend-btn" data-i="${predictiveData.predictions.indexOf(p)}">View Actions</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            predictiveFilterSubject.value = 'all';
+        }
+    }
 
-            predictiveEl.querySelectorAll('.predictive-recommend-btn').forEach(btn => {
+    function resetPredictiveFilters() {
+        if (predictiveSearchInput) predictiveSearchInput.value = '';
+        if (predictiveFilterTier) predictiveFilterTier.value = 'all';
+        if (predictiveFilterCause) predictiveFilterCause.value = 'all';
+        if (predictiveFilterSubject) predictiveFilterSubject.value = 'all';
+        applyPredictiveFiltersAndRender();
+    }
+
+    function applyPredictiveFiltersAndRender() {
+        if (!predictiveEl) return;
+
+        if (!currentPredictiveStudents || currentPredictiveStudents.length === 0) {
+            filteredPredictiveStudents = [];
+            if (predictiveResultsCounter) predictiveResultsCounter.textContent = 'Showing 0 students';
+            if (predictiveActiveFiltersBadges) predictiveActiveFiltersBadges.innerHTML = '';
+            predictiveEl.innerHTML = `
+                <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
+                    <i class="bi bi-clock-history fs-2 d-block mb-2 text-success opacity-75"></i>
+                    <p class="m-0 fw-semibold">No students with a term in progress right now.</p>
+                    <span class="micro-text text-muted">Quarterly assessments have not yet begun or all terms are completed.</span>
+                </div>
+            `;
+            return;
+        }
+
+        const search = (predictiveSearchInput ? predictiveSearchInput.value : '').trim().toLowerCase();
+        const tier = predictiveFilterTier ? predictiveFilterTier.value : 'all';
+        const cause = predictiveFilterCause ? predictiveFilterCause.value : 'all';
+        const subj = predictiveFilterSubject ? predictiveFilterSubject.value : 'all';
+
+        // Toggle search clear button
+        if (btnPredictiveSearchClear) {
+            if (search.length > 0) {
+                btnPredictiveSearchClear.classList.remove('d-none');
+            } else {
+                btnPredictiveSearchClear.classList.add('d-none');
+            }
+        }
+
+        // Apply filters
+        filteredPredictiveStudents = currentPredictiveStudents.filter(s => {
+            // Risk Tier Filter
+            if (tier !== 'all') {
+                const sTier = (s.predictedRisk || '').toLowerCase();
+                if (!sTier.startsWith(tier.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Root Cause / Risk Driver Filter
+            if (cause === 'academic') {
+                const isAcademic = s.driver === 'academic' || s.driver === 'both' || (s.driverLabel && /academic|quiz|activity|score|grade/i.test(s.driverLabel));
+                if (!isAcademic) return false;
+            } else if (cause === 'attendance') {
+                const att = Number(s.attendanceRate);
+                const isAtt = s.driver === 'attendance' || s.driver === 'both' || (!isNaN(att) && att < 75) || (s.driverLabel && /attendance/i.test(s.driverLabel));
+                if (!isAtt) return false;
+            } else if (cause === 'both') {
+                const att = Number(s.attendanceRate);
+                const isCompound = s.driver === 'both' || ((s.driver === 'academic' || (s.driverLabel && /academic|quiz|score/i.test(s.driverLabel))) && (!isNaN(att) && att < 75));
+                if (!isCompound) return false;
+            }
+
+            // Subject Filter
+            if (subj !== 'all') {
+                const sSubj = (s.subject || s.subjectName || '').toLowerCase();
+                if (sSubj !== subj.toLowerCase()) {
+                    return false;
+                }
+            }
+
+            // Search Filter (Name, LRN/ID, Subject, Section, Driver Label)
+            if (search) {
+                const name = (s.name || '').toLowerCase();
+                const idNumber = (s.idNumber || '').toLowerCase();
+                const sSubj = (s.subject || s.subjectName || '').toLowerCase();
+                const sec = (s.sectionName || '').toLowerCase();
+                const driver = (s.driverLabel || '').toLowerCase();
+
+                if (!name.includes(search) &&
+                    !idNumber.includes(search) &&
+                    !sSubj.includes(search) &&
+                    !sec.includes(search) &&
+                    !driver.includes(search)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Update Results Counter & Filter Indicator Badges
+        const totalCount = currentPredictiveStudents.length;
+        const filteredCount = filteredPredictiveStudents.length;
+        const hasActiveFilters = Boolean(search || tier !== 'all' || cause !== 'all' || subj !== 'all');
+
+        if (predictiveResultsCounter) {
+            if (hasActiveFilters) {
+                predictiveResultsCounter.innerHTML = `Showing <strong>${filteredCount}</strong> of <strong>${totalCount}</strong> forecasted learners <span class="badge bg-success-subtle text-success ms-1">Filtered</span>`;
+            } else {
+                predictiveResultsCounter.innerHTML = `Showing all <strong>${totalCount}</strong> evaluated learners`;
+            }
+        }
+
+        if (predictiveActiveFiltersBadges) {
+            const badges = [];
+            if (search) {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Search: "${escapeHtml(search)}"
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="search"></i>
+                    </span>
+                `);
+            }
+            if (tier !== 'all') {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Tier: ${escapeHtml(tier)}
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="tier"></i>
+                    </span>
+                `);
+            }
+            if (cause !== 'all') {
+                const causeLabel = cause === 'academic' ? 'Academic Failure' : (cause === 'attendance' ? 'Attendance Issue' : 'Compound Cause');
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Cause: ${escapeHtml(causeLabel)}
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="cause"></i>
+                    </span>
+                `);
+            }
+            if (subj !== 'all') {
+                badges.push(`
+                    <span class="risk-active-chip">
+                        Subject: ${escapeHtml(subj)}
+                        <i class="bi bi-x-circle-fill btn-remove-chip" data-filter="subj"></i>
+                    </span>
+                `);
+            }
+
+            predictiveActiveFiltersBadges.innerHTML = badges.join('');
+
+            predictiveActiveFiltersBadges.querySelectorAll('.btn-remove-chip').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const p = predictiveData.predictions[Number(btn.dataset.i)];
-                    showRecommendModal(p.name, p);
+                    const type = btn.getAttribute('data-filter');
+                    if (type === 'search' && predictiveSearchInput) predictiveSearchInput.value = '';
+                    if (type === 'tier' && predictiveFilterTier) predictiveFilterTier.value = 'all';
+                    if (type === 'cause' && predictiveFilterCause) predictiveFilterCause.value = 'all';
+                    if (type === 'subj' && predictiveFilterSubject) predictiveFilterSubject.value = 'all';
+                    applyPredictiveFiltersAndRender();
                 });
             });
         }
+
+        if (filteredPredictiveStudents.length === 0) {
+            predictiveEl.innerHTML = `
+                <div class="card p-4 border-0 shadow-sm bg-white rounded-4 text-center text-muted">
+                    <i class="bi bi-search fs-2 d-block mb-2 text-warning opacity-75"></i>
+                    <p class="m-0 fw-semibold">No students match your active search or filter criteria.</p>
+                    <span class="micro-text text-muted">Try clearing your search term or adjusting the risk tier dropdown.</span>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" id="btnEmptyResetPredictiveFilters">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                        </button>
+                    </div>
+                </div>
+            `;
+            const emptyBtn = document.getElementById('btnEmptyResetPredictiveFilters');
+            if (emptyBtn) {
+                emptyBtn.addEventListener('click', resetPredictiveFilters);
+            }
+            return;
+        }
+
+        const riskBadge = { High: 'bg-high-risk text-danger', Medium: 'bg-medium-risk text-warning', Low: 'bg-success-subtle text-success' };
+        predictiveEl.innerHTML = filteredPredictiveStudents.map((p, idx) => `
+            <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
+                <div class="row align-items-center g-3 text-center text-sm-start">
+                    <div class="col-12 col-sm-6 col-md-7">
+                        <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(p.name)}</h4>
+                        <p class="m-0 micro-text text-muted mt-1">${escapeHtml(p.subject || '')} · ${escapeHtml(p.term || '')} · Attendance: <span class="fw-medium">${p.attendanceRate ?? '—'}%</span>${p.sectionName ? ' · ' + escapeHtml(p.sectionName) : ''}</p>
+                    </div>
+                    <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
+                        <span class="badge risk-tag-badge ${riskBadge[p.predictedRisk] || 'bg-light text-secondary'} text-uppercase">${escapeHtml(p.predictedRisk)} Risk</span>
+                        <div class="micro-text text-muted mt-1">${p.confidence !== null && p.confidence !== undefined ? Math.round(p.confidence * 100) + '% conf.' : ''}</div>
+                    </div>
+                    <div class="col-12 col-sm-3 col-md-3 text-center text-sm-end">
+                        <button type="button" class="btn btn-action-recommend btn-success w-100 predictive-recommend-btn" data-idx="${idx}">View Actions</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        predictiveEl.querySelectorAll('.predictive-recommend-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = Number(btn.dataset.idx);
+                const p = filteredPredictiveStudents[idx];
+                if (p) {
+                    showRecommendModal(p.name, p);
+                }
+            });
+        });
+    }
+
+    if (predictiveSearchInput) {
+        predictiveSearchInput.addEventListener('input', applyPredictiveFiltersAndRender);
+    }
+    if (btnPredictiveSearchClear) {
+        btnPredictiveSearchClear.addEventListener('click', () => {
+            if (predictiveSearchInput) predictiveSearchInput.value = '';
+            applyPredictiveFiltersAndRender();
+        });
+    }
+    if (predictiveFilterTier) {
+        predictiveFilterTier.addEventListener('change', applyPredictiveFiltersAndRender);
+    }
+    if (predictiveFilterCause) {
+        predictiveFilterCause.addEventListener('change', applyPredictiveFiltersAndRender);
+    }
+    if (predictiveFilterSubject) {
+        predictiveFilterSubject.addEventListener('change', applyPredictiveFiltersAndRender);
+    }
+    if (btnPredictiveResetFilters) {
+        btnPredictiveResetFilters.addEventListener('click', resetPredictiveFilters);
+    }
+
+    // Initialize Predictive section data & status
+    if (!predictiveData || !predictiveData.success) {
+        if (predictiveEl) predictiveEl.innerHTML = '<p class="text-muted text-center py-3">Could not load predictive analytics.</p>';
+        if (modelStatusBadge) {
+            modelStatusBadge.textContent = 'Error';
+            modelStatusBadge.className = 'badge micro-text border bg-danger-subtle text-danger';
+        }
+    } else {
+        if (modelStatusBadge) {
+            modelStatusBadge.textContent = predictiveData.modelTrained
+                ? `Model trained ${new Date(predictiveData.trainedAt).toLocaleDateString()} · ${predictiveData.modelMeta?.sampleCount ?? '?'} samples`
+                : 'Rule-based fallback — model not trained yet';
+            modelStatusBadge.className = 'badge micro-text border ' + (predictiveData.modelTrained ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning');
+        }
+
+        currentPredictiveStudents = Array.isArray(predictiveData.predictions) ? predictiveData.predictions : [];
+        populatePredictiveSubjectDropdown(currentPredictiveStudents);
+        applyPredictiveFiltersAndRender();
+    }
+
+    // Export ML Predictive Forecast to Excel (.xlsx) using xlsx-js-style
+    if (btnExportPredictiveExcel) {
+        btnExportPredictiveExcel.addEventListener('click', () => {
+            if (typeof XLSX === 'undefined') {
+                alert('Excel export library is loading. Please try again in a moment.');
+                return;
+            }
+
+            if (!currentPredictiveStudents || currentPredictiveStudents.length === 0) {
+                alert('No forecasted student records available to export.');
+                return;
+            }
+
+            const activeStudentsList = (filteredPredictiveStudents && filteredPredictiveStudents.length > 0) ? filteredPredictiveStudents : currentPredictiveStudents;
+            const priorityStudents = activeStudentsList.filter(s => s.predictedRisk === 'High' || s.predictedRisk === 'Medium');
+            const highCount = currentPredictiveStudents.filter(s => s.predictedRisk === 'High').length;
+            const mediumCount = currentPredictiveStudents.filter(s => s.predictedRisk === 'Medium').length;
+            const lowCount = currentPredictiveStudents.filter(s => s.predictedRisk === 'Low').length;
+
+            const wb = XLSX.utils.book_new();
+
+            function buildPredictiveWorksheet(studentsList, sheetCategoryTitle) {
+                const ws = {};
+                const merges = [];
+                const rowHeights = [];
+
+                function setCell(r, c, val, style, type = 's') {
+                    const colLetter = String.fromCharCode(65 + c);
+                    const cellKey = colLetter + (r + 1);
+                    ws[cellKey] = { v: val, t: type, s: style };
+                }
+
+                const thinBorder = { style: 'thin', color: { rgb: 'D0D7DE' } };
+                const cellBorder = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+                // --- ROW 0: School Header Banner ---
+                rowHeights.push({ hpt: 28 });
+                merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } });
+                for (let c = 0; c <= 8; c++) {
+                    setCell(0, c, c === 0 ? "TALISAY SENIOR HIGH SCHOOL" : "", {
+                        font: { name: "Calibri", sz: 14, bold: true, color: { rgb: "FFFFFF" } },
+                        fill: { fgColor: { rgb: "0A5C2C" } },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    });
+                }
+
+                // --- ROW 1: System Title Ribbon ---
+                rowHeights.push({ hpt: 20 });
+                merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 8 } });
+                for (let c = 0; c <= 8; c++) {
+                    setCell(1, c, c === 0 ? "MENTORAE - ML PREDICTIVE & PRESCRIPTIVE FORECAST ROSTER" : "", {
+                        font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "E6F4EA" } },
+                        fill: { fgColor: { rgb: "074520" } },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    });
+                }
+
+                // --- ROW 2: Category Subtitle ---
+                rowHeights.push({ hpt: 22 });
+                merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 8 } });
+                for (let c = 0; c <= 8; c++) {
+                    setCell(2, c, c === 0 ? sheetCategoryTitle : "", {
+                        font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "0A5C2C" } },
+                        fill: { fgColor: { rgb: "E8F5E9" } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: { bottom: { style: "medium", color: { rgb: "0A5C2C" } } }
+                    });
+                }
+
+                // --- ROW 3: Metadata Info ---
+                rowHeights.push({ hpt: 19 });
+                merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 2 } });
+                merges.push({ s: { r: 3, c: 3 }, e: { r: 3, c: 5 } });
+                merges.push({ s: { r: 3, c: 6 }, e: { r: 3, c: 8 } });
+
+                const metaLeft = { font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "4A5568" } }, fill: { fgColor: { rgb: "F8F9FA" } }, alignment: { horizontal: "left", vertical: "center" } };
+                const metaCenter = { font: { name: "Calibri", sz: 9, color: { rgb: "4A5568" } }, fill: { fgColor: { rgb: "F8F9FA" } }, alignment: { horizontal: "center", vertical: "center" } };
+                const metaRight = { font: { name: "Calibri", sz: 9, italic: true, color: { rgb: "718096" } }, fill: { fgColor: { rgb: "F8F9FA" } }, alignment: { horizontal: "right", vertical: "center" } };
+
+                for (let c = 0; c <= 2; c++) setCell(3, c, c === 0 ? "Academic Year: 2026-2027" : "", metaLeft);
+                for (let c = 3; c <= 5; c++) setCell(3, c, c === 3 ? "Generated: " + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "", metaCenter);
+                for (let c = 6; c <= 8; c++) setCell(3, c, c === 6 ? "Classification: DepEd EWS Random Forest AI Forecast" : "", metaRight);
+
+                // --- ROW 4: KPI Summary Cards ---
+                rowHeights.push({ hpt: 24 });
+                merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 1 } });
+                merges.push({ s: { r: 4, c: 2 }, e: { r: 4, c: 3 } });
+                merges.push({ s: { r: 4, c: 4 }, e: { r: 4, c: 5 } });
+                merges.push({ s: { r: 4, c: 6 }, e: { r: 4, c: 8 } });
+
+                const kpiHigh = { font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "991B1B" } }, fill: { fgColor: { rgb: "FEE2E2" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: 'thin', color: { rgb: 'FCA5A5' } }, bottom: { style: 'thin', color: { rgb: 'FCA5A5' } }, left: { style: 'thin', color: { rgb: 'FCA5A5' } }, right: { style: 'thin', color: { rgb: 'FCA5A5' } } } };
+                const kpiMed = { font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "92400E" } }, fill: { fgColor: { rgb: "FEF3C7" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: 'thin', color: { rgb: 'FCD34D' } }, bottom: { style: 'thin', color: { rgb: 'FCD34D' } }, left: { style: 'thin', color: { rgb: 'FCD34D' } }, right: { style: 'thin', color: { rgb: 'FCD34D' } } } };
+                const kpiLow = { font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "166534" } }, fill: { fgColor: { rgb: "DCFCE7" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: 'thin', color: { rgb: '86EFAC' } }, bottom: { style: 'thin', color: { rgb: '86EFAC' } }, left: { style: 'thin', color: { rgb: '86EFAC' } }, right: { style: 'thin', color: { rgb: '86EFAC' } } } };
+                const kpiTot = { font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "1E40AF" } }, fill: { fgColor: { rgb: "DBEAFE" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: 'thin', color: { rgb: '93C5FD' } }, bottom: { style: 'thin', color: { rgb: '93C5FD' } }, left: { style: 'thin', color: { rgb: '93C5FD' } }, right: { style: 'thin', color: { rgb: '93C5FD' } } } };
+
+                for (let c = 0; c <= 1; c++) setCell(4, c, c === 0 ? `HIGH RISK FORECAST: ${highCount}` : "", kpiHigh);
+                for (let c = 2; c <= 3; c++) setCell(4, c, c === 2 ? `MEDIUM RISK: ${mediumCount}` : "", kpiMed);
+                for (let c = 4; c <= 5; c++) setCell(4, c, c === 4 ? `LOW RISK: ${lowCount}` : "", kpiLow);
+                for (let c = 6; c <= 8; c++) setCell(4, c, c === 6 ? `TOTAL FORECASTED: ${currentPredictiveStudents.length} LEARNERS` : "", kpiTot);
+
+                // --- ROW 5: Spacing Row ---
+                rowHeights.push({ hpt: 10 });
+                for (let c = 0; c <= 8; c++) setCell(5, c, "", {});
+
+                // --- ROW 6: Table Headers ---
+                rowHeights.push({ hpt: 28 });
+                const headers = [
+                    "No.",
+                    "Student ID / LRN",
+                    "Learner Full Name",
+                    "Subject & Term",
+                    "Section",
+                    "Attendance",
+                    "Forecasted Risk",
+                    "ML Confidence",
+                    "Identified Risk Driver & Recommended Action"
+                ];
+
+                const headerStyle = {
+                    font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "0A5C2C" } },
+                    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                    border: {
+                        top: { style: "medium", color: { rgb: "063E1D" } },
+                        bottom: { style: "medium", color: { rgb: "063E1D" } },
+                        left: { style: "thin", color: { rgb: "074724" } },
+                        right: { style: "thin", color: { rgb: "074724" } }
+                    }
+                };
+
+                headers.forEach((h, c) => {
+                    setCell(6, c, h, headerStyle);
+                });
+
+                // --- ROW 7+: Student Rows ---
+                let curRow = 7;
+                studentsList.forEach((s, idx) => {
+                    rowHeights.push({ hpt: 24 });
+                    const isEven = idx % 2 === 0;
+                    const rowBg = isEven ? "FFFFFF" : "F9FAF9";
+
+                    let riskFill = 'DCFCE7';
+                    let riskFontColor = '166534';
+                    let riskBorderColor = '86EFAC';
+                    const rUpper = (s.predictedRisk || '').toUpperCase();
+                    if (rUpper === 'HIGH') {
+                        riskFill = 'FEE2E2';
+                        riskFontColor = '991B1B';
+                        riskBorderColor = 'FCA5A5';
+                    } else if (rUpper === 'MEDIUM') {
+                        riskFill = 'FEF3C7';
+                        riskFontColor = '92400E';
+                        riskBorderColor = 'FCD34D';
+                    }
+
+                    const rowStyle = {
+                        fill: { fgColor: { rgb: rowBg } },
+                        border: cellBorder,
+                        font: { name: "Calibri", sz: 9, color: { rgb: "1E293B" } },
+                        alignment: { vertical: "center" }
+                    };
+
+                    const firstAction = (s.recommendedActions && s.recommendedActions.length > 0)
+                        ? (typeof s.recommendedActions[0] === 'string' ? s.recommendedActions[0] : (s.recommendedActions[0].action || ''))
+                        : 'Monitor student progress';
+                    const driverDetail = `${s.driverLabel || s.driver || 'Coursework & Attendance'} — Action: ${firstAction}`;
+
+                    setCell(curRow, 0, idx + 1, { ...rowStyle, alignment: { horizontal: "center", vertical: "center" } }, 'n');
+                    setCell(curRow, 1, s.idNumber || 'N/A', { ...rowStyle, font: { name: "Consolas", sz: 9, color: { rgb: "475569" } }, alignment: { horizontal: "center", vertical: "center" } });
+                    setCell(curRow, 2, s.name || '', { ...rowStyle, font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "0F172A" } } });
+                    setCell(curRow, 3, `${s.subject || ''} (${s.term || ''})`, rowStyle);
+                    setCell(curRow, 4, s.sectionName || 'N/A', rowStyle);
+                    setCell(curRow, 5, s.attendanceRate !== null && s.attendanceRate !== undefined ? `${s.attendanceRate}%` : '--', { ...rowStyle, alignment: { horizontal: "center", vertical: "center" } });
+                    setCell(curRow, 6, `${s.predictedRisk} Risk`, {
+                        font: { name: "Calibri", sz: 9, bold: true, color: { rgb: riskFontColor } },
+                        fill: { fgColor: { rgb: riskFill } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: { top: { style: 'thin', color: { rgb: riskBorderColor } }, bottom: { style: 'thin', color: { rgb: riskBorderColor } }, left: { style: 'thin', color: { rgb: riskBorderColor } }, right: { style: 'thin', color: { rgb: riskBorderColor } } }
+                    });
+                    setCell(curRow, 7, s.confidence !== null && s.confidence !== undefined ? `${Math.round(s.confidence * 100)}%` : '--', { ...rowStyle, alignment: { horizontal: "center", vertical: "center" } });
+                    setCell(curRow, 8, driverDetail, { ...rowStyle, font: { name: "Calibri", sz: 8.5, color: { rgb: "334155" } } });
+
+                    curRow++;
+                });
+
+                ws['!merges'] = merges;
+                ws['!rows'] = rowHeights;
+                ws['!cols'] = [
+                    { wch: 6 },   // No.
+                    { wch: 16 },  // Student ID
+                    { wch: 28 },  // Learner Name
+                    { wch: 24 },  // Subject & Term
+                    { wch: 18 },  // Section
+                    { wch: 14 },  // Attendance
+                    { wch: 18 },  // Forecasted Risk
+                    { wch: 14 },  // Confidence
+                    { wch: 48 }   // Driver & Action
+                ];
+                ws['!ref'] = `A1:I${curRow}`;
+
+                return ws;
+            }
+
+            if (priorityStudents.length > 0) {
+                const priorityWs = buildPredictiveWorksheet(priorityStudents, "PRIORITY HIGH & MEDIUM RISK ML FORECAST");
+                XLSX.utils.book_append_sheet(wb, priorityWs, "Priority ML Forecast");
+            }
+
+            const allWs = buildPredictiveWorksheet(activeStudentsList, "COMPLETE ML PREDICTIVE & PRESCRIPTIVE FORECAST");
+            XLSX.utils.book_append_sheet(wb, allWs, "All ML Forecasts");
+
+            const today = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `TalisaySHS_ML_Predictive_Prescriptive_Forecast_${today}.xlsx`);
+        });
+    }
+
+    // Print ML Predictive Forecast Roster
+    if (btnPrintPredictiveRoster) {
+        btnPrintPredictiveRoster.addEventListener('click', () => {
+            if (!currentPredictiveStudents || currentPredictiveStudents.length === 0) {
+                alert('No forecasted student records available to print.');
+                return;
+            }
+
+            const activeStudents = (filteredPredictiveStudents && filteredPredictiveStudents.length > 0)
+                ? filteredPredictiveStudents
+                : currentPredictiveStudents;
+
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert('Please allow popups to print the roster.');
+                return;
+            }
+
+            const highCount = activeStudents.filter(s => s.predictedRisk === 'High').length;
+            const mediumCount = activeStudents.filter(s => s.predictedRisk === 'Medium').length;
+            const lowCount = activeStudents.filter(s => s.predictedRisk === 'Low').length;
+
+            let rowsHtml = '';
+            activeStudents.forEach((s, idx) => {
+                let badgeColor = '#198754';
+                let badgeBg = '#d1e7dd';
+                if (s.predictedRisk === 'High') {
+                    badgeColor = '#dc3545';
+                    badgeBg = '#f8d7da';
+                } else if (s.predictedRisk === 'Medium') {
+                    badgeColor = '#856404';
+                    badgeBg = '#fff3cd';
+                }
+
+                const firstAction = (s.recommendedActions && s.recommendedActions.length > 0)
+                    ? (typeof s.recommendedActions[0] === 'string' ? s.recommendedActions[0] : (s.recommendedActions[0].action || ''))
+                    : 'Monitor progress';
+
+                rowsHtml += `
+                    <tr>
+                        <td style="text-align: center;">${idx + 1}</td>
+                        <td><code>${escapeHtml(s.idNumber || 'N/A')}</code></td>
+                        <td><strong>${escapeHtml(s.name)}</strong></td>
+                        <td>${escapeHtml(s.subject || '')} (${escapeHtml(s.term || '')})</td>
+                        <td>${escapeHtml(s.sectionName || 'General')}</td>
+                        <td style="text-align: center;">${s.attendanceRate !== null && s.attendanceRate !== undefined ? s.attendanceRate + '%' : '--'}</td>
+                        <td style="text-align: center;">
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.75rem; color: ${badgeColor}; background-color: ${badgeBg};">
+                                ${escapeHtml(s.predictedRisk)} Risk
+                            </span>
+                        </td>
+                        <td style="text-align: center;">${s.confidence !== null && s.confidence !== undefined ? Math.round(s.confidence * 100) + '%' : '--'}</td>
+                        <td><small>${escapeHtml(s.driverLabel || s.driver || '')} — ${escapeHtml(firstAction)}</small></td>
+                    </tr>
+                `;
+            });
+
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>ML Predictive & Prescriptive Forecast - Talisay SHS (Admin)</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        @page { size: landscape; margin: 1cm; }
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 1rem; color: #1e293b; }
+                        .header-banner { border-bottom: 2px solid #0a5c2c; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+                        table { font-size: 0.85rem; }
+                        th { background-color: #0a5c2c !important; color: white !important; }
+                        @media print { .no-print { display: none !important; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="no-print d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted small">Print Preview (ML Predictive Forecast)</span>
+                        <button class="btn btn-sm btn-primary" onclick="window.print()">Print Now</button>
+                    </div>
+                    <div class="header-banner d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="m-0 fw-bold" style="color: #0a5c2c;">TALISAY SENIOR HIGH SCHOOL</h4>
+                            <div class="small fw-semibold text-secondary">ML Predictive & Prescriptive Early Warning System Forecast (Admin)</div>
+                            <div class="small text-muted">Academic Year 2026-2027 | Random Forest Forecast for Terms in Progress</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-danger">High Risk: ${highCount}</span>
+                            <span class="badge bg-warning text-dark">Medium: ${mediumCount}</span>
+                            <span class="badge bg-success">Low Risk: ${lowCount}</span>
+                            <div class="micro-text text-muted mt-1">Generated: ${new Date().toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 4%;">#</th>
+                                <th style="width: 13%;">Student ID</th>
+                                <th style="width: 18%;">Learner Name</th>
+                                <th style="width: 16%;">Subject & Term</th>
+                                <th style="width: 12%;">Section</th>
+                                <th style="width: 7%; text-align: center;">Att.</th>
+                                <th style="width: 11%; text-align: center;">Forecast</th>
+                                <th style="width: 7%; text-align: center;">Conf.</th>
+                                <th style="width: 22%;">Identified Driver & Prescriptive Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+            printWindow.focus();
+        });
     }
 
     // =========================================================================

@@ -292,15 +292,89 @@
                 </div>
             </section>
 
-            <section class="mb-2">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <h3 class="section-title fw-bold m-0"><i class="bi bi-cpu me-1 text-success"></i>ML Predictive &amp;
-                        Prescriptive Insights</h3>
-                    <span class="badge bg-light text-secondary border micro-text" id="modelStatusBadge">Checking
-                        model…</span>
+            <!-- Distinct Section Separator for ML Forecast -->
+            <hr class="my-5 opacity-25">
+
+            <section class="mb-5 pt-1">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-0.5">
+                            <h3 class="section-title fw-bold mb-0"><i class="bi bi-cpu me-1 text-success"></i>ML Predictive &amp;
+                                Prescriptive Insights</h3>
+                            <span class="badge bg-light text-secondary border micro-text" id="modelStatusBadge">Checking
+                                model…</span>
+                        </div>
+                        <p class="micro-text text-muted mb-0">Random Forest forecast for students with a term still in progress
+                            (Quarterly Assessment not yet recorded), with recommended actions.</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button type="button"
+                            class="btn btn-sm btn-success btn-export-roster fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            id="btnExportPredictiveExcel"
+                            style="background-color: #0a5c2c !important; border-color: #0a5c2c !important; color: #ffffff !important;">
+                            <i class="bi bi-file-earmark-spreadsheet-fill"></i> Export ML Forecast (.xlsx)
+                        </button>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-secondary btn-print-roster fw-semibold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            id="btnPrintPredictiveRoster">
+                            <i class="bi bi-printer-fill"></i> Print Forecast
+                        </button>
+                    </div>
                 </div>
-                <p class="small text-secondary mb-3">Random Forest forecast for students with a term still in progress
-                    (Quarterly Assessment not yet recorded), with recommended actions.</p>
+
+                <!-- Search and Filters Bar for ML Forecasted Students -->
+                <div class="card border-0 shadow-sm p-3 rounded-4 bg-white mb-3 risk-filter-toolbar">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-12 col-md-4">
+                            <div class="input-group input-group-sm risk-search-group">
+                                <span class="input-group-text bg-white border-end-0 text-muted ps-2.5 pe-1.5"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control border-start-0 border-end-0 ps-1" id="predictiveSearchInput" placeholder="Search by name, LRN, or subject...">
+                                <button class="btn btn-outline-secondary border-start-0 text-muted d-none" type="button" id="btnPredictiveSearchClear" title="Clear Search">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <select class="form-select form-select-sm risk-filter-select" id="predictiveFilterTier" aria-label="Filter Risk Tier">
+                                <option value="all" selected>All Risk Tiers</option>
+                                <option value="High">High Risk Only</option>
+                                <option value="Medium">Medium Risk Only</option>
+                                <option value="Low">Low Risk Only</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <select class="form-select form-select-sm risk-filter-select" id="predictiveFilterCause" aria-label="Filter Risk Factor">
+                                <option value="all" selected>All Risk Causes</option>
+                                <option value="academic">Academic Failure (Quiz/Activity)</option>
+                                <option value="attendance">Attendance Issue (&lt; 75%)</option>
+                                <option value="both">Compound (Academic &amp; Attendance)</option>
+                            </select>
+                        </div>
+                        <div class="col-8 col-md-2">
+                            <select class="form-select form-select-sm risk-filter-select" id="predictiveFilterSubject" aria-label="Filter Subject">
+                                <option value="all" selected>All Subjects</option>
+                            </select>
+                        </div>
+                        <div class="col-4 col-md-1 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 fw-semibold d-inline-flex align-items-center justify-content-center gap-1" id="btnPredictiveResetFilters" title="Reset Filters">
+                                <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-md-inline">Reset</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2.5 pt-2 border-top micro-text text-muted flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-1.5">
+                            <i class="bi bi-funnel-fill text-success"></i>
+                            <span id="predictiveResultsCounter" class="fw-semibold text-dark">Showing all students</span>
+                        </div>
+                        <div id="predictiveActiveFiltersBadges" class="d-flex gap-1 flex-wrap"></div>
+                    </div>
+                </div>
+
+                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex">
+                    <div class="col-sm-6 col-md-7">Student</div>
+                    <div class="col-sm-3 col-md-2 text-center">Predicted Risk</div>
+                    <div class="col-sm-3 col-md-3 text-center text-sm-end">Action Recommendation</div>
+                </div>
 
                 <div class="d-flex flex-column gap-2" id="predictiveRiskDirectory">
                 </div>
@@ -333,7 +407,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="config.js"></script>
     <script src="session.js"></script>
-    <script src="analytics_admin.js?v=20261009-1"></script>
+    <script src="analytics_admin.js?v=20261123-1"></script>
 </body>
 
 </html>
