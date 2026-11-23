@@ -13,6 +13,7 @@ const {
   getDemographics,
   exportDemographics,
   exportAcademicTrends,
+  notifyTeacherIntervention,
 } = require('../controllers/analyticsController');
 
 router.use(requireAuth, requireRole('admin', 'teacher'));
@@ -22,6 +23,7 @@ router.get('/risk-distribution', getRiskDistribution);
 router.get('/risk-directory', getRiskDirectory);
 router.get('/risk-assessment', getRiskAssessment);
 router.get('/predictive-risk', getPredictiveRisk);
+router.post('/notify-teacher-intervention', requireRole('admin'), notifyTeacherIntervention);
 router.get('/system-status', requireRole('admin'), getSystemStatus);
 router.get('/institutional-overview', requireRole('admin'), getInstitutionalOverview);
 router.get('/demographics', requireRole('admin'), getDemographics);

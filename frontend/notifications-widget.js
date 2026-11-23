@@ -352,6 +352,10 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                 window.location.href = 'dashboard_student.html#my-recommendations';
                 return;
             }
+            if (userRole === 'teacher' && isIntervention) {
+                window.location.href = inTeacherDir ? 'class_management_teacher.html' : 'Teacher/class_management_teacher.html';
+                return;
+            }
             if (panel.classList.contains('d-none')) {
                 positionPanel();
                 panel.classList.remove('d-none');
@@ -691,13 +695,18 @@ function initNotificationBell(buttonId, token, explicitRole = null) {
                 }
             } else if (isIntervention) {
                 category = 'other';
-                badgeLabel = 'Intervention Lesson';
+                badgeLabel = userRole === 'teacher' ? 'Intervention Directive' : 'Intervention Lesson';
                 badgeClass = 'bg-success-subtle text-success border border-success-subtle';
                 iconClass = 'bi-journal-check';
                 iconBg = '#d5ebd5';
                 iconColor = '#1f6e1f';
-                actionUrl = 'dashboard_student.html#my-recommendations';
-                actionLabel = "View Assigned Lesson →";
+                if (userRole === 'teacher') {
+                    actionUrl = inTeacherDir ? 'class_management_teacher.html' : 'Teacher/class_management_teacher.html';
+                    actionLabel = 'Manage Intervention & Lessons →';
+                } else {
+                    actionUrl = 'dashboard_student.html#my-recommendations';
+                    actionLabel = "View Assigned Lesson →";
+                }
             } else if (isTopicApproved) {
                 category = 'other';
                 badgeLabel = 'Topic Approved';

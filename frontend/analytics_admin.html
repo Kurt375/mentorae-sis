@@ -317,8 +317,14 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="recommendModalBody"></div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="modal-footer d-flex justify-content-between align-items-center">
+                    <div class="micro-text text-muted" id="recommendModalStatus"></div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary px-3 py-1.5 rounded-pill micro-text fw-semibold" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-success px-3.5 py-1.5 rounded-pill micro-text fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm" id="btnNotifyTeacherIntervention">
+                            <i class="bi bi-send-check"></i> Notify Subject Teacher
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

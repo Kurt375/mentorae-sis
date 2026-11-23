@@ -8,6 +8,7 @@ const riskModel = require('../ml/riskModel');
 const { buildRecommendations } = require('../ml/prescriptive');
 const { getManilaDate } = require('../utils/dateUtils');
 const { getActiveTermConfig } = require('../utils/termUtils');
+const { notify } = require('../utils/notifications');
 
 /** GET /api/analytics/filter-options — provides available grade levels, strands, and sections */
 async function getFilterOptions(req, res) {
@@ -444,10 +445,12 @@ async function getPredictiveRisk(req, res) {
 
     const [rows] = await pool.query(
       `SELECT g.id AS gradeId, u.id AS studentId, u.id_number, u.first_name, u.middle_initial, u.last_name,
-              sub.name AS subjectName, g.term, g.quiz_score, g.activity_score, g.exam_score,
+              u.section_id AS sectionId, sec.name AS sectionName,
+              sub.id AS subjectId, sub.name AS subjectName, g.term, g.quiz_score, g.activity_score, g.exam_score,
               (SELECT ROUND(100 * SUM(status IN ('present','late')) / COUNT(*)) FROM attendance_logs WHERE student_id = u.id AND scan_date >= ?) AS attendanceRate
        FROM grades g
        JOIN users u ON u.id = g.student_id
+       LEFT JOIN sections sec ON sec.id = u.section_id
        JOIN subjects sub ON sub.id = g.subject_id
        WHERE u.role = 'student' AND (g.exam_score IS NULL OR g.exam_score = 0) AND g.term = ?
        ORDER BY g.updated_at DESC`,
@@ -484,6 +487,9 @@ async function getPredictiveRisk(req, res) {
         studentId: r.studentId,
         idNumber: r.id_number,
         name: `${r.first_name} ${r.middle_initial ? r.middle_initial + ' ' : ''}${r.last_name}`,
+        sectionId: r.sectionId,
+        sectionName: r.sectionName,
+        subjectId: r.subjectId,
         subject: r.subjectName,
         term: r.term,
         attendanceRate: r.attendanceRate,
@@ -2187,6 +2193,190 @@ async function exportAcademicTrends(req, res) {
   }
 }
 
+/**
+ * POST /api/analytics/notify-teacher-intervention
+ * Admin dispatches an academic intervention directive to the subject teacher or adviser
+ * Body: { studentId, idNumber, subjectId, subjectName, sectionId, predictedRisk, driverLabel, recommendedActions }
+ */
+async function notifyTeacherIntervention(req, res) {
+  try {
+    const {
+      studentId,
+      idNumber,
+      subjectId,
+      subjectName,
+      sectionId,
+      predictedRisk,
+      driverLabel,
+      recommendedActions,
+    } = req.body;
+
+    if (!studentId && !idNumber) {
+      return res.status(400).json({ success: false, message: 'Student information is required.' });
+    }
+
+    // 1. Resolve student info
+    let studentRows;
+    if (studentId) {
+      [studentRows] = await pool.query(
+        `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.section_id,
+                sec.name AS section_name, sec.adviser_id
+         FROM users u
+         LEFT JOIN sections sec ON sec.id = u.section_id
+         WHERE u.id = ? AND u.role = 'student'`,
+        [studentId]
+      );
+    } else {
+      [studentRows] = await pool.query(
+        `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name, u.section_id,
+                sec.name AS section_name, sec.adviser_id
+         FROM users u
+         LEFT JOIN sections sec ON sec.id = u.section_id
+         WHERE u.id_number = ? AND u.role = 'student'`,
+        [idNumber]
+      );
+    }
+
+    if (!studentRows || studentRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Student record not found.' });
+    }
+
+    const student = studentRows[0];
+    const resolvedStudentId = student.id;
+    const studentFullName = `${student.first_name} ${student.middle_initial ? student.middle_initial + ' ' : ''}${student.last_name}`;
+    const studentSectionId = sectionId || student.section_id;
+    const studentSectionName = student.section_name || 'Enrolled';
+
+    // 2. Resolve target subject ID / name
+    let resolvedSubjectId = subjectId;
+    let resolvedSubjectName = subjectName;
+    if (!resolvedSubjectId && resolvedSubjectName) {
+      const [subjRows] = await pool.query(
+        'SELECT id, name FROM subjects WHERE name = ? OR code = ? LIMIT 1',
+        [resolvedSubjectName, resolvedSubjectName]
+      );
+      if (subjRows && subjRows.length > 0) {
+        resolvedSubjectId = subjRows[0].id;
+        resolvedSubjectName = subjRows[0].name;
+      }
+    } else if (resolvedSubjectId && !resolvedSubjectName) {
+      const [subjRows] = await pool.query('SELECT id, name FROM subjects WHERE id = ? LIMIT 1', [resolvedSubjectId]);
+      if (subjRows && subjRows.length > 0) {
+        resolvedSubjectName = subjRows[0].name;
+      }
+    }
+
+    // 3. Resolve Teacher:
+    // Priority A: Teacher assigned to this subject + section in schedules
+    let targetTeacher = null;
+    let assignmentRole = 'Subject Teacher';
+
+    if (studentSectionId && resolvedSubjectId) {
+      const [schedRows] = await pool.query(
+        `SELECT u.id, u.first_name, u.middle_initial, u.last_name, u.email
+         FROM schedules sch
+         JOIN users u ON u.id = sch.teacher_id
+         WHERE sch.section_id = ? AND sch.subject_id = ? AND u.role = 'teacher' AND u.is_active = 1
+         LIMIT 1`,
+        [studentSectionId, resolvedSubjectId]
+      );
+      if (schedRows && schedRows.length > 0) {
+        targetTeacher = schedRows[0];
+        assignmentRole = `Subject Teacher (${resolvedSubjectName || 'Assigned Subject'})`;
+      }
+    }
+
+    // Priority B: Section Adviser
+    if (!targetTeacher && student.adviser_id) {
+      const [adviserRows] = await pool.query(
+        `SELECT u.id, u.first_name, u.middle_initial, u.last_name, u.email
+         FROM users u
+         WHERE u.id = ? AND u.role = 'teacher' AND u.is_active = 1
+         LIMIT 1`,
+        [student.adviser_id]
+      );
+      if (adviserRows && adviserRows.length > 0) {
+        targetTeacher = adviserRows[0];
+        assignmentRole = `Class Adviser (${studentSectionName})`;
+      }
+    }
+
+    // Priority C: Any active teacher associated with the section
+    if (!targetTeacher && studentSectionId) {
+      const [secTeacherRows] = await pool.query(
+        `SELECT u.id, u.first_name, u.middle_initial, u.last_name, u.email
+         FROM schedules sch
+         JOIN users u ON u.id = sch.teacher_id
+         WHERE sch.section_id = ? AND u.role = 'teacher' AND u.is_active = 1
+         LIMIT 1`,
+        [studentSectionId]
+      );
+      if (secTeacherRows && secTeacherRows.length > 0) {
+        targetTeacher = secTeacherRows[0];
+        assignmentRole = 'Faculty Instructor';
+      }
+    }
+
+    // Priority D: Fallback to any active teacher in the system
+    if (!targetTeacher) {
+      const [anyTeacher] = await pool.query(
+        `SELECT u.id, u.first_name, u.middle_initial, u.last_name, u.email
+         FROM users u
+         WHERE u.role = 'teacher' AND u.is_active = 1
+         ORDER BY u.id ASC
+         LIMIT 1`
+      );
+      if (anyTeacher && anyTeacher.length > 0) {
+        targetTeacher = anyTeacher[0];
+        assignmentRole = 'Department Faculty';
+      }
+    }
+
+    if (!targetTeacher) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active teacher or class adviser found to receive the academic directive.',
+      });
+    }
+
+    const teacherFullName = `${targetTeacher.first_name} ${targetTeacher.middle_initial ? targetTeacher.middle_initial + ' ' : ''}${targetTeacher.last_name}`;
+
+    // 4. Construct directive content
+    const notifTitle = `Academic Directive: Intervention Request for ${studentFullName}`;
+
+    let actionNotes = '';
+    if (Array.isArray(recommendedActions) && recommendedActions.length > 0) {
+      actionNotes = recommendedActions.map((a) => `• ${a}`).join('\n');
+    } else {
+      actionNotes = '• Schedule remedial lab make-up sessions or teacher-guided practice.\n• Assign targeted review lessons via the Learning Resources portal.';
+    }
+
+    const notifMessage = `Administrator has issued an academic intervention directive for student ${studentFullName} (${studentSectionName}) in ${resolvedSubjectName || 'their in-progress subject'}.\nPredicted Risk Level: ${predictedRisk || 'High'} ${driverLabel ? `(Primary Driver: ${driverLabel})` : ''}\n\nRecommended Directives:\n${actionNotes}`;
+
+    // 5. Dispatch notification
+    await notify({
+      recipientId: targetTeacher.id,
+      type: 'academic_intervention',
+      title: notifTitle,
+      message: notifMessage,
+      relatedStudentId: resolvedStudentId,
+    });
+
+    return res.json({
+      success: true,
+      message: `Directive successfully dispatched to ${teacherFullName} (${assignmentRole}).`,
+      teacherName: teacherFullName,
+      teacherRole: assignmentRole,
+      teacherEmail: targetTeacher.email,
+      studentName: studentFullName,
+      subjectName: resolvedSubjectName,
+    });
+  } catch (err) {
+    console.error('notifyTeacherIntervention error:', err);
+    return res.status(500).json({ success: false, message: 'Could not send teacher intervention directive.' });
+  }
+}
+
 module.exports = {
   getFilterOptions,
   getGradeTrend,
@@ -2199,5 +2389,6 @@ module.exports = {
   getDemographics,
   exportDemographics,
   exportAcademicTrends,
+  notifyTeacherIntervention,
 };
 

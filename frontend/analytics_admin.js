@@ -204,25 +204,94 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const modalTitleEl = document.getElementById('recommendModalTitle');
     const modalBodyEl = document.getElementById('recommendModalBody');
-    const recommendModal = new bootstrap.Modal(document.getElementById('recommendModal'));
+    const recommendModalEl = document.getElementById('recommendModal');
+    const recommendModal = new bootstrap.Modal(recommendModalEl);
+    const btnNotifyTeacher = document.getElementById('btnNotifyTeacherIntervention');
+    const recommendStatusEl = document.getElementById('recommendModalStatus');
+
+    let currentActivePrediction = null;
 
     function showRecommendModal(name, prediction) {
+        currentActivePrediction = prediction || null;
         modalTitleEl.textContent = `Recommended Actions — ${name}`;
+        if (recommendStatusEl) recommendStatusEl.innerHTML = '';
+
         if (!prediction) {
             modalBodyEl.innerHTML = '<p class="text-muted m-0">No ML forecast available for this student right now — they may not have a term in progress, or the predictive model has not been trained yet.</p>';
+            if (btnNotifyTeacher) btnNotifyTeacher.style.display = 'none';
         } else {
+            if (btnNotifyTeacher) {
+                btnNotifyTeacher.style.display = 'inline-flex';
+                btnNotifyTeacher.disabled = false;
+                btnNotifyTeacher.className = 'btn btn-success px-3.5 py-1.5 rounded-pill micro-text fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm';
+                btnNotifyTeacher.innerHTML = '<i class="bi bi-send-check"></i> Notify Subject Teacher';
+            }
             const confidencePct = prediction.confidence !== null ? `${Math.round(prediction.confidence * 100)}%` : '—';
             modalBodyEl.innerHTML = `
-                <p class="small text-secondary mb-2">${prediction.subject} · ${prediction.term}</p>
-                <p class="mb-2"><span class="badge risk-tag-badge ${prediction.predictedRisk === 'High' ? 'bg-high-risk text-danger' : 'bg-medium-risk text-warning'} text-uppercase">${prediction.predictedRisk} Risk (forecast)</span>
+                <p class="small text-secondary mb-2">${escapeHtml(prediction.subject)} · ${escapeHtml(prediction.term)}</p>
+                <p class="mb-2"><span class="badge risk-tag-badge ${prediction.predictedRisk === 'High' ? 'bg-high-risk text-danger' : 'bg-medium-risk text-warning'} text-uppercase">${escapeHtml(prediction.predictedRisk)} Risk (forecast)</span>
                 <span class="micro-text text-muted ms-2">Model confidence: ${confidencePct}</span></p>
-                <p class="small mb-2"><strong>Main driver:</strong> ${prediction.driverLabel}</p>
+                <p class="small mb-2"><strong>Main driver:</strong> ${escapeHtml(prediction.driverLabel)}</p>
                 <ul class="small mb-0 ps-3">
-                    ${prediction.recommendedActions.map(a => `<li class="mb-1">${a}</li>`).join('')}
+                    ${(prediction.recommendedActions || []).map(a => `<li class="mb-1">${escapeHtml(a)}</li>`).join('')}
                 </ul>
             `;
         }
         recommendModal.show();
+    }
+
+    if (btnNotifyTeacher) {
+        btnNotifyTeacher.addEventListener('click', async () => {
+            if (!currentActivePrediction) return;
+            btnNotifyTeacher.disabled = true;
+            btnNotifyTeacher.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Sending Directive...';
+            if (recommendStatusEl) {
+                recommendStatusEl.innerHTML = '<span class="text-secondary"><i class="bi bi-hourglass-split me-1"></i>Contacting faculty...</span>';
+            }
+
+            try {
+                const payload = {
+                    studentId: currentActivePrediction.studentId,
+                    idNumber: currentActivePrediction.idNumber,
+                    subjectId: currentActivePrediction.subjectId,
+                    subjectName: currentActivePrediction.subject,
+                    sectionId: currentActivePrediction.sectionId,
+                    predictedRisk: currentActivePrediction.predictedRisk,
+                    driverLabel: currentActivePrediction.driverLabel,
+                    recommendedActions: currentActivePrediction.recommendedActions
+                };
+
+                const res = await authedFetch('/api/analytics/notify-teacher-intervention', token, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res && res.success) {
+                    btnNotifyTeacher.disabled = true;
+                    btnNotifyTeacher.className = 'btn btn-outline-success px-3.5 py-1.5 rounded-pill micro-text fw-bold d-inline-flex align-items-center gap-1.5';
+                    btnNotifyTeacher.innerHTML = '<i class="bi bi-check-circle-fill"></i> Directive Sent';
+                    if (recommendStatusEl) {
+                        recommendStatusEl.innerHTML = `<span class="text-success"><i class="bi bi-check2-circle me-1"></i>Sent to <strong>${escapeHtml(res.teacherName)}</strong></span>`;
+                    }
+                } else {
+                    btnNotifyTeacher.disabled = false;
+                    btnNotifyTeacher.className = 'btn btn-warning px-3.5 py-1.5 rounded-pill micro-text fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm';
+                    btnNotifyTeacher.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry Directive';
+                    if (recommendStatusEl) {
+                        recommendStatusEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${escapeHtml(res?.message || 'Could not notify teacher.')}</span>`;
+                    }
+                }
+            } catch (err) {
+                console.error('Error notifying teacher:', err);
+                btnNotifyTeacher.disabled = false;
+                btnNotifyTeacher.className = 'btn btn-danger px-3.5 py-1.5 rounded-pill micro-text fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm';
+                btnNotifyTeacher.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry Directive';
+                if (recommendStatusEl) {
+                    recommendStatusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Network or server error.</span>';
+                }
+            }
+        });
     }
 
     // =========================================================================
