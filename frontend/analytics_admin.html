@@ -283,17 +283,25 @@
                     </div>
                 </div>
 
-                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex align-items-center">
-                    <div class="col-sm-6 col-md-7 d-flex align-items-center gap-2.5">
-                        <input class="form-check-input mt-0 m-0 cursor-pointer" type="checkbox" id="selectAllRisk" title="Select / Deselect All">
-                        <label for="selectAllRisk" class="cursor-pointer mb-0 user-select-none">Student</label>
-                        <span id="riskSelectedBadge" class="badge bg-success-subtle text-success micro-text ms-1 d-none">0 selected</span>
-                    </div>
-                    <div class="col-sm-3 col-md-2 text-center">Risk Tags</div>
-                    <div class="col-sm-3 col-md-3 text-center text-sm-end">Action Recommendation</div>
-                </div>
+                <!-- Table Container with Horizontal Scrolling -->
+                <div class="table-responsive-custom overflow-x-auto pb-2" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                    <div style="min-width: 820px;">
+                        <div class="px-3 py-2 mb-1">
+                            <div class="row align-items-center g-3 text-secondary micro-text fw-semibold">
+                                <div class="col-6 col-md-7 d-flex align-items-center gap-3">
+                                    <input class="form-check-input cursor-pointer m-0 flex-shrink-0" type="checkbox" id="selectAllRisk" title="Select / Deselect All">
+                                    <label for="selectAllRisk" class="cursor-pointer mb-0 user-select-none text-nowrap fw-semibold">Student</label>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none micro-text fw-bold text-success text-nowrap" id="btnToggleSelectAllRisk">Select All</button>
+                                    <span id="riskSelectedBadge" class="badge bg-success-subtle text-success micro-text ms-1 d-none text-nowrap">0 selected</span>
+                                </div>
+                                <div class="col-3 col-md-2 text-center text-nowrap">Risk Tags</div>
+                                <div class="col-3 col-md-3 text-center text-sm-end text-nowrap">Action Recommendation</div>
+                            </div>
+                        </div>
 
-                <div class="d-flex flex-column gap-2" id="riskAssessmentDirectory">
+                        <div class="d-flex flex-column gap-2" id="riskAssessmentDirectory">
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -376,17 +384,25 @@
                     </div>
                 </div>
 
-                <div class="row px-3 py-1 text-secondary micro-text fw-semibold d-none d-sm-flex align-items-center">
-                    <div class="col-sm-6 col-md-7 d-flex align-items-center gap-2.5">
-                        <input class="form-check-input mt-0 m-0 cursor-pointer" type="checkbox" id="selectAllPredictive" title="Select / Deselect All">
-                        <label for="selectAllPredictive" class="cursor-pointer mb-0 user-select-none">Student</label>
-                        <span id="predictiveSelectedBadge" class="badge bg-success-subtle text-success micro-text ms-1 d-none">0 selected</span>
-                    </div>
-                    <div class="col-sm-3 col-md-2 text-center">Predicted Risk</div>
-                    <div class="col-sm-3 col-md-3 text-center text-sm-end">Action Recommendation</div>
-                </div>
+                <!-- Table Container with Horizontal Scrolling -->
+                <div class="table-responsive-custom overflow-x-auto pb-2" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                    <div style="min-width: 820px;">
+                        <div class="px-3 py-2 mb-1">
+                            <div class="row align-items-center g-3 text-secondary micro-text fw-semibold">
+                                <div class="col-6 col-md-7 d-flex align-items-center gap-3">
+                                    <input class="form-check-input cursor-pointer m-0 flex-shrink-0" type="checkbox" id="selectAllPredictive" title="Select / Deselect All">
+                                    <label for="selectAllPredictive" class="cursor-pointer mb-0 user-select-none text-nowrap fw-semibold">Student</label>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none micro-text fw-bold text-success text-nowrap" id="btnToggleSelectAllPredictive">Select All</button>
+                                    <span id="predictiveSelectedBadge" class="badge bg-success-subtle text-success micro-text ms-1 d-none text-nowrap">0 selected</span>
+                                </div>
+                                <div class="col-3 col-md-2 text-center text-nowrap">Predicted Risk</div>
+                                <div class="col-3 col-md-3 text-center text-sm-end text-nowrap">Action Recommendation</div>
+                            </div>
+                        </div>
 
-                <div class="d-flex flex-column gap-2" id="predictiveRiskDirectory">
+                        <div class="d-flex flex-column gap-2" id="predictiveRiskDirectory">
+                        </div>
+                    </div>
                 </div>
             </section>
 

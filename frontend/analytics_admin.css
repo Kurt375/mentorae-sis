@@ -301,20 +301,50 @@
 .predictive-student-checkbox,
 #selectAllRisk,
 #selectAllPredictive {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.15rem !important;
+    height: 1.15rem !important;
+    min-width: 1.15rem !important;
+    min-height: 1.15rem !important;
     cursor: pointer;
     border-color: #cbd5e1;
+    margin: 0 !important;
+    float: none !important;
+    flex-shrink: 0 !important;
+    border-radius: 4px;
 }
 
 .risk-student-checkbox:checked,
 .predictive-student-checkbox:checked,
 #selectAllRisk:checked,
 #selectAllPredictive:checked {
-    background-color: var(--mentorae-green);
-    border-color: var(--mentorae-green);
+    background-color: var(--mentorae-green) !important;
+    border-color: var(--mentorae-green) !important;
 }
 
 .cursor-pointer {
     cursor: pointer;
+}
+
+/* Horizontal Scrolling Table / Roster Container */
+.table-responsive-custom {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.table-responsive-custom::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive-custom::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.table-responsive-custom::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.table-responsive-custom::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }

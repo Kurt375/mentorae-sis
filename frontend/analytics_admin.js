@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const riskResultsCounter = document.getElementById('riskResultsCounter');
     const riskActiveFiltersBadges = document.getElementById('riskActiveFiltersBadges');
     const selectAllRisk = document.getElementById('selectAllRisk');
+    const btnToggleSelectAllRisk = document.getElementById('btnToggleSelectAllRisk');
     const riskSelectedBadge = document.getElementById('riskSelectedBadge');
     const btnExportRiskText = document.getElementById('btnExportRiskText');
     const btnPrintRiskText = document.getElementById('btnPrintRiskText');
@@ -524,11 +525,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : 'Print Roster';
             }
 
+            const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedRiskIds.has(k));
+            const someChecked = visibleKeys.some(k => selectedRiskIds.has(k));
+
             if (selectAllRisk) {
-                const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedRiskIds.has(k));
-                const someChecked = visibleKeys.some(k => selectedRiskIds.has(k));
                 selectAllRisk.checked = allChecked;
                 selectAllRisk.indeterminate = !allChecked && someChecked;
+            }
+
+            if (btnToggleSelectAllRisk) {
+                btnToggleSelectAllRisk.textContent = allChecked ? 'Deselect All' : 'Select All';
             }
         }
 
@@ -549,21 +555,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             return `
                 <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
-                    <div class="row align-items-center g-3 text-center text-sm-start">
-                        <div class="col-12 col-sm-6 col-md-7 d-flex align-items-center gap-3 text-start">
-                            <div class="form-check m-0 p-0 d-flex align-items-center flex-shrink-0">
-                                <input class="form-check-input risk-student-checkbox mt-0 cursor-pointer" type="checkbox" value="${escapeHtml(studentKey)}" ${isChecked ? 'checked' : ''} aria-label="Select ${escapeHtml(s.name)}">
-                            </div>
+                    <div class="row align-items-center g-3 text-start">
+                        <div class="col-6 col-md-7 d-flex align-items-center gap-3 text-start">
+                            <input class="form-check-input risk-student-checkbox cursor-pointer m-0 flex-shrink-0" type="checkbox" value="${escapeHtml(studentKey)}" ${isChecked ? 'checked' : ''} aria-label="Select ${escapeHtml(s.name)}">
                             <div class="flex-grow-1 min-w-0">
-                                <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(s.name)}</h4>
-                                <p class="m-0 micro-text text-muted mt-1">${sectionBadge}Grade: <span class="fw-medium">${gradeVal}%</span> | Attendance: <span class="fw-medium">${attVal}%</span></p>
-                                ${s.detailText ? `<p class="m-0 micro-text ${s.detailColor || 'text-muted'} mt-1">${s.detailText}</p>` : ''}
+                                <h4 class="fw-bold m-0 fs-6 text-dark text-truncate">${escapeHtml(s.name)}</h4>
+                                <p class="m-0 micro-text text-muted mt-1 text-truncate">${sectionBadge}Grade: <span class="fw-medium">${gradeVal}%</span> | Attendance: <span class="fw-medium">${attVal}%</span></p>
+                                ${s.detailText ? `<p class="m-0 micro-text ${s.detailColor || 'text-muted'} mt-1 text-truncate">${s.detailText}</p>` : ''}
                             </div>
                         </div>
-                        <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
+                        <div class="col-3 col-md-2 text-center border-start-sm">
                             <span class="badge risk-tag-badge ${cfg.badge} text-uppercase">${escapeHtml(rawRisk)} Risk</span>
                         </div>
-                        <div class="col-12 col-sm-3 col-md-3 text-center text-sm-end">
+                        <div class="col-3 col-md-3 text-end">
                             <button type="button" class="btn btn-action-recommend ${cfg.btn} w-100" data-id-number="${escapeHtml(s.idNumber)}" data-name="${escapeHtml(s.name)}">${cfg.label}</button>
                         </div>
                     </div>
@@ -659,6 +663,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnRiskResetFilters.addEventListener('click', resetRiskFilters);
     }
 
+    if (btnToggleSelectAllRisk) {
+        btnToggleSelectAllRisk.addEventListener('click', (e) => {
+            e.preventDefault();
+            const visibleKeys = filteredRiskStudents.map(s => String(s.idNumber || s.studentId || ''));
+            const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedRiskIds.has(k));
+            filteredRiskStudents.forEach(s => {
+                const key = String(s.idNumber || s.studentId || '');
+                if (allChecked) {
+                    selectedRiskIds.delete(key);
+                } else {
+                    selectedRiskIds.add(key);
+                }
+            });
+            const directoryEl = document.getElementById('riskAssessmentDirectory');
+            if (directoryEl) {
+                directoryEl.querySelectorAll('.risk-student-checkbox').forEach(cb => {
+                    cb.checked = !allChecked;
+                });
+            }
+            updateRiskSelectionUI();
+        });
+    }
+
     if (selectAllRisk) {
         selectAllRisk.addEventListener('change', () => {
             const checked = selectAllRisk.checked;
@@ -676,24 +703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     cb.checked = checked;
                 });
             }
-            if (riskSelectedBadge) {
-                if (selectedRiskIds.size > 0) {
-                    riskSelectedBadge.textContent = `${selectedRiskIds.size} selected`;
-                    riskSelectedBadge.classList.remove('d-none');
-                } else {
-                    riskSelectedBadge.classList.add('d-none');
-                }
-            }
-            if (btnExportRiskText) {
-                btnExportRiskText.textContent = selectedRiskIds.size > 0
-                    ? `Export Selected (${selectedRiskIds.size}) (.xlsx)`
-                    : 'Export At-Risk Roster (.xlsx)';
-            }
-            if (btnPrintRiskText) {
-                btnPrintRiskText.textContent = selectedRiskIds.size > 0
-                    ? `Print Selected (${selectedRiskIds.size})`
-                    : 'Print Roster';
-            }
+            updateRiskSelectionUI();
         });
     }
 
@@ -1149,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const predictiveResultsCounter = document.getElementById('predictiveResultsCounter');
     const predictiveActiveFiltersBadges = document.getElementById('predictiveActiveFiltersBadges');
     const selectAllPredictive = document.getElementById('selectAllPredictive');
+    const btnToggleSelectAllPredictive = document.getElementById('btnToggleSelectAllPredictive');
     const predictiveSelectedBadge = document.getElementById('predictiveSelectedBadge');
     const btnExportPredictiveText = document.getElementById('btnExportPredictiveText');
     const btnPrintPredictiveText = document.getElementById('btnPrintPredictiveText');
@@ -1180,11 +1191,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 'Print Forecast';
         }
 
+        const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedPredictiveIds.has(k));
+        const someChecked = visibleKeys.some(k => selectedPredictiveIds.has(k));
+
         if (selectAllPredictive) {
-            const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedPredictiveIds.has(k));
-            const someChecked = visibleKeys.some(k => selectedPredictiveIds.has(k));
             selectAllPredictive.checked = allChecked;
             selectAllPredictive.indeterminate = !allChecked && someChecked;
+        }
+
+        if (btnToggleSelectAllPredictive) {
+            btnToggleSelectAllPredictive.textContent = allChecked ? 'Deselect All' : 'Select All';
         }
     }
 
@@ -1394,21 +1410,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             return `
                 <div class="card row-student-item p-3 border-0 shadow-sm bg-white rounded-3">
-                    <div class="row align-items-center g-3 text-center text-sm-start">
-                        <div class="col-12 col-sm-6 col-md-7 d-flex align-items-center gap-3 text-start">
-                            <div class="form-check m-0 p-0 d-flex align-items-center flex-shrink-0">
-                                <input class="form-check-input predictive-student-checkbox mt-0 cursor-pointer" type="checkbox" value="${escapeHtml(studentKey)}" ${isChecked ? 'checked' : ''} aria-label="Select ${escapeHtml(p.name)}">
-                            </div>
+                    <div class="row align-items-center g-3 text-start">
+                        <div class="col-6 col-md-7 d-flex align-items-center gap-3 text-start">
+                            <input class="form-check-input predictive-student-checkbox cursor-pointer m-0 flex-shrink-0" type="checkbox" value="${escapeHtml(studentKey)}" ${isChecked ? 'checked' : ''} aria-label="Select ${escapeHtml(p.name)}">
                             <div class="flex-grow-1 min-w-0">
-                                <h4 class="fw-bold m-0 fs-6 text-dark">${escapeHtml(p.name)}</h4>
-                                <p class="m-0 micro-text text-muted mt-1">${escapeHtml(p.subject || '')} · ${escapeHtml(p.term || '')} · Attendance: <span class="fw-medium">${p.attendanceRate ?? '—'}%</span>${p.sectionName ? ' · ' + escapeHtml(p.sectionName) : ''}</p>
+                                <h4 class="fw-bold m-0 fs-6 text-dark text-truncate">${escapeHtml(p.name)}</h4>
+                                <p class="m-0 micro-text text-muted mt-1 text-truncate">${escapeHtml(p.subject || '')} &bull; ${escapeHtml(p.term || '')} &bull; Att: <span class="fw-medium">${p.attendanceRate ?? '—'}%</span>${p.sectionName ? ' &bull; ' + escapeHtml(p.sectionName) : ''}</p>
                             </div>
                         </div>
-                        <div class="col-12 col-sm-3 col-md-2 text-center border-start-sm">
+                        <div class="col-3 col-md-2 text-center border-start-sm">
                             <span class="badge risk-tag-badge ${riskBadge[p.predictedRisk] || 'bg-light text-secondary'} text-uppercase">${escapeHtml(p.predictedRisk)} Risk</span>
                             <div class="micro-text text-muted mt-1">${p.confidence !== null && p.confidence !== undefined ? Math.round(p.confidence * 100) + '% conf.' : ''}</div>
                         </div>
-                        <div class="col-12 col-sm-3 col-md-3 text-center text-sm-end">
+                        <div class="col-3 col-md-3 text-end">
                             <button type="button" class="btn btn-action-recommend btn-success w-100 predictive-recommend-btn" data-idx="${idx}">View Actions</button>
                         </div>
                     </div>
@@ -1463,6 +1477,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnPredictiveResetFilters.addEventListener('click', resetPredictiveFilters);
     }
 
+    if (btnToggleSelectAllPredictive) {
+        btnToggleSelectAllPredictive.addEventListener('click', (e) => {
+            e.preventDefault();
+            const visibleKeys = filteredPredictiveStudents.map(p => String(p.idNumber || p.studentId || ''));
+            const allChecked = visibleKeys.length > 0 && visibleKeys.every(k => selectedPredictiveIds.has(k));
+            filteredPredictiveStudents.forEach(p => {
+                const key = String(p.idNumber || p.studentId || '');
+                if (allChecked) {
+                    selectedPredictiveIds.delete(key);
+                } else {
+                    selectedPredictiveIds.add(key);
+                }
+            });
+            if (predictiveEl) {
+                predictiveEl.querySelectorAll('.predictive-student-checkbox').forEach(cb => {
+                    cb.checked = !allChecked;
+                });
+            }
+            updatePredictiveSelectionUI();
+        });
+    }
+
     if (selectAllPredictive) {
         selectAllPredictive.addEventListener('change', () => {
             const checked = selectAllPredictive.checked;
@@ -1474,27 +1510,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     selectedPredictiveIds.delete(key);
                 }
             });
-            predictiveEl.querySelectorAll('.predictive-student-checkbox').forEach(cb => {
-                cb.checked = checked;
-            });
-            if (predictiveSelectedBadge) {
-                if (selectedPredictiveIds.size > 0) {
-                    predictiveSelectedBadge.textContent = `${selectedPredictiveIds.size} selected`;
-                    predictiveSelectedBadge.classList.remove('d-none');
-                } else {
-                    predictiveSelectedBadge.classList.add('d-none');
-                }
+            if (predictiveEl) {
+                predictiveEl.querySelectorAll('.predictive-student-checkbox').forEach(cb => {
+                    cb.checked = checked;
+                });
             }
-            if (btnExportPredictiveText) {
-                btnExportPredictiveText.textContent = selectedPredictiveIds.size > 0
-                    ? `Export Selected (${selectedPredictiveIds.size}) (.xlsx)`
-                    : 'Export ML Forecast (.xlsx)';
-            }
-            if (btnPrintPredictiveText) {
-                btnPrintPredictiveText.textContent = selectedPredictiveIds.size > 0
-                    ? `Print Selected (${selectedPredictiveIds.size})`
-                    : 'Print Forecast';
-            }
+            updatePredictiveSelectionUI();
         });
     }
 
