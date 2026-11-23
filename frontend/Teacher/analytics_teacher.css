@@ -51,8 +51,104 @@ body.dashboard-bg {
     background-color: var(--light-green-workspace);
 }
 
+/* =========================================================================
+   Analytics Dimension KPI Cards (Friendly, Balanced Spacing & Design)
+   ========================================================================= */
 .dimension-card {
-    border-radius: 16px;
+    border-radius: 18px !important;
+    border: 1px solid rgba(226, 232, 240, 0.85) !important;
+    padding: 1.35rem 1.4rem !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02) !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.dimension-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04) !important;
+    border-color: rgba(203, 213, 225, 0.9) !important;
+}
+
+/* Category Pill Badges */
+.kpi-badge {
+    font-size: 0.78rem !important;
+    letter-spacing: 0.2px;
+    font-weight: 600;
+}
+
+.kpi-badge-descriptive {
+    background-color: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
+}
+
+.kpi-badge-predictive {
+    background-color: #fff1f2 !important;
+    color: #be123c !important;
+    border: 1px solid #fecdd3 !important;
+}
+
+.kpi-badge-prescriptive {
+    background-color: #f5f3ff !important;
+    color: #6d28d9 !important;
+    border: 1px solid #ddd6fe !important;
+}
+
+/* Icon Bubbles */
+.kpi-icon-bubble {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    transition: transform 0.2s ease;
+}
+
+.dimension-card:hover .kpi-icon-bubble {
+    transform: scale(1.05);
+}
+
+.kpi-bubble-descriptive {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.kpi-bubble-predictive {
+    background-color: #ffe4e6;
+    color: #be123c;
+}
+
+.kpi-bubble-prescriptive {
+    background-color: #ede9fe;
+    color: #6d28d9;
+}
+
+/* Title & Metric Numbers */
+.kpi-title {
+    color: #64748b;
+    font-size: 0.84rem;
+    letter-spacing: 0.1px;
+}
+
+.kpi-metric-number {
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    color: #0f172a;
+}
+
+/* KPI Footer Subtext */
+.kpi-footer {
+    border-top: 1px solid #f1f5f9 !important;
+    padding-top: 0.8rem !important;
+    margin-top: auto !important;
+}
+
+.kpi-footer i {
+    font-size: 0.95rem;
 }
 
 .text-purple {
