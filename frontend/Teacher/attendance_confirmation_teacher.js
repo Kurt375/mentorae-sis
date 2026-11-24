@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateDateTime, 1000);
 
     const sectionFilter = document.getElementById('filterSection');
+    const gradeFilter = document.getElementById('filterGradeLevel');
     const historySectionFilter = document.getElementById('historySectionFilter');
     const searchBar = document.getElementById('searchBar');
     const filterStatus = document.getElementById('filterStatus');
@@ -58,26 +59,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     markAttendanceSeen();
 
-    async function loadSections() {
-        const data = await authedFetch('/api/classes/my-sections', token);
-        if (!data.success || !data.sections.length) {
-            sectionFilter.innerHTML = '<option>No sections assigned</option>';
-            if (historySectionFilter) historySectionFilter.innerHTML = '<option>No sections assigned</option>';
+    let allAssignedSections = [];
+
+    function populateSectionDropdown(targetGrade = 'all') {
+        const filtered = (targetGrade === 'all' || !targetGrade)
+            ? allAssignedSections
+            : allAssignedSections.filter(s => String(s.grade_level) === String(targetGrade));
+
+        if (!filtered.length) {
+            sectionFilter.innerHTML = '<option value="">No sections in this grade</option>';
+            if (historySectionFilter) historySectionFilter.innerHTML = '<option value="">No sections in this grade</option>';
+            currentRoster = [];
+            currentlyRenderedRoster = [];
+            renderRoster([]);
             return;
         }
 
-        // Top confirmation table: clean simple sections
-        sectionFilter.innerHTML = data.sections.map(s => {
+        const prevSelected = sectionFilter.value;
+
+        sectionFilter.innerHTML = filtered.map(s => {
             const isAdv = Boolean(s.isAdvisory);
             const icon = isAdv ? '⭐ ' : '';
             const role = isAdv ? ' (Advisory)' : '';
             return `<option value="${s.id}" data-advisory="${isAdv ? '1' : '0'}">${icon}${s.name}${role}</option>`;
         }).join('');
 
-        // Bottom Daily Attendance Records & History: rich Section Handled dropdown
+        const stillExists = filtered.some(s => String(s.id) === String(prevSelected));
+        if (stillExists && prevSelected) {
+            sectionFilter.value = prevSelected;
+        } else {
+            sectionFilter.selectedIndex = 0;
+        }
+
         if (historySectionFilter) {
-            const advisory = data.sections.filter(s => Boolean(s.isAdvisory));
-            const subjects = data.sections.filter(s => !Boolean(s.isAdvisory));
+            const advisory = filtered.filter(s => Boolean(s.isAdvisory));
+            const subjects = filtered.filter(s => !Boolean(s.isAdvisory));
 
             let histHtml = '';
             if (advisory.length) {
@@ -98,12 +114,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 histHtml += `</optgroup>`;
             }
 
-            historySectionFilter.innerHTML = histHtml || '<option>No sections assigned</option>';
-            if (sectionFilter.value) {
-                historySectionFilter.value = sectionFilter.value;
-            }
+            historySectionFilter.innerHTML = histHtml || '<option value="">No sections in this grade</option>';
+            historySectionFilter.value = sectionFilter.value;
+        }
+    }
+
+    async function loadSections() {
+        const data = await authedFetch('/api/classes/my-sections', token);
+        if (!data.success || !data.sections.length) {
+            allAssignedSections = [];
+            sectionFilter.innerHTML = '<option>No sections assigned</option>';
+            if (historySectionFilter) historySectionFilter.innerHTML = '<option>No sections assigned</option>';
+            if (gradeFilter) gradeFilter.innerHTML = '<option value="all">All Grades</option>';
+            return;
         }
 
+        allAssignedSections = data.sections;
+
+        if (gradeFilter) {
+            const grades = Array.from(new Set(allAssignedSections.map(s => String(s.grade_level)).filter(Boolean)))
+                .sort((a, b) => Number(a) - Number(b));
+            let gradeOptions = '<option value="all" selected>All Grades</option>';
+            grades.forEach(g => {
+                gradeOptions += `<option value="${g}">Grade ${g}</option>`;
+            });
+            gradeFilter.innerHTML = gradeOptions;
+        }
+
+        populateSectionDropdown('all');
         refresh();
     }
 
@@ -682,6 +720,17 @@ document.addEventListener('DOMContentLoaded', () => {
         await checkSession(sectionId);
         await loadRoster(sectionId);
         await loadDailyHistory();
+    }
+
+    if (gradeFilter) {
+        gradeFilter.addEventListener('change', () => {
+            if (finishBanner) finishBanner.classList.add('d-none');
+            resetFinishButton();
+            selectedStudentIds.clear();
+            syncSelectAllStates();
+            populateSectionDropdown(gradeFilter.value);
+            refresh();
+        });
     }
 
     sectionFilter.addEventListener('change', () => {
