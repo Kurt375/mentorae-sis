@@ -52,6 +52,15 @@ function requireSession(loginPath, allowedRoles) {
   // Setup session inactivity tracking (default: 30 minutes, or configured value)
   setupInactivityTracker(loginPath || 'login.html');
 
+  // Verify cached user identity to avoid cross-user data leakage
+  try {
+    const lastCachedUid = sessionStorage.getItem('mentorae_swr_uid');
+    if (lastCachedUid && String(lastCachedUid) !== String(user.id)) {
+      clearSwrCache();
+    }
+    sessionStorage.setItem('mentorae_swr_uid', String(user.id));
+  } catch (e) {}
+
   return { token, user };
 }
 
@@ -95,6 +104,8 @@ function setupInactivityTracker(loginPath) {
     if (Date.now() - lastActive > timeoutMs) {
       console.warn('Session expired due to inactivity.');
       clearInterval(inactivityInterval);
+      clearSwrCache();
+      try { sessionStorage.removeItem('mentorae_swr_uid'); } catch (e) {}
       localStorage.removeItem('mentorae_token');
       localStorage.removeItem('mentorae_user');
       localStorage.removeItem('mentorae_last_active');
@@ -103,11 +114,56 @@ function setupInactivityTracker(loginPath) {
   }, 20000);
 }
 
+/**
+ * Clears Stale-While-Revalidate (SWR) cache stored in sessionStorage.
+ * If pathPrefix is passed, only keys containing that prefix are cleared.
+ * If omitted, all mentorae_swr_ entries are cleared.
+ */
+function clearSwrCache(pathPrefix = null) {
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('mentorae_swr_')) {
+        if (!pathPrefix || key.includes(pathPrefix)) {
+          keysToRemove.push(key);
+        }
+      }
+    }
+    keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+  } catch (e) {
+    /* ignore storage access issues */
+  }
+}
+window.clearSwrCache = clearSwrCache;
+
+function shouldBypassCache(path, options) {
+  if (options && (options.skipCache === true || options.headers?.['Cache-Control'] === 'no-cache')) {
+    return true;
+  }
+  const method = (options?.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    return true;
+  }
+  // Endpoints that require real-time execution every single call:
+  const bypassKeywords = [
+    '/attendance/scan',
+    '/session-status',
+    '/system-health',
+    '/notifications/unread',
+    '/api/auth/logout',
+  ];
+  return bypassKeywords.some((kw) => path.includes(kw));
+}
+
+const SWR_DEFAULT_TTL_MS = 90 * 1000; // 90 seconds TTL
+
 async function authedFetch(path, token, options = {}) {
   const loginPath = window.location.pathname.includes('/Teacher/') || 
                     window.location.pathname.includes('/Student/') || 
                     window.location.pathname.includes('/Parent/') ? '../login.html' : 'login.html';
 
+  const method = (options.method || 'GET').toUpperCase();
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -117,16 +173,91 @@ async function authedFetch(path, token, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
+  // Handle mutations (POST, PUT, PATCH, DELETE)
+  if (method !== 'GET') {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+    });
+
+    if (res.status === 503) {
+      const data = await res.json().catch(() => ({}));
+      if (data.maintenance) {
+        console.warn('Portal is in maintenance mode. Redirecting...');
+        clearSwrCache();
+        localStorage.removeItem('mentorae_token');
+        localStorage.removeItem('mentorae_user');
+        window.location.href = `${loginPath}?reason=maintenance`;
+        return data;
+      }
+    }
+
+    if (res.status === 401) {
+      console.warn('Unauthorized / token expired. Redirecting to login...');
+      clearSwrCache();
+      localStorage.removeItem('mentorae_token');
+      localStorage.removeItem('mentorae_user');
+      window.location.href = `${loginPath}?reason=timeout`;
+      return { success: false, message: 'Session expired' };
+    }
+
+    if (res.ok) {
+      // Data modified -> purge cache so subsequent views fetch fresh data immediately
+      clearSwrCache();
+    }
+
+    if (res.status === 204) {
+      return { success: true };
+    }
+
+    return res.json();
+  }
+
+  // GET Requests: Check SWR cache in sessionStorage
+  const bypass = shouldBypassCache(path, options);
+  const cacheKey = `mentorae_swr_${path}`;
+
+  if (!bypass) {
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        const age = Date.now() - (cached.timestamp || 0);
+        const ttl = options.ttl || SWR_DEFAULT_TTL_MS;
+
+        if (age < ttl && cached.data !== undefined) {
+          // Stale-While-Revalidate: If cached data is older than 10 seconds, quietly revalidate in background
+          if (age > 10 * 1000) {
+            fetch(`${API_BASE}${path}`, { headers })
+              .then(async (bgRes) => {
+                if (bgRes.ok) {
+                  const freshData = await bgRes.json();
+                  if (freshData && freshData.success !== false) {
+                    sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: freshData }));
+                  }
+                }
+              })
+              .catch(() => {});
+          }
+          return cached.data;
+        }
+      }
+    } catch (e) {
+      /* ignore cache read issues */
+    }
+  }
+
+  // Network fetch for GET
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   });
 
-  // Handle Maintenance Mode (HTTP 503)
   if (res.status === 503) {
     const data = await res.json().catch(() => ({}));
     if (data.maintenance) {
       console.warn('Portal is in maintenance mode. Redirecting...');
+      clearSwrCache();
       localStorage.removeItem('mentorae_token');
       localStorage.removeItem('mentorae_user');
       window.location.href = `${loginPath}?reason=maintenance`;
@@ -134,9 +265,9 @@ async function authedFetch(path, token, options = {}) {
     }
   }
 
-  // Handle Session Expiration / Unauthorized (HTTP 401)
   if (res.status === 401) {
     console.warn('Unauthorized / token expired. Redirecting to login...');
+    clearSwrCache();
     localStorage.removeItem('mentorae_token');
     localStorage.removeItem('mentorae_user');
     window.location.href = `${loginPath}?reason=timeout`;
@@ -147,7 +278,19 @@ async function authedFetch(path, token, options = {}) {
     return { success: true };
   }
 
-  return res.json();
+  const data = await res.json();
+
+  // Cache successful GET responses
+  if (!bypass && res.ok && data && data.success !== false) {
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
+    } catch (e) {
+      // Storage quota exceeded or blocked; purge older SWR entries
+      clearSwrCache();
+    }
+  }
+
+  return data;
 }
 
 /**
@@ -159,6 +302,8 @@ function clearSession(redirectPath) {
   } catch (err) {
     /* ignore */
   }
+  clearSwrCache();
+  try { sessionStorage.removeItem('mentorae_swr_uid'); } catch (e) {}
   localStorage.removeItem('mentorae_token');
   localStorage.removeItem('mentorae_user');
   localStorage.removeItem('mentorae_last_active');

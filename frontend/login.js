@@ -189,6 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Successful authentication
+                try { sessionStorage.clear(); } catch (e) {}
                 localStorage.setItem('mentorae_token', data.token);
                 localStorage.setItem('mentorae_user', JSON.stringify(data.user));
                 if (data.sessionTimeoutMinutes) {
@@ -244,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                try { sessionStorage.clear(); } catch (e) {}
                 localStorage.setItem('mentorae_token', data.token);
                 localStorage.setItem('mentorae_user', JSON.stringify({ role: 'security' }));
                 window.location.href = 'attendance_scanner_teacher.html';
