@@ -281,6 +281,137 @@ document.addEventListener('DOMContentLoaded', () => {
 
         refreshPromoteSectionOptions();
         refreshStudentSections();
+        refreshTableStudentSections();
+    }
+
+    function refreshTableStudentSections() {
+        const gradeEl = document.getElementById('tableStudentGradeFilter');
+        const strandEl = document.getElementById('tableStudentStrandFilter');
+        const secEl = document.getElementById('tableStudentSectionFilter');
+        if (!secEl) return;
+        const currentVal = secEl.value;
+        const matching = sectionsMatching(strandEl ? strandEl.value : '', gradeEl ? gradeEl.value : '');
+        secEl.innerHTML = `<option value="">All Sections</option>${sectionOptionsHtml(matching)}`;
+        if (currentVal && matching.some(s => String(s.id) === String(currentVal))) {
+            secEl.value = currentVal;
+        } else {
+            secEl.value = '';
+        }
+    }
+
+    function syncTableContextFilters(role) {
+        const wrap = document.getElementById('tableRoleContextFilters');
+        if (!wrap) return;
+
+        const roleNorm = (role || 'All').trim();
+        const studentWrap = document.getElementById('tableStudentFiltersWrap');
+        const teacherWrap = document.getElementById('tableTeacherFiltersWrap');
+        const parentWrap = document.getElementById('tableParentFiltersWrap');
+        const generalWrap = document.getElementById('tableGeneralFiltersWrap');
+        const labelEl = document.getElementById('tableContextRoleLabel');
+
+        [studentWrap, teacherWrap, parentWrap, generalWrap].forEach(el => {
+            if (el) {
+                el.classList.add('d-none');
+                el.classList.remove('d-flex');
+            }
+        });
+
+        if (roleNorm === 'Student') {
+            wrap.classList.remove('d-none');
+            if (studentWrap) {
+                studentWrap.classList.remove('d-none');
+                studentWrap.classList.add('d-flex');
+            }
+            if (labelEl) labelEl.textContent = 'Student Filters';
+            refreshTableStudentSections();
+        } else if (roleNorm === 'Teacher') {
+            wrap.classList.remove('d-none');
+            if (teacherWrap) {
+                teacherWrap.classList.remove('d-none');
+                teacherWrap.classList.add('d-flex');
+            }
+            if (labelEl) labelEl.textContent = 'Teacher Filters';
+        } else if (roleNorm === 'Parent') {
+            wrap.classList.remove('d-none');
+            if (parentWrap) {
+                parentWrap.classList.remove('d-none');
+                parentWrap.classList.add('d-flex');
+            }
+            if (labelEl) labelEl.textContent = 'Parent Filters';
+        } else {
+            // All or Admin
+            wrap.classList.remove('d-none');
+            if (generalWrap) {
+                generalWrap.classList.remove('d-none');
+                generalWrap.classList.add('d-flex');
+            }
+            if (labelEl) labelEl.textContent = 'Status Filter';
+        }
+
+        updateTableResetFilterVisibility();
+    }
+
+    function updateTableResetFilterVisibility() {
+        const resetBtn = document.getElementById('btnResetTableContextFilters');
+        if (!resetBtn) return;
+        const role = document.getElementById('roleFilterDropdown')?.value || 'All';
+        let hasActiveFilter = false;
+
+        if (role === 'Student') {
+            const g = document.getElementById('tableStudentGradeFilter')?.value;
+            const st = document.getElementById('tableStudentStrandFilter')?.value;
+            const sec = document.getElementById('tableStudentSectionFilter')?.value;
+            const stat = document.getElementById('tableStudentStatusFilter')?.value;
+            if (g || st || sec || stat) hasActiveFilter = true;
+        } else if (role === 'Teacher') {
+            const adv = document.getElementById('tableTeacherAdvisoryFilter')?.value;
+            const g = document.getElementById('tableTeacherGradeFilter')?.value;
+            const stat = document.getElementById('tableTeacherStatusFilter')?.value;
+            if (adv || g || stat) hasActiveFilter = true;
+        } else if (role === 'Parent') {
+            const link = document.getElementById('tableParentLinkFilter')?.value;
+            const stat = document.getElementById('tableParentStatusFilter')?.value;
+            if (link || stat) hasActiveFilter = true;
+        } else {
+            const stat = document.getElementById('tableGeneralStatusFilter')?.value;
+            if (stat) hasActiveFilter = true;
+        }
+
+        if (hasActiveFilter) {
+            resetBtn.classList.remove('d-none');
+        } else {
+            resetBtn.classList.add('d-none');
+        }
+    }
+
+    function resetTableContextFilters() {
+        const studentGrade = document.getElementById('tableStudentGradeFilter');
+        const studentStrand = document.getElementById('tableStudentStrandFilter');
+        const studentSection = document.getElementById('tableStudentSectionFilter');
+        const studentStatus = document.getElementById('tableStudentStatusFilter');
+        if (studentGrade) studentGrade.value = '';
+        if (studentStrand) studentStrand.value = '';
+        if (studentSection) studentSection.value = '';
+        if (studentStatus) studentStatus.value = '';
+
+        const teacherAdv = document.getElementById('tableTeacherAdvisoryFilter');
+        const teacherGrade = document.getElementById('tableTeacherGradeFilter');
+        const teacherStatus = document.getElementById('tableTeacherStatusFilter');
+        if (teacherAdv) teacherAdv.value = '';
+        if (teacherGrade) teacherGrade.value = '';
+        if (teacherStatus) teacherStatus.value = '';
+
+        const parentLink = document.getElementById('tableParentLinkFilter');
+        const parentStatus = document.getElementById('tableParentStatusFilter');
+        if (parentLink) parentLink.value = '';
+        if (parentStatus) parentStatus.value = '';
+
+        const generalStatus = document.getElementById('tableGeneralStatusFilter');
+        if (generalStatus) generalStatus.value = '';
+
+        refreshTableStudentSections();
+        updateTableResetFilterVisibility();
     }
 
     async function ensureSectionsLoaded(force = false) {
@@ -364,6 +495,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (studentStrandSelect) studentStrandSelect.innerHTML = `<option value="" disabled selected>— Select Cluster —</option>${strandOptions}`;
                     const parentLinksStrandEl = document.getElementById('parentLinksStrandFilter');
                     if (parentLinksStrandEl) parentLinksStrandEl.innerHTML = `<option value="">All Clusters</option>${strandOptions}`;
+                    const tableStudentStrandEl = document.getElementById('tableStudentStrandFilter');
+                    if (tableStudentStrandEl) {
+                        const cur = tableStudentStrandEl.value;
+                        tableStudentStrandEl.innerHTML = `<option value="">All Clusters</option>${strandOptions}`;
+                        if (cur) tableStudentStrandEl.value = cur;
+                    }
                 }
             } catch (errStrands) {
                 console.error('Failed to load strands reference:', errStrands);
@@ -921,6 +1058,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams({ page, limit });
         if (role && role !== 'All') params.set('role', role);
         if (search) params.set('search', search);
+
+        // Contextual role-specific filters
+        if (role === 'Student') {
+            const grade = document.getElementById('tableStudentGradeFilter')?.value;
+            const strand = document.getElementById('tableStudentStrandFilter')?.value;
+            const section = document.getElementById('tableStudentSectionFilter')?.value;
+            const status = document.getElementById('tableStudentStatusFilter')?.value;
+            if (grade) params.set('grade_level', grade);
+            if (strand) params.set('strand_id', strand);
+            if (section) params.set('section_id', section);
+            if (status) params.set('status', status);
+        } else if (role === 'Teacher') {
+            const advRole = document.getElementById('tableTeacherAdvisoryFilter')?.value;
+            const grade = document.getElementById('tableTeacherGradeFilter')?.value;
+            const status = document.getElementById('tableTeacherStatusFilter')?.value;
+            if (advRole) params.set('advisory_role', advRole);
+            if (grade) params.set('grade_level', grade);
+            if (status) params.set('status', status);
+        } else if (role === 'Parent') {
+            const hasStudent = document.getElementById('tableParentLinkFilter')?.value;
+            const status = document.getElementById('tableParentStatusFilter')?.value;
+            if (hasStudent) params.set('has_student', hasStudent);
+            if (status) params.set('status', status);
+        } else {
+            const status = document.getElementById('tableGeneralStatusFilter')?.value;
+            if (status) params.set('status', status);
+        }
+        updateTableResetFilterVisibility();
 
         const data = await authedFetch(`/api/users?${params}`, token);
         const tbody = document.getElementById('usersTableBody');
@@ -2005,11 +2170,54 @@ document.addEventListener('DOMContentLoaded', () => {
     loadManageStudents();
 
     document.getElementById('tableSearchField').addEventListener('input', () => loadUsers(1));
-    document.getElementById('roleFilterDropdown').addEventListener('change', () => loadUsers(1));
+    const roleFilterEl = document.getElementById('roleFilterDropdown');
+    if (roleFilterEl) {
+        roleFilterEl.addEventListener('change', () => {
+            resetTableContextFilters();
+            syncTableContextFilters(roleFilterEl.value);
+            loadUsers(1);
+        });
+    }
+
+    // Contextual role-specific filters change listeners
+    [
+        'tableStudentGradeFilter',
+        'tableStudentStrandFilter',
+        'tableStudentSectionFilter',
+        'tableStudentStatusFilter',
+        'tableTeacherAdvisoryFilter',
+        'tableTeacherGradeFilter',
+        'tableTeacherStatusFilter',
+        'tableParentLinkFilter',
+        'tableParentStatusFilter',
+        'tableGeneralStatusFilter',
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                if (id === 'tableStudentGradeFilter' || id === 'tableStudentStrandFilter') {
+                    refreshTableStudentSections();
+                }
+                loadUsers(1);
+            });
+        }
+    });
+
+    const btnResetContextFilters = document.getElementById('btnResetTableContextFilters');
+    if (btnResetContextFilters) {
+        btnResetContextFilters.addEventListener('click', () => {
+            resetTableContextFilters();
+            loadUsers(1);
+        });
+    }
+
     const pageSizeSelect = document.getElementById('usersPageSizeSelect');
     if (pageSizeSelect) {
         pageSizeSelect.addEventListener('change', () => loadUsers(1));
     }
+
+    // Initialize context filters with current role dropdown selection
+    syncTableContextFilters(roleFilterEl ? roleFilterEl.value : 'All');
 
     document.getElementById('btnDownloadTable').addEventListener('click', () => {
         const role = document.getElementById('roleFilterDropdown')?.value || 'All';
@@ -2017,6 +2225,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams({ token, format: 'xlsx' });
         if (role && role !== 'All') params.set('role', role);
         if (search) params.set('search', search);
+
+        if (role === 'Student') {
+            const grade = document.getElementById('tableStudentGradeFilter')?.value;
+            const strand = document.getElementById('tableStudentStrandFilter')?.value;
+            const section = document.getElementById('tableStudentSectionFilter')?.value;
+            const status = document.getElementById('tableStudentStatusFilter')?.value;
+            if (grade) params.set('grade_level', grade);
+            if (strand) params.set('strand_id', strand);
+            if (section) params.set('section_id', section);
+            if (status) params.set('status', status);
+        } else if (role === 'Teacher') {
+            const advRole = document.getElementById('tableTeacherAdvisoryFilter')?.value;
+            const grade = document.getElementById('tableTeacherGradeFilter')?.value;
+            const status = document.getElementById('tableTeacherStatusFilter')?.value;
+            if (advRole) params.set('advisory_role', advRole);
+            if (grade) params.set('grade_level', grade);
+            if (status) params.set('status', status);
+        } else if (role === 'Parent') {
+            const hasStudent = document.getElementById('tableParentLinkFilter')?.value;
+            const status = document.getElementById('tableParentStatusFilter')?.value;
+            if (hasStudent) params.set('has_student', hasStudent);
+            if (status) params.set('status', status);
+        } else {
+            const status = document.getElementById('tableGeneralStatusFilter')?.value;
+            if (status) params.set('status', status);
+        }
+
         window.open(`${window.MENTORAE_CONFIG.API_BASE_URL}/api/users/export?${params.toString()}`, '_blank');
     });
 

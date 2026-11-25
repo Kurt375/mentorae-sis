@@ -48,10 +48,97 @@ function buildUserFilter(query) {
   const conditions = [];
   const params = [];
 
-  if (query.role && query.role !== 'All') {
+  const role = query.role && query.role !== 'All' ? query.role.toLowerCase() : null;
+  if (role) {
     conditions.push('u.role = ?');
-    params.push(query.role.toLowerCase());
+    params.push(role);
   }
+
+  // Grade level (Grade 11 or 12)
+  if (query.grade_level) {
+    const gl = parseInt(query.grade_level, 10);
+    if (!isNaN(gl)) {
+      if (role === 'student') {
+        conditions.push('studSec.grade_level = ?');
+        params.push(gl);
+      } else if (role === 'teacher') {
+        conditions.push('advSec.grade_level = ?');
+        params.push(gl);
+      } else {
+        conditions.push('(studSec.grade_level = ? OR advSec.grade_level = ?)');
+        params.push(gl, gl);
+      }
+    }
+  }
+
+  // Strand / Cluster
+  if (query.strand_id) {
+    const sid = parseInt(query.strand_id, 10);
+    if (!isNaN(sid)) {
+      if (role === 'student') {
+        conditions.push('studSec.strand_id = ?');
+        params.push(sid);
+      } else if (role === 'teacher') {
+        conditions.push('advSec.strand_id = ?');
+        params.push(sid);
+      } else {
+        conditions.push('(studSec.strand_id = ? OR advSec.strand_id = ?)');
+        params.push(sid, sid);
+      }
+    }
+  }
+
+  // Section
+  if (query.section_id) {
+    const secId = parseInt(query.section_id, 10);
+    if (!isNaN(secId)) {
+      if (role === 'student') {
+        conditions.push('u.section_id = ?');
+        params.push(secId);
+      } else if (role === 'teacher') {
+        conditions.push('advSec.id = ?');
+        params.push(secId);
+      } else {
+        conditions.push('(u.section_id = ? OR advSec.id = ?)');
+        params.push(secId, secId);
+      }
+    }
+  }
+
+  // Status (Active / Inactive)
+  if (query.status) {
+    const s = String(query.status).toLowerCase();
+    if (s === 'active' || s === '1' || s === 'enrolled') {
+      conditions.push('u.is_active = 1');
+    } else if (s === 'inactive' || s === '0' || s === 'graduated') {
+      conditions.push('u.is_active = 0');
+    }
+  }
+
+  // Teacher advisory role
+  if (query.advisory_role) {
+    const adv = String(query.advisory_role).toLowerCase();
+    if (adv === 'lead') {
+      conditions.push('advSec.adviser_id = u.id');
+    } else if (adv === 'co') {
+      conditions.push('advSec.co_adviser_id = u.id');
+    } else if (adv === 'adviser') {
+      conditions.push('(advSec.adviser_id = u.id OR advSec.co_adviser_id = u.id)');
+    } else if (adv === 'none') {
+      conditions.push('advSec.id IS NULL');
+    }
+  }
+
+  // Parent student link status
+  if (query.has_student) {
+    const hs = String(query.has_student).toLowerCase();
+    if (hs === 'yes' || hs === '1' || hs === 'true') {
+      conditions.push('EXISTS (SELECT 1 FROM parent_student_links psl WHERE psl.parent_id = u.id)');
+    } else if (hs === 'no' || hs === '0' || hs === 'false') {
+      conditions.push('NOT EXISTS (SELECT 1 FROM parent_student_links psl WHERE psl.parent_id = u.id)');
+    }
+  }
+
   if (query.search) {
     conditions.push(`(
       u.first_name LIKE ? OR u.last_name LIKE ? OR u.middle_initial LIKE ? OR
