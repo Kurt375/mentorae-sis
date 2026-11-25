@@ -256,7 +256,6 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
   ('language', 'en'),
   ('maintenance_mode', '0'),
   ('notify_email', '1'),
-  ('require_2fa', '0'),
   ('session_timeout_minutes', '30'),
   ('backup_frequency', 'daily'),
   ('attendance_late_cutoff', '07:00:00')

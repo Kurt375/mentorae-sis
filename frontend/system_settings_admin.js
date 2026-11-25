@@ -99,23 +99,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         `,
         security: () => `
             <div class="d-flex align-items-center gap-2 mb-4">
-                <i class="bi bi-lock-fill panel-header-icon text-danger"></i>
-                <h2 class="h5 fw-bold m-0 text-dark">Security</h2>
+                <i class="bi bi-shield-lock-fill panel-header-icon text-danger"></i>
+                <h2 class="h5 fw-bold m-0 text-dark">Security Settings</h2>
             </div>
-            <div class="d-flex flex-column gap-4">
-                <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-shield-lock text-secondary fs-5"></i>
-                        <div>
-                            <h3 class="fs-6 fw-bold text-dark m-0">Two-Factor Authentication</h3>
-                            <span class="text-muted text-sm">Require 2FA for all users</span>
+            <div class="d-flex flex-column gap-3">
+                <div class="card border rounded-3 p-3 bg-light">
+                    <div class="d-flex align-items-start gap-3">
+                        <i class="bi bi-hourglass-split text-success fs-4 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <label for="cfgSessionTimeout" class="form-label text-dark fw-bold text-sm mb-1">Session Inactivity Timeout (minutes)</label>
+                            <input type="number" class="form-control custom-form-input w-100 mb-2" id="cfgSessionTimeout" min="5" max="480" value="${settings.session_timeout_minutes || 30}" placeholder="30">
+                            <span class="text-muted text-sm d-block">Automatically signs out inactive accounts to protect unattended school workstations and shared computers. Default is 30 minutes.</span>
                         </div>
                     </div>
-                    <input type="checkbox" class="form-check-input custom-checkbox" id="cfg2FA" ${bool(settings.require_2fa) ? 'checked' : ''}>
-                </div>
-                <div>
-                    <label class="form-label text-dark fw-bold text-sm mb-1">Session Timeout (minutes)</label>
-                    <input type="number" class="form-control custom-form-input w-100" id="cfgSessionTimeout" value="${settings.session_timeout_minutes || 30}">
                 </div>
             </div>
         `,
@@ -201,11 +197,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         notifications: () => ({}),
         security: () => {
-            const el2FA = document.getElementById('cfg2FA');
             const elTimeout = document.getElementById('cfgSessionTimeout');
-            if (!el2FA && !elTimeout) return {};
+            if (!elTimeout) return {};
             return {
-                require_2fa: el2FA && el2FA.checked ? '1' : '0',
                 session_timeout_minutes: elTimeout ? elTimeout.value : 30,
             };
         },
