@@ -75,15 +75,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <h2 class="h5 fw-bold m-0 text-dark">Notification Settings</h2>
             </div>
             <div class="d-flex flex-column gap-3">
-                <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border">
+                <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border rounded bg-light">
                     <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-envelope-fill text-secondary fs-5"></i>
+                        <i class="bi bi-envelope-fill text-success fs-5"></i>
                         <div>
                             <h3 class="fs-6 fw-bold text-dark m-0">Email Notifications</h3>
-                            <span class="text-muted text-sm">Send automated email notifications for announcements, parent alerts, and password resets</span>
+                            <span class="text-muted text-sm">Automated email delivery for announcements, parent alerts, and account recovery</span>
                         </div>
                     </div>
-                    <input type="checkbox" class="form-check-input custom-checkbox" id="cfgNotifyEmail" ${bool(settings.notify_email) ? 'checked' : ''}>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-semibold">Always Active</span>
                 </div>
                 <div class="notification-row-item p-3 d-flex align-items-center justify-content-between border rounded bg-light">
                     <div class="d-flex align-items-center gap-3">
@@ -94,10 +94,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                     </div>
                     <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-semibold">Always Active</span>
-                </div>
-                <div class="alert alert-light border text-sm text-muted mb-0 d-flex align-items-center gap-2">
-                    <i class="bi bi-info-circle text-primary fs-5"></i>
-                    <span>SMS and third-party push notifications have been discontinued. All student, teacher, and parent alerts are handled directly via email and the in-app notification center.</span>
                 </div>
             </div>
         `,
@@ -203,13 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 maintenance_mode: elMaint && elMaint.checked ? '1' : '0',
             };
         },
-        notifications: () => {
-            const elEmail = document.getElementById('cfgNotifyEmail');
-            if (!elEmail) return {};
-            return {
-                notify_email: elEmail.checked ? '1' : '0',
-            };
-        },
+        notifications: () => ({}),
         security: () => {
             const el2FA = document.getElementById('cfg2FA');
             const elTimeout = document.getElementById('cfgSessionTimeout');
