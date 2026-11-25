@@ -308,45 +308,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const teacherWrap = document.getElementById('tableTeacherFiltersWrap');
         const parentWrap = document.getElementById('tableParentFiltersWrap');
         const generalWrap = document.getElementById('tableGeneralFiltersWrap');
-        const labelEl = document.getElementById('tableContextRoleLabel');
 
         [studentWrap, teacherWrap, parentWrap, generalWrap].forEach(el => {
             if (el) {
                 el.classList.add('d-none');
+                el.classList.remove('d-inline-flex');
                 el.classList.remove('d-flex');
             }
         });
 
         if (roleNorm === 'Student') {
             wrap.classList.remove('d-none');
+            wrap.classList.add('d-inline-flex');
             if (studentWrap) {
                 studentWrap.classList.remove('d-none');
-                studentWrap.classList.add('d-flex');
+                studentWrap.classList.add('d-inline-flex');
             }
-            if (labelEl) labelEl.textContent = 'Student Filters';
             refreshTableStudentSections();
         } else if (roleNorm === 'Teacher') {
             wrap.classList.remove('d-none');
+            wrap.classList.add('d-inline-flex');
             if (teacherWrap) {
                 teacherWrap.classList.remove('d-none');
-                teacherWrap.classList.add('d-flex');
+                teacherWrap.classList.add('d-inline-flex');
             }
-            if (labelEl) labelEl.textContent = 'Teacher Filters';
         } else if (roleNorm === 'Parent') {
             wrap.classList.remove('d-none');
+            wrap.classList.add('d-inline-flex');
             if (parentWrap) {
                 parentWrap.classList.remove('d-none');
-                parentWrap.classList.add('d-flex');
+                parentWrap.classList.add('d-inline-flex');
             }
-            if (labelEl) labelEl.textContent = 'Parent Filters';
         } else {
             // All or Admin
             wrap.classList.remove('d-none');
+            wrap.classList.add('d-inline-flex');
             if (generalWrap) {
                 generalWrap.classList.remove('d-none');
-                generalWrap.classList.add('d-flex');
+                generalWrap.classList.add('d-inline-flex');
             }
-            if (labelEl) labelEl.textContent = 'Status Filter';
         }
 
         updateTableResetFilterVisibility();
