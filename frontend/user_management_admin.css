@@ -439,3 +439,46 @@
     box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.2);
     border-color: var(--mentorae-green);
 }
+
+/* User Accounts Two-Row Search & Filter Toolbar */
+.user-search-group {
+    flex: 1 1 240px;
+    min-inline-size: 0;
+}
+
+.user-role-select-group {
+    flex: 0 1 auto;
+    inline-size: auto;
+    min-inline-size: 135px;
+    max-inline-size: 100%;
+}
+
+.user-context-filters {
+    min-inline-size: 0;
+}
+
+.user-context-filters .form-select {
+    inline-size: auto;
+    max-inline-size: 100%;
+    min-block-size: 38px;
+}
+
+.user-context-filters .user-section-select {
+    max-inline-size: min(210px, 100%);
+}
+
+.user-toolbar-top .form-control,
+.user-toolbar-top .btn,
+.user-filter-bar .form-select,
+.user-filter-bar .btn {
+    min-block-size: 38px;
+}
+
+@media (pointer: coarse) {
+    .user-toolbar-top .form-control,
+    .user-toolbar-top .btn,
+    .user-filter-bar .form-select,
+    .user-filter-bar .btn {
+        min-block-size: 44px;
+    }
+}
