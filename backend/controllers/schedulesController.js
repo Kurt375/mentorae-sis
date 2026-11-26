@@ -3,7 +3,6 @@ const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcrypt');
 const { getActiveTermConfig } = require('../utils/termUtils');
 
 const SCHOOL_OPEN = '07:00:00';
@@ -893,12 +892,11 @@ function formatTime12(t) {
 async function importTshsTeacherProgramGrid(workbook, req, res) {
   const sheetResults = [];
   try {
-    const overrideExisting = req.overrideExisting !== false;
+    const overrideExisting = req.overrideExisting === true;
     const { currentTerm: systemActiveTerm } = await getActiveTermConfig();
 
     // 1. Fetch DB reference datasets
     const [teachers] = await pool.query("SELECT id, id_number, first_name, last_name, email FROM users WHERE role = 'teacher'");
-    const [allUsers] = await pool.query("SELECT id, id_number, email FROM users");
     const [strands] = await pool.query("SELECT id, code, title FROM strands");
     const [sections] = await pool.query(`
       SELECT sec.id, sec.name, sec.grade_level, sec.strand_id, st.code AS strand_code
@@ -1003,51 +1001,6 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       return list;
     }
 
-    const defaultPasswordHash = await bcrypt.hash('Teacher@2026', 10);
-
-    // Track system-wide existing IDs and Emails to guarantee zero ID/Email collision
-    const existingIdNumbers = new Set();
-    const existingEmails = new Set();
-    let maxUserIdNum = 500;
-
-    allUsers.forEach((u) => {
-      const id = String(u.id_number || '').trim();
-      if (id) {
-        existingIdNumbers.add(id.toLowerCase());
-        const m = id.match(/26-(\d+)/);
-        if (m) {
-          const num = parseInt(m[1], 10);
-          if (!isNaN(num) && num > maxUserIdNum) maxUserIdNum = num;
-        }
-      }
-      const em = String(u.email || '').trim().toLowerCase();
-      if (em) existingEmails.add(em);
-    });
-
-    function allocateTeacherId() {
-      while (true) {
-        maxUserIdNum++;
-        const candidate = `26-${String(maxUserIdNum).padStart(5, '0')}`;
-        if (!existingIdNumbers.has(candidate.toLowerCase())) {
-          existingIdNumbers.add(candidate.toLowerCase());
-          return candidate;
-        }
-      }
-    }
-
-    function allocateTeacherEmail(firstName, lastName) {
-      const first = (firstName || 'teacher').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const last = (lastName || 'tshs').toLowerCase().replace(/[^a-z0-9]/g, '');
-      let candidate = `${first}.${last}@tshs.deped.gov.ph`;
-      let suffix = 1;
-      while (existingEmails.has(candidate.toLowerCase())) {
-        suffix++;
-        candidate = `${first}.${last}${suffix}@tshs.deped.gov.ph`;
-      }
-      existingEmails.add(candidate.toLowerCase());
-      return candidate;
-    }
-
     function cleanTeacherString(raw) {
       if (!raw) return '';
       let s = String(raw).replace(/\s+/g, ' ').trim();
@@ -1087,7 +1040,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       sectionMap.set(key2, s);
     });
 
-    async function getOrCreateTeacher(teacherRawName, sheetName) {
+    function resolveRegisteredTeacher(teacherRawName, sheetName) {
       const cleanedRaw = cleanTeacherString(teacherRawName);
       const cleanedSheet = cleanTeacherString(sheetName);
       const targetName = cleanedRaw || cleanedSheet || '';
@@ -1095,10 +1048,11 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       const targetLower = targetName.toLowerCase().trim();
       const targetNoPunct = targetLower.replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 
+      if (!targetLower) return null;
       if (teacherMap.has(targetLower)) return teacherMap.get(targetLower);
       if (teacherMap.has(targetNoPunct)) return teacherMap.get(targetNoPunct);
 
-      // Check last_name & first_name matching
+      // Check last_name & first_name matching against existing registered teachers
       for (const t of teachers) {
         const tLast = (t.last_name || '').toLowerCase().trim();
         const tFirst = (t.first_name || '').toLowerCase().trim();
@@ -1112,58 +1066,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         }
       }
 
-      // Parse name components
-      let firstName = '';
-      let lastName = '';
-      let middleInitial = '';
-
-      if (targetName.includes(',')) {
-        const parts = targetName.split(',').map((s) => s.trim());
-        lastName = parts[0];
-        const rest = parts[1] || '';
-        const restParts = rest.split(' ');
-        if (restParts.length > 1 && restParts[restParts.length - 1].length <= 2) {
-          middleInitial = restParts.pop().replace('.', '');
-        }
-        firstName = restParts.join(' ');
-      } else {
-        const parts = targetName.split(' ');
-        if (parts.length > 2 && parts[parts.length - 1].length <= 2) {
-          middleInitial = parts.pop().replace('.', '');
-        }
-        lastName = parts.pop() || '';
-        firstName = parts.join(' ');
-      }
-
-      function titleCase(s) {
-        return s.toLowerCase().split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      }
-      firstName = titleCase(firstName) || 'Teacher';
-      lastName = titleCase(lastName) || 'TSHS';
-
-      const idNumber = allocateTeacherId();
-      const email = allocateTeacherEmail(firstName, lastName);
-
-      const [res] = await pool.query(
-        `INSERT INTO users (role, id_number, first_name, middle_initial, last_name, email, password_hash, must_change_password, is_active)
-         VALUES ('teacher', ?, ?, ?, ?, ?, ?, 1, 1)`,
-        [idNumber, firstName, middleInitial ? middleInitial + '.' : null, lastName, email, defaultPasswordHash]
-      );
-
-      const newTeacher = {
-        id: res.insertId,
-        id_number: idNumber,
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        isNew: true,
-      };
-
-      teachers.push(newTeacher);
-      teacherMap.set(targetLower, newTeacher);
-      teacherMap.set(targetNoPunct, newTeacher);
-      teacherMap.set(`${firstName} ${lastName}`.toLowerCase(), newTeacher);
-      return newTeacher;
+      return null;
     }
 
     async function getOrCreateSection(sectionRaw) {
@@ -1307,7 +1210,6 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
 
     const schedulesToInsert = [];
     const schedulesToReassign = [];
-    let newTeachersCount = 0;
     let newSectionsCount = 0;
 
     for (let sIdx = 0; sIdx < workbook.SheetNames.length; sIdx++) {
@@ -1381,8 +1283,25 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
           }
         }
 
-        const teacher = await getOrCreateTeacher(teacherHeader, sheetName);
-        if (teacher.isNew) newTeachersCount++;
+        const teacher = resolveRegisteredTeacher(teacherHeader, sheetName);
+        if (!teacher) {
+          sheetResults.push({
+            row: sIdx + 1,
+            name: teacherHeader || sheetName,
+            sheetName,
+            status: 'error',
+            createdCount: 0,
+            reassignedCount: 0,
+            unchangedCount: 0,
+            warningCount: 1,
+            message: `Teacher "${teacherHeader}" is not registered in the system. Please create their account under User Management first.`,
+            changes: [],
+            warnings: [
+              `Unregistered teacher "${teacherHeader}" on sheet "${sheetName}". Sheet skipped — auto-registration of teacher accounts is disabled.`,
+            ],
+          });
+          continue;
+        }
 
         let footerRow = 40;
         for (let r = 17; r <= 50; r++) {
@@ -1636,7 +1555,6 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
         }
 
         const summaryParts = [];
-        if (teacher.isNew) summaryParts.push('New Teacher Auto-Registered');
         if (sheetCreated > 0) summaryParts.push(`${sheetCreated} scheduled`);
         if (sheetReassigned > 0) summaryParts.push(`${sheetReassigned} reassigned/updated`);
         if (sheetUnchanged > 0) summaryParts.push(`${sheetUnchanged} up to date`);
@@ -1705,10 +1623,14 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       overallStatus = 'warning';
     }
 
+    const summaryMessage = overallStatus === 'error'
+      ? `TSHS Timetable Import Failed: ${totalErrors} sheet(s) could not be imported (check unregistered teachers or sheet formatting).`
+      : `TSHS Timetable Import Complete: ${totalCreated} scheduled, ${totalReassigned} overridden/reassigned across ${workbook.SheetNames.length} sheet(s).${totalErrors > 0 ? ` (${totalErrors} sheet(s) rejected)` : ''}`;
+
     return res.json({
       success: overallStatus !== 'error',
       overallStatus,
-      message: `TSHS Timetable Import Complete: ${totalCreated} scheduled, ${totalReassigned} overridden/reassigned across ${workbook.SheetNames.length} sheet(s).`,
+      message: summaryMessage,
       totalEntriesCreated: totalCreated,
       totalEntriesReassigned: totalReassigned,
       totalEntriesUnchanged: totalUnchanged,
@@ -1716,7 +1638,7 @@ async function importTshsTeacherProgramGrid(workbook, req, res) {
       totalSkipped,
       totalErrors,
       totalSheets: workbook.SheetNames.length,
-      newTeachersRegistered: newTeachersCount,
+      newTeachersRegistered: 0,
       newSectionsCreated: newSectionsCount,
       results: sheetResults,
     });
@@ -1780,7 +1702,7 @@ async function importTabularSchedules(workbook, req, res) {
     return val !== null && val !== undefined ? String(val).trim() : '';
   }
 
-  const overrideExisting = req.overrideExisting !== false;
+  const overrideExisting = req.overrideExisting === true;
   const { currentTerm: systemActiveTerm } = await getActiveTermConfig();
   const explicitTerm = req.body.targetTerm || req.query.targetTerm;
 
@@ -2191,7 +2113,7 @@ async function bulkImportSchedules(req, res) {
     req.body.overrideExisting === true ||
     req.body.overrideExisting === '1' ||
     req.query.overrideExisting === 'true' ||
-    req.body.overrideExisting === undefined
+    req.query.overrideExisting === '1'
   );
   req.overrideExisting = overrideExisting;
 

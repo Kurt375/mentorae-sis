@@ -235,7 +235,7 @@
                         <p class="text-muted text-sm mb-2">
                             Upload an Excel (.xlsx/.xls) or CSV file to assign multiple class schedules for one or many
                             teachers at once.
-                            Each row's Teacher, Subject, and Section must already exist in the system.
+                            Each teacher must already have a registered Teacher account under User Management (unregistered teachers will not be auto-created).
                         </p>
                         <div class="alert alert-light border py-2 px-3 small text-muted mb-3 d-flex align-items-center gap-2">
                             <i class="bi bi-info-circle text-success fs-6"></i>
@@ -266,12 +266,12 @@
                         <input type="file" id="bulkScheduleFileInput" accept=".xlsx,.xls,.csv"
                             class="form-control mb-3">
                         <div class="form-check form-switch mb-3 p-2 bg-light rounded border border-success-subtle">
-                            <input class="form-check-input ms-0 me-2" type="checkbox" id="chkOverrideSchedules" checked role="switch">
+                            <input class="form-check-input ms-0 me-2" type="checkbox" id="chkOverrideSchedules" role="switch">
                             <label class="form-check-label text-sm fw-bold text-dark cursor-pointer" for="chkOverrideSchedules">
                                 <i class="bi bi-arrow-repeat text-success me-1"></i> Override &amp; reassign existing schedules on changes
                             </label>
                             <div class="text-xs text-muted ps-4">
-                                When enabled, re-uploading an edited workbook automatically updates existing time slots and reassigns conflicting classes to the new teacher.
+                                Disabled by default to prevent accidental overwrites. Enable only when intentionally reassigning existing section time slots to a different teacher or subject.
                             </div>
                         </div>
                         <button type="button" class="btn btn-success fw-semibold" id="btnRunBulkImportSchedule">

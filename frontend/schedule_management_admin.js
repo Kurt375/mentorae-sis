@@ -1281,6 +1281,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const chkOverride = document.getElementById('chkOverrideSchedules');
+            const overrideExisting = chkOverride ? chkOverride.checked : false;
+            if (overrideExisting) {
+                const confirmed = confirm(
+                    'Warning: "Override & reassign existing schedules" is enabled.\n\n' +
+                    'Any conflicting time slots currently assigned to other teachers will be overwritten and reassigned to the teachers in this file.\n\n' +
+                    'Do you want to continue?'
+                );
+                if (!confirmed) return;
+            }
+
             btnRunBulkImportSchedule.disabled = true;
             btnRunBulkImportSchedule.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Importing...';
 
@@ -1360,8 +1371,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 250);
 
-            const chkOverride = document.getElementById('chkOverrideSchedules');
-            const overrideExisting = chkOverride ? chkOverride.checked : true;
             const termSelect = document.getElementById('bulkScheduleTermSelect');
             const targetTerm = termSelect ? termSelect.value : '2nd Term';
 
@@ -1516,7 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const totalWarnings = data.totalWarnings || 0;
                     const totalSkipped = data.totalSkipped || 0;
 
-                    const warningCount = data.results.filter(r => (Array.isArray(r.warnings) && r.warnings.length > 0) || r.status === 'warning').length;
+                    const warningCount = data.results.filter(r => (Array.isArray(r.warnings) && r.warnings.length > 0) || r.status === 'warning' || r.status === 'error').length;
                     const reassignedCount = data.results.filter(r => r.status === 'reassigned' || r.status === 'partial').length;
                     const createdCount = data.results.filter(r => r.status === 'created').length;
                     const skippedCount = data.results.filter(r => r.status === 'skipped').length;
@@ -1664,7 +1673,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 clearInterval(progressInterval);
                 btnRunBulkImportSchedule.disabled = false;
-                btnRunBulkImportSchedule.innerHTML = '<i class="bi bi-upload"></i> Start Bulk Import';
+                btnRunBulkImportSchedule.innerHTML = '<i class="bi bi-upload me-1"></i> Import Schedules';
             }
         });
     }
