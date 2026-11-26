@@ -28,6 +28,26 @@
         .announcement-active-chip .btn-remove-chip { cursor: pointer; font-size: 0.65rem; color: #94a3b8; transition: color 0.15s ease; }
         .announcement-active-chip .btn-remove-chip:hover { color: #dc3545; }
         .micro-text { font-size: 0.75rem; }
+
+        /* Scrollable Announcements Feed */
+        .announcements-scroll-container {
+            max-block-size: min(520px, 60dvh);
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+            overscroll-behavior: contain;
+            padding: 0.25rem;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f8fafc;
+        }
+        .announcements-scroll-container:focus-visible {
+            outline: 2px solid var(--mentorae-green);
+            outline-offset: 2px;
+            border-radius: 12px;
+        }
+        .announcements-scroll-container::-webkit-scrollbar { width: 6px; }
+        .announcements-scroll-container::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
+        .announcements-scroll-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .announcements-scroll-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body>
@@ -95,7 +115,7 @@
                 </div>
             </div>
 
-            <div id="announceList"></div>
+            <div id="announceList" class="announcements-scroll-container" tabindex="0" role="region" aria-label="Announcements list"></div>
             <p class="text-center text-muted py-4 d-none" id="emptyMsg">No announcements right now.</p>
         </main>
     </div>
