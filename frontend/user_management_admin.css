@@ -454,17 +454,27 @@
 }
 
 .user-context-filters {
+    flex: 1 1 260px;
+    min-inline-size: 0;
+}
+
+.user-context-filters > div {
+    flex: 1 1 0;
     min-inline-size: 0;
 }
 
 .user-context-filters .form-select {
+    flex: 1 1 110px;
     inline-size: auto;
-    max-inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 220px;
     min-block-size: 38px;
+    text-overflow: ellipsis;
 }
 
-.user-context-filters .user-section-select {
-    max-inline-size: min(210px, 100%);
+.user-context-filters #tableStudentGradeFilter {
+    flex: 0.75 1 95px;
+    max-inline-size: 145px;
 }
 
 .user-toolbar-top .form-control,
