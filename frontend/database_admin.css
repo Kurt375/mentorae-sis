@@ -113,41 +113,80 @@
 }
 
 #dbSearchWrapper {
-    min-width: 140px;
-    flex: 1 1 auto;
+    min-inline-size: 200px;
+    flex: 1 1 240px;
+}
+
+#dbDynamicFiltersContainer {
+    flex: 0 1 auto;
+    min-inline-size: 0;
 }
 
 .db-filter-item {
-    width: auto;
-    flex: 0 0 auto;
+    inline-size: auto;
+    flex: 0 1 auto;
     white-space: nowrap;
 }
 
+.db-filter-item .input-group-text,
+.db-student-filter-item .input-group-text {
+    padding-inline: 0.55rem 0.25rem !important;
+}
+
 .db-filter-item .form-select {
-    width: auto;
-    min-width: 120px;
-    max-width: 195px;
+    inline-size: auto;
+    min-inline-size: 90px;
+    max-inline-size: 185px;
+    padding-inline: 0.35rem 1.75rem;
+    background-position: right 0.5rem center;
+    font-size: 0.84rem;
+    text-overflow: ellipsis;
+}
+
+.db-filter-item #filterSubjectCluster,
+.db-filter-item #filterSectionStrand {
+    max-inline-size: 118px;
+}
+
+.db-filter-item #filterSubjectGrade,
+.db-filter-item #filterSectionGrade {
+    max-inline-size: 142px;
+}
+
+.db-filter-item #filterSubjectCategory {
+    max-inline-size: 178px;
+}
+
+.db-filter-item #filterSubjectTerm {
+    max-inline-size: 104px;
 }
 
 .db-student-filter-item {
     flex: 1 1 0;
-    min-width: 130px;
+    min-inline-size: 115px;
+}
+
+.db-student-filter-item .form-select {
+    padding-inline: 0.35rem 1.75rem;
+    background-position: right 0.5rem center;
+    font-size: 0.84rem;
+    text-overflow: ellipsis;
 }
 
 @media (max-width: 576px) {
     .db-student-filter-item {
-        min-width: calc(50% - 4px);
+        min-inline-size: calc(50% - 4px);
     }
 }
 
 #dbActionsRow {
-    min-height: 38px;
+    min-block-size: 38px;
 }
 
 #dbSearchWrapper .input-group,
 .db-filter-item,
 .db-student-filter-item {
-    height: 38px;
+    min-block-size: 38px;
 }
 
 #dbSearchWrapper .input-group .form-control,
@@ -156,9 +195,23 @@
 .db-filter-item .input-group-text,
 .db-student-filter-item .form-select,
 .db-student-filter-item .input-group-text {
-    height: 38px;
+    min-block-size: 38px;
     padding-top: 0.35rem;
     padding-bottom: 0.35rem;
+}
+
+@media (pointer: coarse) {
+    #dbSearchWrapper .input-group,
+    .db-filter-item,
+    .db-student-filter-item,
+    #dbSearchWrapper .input-group .form-control,
+    #dbSearchWrapper .input-group .input-group-text,
+    .db-filter-item .form-select,
+    .db-filter-item .input-group-text,
+    .db-student-filter-item .form-select,
+    .db-student-filter-item .input-group-text {
+        min-block-size: 44px;
+    }
 }
 
 /* Table styling and high contrast alternating zebra overrides matching image_047ee5.png */
