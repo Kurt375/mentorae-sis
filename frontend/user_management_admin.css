@@ -480,15 +480,59 @@
 .user-toolbar-top .form-control,
 .user-toolbar-top .btn,
 .user-filter-bar .form-select,
-.user-filter-bar .btn {
+.user-filter-bar .btn,
+.manage-filter-grid .form-control,
+.manage-filter-grid .form-select {
     min-block-size: 38px;
+}
+
+/* Section, Promotion & Graduation Manager Filter Grid */
+.manage-filter-container {
+    container: manage-filters / inline-size;
+}
+
+.manage-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    align-items: end;
+}
+
+.manage-filter-grid > div {
+    min-inline-size: 0;
+}
+
+.manage-filter-search {
+    grid-column: 1 / -1;
+}
+
+.manage-filter-grid .form-select {
+    padding-inline-end: 2.1rem;
+    text-overflow: ellipsis;
+}
+
+@container manage-filters (inline-size >= 700px) {
+    .manage-filter-grid {
+        grid-template-columns:
+            minmax(190px, 2.2fr)
+            minmax(115px, 1.2fr)
+            minmax(100px, 1fr)
+            minmax(120px, 1.3fr)
+            minmax(150px, 1.6fr);
+    }
+
+    .manage-filter-search {
+        grid-column: auto;
+    }
 }
 
 @media (pointer: coarse) {
     .user-toolbar-top .form-control,
     .user-toolbar-top .btn,
     .user-filter-bar .form-select,
-    .user-filter-bar .btn {
+    .user-filter-bar .btn,
+    .manage-filter-grid .form-control,
+    .manage-filter-grid .form-select {
         min-block-size: 44px;
     }
 }

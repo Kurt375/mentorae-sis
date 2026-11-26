@@ -420,38 +420,40 @@
                     class="badge section-header-badge align-self-start mb-3 px-3 py-2 fs-6 rounded-2 fw-semibold">Section,
                     Promotion &amp; Graduation Manager</span>
 
-                <div class="row g-2 align-items-end mb-2">
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-dark fw-bold micro-text mb-1">Cluster</label>
-                        <select class="form-select form-input" id="manageStrandFilter">
-                            <option value="">All clusters</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label text-dark fw-bold micro-text mb-1">Grade Level</label>
-                        <select class="form-select form-input" id="manageGradeFilter">
-                            <option value="">All grades</option>
-                            <option value="11">Grade 11</option>
-                            <option value="12">Grade 12</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-dark fw-bold micro-text mb-1">Section</label>
-                        <select class="form-select form-input" id="manageSectionFilter">
-                            <option value="">All sections</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label text-dark fw-bold micro-text mb-1">Status</label>
-                        <select class="form-select form-input" id="manageStatusFilter">
-                            <option value="">Enrolled (default)</option>
-                            <option value="graduated">Graduated</option>
-                            <option value="all">All</option>
-                        </select>
-                    </div>
-                    <div class="col-12 col-md-2">
-                        <label for="manageSearch" class="form-label text-dark fw-bold micro-text mb-1">Search</label>
-                        <input type="text" class="form-control form-input" id="manageSearch" placeholder="Name or ID…">
+                <div class="manage-filter-container mb-2">
+                    <div class="manage-filter-grid">
+                        <div class="manage-filter-search">
+                            <label for="manageSearch" class="form-label text-dark fw-bold micro-text mb-1">Search</label>
+                            <input type="text" class="form-control form-input" id="manageSearch" placeholder="Name or ID…">
+                        </div>
+                        <div>
+                            <label for="manageStrandFilter" class="form-label text-dark fw-bold micro-text mb-1">Cluster</label>
+                            <select class="form-select form-input" id="manageStrandFilter">
+                                <option value="">All clusters</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="manageGradeFilter" class="form-label text-dark fw-bold micro-text mb-1">Grade Level</label>
+                            <select class="form-select form-input" id="manageGradeFilter">
+                                <option value="">All grades</option>
+                                <option value="11">Grade 11</option>
+                                <option value="12">Grade 12</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="manageSectionFilter" class="form-label text-dark fw-bold micro-text mb-1">Section</label>
+                            <select class="form-select form-input" id="manageSectionFilter">
+                                <option value="">All sections</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="manageStatusFilter" class="form-label text-dark fw-bold micro-text mb-1">Status</label>
+                            <select class="form-select form-input" id="manageStatusFilter">
+                                <option value="">Enrolled (default)</option>
+                                <option value="graduated">Graduated</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
