@@ -93,13 +93,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             gradeState = data;
             const termSelect = document.getElementById('termFilterSelect');
-            if (termSelect && termSelect.value) {
-                currentTermFilter = termSelect.value;
-            } else if (data.activeTerm) {
+            if (data.activeTerm) {
                 currentTermFilter = data.activeTerm;
                 if (termSelect) {
                     termSelect.value = currentTermFilter;
                 }
+            } else if (termSelect && termSelect.value) {
+                currentTermFilter = termSelect.value;
             }
             wireFilterControlsOnce();
             renderAllGradeComponents();
