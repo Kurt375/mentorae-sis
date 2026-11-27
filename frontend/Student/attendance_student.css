@@ -198,8 +198,34 @@
     outline-offset: 1px;
 }
 
+/* Attendance Filter Row & Full-width Flexible Search Bar */
+.attendance-filter-row {
+    width: 100%;
+}
+
+.attendance-search-group {
+    flex: 1 1 auto;
+    min-width: 140px;
+}
+
+.attendance-filter-select {
+    flex-shrink: 0;
+}
+
 /* Prevent iOS Safari auto-zoom on inputs & ensure accessible 44px touch targets */
 @media (max-width: 768px) {
+    .attendance-filter-row {
+        flex-wrap: wrap !important;
+    }
+
+    .attendance-search-group {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+    }
+
+    .attendance-filter-select {
+        flex: 1 1 calc(50% - 0.5rem);
+    }
     input.form-control,
     select.form-select,
     .form-control-sm,
