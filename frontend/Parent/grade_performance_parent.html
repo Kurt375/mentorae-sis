@@ -377,12 +377,12 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
 
-                <div class="modal-header custom-navbar text-white py-3 px-4 border-0">
-                    <h5 class="modal-title fw-bold fs-5 mx-auto ps-4 text-center text-white"
+                <div class="modal-header custom-navbar text-white py-3 px-4 border-0 position-relative d-flex align-items-center justify-content-center">
+                    <h5 class="modal-title fw-bold fs-5 text-center text-white m-0 w-100"
                         id="prescriptiveGoalModalLabel">
                         Prescriptive Path to Goal
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    <button type="button" class="btn-close btn-close-white position-absolute end-0 me-3" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
 
@@ -454,7 +454,7 @@
                         <div class="row g-3">
                             <div class="col-12 col-sm-6">
                                 <span class="fw-bold text-dark text-sm d-block mb-2">Quizzes</span>
-                                <a href="quiz_taker_student.html"
+                                <a href="../Student/quiz_taker_student.html" id="btnGoalPracticeQuizzes"
                                     class="btn btn-outline-practice w-100 py-2 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none">
                                     <i class="bi bi-cpu-fill text-success fs-5"></i>
                                     <span class="fw-bold text-dark text-sm">Practice with Quizzes</span>
@@ -463,7 +463,7 @@
 
                             <div class="col-12 col-sm-6">
                                 <span class="fw-bold text-dark text-sm d-block mb-2">Quarterly Assessment</span>
-                                <a href="learning_resources_student.html"
+                                <a href="../Student/subject_detail_student.html" id="btnGoalReviewLessons"
                                     class="btn btn-outline-practice w-100 py-2 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none">
                                     <i class="bi bi-journal-text text-success fs-5"></i>
                                     <span class="fw-bold text-dark text-sm">Review Lessons</span>

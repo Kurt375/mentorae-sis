@@ -1371,6 +1371,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (goalSubjectTitle) goalSubjectTitle.textContent = `${subjectName} (${term})`;
         if (displayGoalScore) displayGoalScore.textContent = Math.round(goalValue);
 
+        const btnPractice = document.getElementById('btnGoalPracticeQuizzes');
+        if (btnPractice) {
+            btnPractice.href = `quiz_taker_student.html?subject=${encodeURIComponent(subjectName)}&source=practice`;
+        }
+        const btnReview = document.getElementById('btnGoalReviewLessons');
+        if (btnReview) {
+            btnReview.href = `subject_detail_student.html?subject=${encodeURIComponent(subjectName)}`;
+        }
+
         // Approximate required slider targets
         const targetNum = Math.min(100, Math.max(0, Math.round(goalValue)));
         if (sliderPT) sliderPT.value = Math.min(100, targetNum);
