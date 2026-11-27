@@ -933,7 +933,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
             } else {
-                studentActivities.slice(0, 5).forEach(act => {
+                studentActivities.forEach(act => {
                     const actEl = document.createElement('div');
                     actEl.className = 'activity-item-pill d-flex align-items-center justify-content-between gap-3';
                     actEl.innerHTML = `

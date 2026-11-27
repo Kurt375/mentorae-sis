@@ -402,6 +402,34 @@
     border-radius: 20px;
 }
 
+/* Vertical Scrollable Container for Recent Activities & Goals */
+.achievements-scroll-container {
+    max-height: 330px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.achievements-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.achievements-scroll-container::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.achievements-scroll-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.achievements-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
 .challenge-item-pill {
     background: #ffffff;
     border: 1px solid #e2e8f0;
