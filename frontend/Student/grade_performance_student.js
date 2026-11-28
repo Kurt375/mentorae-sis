@@ -493,7 +493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 const subjectId = card.getAttribute('data-subject-id');
-                const cardTerm = card.getAttribute('data-term');
+                const cardTerm = card.getAttribute('data-term') || (currentTermFilter !== 'all' ? currentTermFilter : null);
                 const drawer = card.querySelector('.subject-details-drawer');
                 if (!drawer) return;
 
@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                (cardTerm ? (g.term || '').trim().toLowerCase() === cardTerm.trim().toLowerCase() : true)
                     ) || gradeState.grades.find((g) => String(g.subjectId) === String(subjectId));
 
-                    if (targetGradeObj && targetGradeObj.average !== null) {
+                    if (targetGradeObj) {
                         requestAnimationFrame(() => {
                             renderSubjectDrawerChart(targetGradeObj, card);
                             const safeTerm = (targetGradeObj.term || 'term').replace(/\s+/g, '');
@@ -664,9 +664,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wwMax = g.ww_weight || 20;
         const ptMax = g.pt_weight || 50;
         const qaMax = g.qa_weight || 30;
-        const qPct = g.quizPct != null ? Math.min(100, Math.max(0, Number(g.quizPct))) : Math.min(100, Math.max(0, Math.round((Number(g.quiz_score) / wwMax) * 100)));
-        const aPct = g.activityPct != null ? Math.min(100, Math.max(0, Number(g.activityPct))) : Math.min(100, Math.max(0, Math.round((Number(g.activity_score) / ptMax) * 100)));
-        const ePct = g.examPct != null ? Math.min(100, Math.max(0, Number(g.examPct))) : Math.min(100, Math.max(0, Math.round((Number(g.exam_score) / qaMax) * 100)));
+        const qPct = g.quizPct != null ? Math.min(100, Math.max(0, Number(g.quizPct))) : (g.quiz_score != null && !isNaN(Number(g.quiz_score)) ? Math.min(100, Math.max(0, Math.round((Number(g.quiz_score) / wwMax) * 100))) : null);
+        const aPct = g.activityPct != null ? Math.min(100, Math.max(0, Number(g.activityPct))) : (g.activity_score != null && !isNaN(Number(g.activity_score)) ? Math.min(100, Math.max(0, Math.round((Number(g.activity_score) / ptMax) * 100))) : null);
+        const ePct = g.examPct != null ? Math.min(100, Math.max(0, Number(g.examPct))) : (g.exam_score != null && !isNaN(Number(g.exam_score)) ? Math.min(100, Math.max(0, Math.round((Number(g.exam_score) / qaMax) * 100))) : null);
 
         subjectChartsCache[chartKey] = new Chart(ctx, {
             type: 'bar',
@@ -679,11 +679,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 datasets: [
                     {
                         label: 'Current Score %',
-                        data: [qPct, aPct, ePct],
+                        data: [qPct != null ? qPct : 0, aPct != null ? aPct : 0, ePct != null ? ePct : 0],
                         backgroundColor: [
-                            qPct >= 75 ? 'rgba(46, 125, 50, 0.85)' : 'rgba(239, 68, 68, 0.85)',
-                            aPct >= 75 ? 'rgba(10, 92, 44, 0.85)' : 'rgba(239, 68, 68, 0.85)',
-                            ePct >= 75 ? 'rgba(245, 158, 11, 0.85)' : 'rgba(239, 68, 68, 0.85)'
+                            qPct != null ? (qPct >= 75 ? 'rgba(46, 125, 50, 0.85)' : 'rgba(239, 68, 68, 0.85)') : 'rgba(148, 163, 184, 0.3)',
+                            aPct != null ? (aPct >= 75 ? 'rgba(10, 92, 44, 0.85)' : 'rgba(239, 68, 68, 0.85)') : 'rgba(148, 163, 184, 0.3)',
+                            ePct != null ? (ePct >= 75 ? 'rgba(245, 158, 11, 0.85)' : 'rgba(239, 68, 68, 0.85)') : 'rgba(148, 163, 184, 0.3)'
                         ],
                         borderColor: ['#2e7d32', '#0a5c2c', '#f59e0b'],
                         borderWidth: 1.5,
@@ -739,7 +739,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         bodyFont: { size: 12 },
                         padding: 10,
                         callbacks: {
-                            label: (context) => `${context.dataset.label || 'Score'}: ${context.parsed.y}%`
+                            label: (context) => {
+                                if (context.datasetIndex === 0) {
+                                    const isPending = (context.dataIndex === 0 && qPct === null) ||
+                                                      (context.dataIndex === 1 && aPct === null) ||
+                                                      (context.dataIndex === 2 && ePct === null);
+                                    if (isPending) return `${context.label[0]}: Pending (No Graded Items Yet)`;
+                                    return `${context.label[0]}: ${context.parsed.y}%`;
+                                }
+                                return `${context.dataset.label || 'Baseline'}: ${context.parsed.y}%`;
+                            }
                         }
                     }
                 },
@@ -775,6 +784,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 6.1 DETAILED ASSESSMENT BREAKDOWN & LINE GRAPH MODAL
     // =========================================================================
     function getSubjectAssessmentBreakdown(g) {
+        if (!g) return null;
         let raw = g.raw_scores;
         if (typeof raw === 'string') {
             try { raw = JSON.parse(raw); } catch (e) { raw = null; }
@@ -784,14 +794,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ptWeight = Number(g.pt_weight) || 50;
         const qaWeight = Number(g.qa_weight) || 30;
 
-        const qPct = g.quizPct != null ? Number(g.quizPct) : (g.quiz_score != null ? Math.min(100, Math.round((Number(g.quiz_score) / wwWeight) * 100)) : 75);
-        const aPct = g.activityPct != null ? Number(g.activityPct) : (g.activity_score != null ? Math.min(100, Math.round((Number(g.activity_score) / ptWeight) * 100)) : 75);
-        const ePct = g.examPct != null ? Number(g.examPct) : (g.exam_score != null ? Math.min(100, Math.round((Number(g.exam_score) / qaWeight) * 100)) : 75);
+        // Exactly match the bar chart logic: null if not recorded/graded, or actual percentage if present
+        const qPct = g.quizPct != null 
+            ? Math.min(100, Math.max(0, Number(g.quizPct))) 
+            : (g.quiz_score != null && !isNaN(Number(g.quiz_score)) ? Math.min(100, Math.max(0, Math.round((Number(g.quiz_score) / wwWeight) * 100))) : null);
+
+        const aPct = g.activityPct != null 
+            ? Math.min(100, Math.max(0, Number(g.activityPct))) 
+            : (g.activity_score != null && !isNaN(Number(g.activity_score)) ? Math.min(100, Math.max(0, Math.round((Number(g.activity_score) / ptWeight) * 100))) : null);
+
+        const ePct = g.examPct != null 
+            ? Math.min(100, Math.max(0, Number(g.examPct))) 
+            : (g.exam_score != null && !isNaN(Number(g.exam_score)) ? Math.min(100, Math.max(0, Math.round((Number(g.exam_score) / qaWeight) * 100))) : null);
 
         const hasRealRaw = !!(raw && raw.scores && (
-            (Array.isArray(raw.scores.ww) && raw.scores.ww.length) ||
-            (Array.isArray(raw.scores.pt) && raw.scores.pt.length) ||
-            (Array.isArray(raw.scores.qa) && raw.scores.qa.length)
+            (Array.isArray(raw.scores.ww) && raw.scores.ww.some(v => v !== '' && v !== null && v !== undefined && v !== 'E' && v !== 'EX' && !isNaN(v))) ||
+            (Array.isArray(raw.scores.pt) && raw.scores.pt.some(v => v !== '' && v !== null && v !== undefined && v !== 'E' && v !== 'EX' && !isNaN(v))) ||
+            (Array.isArray(raw.scores.qa) && raw.scores.qa.some(v => v !== '' && v !== null && v !== undefined && v !== 'E' && v !== 'EX' && !isNaN(v)))
         ));
 
         function synthesizeItems(count, prefix, maxPerItem, targetPct) {
@@ -808,13 +827,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     score,
                     max: maxPerItem,
                     pct,
-                    isPassing: pct >= 75
+                    isPassing: pct >= 75,
+                    isPending: false,
+                    isExcused: false
                 });
             }
             return items;
         }
 
-        // 1. Written Works (WW 1 - WW 5)
+        // 1. Written Works
         let wwItems = [];
         if (raw && Array.isArray(raw.wwCols) && raw.wwCols.length && raw.scores && Array.isArray(raw.scores.ww)) {
             wwItems = raw.wwCols.map((col, idx) => {
@@ -836,12 +857,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 };
             });
         } else if (qPct !== null) {
-            wwItems = synthesizeItems(5, 'WW', 20, qPct);
+            wwItems = synthesizeItems(Math.min(5, Math.max(1, g.gradedItems || 5)), 'WW', 20, qPct);
         } else {
-            wwItems = [1, 2, 3, 4, 5].map(i => ({ id: `ww_${i}`, label: `WW ${i}`, score: null, max: 20, pct: null, isPassing: false, isPending: true }));
+            wwItems = [1, 2, 3, 4, 5].map(i => ({ id: `ww_${i}`, label: `WW ${i}`, score: null, max: 20, pct: null, isPassing: false, isPending: true, isExcused: false }));
         }
 
-        // 2. Performance Tasks (PT 1 - PT 3)
+        // 2. Performance Tasks
         let ptItems = [];
         if (raw && Array.isArray(raw.ptCols) && raw.ptCols.length && raw.scores && Array.isArray(raw.scores.pt)) {
             ptItems = raw.ptCols.map((col, idx) => {
@@ -863,9 +884,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 };
             });
         } else if (aPct !== null) {
-            ptItems = synthesizeItems(3, 'PT', 50, aPct);
+            ptItems = synthesizeItems(Math.min(3, Math.max(1, g.gradedItems || 3)), 'PT', 50, aPct);
         } else {
-            ptItems = [1, 2, 3].map(i => ({ id: `pt_${i}`, label: `PT ${i}`, score: null, max: 50, pct: null, isPassing: false, isPending: true }));
+            ptItems = [1, 2, 3].map(i => ({ id: `pt_${i}`, label: `PT ${i}`, score: null, max: 50, pct: null, isPassing: false, isPending: true, isExcused: false }));
         }
 
         // 3. Quarterly Assessments (SA 1, SA 2, Term Exam)
@@ -891,15 +912,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         } else if (ePct !== null) {
             qaItems = [
-                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75, isPending: false },
-                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75, isPending: false },
-                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: Math.round((ePct / 100) * 50), pct: ePct, isPassing: ePct >= 75, isPending: false }
+                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75, isPending: false, isExcused: false },
+                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: Math.round((ePct / 100) * 25), pct: ePct, isPassing: ePct >= 75, isPending: false, isExcused: false },
+                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: Math.round((ePct / 100) * 50), pct: ePct, isPassing: ePct >= 75, isPending: false, isExcused: false }
             ];
         } else {
             qaItems = [
-                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: null, pct: null, isPassing: false, isPending: true },
-                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: null, pct: null, isPassing: false, isPending: true },
-                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: null, pct: null, isPassing: false, isPending: true }
+                { id: 'qa_1', label: '1st Summative (SA1)', max: 25, score: null, pct: null, isPassing: false, isPending: true, isExcused: false },
+                { id: 'qa_2', label: '2nd Summative (SA2)', max: 25, score: null, pct: null, isPassing: false, isPending: true, isExcused: false },
+                { id: 'qa_3', label: 'Term Exam (TE)', max: 50, score: null, pct: null, isPassing: false, isPending: true, isExcused: false }
             ];
         }
 
@@ -1158,28 +1179,76 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function wireAssessmentModalEvents() {
         const filterContainer = document.getElementById('assessmentFilterPills');
-        if (!filterContainer || filterContainer.dataset.wired) return;
-        filterContainer.dataset.wired = 'true';
-
-        filterContainer.querySelectorAll('.assessment-pill-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterContainer.querySelectorAll('.assessment-pill-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentAssessmentFilter = btn.getAttribute('data-filter') || 'all';
-                if (currentAssessmentSubject) {
-                    const breakdown = getSubjectAssessmentBreakdown(currentAssessmentSubject);
-                    renderAssessmentTrendChart(breakdown, currentAssessmentFilter);
-                }
+        if (filterContainer && !filterContainer.dataset.wired) {
+            filterContainer.dataset.wired = 'true';
+            filterContainer.querySelectorAll('.assessment-pill-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterContainer.querySelectorAll('.assessment-pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentAssessmentFilter = btn.getAttribute('data-filter') || 'all';
+                    if (currentAssessmentSubject) {
+                        const breakdown = getSubjectAssessmentBreakdown(currentAssessmentSubject);
+                        renderAssessmentTrendChart(breakdown, currentAssessmentFilter);
+                    }
+                });
             });
-        });
+        }
+
+        const termSelect = document.getElementById('modalAssessmentTermSelect');
+        if (termSelect && !termSelect.dataset.wired) {
+            termSelect.dataset.wired = 'true';
+            termSelect.addEventListener('change', (e) => {
+                const chosenTerm = e.target.value;
+                if (!currentAssessmentSubject) return;
+                const subjectId = currentAssessmentSubject.subjectId;
+                const allGrades = Array.isArray(gradeState.grades) ? gradeState.grades : [];
+                const matchingGrade = allGrades.find(gr => 
+                    String(gr.subjectId) === String(subjectId) &&
+                    (gr.term || '').trim().toLowerCase() === chosenTerm.trim().toLowerCase()
+                );
+                const resolvedGrade = matchingGrade || {
+                    gradeId: null,
+                    subjectId: currentAssessmentSubject.subjectId,
+                    subjectCode: currentAssessmentSubject.subjectCode,
+                    subject: currentAssessmentSubject.subject,
+                    classification: currentAssessmentSubject.classification,
+                    teacherName: currentAssessmentSubject.teacherName,
+                    term: chosenTerm,
+                    quiz_score: null,
+                    activity_score: null,
+                    exam_score: null,
+                    average: null,
+                    rawAverage: null,
+                    quizPct: null,
+                    activityPct: null,
+                    examPct: null,
+                    ww_weight: currentAssessmentSubject.ww_weight || 20,
+                    pt_weight: currentAssessmentSubject.pt_weight || 50,
+                    qa_weight: currentAssessmentSubject.qa_weight || 30,
+                    remarks: 'Pending',
+                    status: 'Pending',
+                    gradedItems: 0,
+                    totalItems: 0,
+                    raw_scores: null
+                };
+                openAssessmentBreakdownModal(resolvedGrade, false);
+            });
+        }
     }
 
-    function openAssessmentBreakdownModal(g) {
+    function openAssessmentBreakdownModal(g, shouldShow = true) {
         if (!g) return;
         currentAssessmentSubject = g;
         currentAssessmentFilter = 'all';
 
         wireAssessmentModalEvents();
+
+        // Sync in-modal term selector
+        const termSelect = document.getElementById('modalAssessmentTermSelect');
+        if (termSelect) {
+            const desiredTerm = g.term || (currentTermFilter && currentTermFilter !== 'all' ? currentTermFilter : '1st Term');
+            termSelect.value = desiredTerm;
+        }
 
         // Reset active filter pill to 'all'
         const filterContainer = document.getElementById('assessmentFilterPills');
@@ -1195,16 +1264,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Subject meta
         const metaEl = document.getElementById('assessmentModalSubjectMeta');
         if (metaEl) {
-            metaEl.textContent = `${g.subject} (${g.term || '1st Term'}) • Teacher: ${g.teacherName || 'Assigned Teacher'}`;
+            metaEl.textContent = `${g.subject} (${g.term || currentTermFilter || '1st Term'}) • Teacher: ${g.teacherName || 'Assigned Teacher'}`;
         }
 
         function getScoreTextColor(pct) {
+            if (pct === null || pct === undefined) return 'text-muted';
             if (pct >= 75) return 'text-success';
             if (pct >= 60) return 'text-warning';
             return 'text-danger';
         }
 
         function getPctBadgeClass(pct) {
+            if (pct === null || pct === undefined) return 'bg-light text-secondary border';
             if (pct >= 75) return 'bg-success-subtle text-success border border-success-subtle';
             if (pct >= 60) return 'bg-warning-subtle text-warning border border-warning-subtle';
             return 'bg-danger-subtle text-danger border border-danger-subtle';
@@ -1213,58 +1284,96 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Summary strip
         const wwScoreEl = document.getElementById('summaryWwScore');
         if (wwScoreEl) {
-            wwScoreEl.textContent = `${breakdown.qPct}%`;
-            wwScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.qPct)}`;
+            if (breakdown.qPct !== null) {
+                wwScoreEl.textContent = `${breakdown.qPct}%`;
+                wwScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.qPct)}`;
+            } else {
+                wwScoreEl.textContent = 'Pending';
+                wwScoreEl.className = 'fs-5 fw-bold text-muted';
+            }
         }
         const wwWeightEl = document.getElementById('summaryWwWeight');
         if (wwWeightEl) wwWeightEl.textContent = `Weight: ${breakdown.wwWeight}%`;
 
         const ptScoreEl = document.getElementById('summaryPtScore');
         if (ptScoreEl) {
-            ptScoreEl.textContent = `${breakdown.aPct}%`;
-            ptScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.aPct)}`;
+            if (breakdown.aPct !== null) {
+                ptScoreEl.textContent = `${breakdown.aPct}%`;
+                ptScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.aPct)}`;
+            } else {
+                ptScoreEl.textContent = 'Pending';
+                ptScoreEl.className = 'fs-5 fw-bold text-muted';
+            }
         }
         const ptWeightEl = document.getElementById('summaryPtWeight');
         if (ptWeightEl) ptWeightEl.textContent = `Weight: ${breakdown.ptWeight}%`;
 
         const qaScoreEl = document.getElementById('summaryQaScore');
         if (qaScoreEl) {
-            qaScoreEl.textContent = `${breakdown.ePct}%`;
-            qaScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.ePct)}`;
+            if (breakdown.ePct !== null) {
+                qaScoreEl.textContent = `${breakdown.ePct}%`;
+                qaScoreEl.className = `fs-5 fw-bold ${getScoreTextColor(breakdown.ePct)}`;
+            } else {
+                qaScoreEl.textContent = 'Pending';
+                qaScoreEl.className = 'fs-5 fw-bold text-muted';
+            }
         }
         const qaWeightEl = document.getElementById('summaryQaWeight');
         if (qaWeightEl) qaWeightEl.textContent = `Weight: ${breakdown.qaWeight}%`;
 
         const finalGradeEl = document.getElementById('summaryFinalGrade');
-        if (finalGradeEl) finalGradeEl.textContent = g.average !== null ? g.average : '—';
+        if (finalGradeEl) finalGradeEl.textContent = (g.average !== null && g.average !== undefined && g.average !== '') ? g.average : '—';
         const finalRemarksEl = document.getElementById('summaryFinalRemarks');
         if (finalRemarksEl) {
-            const passed = g.average !== null && g.average >= 75;
-            finalRemarksEl.innerHTML = g.average !== null 
+            const hasAvg = g.average !== null && g.average !== undefined && g.average !== '' && !isNaN(Number(g.average));
+            const passed = hasAvg && Number(g.average) >= 75;
+            finalRemarksEl.innerHTML = hasAvg 
                 ? `<span class="badge ${passed ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} rounded-pill">${escapeHtml(g.remarks || (passed ? 'Passed' : 'Needs Remediation'))}</span>` 
-                : 'Pending';
+                : '<span class="badge bg-light text-secondary border rounded-pill">Pending</span>';
         }
 
         // Column Badges & Subtext with dynamic color-coding
         const colWwBadge = document.getElementById('colWwBadge');
         if (colWwBadge) {
-            colWwBadge.textContent = `${breakdown.qPct}%`;
+            colWwBadge.textContent = breakdown.qPct !== null ? `${breakdown.qPct}%` : 'Pending';
             colWwBadge.className = `badge micro-text rounded-pill ${getPctBadgeClass(breakdown.qPct)}`;
         }
         const colPtBadge = document.getElementById('colPtBadge');
         if (colPtBadge) {
-            colPtBadge.textContent = `${breakdown.aPct}%`;
+            colPtBadge.textContent = breakdown.aPct !== null ? `${breakdown.aPct}%` : 'Pending';
             colPtBadge.className = `badge micro-text rounded-pill ${getPctBadgeClass(breakdown.aPct)}`;
         }
         const colQaBadge = document.getElementById('colQaBadge');
         if (colQaBadge) {
-            colQaBadge.textContent = `${breakdown.ePct}%`;
+            colQaBadge.textContent = breakdown.ePct !== null ? `${breakdown.ePct}%` : 'Pending';
             colQaBadge.className = `badge micro-text rounded-pill ${getPctBadgeClass(breakdown.ePct)}`;
+        }
+
+        const colWwSubtext = document.getElementById('colWwSubtext');
+        if (colWwSubtext) {
+            const gradedCount = breakdown.wwItems.filter(i => !i.isPending && !i.isExcused && i.score !== null).length;
+            colWwSubtext.textContent = breakdown.wwItems.length 
+                ? (gradedCount > 0 ? `${gradedCount} of ${breakdown.wwItems.length} Graded` : `${breakdown.wwItems.length} Items • Pending`) 
+                : 'Pending';
+        }
+        const colPtSubtext = document.getElementById('colPtSubtext');
+        if (colPtSubtext) {
+            const gradedCount = breakdown.ptItems.filter(i => !i.isPending && !i.isExcused && i.score !== null).length;
+            colPtSubtext.textContent = breakdown.ptItems.length 
+                ? (gradedCount > 0 ? `${gradedCount} of ${breakdown.ptItems.length} Graded` : `${breakdown.ptItems.length} Items • Pending`) 
+                : 'Pending';
+        }
+        const colQaSubtext = document.getElementById('colQaSubtext');
+        if (colQaSubtext) {
+            const gradedCount = breakdown.qaItems.filter(i => !i.isPending && !i.isExcused && i.score !== null).length;
+            colQaSubtext.textContent = breakdown.qaItems.length 
+                ? (gradedCount > 0 ? `${gradedCount} of ${breakdown.qaItems.length} Graded` : `${breakdown.qaItems.length} Items • Pending`) 
+                : 'Pending';
         }
 
         const dataModeBadge = document.getElementById('assessmentDataModeBadge');
         if (dataModeBadge) {
-            dataModeBadge.textContent = breakdown.hasRealRaw ? 'Official Recorded Scores' : 'Standard DepEd Assessment Breakdown';
+            dataModeBadge.textContent = breakdown.hasRealRaw ? 'Official Recorded Scores' : 'Component Grade Assessment Breakdown';
             dataModeBadge.className = `badge micro-text ${breakdown.hasRealRaw ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-light text-secondary border'}`;
         }
 
@@ -1273,14 +1382,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderAssessmentItemList(breakdown.ptItems, 'assessmentPtList', 'colPtFooter');
         renderAssessmentItemList(breakdown.qaItems, 'assessmentQaList', 'colQaFooter');
 
-        if (assessmentModalInstance) {
+        if (shouldShow && assessmentModalInstance) {
             assessmentModalInstance.show();
         }
 
         // Render line graph once modal is rendered
         setTimeout(() => {
             renderAssessmentTrendChart(breakdown, 'all');
-        }, 300);
+        }, 150);
 
         const assessmentModalEl = document.getElementById('subjectAssessmentModal');
         if (assessmentModalEl && !assessmentModalEl.dataset.listenerAttached) {
