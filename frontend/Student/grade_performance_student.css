@@ -593,3 +593,50 @@
     border: 1px solid #d1fae5;
     border-radius: 14px;
 }
+
+/* In-Modal Term Switcher Dropdown (Assessment Results) */
+.modal-term-dropdown-pill {
+    background-color: #ffffff !important;
+    border: 1.5px solid #d1fae5;
+    padding: 3px 8px 3px 12px;
+    border-radius: 50rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease;
+}
+
+.modal-term-dropdown-pill:hover,
+.modal-term-dropdown-pill:focus-within {
+    border-color: #10b981;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.modal-assessment-term-select {
+    color: #0a5c2c !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    background-color: transparent !important;
+    color-scheme: light !important;
+    width: auto !important;
+    min-width: 95px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    background-position: right 0.2rem center !important;
+    background-size: 14px 10px !important;
+    padding-right: 1.5rem !important;
+}
+
+.modal-assessment-term-select option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    padding: 8px 12px !important;
+}
+
+.modal-assessment-term-select:focus {
+    color: #0a5c2c !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
