@@ -481,29 +481,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>
                             </div>
                             <div class="col-12 col-lg-5">
-                                <div class="calculator-panel p-3.5 rounded-4 shadow-sm text-center">
-                                    <div class="d-flex align-items-center justify-content-center gap-1.5 mb-1">
-                                        <i class="bi bi-bullseye text-success fs-5"></i>
+                                <div class="calculator-panel shadow-sm text-center">
+                                    <div class="d-flex align-items-center justify-content-center mb-1">
+                                        <i class="bi bi-bullseye text-success fs-5 me-2"></i>
                                         <h4 class="fw-bold fs-6 text-dark m-0">Target Grade Calculator</h4>
                                     </div>
-                                    <p class="micro-text text-muted mb-2.5">Estimate required scores to achieve target goal</p>
-                                    <div class="mb-2">
-                                        <div class="input-group input-group-sm mx-auto shadow-xs" style="max-width: 190px;">
+                                    <p class="micro-text text-muted mb-3">Estimate required scores to achieve target goal</p>
+                                    <div class="mb-3 d-flex justify-content-center">
+                                        <div class="calc-target-input-group d-flex align-items-center mx-auto">
                                             <input type="number"
-                                                class="form-control target-goal-input text-center fw-bold fs-6"
-                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="${defaultGoal}"
+                                                class="form-control target-goal-input text-center"
+                                                placeholder="0-100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="${defaultGoal}"
                                                 id="goal-input-${g.subjectId}"
                                                 data-subject-id="${g.subjectId}"
                                                 data-term-key="${safeTermKey}"
                                                 onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();">
-                                            <span class="input-group-text bg-white border-start-0 text-muted micro-text fw-bold">/ 100</span>
+                                            <span class="calc-input-addon">/ 100</span>
                                         </div>
                                     </div>
-                                    <div class="target-inline-preview p-2.5 rounded-3 mb-2.5 text-start border" id="target-preview-${g.subjectId}-${safeTermKey}">
+                                    <div class="target-inline-preview mb-3 text-start border" id="target-preview-${g.subjectId}-${safeTermKey}">
                                         <!-- Injected dynamically via updateInlineTargetPreview -->
                                     </div>
                                     <button type="button"
-                                        class="btn btn-calc-check w-100 py-2 fw-bold text-white rounded-pill btn-check-target shadow-sm"
+                                        class="btn btn-calc-check w-100 fw-bold text-white rounded-pill btn-check-target shadow-sm d-flex align-items-center justify-content-center gap-2"
                                         data-subject-id="${g.subjectId}"
                                         data-subject-name="${escapeHtml(g.subject)}"
                                         data-term="${escapeHtml(g.term || '1st Term')}"
@@ -512,7 +512,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         data-activity="${g.activity_score !== null ? g.activity_score : ''}"
                                         data-exam="${g.exam_score !== null ? g.exam_score : ''}"
                                         data-target-input="goal-input-${g.subjectId}">
-                                        <i class="bi bi-stars me-1"></i> View Prescriptive Path
+                                        <i class="bi bi-stars fs-6"></i>
+                                        <span>View Prescriptive Path</span>
                                     </button>
                                 </div>
                             </div>
@@ -1640,11 +1641,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (feas.isFullyGraded) {
             previewEl.innerHTML = `
-                <div class="d-flex align-items-center justify-content-between mb-1">
-                    <span class="micro-text fw-bold text-dark d-flex align-items-center gap-1">
-                        <i class="${feas.iconClass}"></i> ${feas.label}
+                <div class="d-flex align-items-center justify-content-between mb-1.5">
+                    <span class="micro-text fw-bold text-dark d-flex align-items-center gap-1.5">
+                        <i class="${feas.iconClass} fs-6"></i>
+                        <span>${feas.label}</span>
                     </span>
-                    <span class="badge ${feas.badgeClass} micro-text rounded-pill py-0.5 px-2">Finalized</span>
+                    <span class="badge ${feas.badgeClass} micro-text rounded-pill py-1 px-2.5">Finalized</span>
                 </div>
                 <p class="micro-text text-secondary mb-0">All items recorded. Term grade is <strong>${feas.finalAvg}%</strong>.</p>
             `;
@@ -1655,26 +1657,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         let progressBg = feas.status === 'unfeasible' ? 'bg-danger' : (feas.status === 'challenging' ? 'bg-warning' : 'bg-success');
 
         previewEl.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between mb-1.5">
-                <span class="micro-text fw-bold text-dark d-flex align-items-center gap-1">
-                    <i class="${feas.iconClass}"></i> ${feas.label}
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="micro-text fw-bold text-dark d-flex align-items-center gap-1.5">
+                    <i class="${feas.iconClass} fs-6"></i>
+                    <span>${feas.label}</span>
                 </span>
-                <span class="badge ${feas.badgeClass} micro-text rounded-pill py-0.5 px-2">Target: ${feas.target}</span>
+                <span class="badge ${feas.badgeClass} micro-text rounded-pill py-1 px-2.5">Target: ${feas.target}</span>
             </div>
-            <div class="micro-text text-dark mb-1.5">
+            <p class="micro-text text-secondary mb-2 lh-sm">
                 ${feas.summary}
-            </div>
+            </p>
             ${feas.status !== 'secured' && feas.status !== 'unfeasible' ? `
-                <div class="d-flex align-items-center gap-2">
-                    <div class="progress flex-grow-1" style="height: 6px;">
+                <div class="d-flex align-items-center gap-2 pt-1">
+                    <div class="progress flex-grow-1" style="height: 6px; background-color: #e2e8f0;">
                         <div class="progress-bar ${progressBg}" role="progressbar" style="width: ${progressPct}%;" aria-valuenow="${progressPct}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                     <span class="micro-text fw-bold text-dark">${progressPct}%</span>
                 </div>
             ` : ''}
             ${feas.status === 'unfeasible' ? `
-                <div class="micro-text text-danger mt-1">
-                    <i class="bi bi-info-circle me-1"></i>Suggested achievable target: <strong>${feas.maxPossible}%</strong>
+                <div class="micro-text text-danger d-flex align-items-center gap-1.5 pt-1.5 mt-1 border-top border-danger border-opacity-10">
+                    <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+                    <span>Suggested achievable target: <strong>${feas.maxPossible}%</strong></span>
                 </div>
             ` : ''}
         `;
@@ -1853,15 +1857,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const qaTargetClamped = Math.min(100, Math.max(0, feas.neededScorePct));
             if (badgeExam) {
                 badgeExam.textContent = feas.status === 'unfeasible' ? 'Out of Reach' : 'Required Target';
-                badgeExam.className = feas.status === 'unfeasible' ? 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text rounded-pill mb-2 px-2 py-0.5' : 'badge bg-success-subtle text-success border border-success-subtle micro-text rounded-pill mb-2 px-2 py-0.5';
+                badgeExam.className = feas.status === 'unfeasible' ? 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text rounded-pill mb-1.5 px-2 py-0.5' : 'badge bg-success-subtle text-success border border-success-subtle micro-text rounded-pill mb-1.5 px-2 py-0.5';
             }
-            if (valExam) valExam.textContent = `${qaTargetClamped}%`;
+            if (valExam) {
+                valExam.textContent = feas.status === 'unfeasible' ? '>100%' : `${qaTargetClamped}%`;
+                valExam.className = feas.status === 'unfeasible' ? 'fw-bold fs-5 text-danger' : 'fw-bold fs-5 text-dark';
+            }
             if (gaugeExam) {
                 gaugeExam.style.setProperty('--val', qaTargetClamped);
                 gaugeExam.style.setProperty('--stroke-color', feas.status === 'unfeasible' ? '#ef4444' : (qaTargetClamped > 90 ? '#f59e0b' : '#10b981'));
             }
             if (subtextExam) {
-                subtextExam.textContent = `Need: ${Math.max(0, feas.neededPoints).toFixed(1)} / ${feas.qaW} pts`;
+                subtextExam.textContent = feas.status === 'unfeasible' ? `Max: ${feas.qaW}.0 / ${feas.qaW} pts` : `Need: ${Math.max(0, feas.neededPoints).toFixed(1)} / ${feas.qaW} pts`;
             }
         }
 
@@ -1869,9 +1876,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const slWw = document.getElementById('goalSliderWwLabel');
         const slPt = document.getElementById('goalSliderPtLabel');
         const slExam = document.getElementById('goalSliderExamLabel');
-        if (slWw) slWw.innerHTML = `Written Works (${feas.wwW}%) ${feas.isWwRecorded ? '<span class="text-primary micro-text ms-1"><i class="bi bi-lock-fill"></i> Locked</span>' : ''}`;
-        if (slPt) slPt.innerHTML = `Performance Tasks (${feas.ptW}%) ${feas.isPtRecorded ? '<span class="text-primary micro-text ms-1"><i class="bi bi-lock-fill"></i> Locked</span>' : ''}`;
-        if (slExam) slExam.innerHTML = `Quarterly Assessment (${feas.qaW}%) ${feas.isExamRecorded ? '<span class="text-primary micro-text ms-1"><i class="bi bi-lock-fill"></i> Locked</span>' : ''}`;
+        if (slWw) slWw.innerHTML = `Written Works (${feas.wwW}%) ${feas.isWwRecorded ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle micro-text ms-1.5"><i class="bi bi-lock-fill me-0.5"></i> Locked</span>' : ''}`;
+        if (slPt) slPt.innerHTML = `Performance Tasks (${feas.ptW}%) ${feas.isPtRecorded ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle micro-text ms-1.5"><i class="bi bi-lock-fill me-0.5"></i> Locked</span>' : ''}`;
+        if (slExam) slExam.innerHTML = `Quarterly Assessment (${feas.qaW}%) ${feas.isExamRecorded ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle micro-text ms-1.5"><i class="bi bi-lock-fill me-0.5"></i> Locked</span>' : ''}`;
 
         if (sliderWW) {
             sliderWW.value = feas.isWwRecorded ? feas.wwPct : feas.target;
