@@ -2903,6 +2903,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            const isFinalized = Boolean(data.isTermFinalized || data.roster.some(r => r.is_finalized));
+            activeGradeBreakdown.isTermFinalized = isFinalized;
+            updateTermFinalizationStatusUI(isFinalized);
+
             // Restore columns if saved raw_scores contain custom columns
             let foundRawCols = false;
             for (const s of data.roster) {
@@ -3306,97 +3310,266 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Update UI when term finalization status changes
+    function updateTermFinalizationStatusUI(isFinalized) {
+        const badge = document.getElementById('termFinalizedStatusBadge');
+        const btnFinalize = document.getElementById('btnFinalizeTermGrades');
+        const btnReopen = document.getElementById('btnReopenTermGrades');
+
+        if (badge) {
+            if (isFinalized) {
+                badge.className = 'badge bg-success text-white px-2.5 py-1.5 rounded-3 small fw-semibold shadow-xs';
+                badge.innerHTML = '<i class="bi bi-patch-check-fill me-1"></i> Term Grades Finalized & Confirmed';
+            } else {
+                badge.className = 'badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1.5 rounded-3 small fw-semibold';
+                badge.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Running Grades (In Progress)';
+            }
+        }
+
+        if (btnFinalize && btnReopen) {
+            if (isFinalized) {
+                btnFinalize.classList.add('d-none');
+                btnFinalize.classList.remove('d-inline-flex');
+                btnReopen.classList.remove('d-none');
+                btnReopen.classList.add('d-inline-flex');
+            } else {
+                btnFinalize.classList.remove('d-none');
+                btnFinalize.classList.add('d-inline-flex');
+                btnReopen.classList.add('d-none');
+                btnReopen.classList.remove('d-inline-flex');
+            }
+        }
+    }
+
+    // Helper: Saves all entered grades to backend
+    async function performSaveAllGrades(showAlert = true) {
+        const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
+        const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
+        const term = encodeTermFilter ? encodeTermFilter.value : '1st';
+        const students = Object.values(activeGradeBreakdown.students);
+
+        if (sectionId === 'all' || !sectionId) {
+            alert('Please select a specific section (not "All Sections") to encode and save grades.');
+            return false;
+        }
+
+        if (!students.length) {
+            alert('No students to save.');
+            return false;
+        }
+
+        const gradesToSave = [];
+        for (const st of students) {
+            const hasScore = (st.wwScores && st.wwScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined)) ||
+                (st.wwWs !== '' && st.wwWs !== undefined) ||
+                (st.ptWs !== '' && st.ptWs !== undefined) ||
+                (st.qaWs !== '' && st.qaWs !== undefined);
+
+            if (!hasScore) continue;
+
+            const quiz = (st.wwWs !== '' && st.wwWs !== undefined) ? Number(st.wwWs) : null;
+            const activity = (st.ptWs !== '' && st.ptWs !== undefined) ? Number(st.ptWs) : null;
+            const exam = (st.qaWs !== '' && st.qaWs !== undefined) ? Number(st.qaWs) : null;
+            const transmuted = st.transmuted !== '—' && !isNaN(Number(st.transmuted)) ? Number(st.transmuted) : null;
+
+            gradesToSave.push({
+                studentId: st.studentId,
+                written_works: quiz,
+                performance_tasks: activity,
+                quarterly_assessment: exam,
+                average: transmuted,
+                raw_scores: {
+                    wwCols: activeGradeBreakdown.wwCols,
+                    ptCols: activeGradeBreakdown.ptCols,
+                    qaCols: activeGradeBreakdown.qaCols,
+                    scores: {
+                        ww: st.wwScores || [],
+                        pt: st.ptScores || [],
+                        qa: st.qaScores || []
+                    }
+                }
+            });
+        }
+
+        if (!gradesToSave.length) {
+            if (showAlert) {
+                alert('No entered assessment scores to save. Please enter student scores in the Written Works, Performance Tasks, or Summative & Exams tabs first.');
+            }
+            return false;
+        }
+
+        try {
+            const res = await authedFetch('/api/classes/eclass-save', token, {
+                method: 'POST',
+                body: JSON.stringify({
+                    sectionId,
+                    subjectId,
+                    term,
+                    grades: gradesToSave
+                })
+            });
+
+            if (res.success) {
+                if (showAlert) {
+                    const savedCount = res.savedCount || gradesToSave.length;
+                    alert(`✅ Successfully saved and synchronized grades for ${savedCount} student(s)!`);
+                }
+                return true;
+            } else {
+                if (showAlert) {
+                    alert(`❌ Error: ${res.message || 'Could not save grades.'}`);
+                }
+                return false;
+            }
+        } catch (e) {
+            console.error('Error saving all grades', e);
+            if (showAlert) {
+                alert('Failed to save grades. Please try again.');
+            }
+            return false;
+        }
+    }
+
     // Save All Grades Button
     if (btnSaveAllGradesNow) {
         btnSaveAllGradesNow.addEventListener('click', async () => {
+            btnSaveAllGradesNow.disabled = true;
+            btnSaveAllGradesNow.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving All...';
+            try {
+                await performSaveAllGrades(true);
+            } finally {
+                btnSaveAllGradesNow.disabled = false;
+                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
+                loadGradeSheet();
+                loadRoster(currentSectionId);
+            }
+        });
+    }
+
+    // Finalize Term Grades Button
+    const btnFinalizeTermGrades = document.getElementById('btnFinalizeTermGrades');
+    const btnReopenTermGrades = document.getElementById('btnReopenTermGrades');
+
+    if (btnFinalizeTermGrades) {
+        btnFinalizeTermGrades.addEventListener('click', async () => {
             const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
             const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
             const term = encodeTermFilter ? encodeTermFilter.value : '1st';
             const students = Object.values(activeGradeBreakdown.students);
 
             if (sectionId === 'all' || !sectionId) {
-                alert('Please select a specific section (not "All Sections") to encode and save grades.');
+                alert('Please select a specific section (not "All Sections") to finalize grades.');
                 return;
             }
 
             if (!students.length) {
-                alert('No students to save.');
+                alert('No students found to finalize.');
                 return;
             }
 
-            btnSaveAllGradesNow.disabled = true;
-            btnSaveAllGradesNow.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving All...';
-
-            const gradesToSave = [];
+            // Check for pending / unscored items
+            let hasPendingExam = false;
+            let totalPendingCount = 0;
             for (const st of students) {
-                const hasScore = (st.wwScores && st.wwScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                    (st.ptScores && st.ptScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                    (st.qaScores && st.qaScores.some(v => v !== '' && v !== null && v !== undefined)) ||
-                    (st.wwWs !== '' && st.wwWs !== undefined) ||
-                    (st.ptWs !== '' && st.ptWs !== undefined) ||
-                    (st.qaWs !== '' && st.qaWs !== undefined);
-
-                if (!hasScore) continue;
-
-                const quiz = (st.wwWs !== '' && st.wwWs !== undefined) ? Number(st.wwWs) : null;
-                const activity = (st.ptWs !== '' && st.ptWs !== undefined) ? Number(st.ptWs) : null;
-                const exam = (st.qaWs !== '' && st.qaWs !== undefined) ? Number(st.qaWs) : null;
-                const transmuted = st.transmuted !== '—' && !isNaN(Number(st.transmuted)) ? Number(st.transmuted) : null;
-
-                gradesToSave.push({
-                    studentId: st.studentId,
-                    written_works: quiz,
-                    performance_tasks: activity,
-                    quarterly_assessment: exam,
-                    average: transmuted,
-                    raw_scores: {
-                        wwCols: activeGradeBreakdown.wwCols,
-                        ptCols: activeGradeBreakdown.ptCols,
-                        qaCols: activeGradeBreakdown.qaCols,
-                        scores: {
-                            ww: st.wwScores || [],
-                            pt: st.ptScores || [],
-                            qa: st.qaScores || []
-                        }
-                    }
-                });
+                if (st.qaScores && (st.qaScores[2] === '' || st.qaScores[2] === null || st.qaScores[2] === undefined)) {
+                    hasPendingExam = true;
+                }
+                const wwPending = (st.wwScores || []).filter(v => v === '' || v === null || v === undefined).length;
+                const ptPending = (st.ptScores || []).filter(v => v === '' || v === null || v === undefined).length;
+                const qaPending = (st.qaScores || []).filter(v => v === '' || v === null || v === undefined).length;
+                totalPendingCount += (wwPending + ptPending + qaPending);
             }
 
-            if (!gradesToSave.length) {
-                btnSaveAllGradesNow.disabled = false;
-                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
-                alert('No entered assessment scores to save. Please enter student scores in the Written Works, Performance Tasks, or Summative & Exams tabs first.');
-                return;
+            let confirmText = `Are you sure you want to officially CONFIRM & FINALIZE grades for ${term}?\n\n`;
+            if (hasPendingExam || totalPendingCount > 0) {
+                confirmText += `⚠️ Notice: There are still ${totalPendingCount} pending/unscored assessment cell(s) (including Term Exam cells).\n\n` +
+                    `If these students missed requirements, you may click "Cancel" and use "Zero Out Pending" first to assign 0s, or fill in their actual scores.\n\n` +
+                    `Proceed with finalization now?`;
+            } else {
+                confirmText += `All assessments appear complete. Once finalized, these become official Final Term Grades visible to students and parents.\n\nProceed?`;
             }
+
+            if (!confirm(confirmText)) return;
+
+            btnFinalizeTermGrades.disabled = true;
+            btnFinalizeTermGrades.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Finalizing...';
 
             try {
-                const res = await authedFetch('/api/classes/eclass-save', token, {
+                // 1. Ensure all current grade numbers are saved
+                const saveOk = await performSaveAllGrades(false);
+                if (!saveOk) {
+                    btnFinalizeTermGrades.disabled = false;
+                    btnFinalizeTermGrades.innerHTML = '<i class="bi bi-patch-check-fill"></i> Finalize Term Grades';
+                    return;
+                }
+
+                // 2. Toggle finalization status
+                const res = await authedFetch('/api/grades/toggle-term-finalization', token, {
                     method: 'POST',
                     body: JSON.stringify({
                         sectionId,
                         subjectId,
                         term,
-                        grades: gradesToSave
+                        isFinalized: true
                     })
                 });
 
-                btnSaveAllGradesNow.disabled = false;
-                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
+                if (res.success) {
+                    alert(`✅ ${res.message || 'Term grades successfully finalized and confirmed!'}`);
+                    loadGradeSheet();
+                    loadRoster(currentSectionId);
+                } else {
+                    alert(`❌ Failed to finalize: ${res.message || 'Server error.'}`);
+                }
+            } catch (err) {
+                console.error('Finalize term error:', err);
+                alert('An error occurred while finalizing term grades.');
+            } finally {
+                btnFinalizeTermGrades.disabled = false;
+                btnFinalizeTermGrades.innerHTML = '<i class="bi bi-patch-check-fill"></i> Finalize Term Grades';
+            }
+        });
+    }
+
+    if (btnReopenTermGrades) {
+        btnReopenTermGrades.addEventListener('click', async () => {
+            const sectionId = encodeSectionFilter ? encodeSectionFilter.value : currentSectionId;
+            const subjectId = (encodeSubjectFilter && encodeSubjectFilter.value) ? encodeSubjectFilter.value : (currentSubjects[0] ? currentSubjects[0].id : 11);
+            const term = encodeTermFilter ? encodeTermFilter.value : '1st';
+
+            if (!confirm(`Reopen grades for ${term}?\n\nThis will allow adjustments and will display grades as In-Progress Running Grades to students and parents until you finalize again.`)) {
+                return;
+            }
+
+            btnReopenTermGrades.disabled = true;
+            btnReopenTermGrades.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Reopening...';
+
+            try {
+                const res = await authedFetch('/api/grades/toggle-term-finalization', token, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sectionId,
+                        subjectId,
+                        term,
+                        isFinalized: false
+                    })
+                });
 
                 if (res.success) {
-                    const savedCount = res.savedCount || gradesToSave.length;
-                    alert(`✅ Successfully saved and synchronized grades for ${savedCount} student(s)!`);
+                    alert(`✅ ${res.message || 'Term grades reopened for editing.'}`);
+                    loadGradeSheet();
+                    loadRoster(currentSectionId);
                 } else {
-                    alert(`❌ Error: ${res.message || 'Could not save grades.'}`);
+                    alert(`❌ Failed to reopen: ${res.message || 'Server error.'}`);
                 }
-            } catch (e) {
-                console.error('Error saving all grades', e);
-                alert('Failed to save grades. Please try again.');
+            } catch (err) {
+                console.error('Reopen term error:', err);
+                alert('An error occurred while reopening term grades.');
             } finally {
-                btnSaveAllGradesNow.disabled = false;
-                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
-                loadGradeSheet();
-                loadRoster(currentSectionId);
+                btnReopenTermGrades.disabled = false;
+                btnReopenTermGrades.innerHTML = '<i class="bi bi-unlock-fill"></i> Reopen Term';
             }
         });
     }

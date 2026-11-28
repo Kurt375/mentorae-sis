@@ -343,11 +343,16 @@
                     <!-- Active Category Weight Policy Summary (Positioned at Bottom of Buttons) -->
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-1"
                         id="activeCategoryBadgeContainer">
-                        <span
-                            class="badge bg-light text-dark border px-3 py-1.5 rounded-3 small fw-semibold text-wrap text-start"
-                            id="activeCategoryWeightSummary">
-                            <i class="bi bi-info-circle text-primary me-1"></i> Core Subject (WW 20% • PT 50% • QA 30%)
-                        </span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span
+                                class="badge bg-light text-dark border px-3 py-1.5 rounded-3 small fw-semibold text-wrap text-start"
+                                id="activeCategoryWeightSummary">
+                                <i class="bi bi-info-circle text-primary me-1"></i> Core Subject (WW 20% • PT 50% • QA 30%)
+                            </span>
+                            <span id="termFinalizedStatusBadge" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1.5 rounded-3 small fw-semibold">
+                                <i class="bi bi-hourglass-split me-1"></i> Running Grades (In Progress)
+                            </span>
+                        </div>
                         <span class="micro-text text-muted">
                             <i class="bi bi-shield-check text-success me-1"></i> Auto-synced with DepEd Grading Weights
                             Policy
@@ -528,6 +533,18 @@
                             class="btn btn-success px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                             id="btnSaveAllGradesNow">
                             <i class="bi bi-floppy-fill"></i> Save All Grades
+                        </button>
+                        <button type="button"
+                            class="btn btn-primary px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            id="btnFinalizeTermGrades"
+                            title="Officially confirm and finalize all grades for this term">
+                            <i class="bi bi-patch-check-fill"></i> Finalize Term Grades
+                        </button>
+                        <button type="button"
+                            class="btn btn-outline-primary px-3 py-2 fw-semibold border-primary-subtle d-none align-items-center gap-1.5"
+                            id="btnReopenTermGrades"
+                            title="Reopen term grades for editing and adjustment">
+                            <i class="bi bi-unlock-fill"></i> Reopen Term
                         </button>
                     </div>
                 </div>

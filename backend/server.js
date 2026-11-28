@@ -122,6 +122,26 @@ app.use((req, res, next) => {
 
 const pool = require('./config/db');
 
+// Ensure grade finalization columns exist on startup
+(async function initGradeFinalizationColumns() {
+  try {
+    await pool.query('ALTER TABLE grades ADD COLUMN IF NOT EXISTS is_finalized TINYINT(1) NOT NULL DEFAULT 0');
+    await pool.query('ALTER TABLE grades ADD COLUMN IF NOT EXISTS finalized_at TIMESTAMP NULL DEFAULT NULL');
+    await pool.query('ALTER TABLE grades ADD COLUMN IF NOT EXISTS finalized_by INT NULL DEFAULT NULL');
+  } catch (_) {
+    try {
+      const [cols] = await pool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'grades' AND COLUMN_NAME = 'is_finalized'`
+      );
+      if (!cols || !cols.length) {
+        await pool.query('ALTER TABLE grades ADD COLUMN is_finalized TINYINT(1) NOT NULL DEFAULT 0');
+        await pool.query('ALTER TABLE grades ADD COLUMN finalized_at TIMESTAMP NULL DEFAULT NULL');
+        await pool.query('ALTER TABLE grades ADD COLUMN finalized_by INT NULL DEFAULT NULL');
+      }
+    } catch (_) {}
+  }
+})();
+
 app.get('/api/health', (req, res) => {
   const activeDatabase = pool.getCurrentMode ? pool.getCurrentMode() : 'cloud';
   res.json({

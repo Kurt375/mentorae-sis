@@ -402,9 +402,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="mt-2.5 d-flex align-items-center justify-content-between flex-wrap gap-1">
                         <div class="d-flex align-items-center gap-1.5">
                             ${hasGrade ? `
-                                <span class="badge ${g.isFullyGraded ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle'} micro-text rounded-pill py-1 px-2.5">
-                                    <i class="bi ${g.isFullyGraded ? 'bi-check2-circle' : 'bi-hourglass-split'} me-1"></i>
-                                    ${g.isFullyGraded ? 'Final Term Grade' : 'Running Grade'} &bull; Based on ${g.gradedItems !== undefined ? g.gradedItems : (g.quizPct !== null ? 1 : 0)} of ${g.totalItems || 11} graded items
+                                <span class="badge ${g.is_finalized ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle'} micro-text rounded-pill py-1 px-2.5">
+                                    <i class="bi ${g.is_finalized ? 'bi-patch-check-fill' : 'bi-hourglass-split'} me-1"></i>
+                                    ${g.is_finalized ? 'Final Term Grade (Confirmed)' : 'Running Grade'} &bull; Based on ${g.gradedItems !== undefined ? g.gradedItems : (g.quizPct !== null ? 1 : 0)} of ${g.totalItems || 11} graded items
                                 </span>
                             ` : `
                                 <span class="badge bg-light text-secondary border micro-text rounded-pill py-1 px-2.5">
@@ -1462,17 +1462,55 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const target = Math.min(100, Math.max(0, Math.round(Number(targetVal) || 75)));
 
+        // Check if Term Exam is pending from raw_scores
+        let hasPendingExam = Boolean(g.hasPendingExam);
+        let raw = g.raw_scores || g.rawScores;
+        if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch (e) { raw = null; }
+        }
+
+        let qaEarned = 0;
+        let qaPossible = 0;
+        if (raw && Array.isArray(raw.qaCols) && raw.scores && Array.isArray(raw.scores.qa)) {
+            raw.qaCols.forEach((col, idx) => {
+                const val = raw.scores.qa[idx];
+                const max = parseFloat(col.max) || (idx === 2 ? 50 : 25);
+                const isExamCol = (col.label && col.label.toLowerCase().includes('exam')) || idx === 2;
+                if (val !== '' && val !== null && val !== undefined && val !== 'E' && val !== 'EX' && !isNaN(val)) {
+                    qaEarned += parseFloat(val);
+                    qaPossible += max;
+                } else if (isExamCol) {
+                    hasPendingExam = true;
+                }
+            });
+        }
+
+        const isTeacherFinalized = Boolean(g.is_finalized || g.isFinalized);
+        const isExamRecorded = !hasPendingExam && (examScore !== null);
         const isWwRecorded = quizScore !== null;
         const isPtRecorded = actScore !== null;
-        const isExamRecorded = examScore !== null;
-        const isFullyGraded = isWwRecorded && isPtRecorded && isExamRecorded;
+
+        // A term is only considered fully finalized if the teacher officially confirmed it AND the exam is not pending
+        const isFullyGraded = isTeacherFinalized && !hasPendingExam;
 
         const wwPct = isWwRecorded ? Math.min(100, Math.max(0, Math.round((quizScore / wwW) * 100))) : null;
         const ptPct = isPtRecorded ? Math.min(100, Math.max(0, Math.round((actScore / ptW) * 100))) : null;
         const examPct = isExamRecorded ? Math.min(100, Math.max(0, Math.round((examScore / qaW) * 100))) : null;
 
-        const lockedPoints = (isWwRecorded ? quizScore : 0) + (isPtRecorded ? actScore : 0) + (isExamRecorded ? examScore : 0);
-        const unrecordedWeight = (isWwRecorded ? 0 : wwW) + (isPtRecorded ? 0 : ptW) + (isExamRecorded ? 0 : qaW);
+        let lockedPoints = 0;
+        let unrecordedWeight = 0;
+
+        if (hasPendingExam) {
+            // Exam is still pending: summatives (SA1, SA2) account for up to 50% of the QA weight
+            const earnedSummativePoints = (qaPossible > 0 && qaEarned > 0) ? Math.min(qaW * 0.5, (qaEarned / 100) * qaW) : 0;
+            const remainingExamWeight = qaW - earnedSummativePoints;
+
+            lockedPoints = (isWwRecorded ? quizScore : 0) + (isPtRecorded ? actScore : 0) + earnedSummativePoints;
+            unrecordedWeight = (isWwRecorded ? 0 : wwW) + (isPtRecorded ? 0 : ptW) + remainingExamWeight;
+        } else {
+            lockedPoints = (isWwRecorded ? quizScore : 0) + (isPtRecorded ? actScore : 0) + (isExamRecorded ? examScore : 0);
+            unrecordedWeight = (isWwRecorded ? 0 : wwW) + (isPtRecorded ? 0 : ptW) + (isExamRecorded ? 0 : qaW);
+        }
 
         if (isFullyGraded) {
             const finalAvg = g.average !== null ? Number(g.average) : Math.round(lockedPoints);
@@ -1481,7 +1519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 status: 'finalized',
                 label: 'Term Finalized',
                 badgeClass: 'bg-primary-subtle text-primary border-primary-subtle',
-                iconClass: 'bi-info-circle-fill text-primary',
+                iconClass: 'bi-patch-check-fill text-primary',
                 alertBg: '#eff6ff',
                 alertBorder: '#bfdbfe',
                 target,
@@ -1498,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 neededPoints: 0,
                 neededScorePct: null,
                 remainingName: 'Quarterly Exam',
-                summary: `All components recorded. Final quarter grade is ${finalAvg}%.`
+                summary: `All components recorded and officially confirmed by your teacher. Final quarter grade is ${finalAvg}%.`
             };
         }
 
@@ -1748,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (goalFeasibilityDesc) {
             if (feas.isFullyGraded) {
-                goalFeasibilityDesc.innerHTML = `All components for <strong>${escapeHtml(term)}</strong> have been submitted and finalized. Final grade: <strong>${feas.finalAvg}%</strong>.`;
+                goalFeasibilityDesc.innerHTML = `All components for <strong>${escapeHtml(term)}</strong> have been submitted and officially finalized by your teacher. Final grade: <strong>${feas.finalAvg}%</strong>.`;
             } else if (feas.status === 'unfeasible') {
                 goalFeasibilityDesc.innerHTML = `Your recorded score is <strong>${feas.lockedPoints.toFixed(1)}</strong> points. Even with a perfect 100% score (${feas.unrecordedWeight} pts) on the ${feas.remainingName}, the highest reachable grade is <strong>${feas.maxPossible}%</strong>. We recommend aiming for <strong>${feas.maxPossible}%</strong> or requesting review activities with your teacher.`;
             } else if (feas.status === 'secured') {

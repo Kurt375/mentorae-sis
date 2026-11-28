@@ -251,7 +251,8 @@ async function getRosterGrades(req, res) {
 
     const [rows] = await pool.query(
       `SELECT u.id, u.id_number, u.first_name, u.middle_initial, u.last_name,
-              g.quiz_score, g.activity_score, g.exam_score, g.raw_scores, g.average
+              g.quiz_score, g.activity_score, g.exam_score, g.raw_scores, g.average,
+              COALESCE(g.is_finalized, 0) AS is_finalized, g.finalized_at
        FROM users u
        LEFT JOIN grades g ON g.student_id = u.id AND g.subject_id = ? AND (g.section_id = ? OR g.section_id = 0) AND g.term IN (?)
        WHERE u.role = 'student' AND u.section_id = ?
@@ -313,13 +314,17 @@ async function getRosterGrades(req, res) {
         raw_scores: parsedRaw,
         average: r.average,
         remarks: r.average !== null ? getRemarks(r.average) : null,
+        is_finalized: Boolean(Number(r.is_finalized) === 1),
+        finalized_at: r.finalized_at || null,
         gwa,
         termGwa,
         overallGwa,
       };
     });
 
-    return res.json({ success: true, roster });
+    const isTermFinalized = rows.length > 0 && rows.some((r) => Number(r.is_finalized) === 1);
+
+    return res.json({ success: true, roster, isTermFinalized });
   } catch (err) {
     console.error('getRosterGrades error:', err);
     return res.status(500).json({ success: false, message: 'Could not load the grade sheet.' });
@@ -531,6 +536,7 @@ async function computeStudentGradePerformance(studentId) {
             COALESCE(sub.pt_weight, 50.00) AS pt_weight,
             COALESCE(sub.qa_weight, 30.00) AS qa_weight,
             g.term, g.quiz_score, g.activity_score, g.exam_score, g.average, g.raw_scores,
+            COALESCE(g.is_finalized, 0) AS is_finalized, g.finalized_at,
             CONCAT(t.first_name, ' ', t.last_name) AS teacherName
      FROM grades g
      JOIN subjects sub ON sub.id = g.subject_id
@@ -661,6 +667,20 @@ async function computeStudentGradePerformance(studentId) {
 
     const hasAvg = finalTransmuted !== null && !isNaN(finalTransmuted);
 
+    let hasPendingExam = false;
+    if (parsedRaw && Array.isArray(parsedRaw.qaCols) && parsedRaw.scores && Array.isArray(parsedRaw.scores.qa)) {
+      parsedRaw.qaCols.forEach((col, idx) => {
+        const val = parsedRaw.scores.qa[idx];
+        const isExamCol = (col.label && col.label.toLowerCase().includes('exam')) || idx === 2;
+        if (isExamCol && (val === '' || val === null || val === undefined)) {
+          hasPendingExam = true;
+        }
+      });
+    }
+
+    const isExplicitlyFinalized = Boolean(Number(gr.is_finalized) === 1);
+    const fullyGraded = isExplicitlyFinalized || (Boolean(calc.isFullyGraded) && !hasPendingExam);
+
     grades.push({
       gradeId: gr.gradeId,
       subjectId: gr.subjectId,
@@ -685,7 +705,10 @@ async function computeStudentGradePerformance(studentId) {
       gradedItems: calc.gradedItemCount,
       totalItems: calc.totalItemCount,
       activeWeightSum: calc.activeWeightSum,
-      isFullyGraded: calc.isFullyGraded,
+      isFullyGraded: fullyGraded,
+      is_finalized: isExplicitlyFinalized,
+      finalized_at: gr.finalized_at || null,
+      hasPendingExam,
       raw_scores: parsedRaw,
     });
   }
@@ -1721,6 +1744,50 @@ async function downloadECRTemplate(req, res) {
   return res.sendFile(resolvedPath);
 }
 
+/**
+ * POST /api/grades/toggle-term-finalization
+ * Body: { sectionId, subjectId, term, isFinalized }
+ * Allows a teacher or admin to confirm/finalize or reopen grades for a section + subject + term.
+ */
+async function toggleTermFinalization(req, res) {
+  const { sectionId, subjectId, term, isFinalized } = req.body;
+  if (!sectionId || !subjectId || !term) {
+    return res.status(400).json({ success: false, message: 'sectionId, subjectId, and term are required.' });
+  }
+
+  try {
+    if (req.user.role === 'teacher') {
+      const teachesSec = await teacherTeachesSection(req.user.id, sectionId);
+      if (!teachesSec) {
+        return res.status(403).json({ success: false, message: 'You do not teach this section.' });
+      }
+    }
+
+    const termList = getTermVariants(term);
+    const finalizedFlag = (isFinalized === true || isFinalized === 1 || isFinalized === 'true') ? 1 : 0;
+
+    await pool.query(
+      `UPDATE grades 
+       SET is_finalized = ?, 
+           finalized_at = IF(? = 1, NOW(), NULL), 
+           finalized_by = IF(? = 1, ?, NULL)
+       WHERE subject_id = ? AND (section_id = ? OR section_id = 0) AND term IN (?)`,
+      [finalizedFlag, finalizedFlag, req.user.id, subjectId, sectionId, termList]
+    );
+
+    return res.json({
+      success: true,
+      isFinalized: Boolean(finalizedFlag === 1),
+      message: finalizedFlag === 1 
+        ? `Grades for ${term} have been officially confirmed and finalized!` 
+        : `Grades for ${term} have been reopened for editing.`
+    });
+  } catch (err) {
+    console.error('toggleTermFinalization error:', err);
+    return res.status(500).json({ success: false, message: 'Could not update term finalization status.' });
+  }
+}
+
 module.exports = {
   getRosterGrades,
   saveGrade,
@@ -1730,5 +1797,6 @@ module.exports = {
   getSectionReportCards,
   saveSectionReportCards,
   downloadECRTemplate,
+  toggleTermFinalization,
 };
 

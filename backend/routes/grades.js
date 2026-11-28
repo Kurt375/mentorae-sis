@@ -10,10 +10,13 @@ const {
   getSectionReportCards,
   saveSectionReportCards,
   downloadECRTemplate,
+  toggleTermFinalization,
 } = require('../controllers/gradesController');
 
 router.get('/template', downloadECRTemplate);
 router.get('/roster', requireAuth, requireRole('teacher'), getRosterGrades);
+router.post('/finalize-term', requireAuth, requireRole('teacher', 'admin'), toggleTermFinalization);
+router.post('/toggle-term-finalization', requireAuth, requireRole('teacher', 'admin'), toggleTermFinalization);
 router.get('/section-report-cards', requireAuth, requireRole('teacher', 'admin'), getSectionReportCards);
 router.post('/section-report-cards/save', requireAuth, requireRole('teacher', 'admin'), saveSectionReportCards);
 router.post('/', requireAuth, requireRole('teacher'), saveGrade);
