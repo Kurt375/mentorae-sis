@@ -438,28 +438,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>
                             </div>
                             <div class="col-12 col-lg-5">
-                                <div class="calculator-panel p-4 rounded-4 shadow-sm text-center">
-                                    <h4 class="fw-bold fs-6 text-dark mb-1">Target Grade Calculator</h4>
-                                    <p class="micro-text text-muted mb-3">Estimate required scores to achieve your goal</p>
-                                    <div class="mb-3">
-                                        <input type="number"
-                                            class="form-control target-goal-input text-center mx-auto"
-                                            placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="${defaultGoal}"
-                                            id="goal-input-${g.subjectId}"
-                                            onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();"
-                                            oninput="if(this.value!==''){let v=parseInt(this.value,10);if(isNaN(v)||v<0)this.value=0;else if(v>100)this.value=100;}">
+                                <div class="calculator-panel p-3.5 rounded-4 shadow-sm text-center">
+                                    <div class="d-flex align-items-center justify-content-center gap-1.5 mb-1">
+                                        <i class="bi bi-bullseye text-success fs-5"></i>
+                                        <h4 class="fw-bold fs-6 text-dark m-0">Target Grade Calculator</h4>
+                                    </div>
+                                    <p class="micro-text text-muted mb-2.5">Estimate required scores to achieve your goal</p>
+                                    <div class="mb-2">
+                                        <div class="input-group input-group-sm mx-auto shadow-xs" style="max-width: 190px;">
+                                            <input type="number"
+                                                class="form-control target-goal-input text-center fw-bold fs-6"
+                                                placeholder="0 - 100" min="0" max="100" step="1" maxlength="3" inputmode="numeric" value="${defaultGoal}"
+                                                id="goal-input-${g.subjectId}"
+                                                data-subject-id="${g.subjectId}"
+                                                data-term-key="${safeTermKey}"
+                                                onkeydown="if(['-','+','e','E','.'].includes(event.key)) event.preventDefault();">
+                                            <span class="input-group-text bg-white border-start-0 text-muted micro-text fw-bold">/ 100</span>
+                                        </div>
+                                    </div>
+                                    <div class="target-inline-preview p-2.5 rounded-3 mb-2.5 text-start border" id="target-preview-${g.subjectId}-${safeTermKey}">
+                                        <!-- Injected dynamically via updateInlineTargetPreview -->
                                     </div>
                                     <button type="button"
-                                        class="btn btn-calc-check w-75 py-2 fw-bold text-white rounded-pill btn-check-target"
+                                        class="btn btn-calc-check w-100 py-2 fw-bold text-white rounded-pill btn-check-target shadow-sm"
                                         data-subject-id="${g.subjectId}"
                                         data-subject-name="${escapeHtml(g.subject)}"
                                         data-term="${escapeHtml(g.term || '1st Term')}"
                                         data-current-grade="${g.average}"
-                                        data-quiz="${g.quiz_score || 0}"
-                                        data-activity="${g.activity_score || 0}"
-                                        data-exam="${g.exam_score || 0}"
+                                        data-quiz="${g.quiz_score !== null ? g.quiz_score : ''}"
+                                        data-activity="${g.activity_score !== null ? g.activity_score : ''}"
+                                        data-exam="${g.exam_score !== null ? g.exam_score : ''}"
                                         data-target-input="goal-input-${g.subjectId}">
-                                        <i class="bi bi-stars me-1"></i> Check Target
+                                        <i class="bi bi-stars me-1"></i> View Prescriptive Path
                                     </button>
                                 </div>
                             </div>
@@ -519,6 +529,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             if (subjectChartsCache[chartKey]) {
                                 subjectChartsCache[chartKey].resize();
                             }
+                            const goalInp = card.querySelector('.target-goal-input');
+                            const initialVal = goalInp && goalInp.value ? goalInp.value : (targetGradeObj.average ? Math.min(100, Math.max(75, Math.round(Number(targetGradeObj.average) + 4))) : 85);
+                            updateInlineTargetPreview(targetGradeObj, initialVal, card);
                         });
                     }
                 }
@@ -614,6 +627,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.value = '100';
         } else {
             input.value = String(num);
+        }
+
+        const subjId = input.getAttribute('data-subject-id');
+        const card = input.closest('.subject-grade-card');
+        const cardTerm = card ? card.getAttribute('data-term') : null;
+        const allGrades = Array.isArray(gradeState.grades) ? gradeState.grades : [];
+        const subjObj = allGrades.find(
+            (g) => String(g.subjectId) === String(subjId) &&
+                   (cardTerm ? (g.term || '').trim().toLowerCase() === cardTerm.trim().toLowerCase() : true)
+        ) || allGrades.find((g) => String(g.subjectId) === String(subjId));
+        if (subjObj) {
+            updateInlineTargetPreview(subjObj, input.value, card);
         }
     });
 
@@ -1422,6 +1447,195 @@ document.addEventListener('DOMContentLoaded', async () => {
     const displayGoalScore = document.getElementById('displayGoalScore');
 
     let currentGoalSubject = null;
+    let currentGoalFeasibility = null;
+
+    function computeTargetFeasibility(g, targetVal) {
+        if (!g) return null;
+        const wwW = Number(g.ww_weight) || 20;
+        const ptW = Number(g.pt_weight) || 50;
+        const qaW = Number(g.qa_weight) || 30;
+
+        const quizScore = (g.quiz_score !== null && g.quiz_score !== undefined && !isNaN(Number(g.quiz_score))) ? Number(g.quiz_score) : null;
+        const actScore = (g.activity_score !== null && g.activity_score !== undefined && !isNaN(Number(g.activity_score))) ? Number(g.activity_score) : null;
+        const examScore = (g.exam_score !== null && g.exam_score !== undefined && !isNaN(Number(g.exam_score))) ? Number(g.exam_score) : null;
+
+        const target = Math.min(100, Math.max(0, Math.round(Number(targetVal) || 75)));
+
+        const isWwRecorded = quizScore !== null;
+        const isPtRecorded = actScore !== null;
+        const isExamRecorded = examScore !== null;
+        const isFullyGraded = isWwRecorded && isPtRecorded && isExamRecorded;
+
+        const wwPct = isWwRecorded ? Math.min(100, Math.max(0, Math.round((quizScore / wwW) * 100))) : null;
+        const ptPct = isPtRecorded ? Math.min(100, Math.max(0, Math.round((actScore / ptW) * 100))) : null;
+        const examPct = isExamRecorded ? Math.min(100, Math.max(0, Math.round((examScore / qaW) * 100))) : null;
+
+        const lockedPoints = (isWwRecorded ? quizScore : 0) + (isPtRecorded ? actScore : 0) + (isExamRecorded ? examScore : 0);
+        const unrecordedWeight = (isWwRecorded ? 0 : wwW) + (isPtRecorded ? 0 : ptW) + (isExamRecorded ? 0 : qaW);
+
+        if (isFullyGraded) {
+            const finalAvg = g.average !== null ? Number(g.average) : Math.round(lockedPoints);
+            return {
+                isFullyGraded: true,
+                status: 'finalized',
+                label: 'Term Finalized',
+                badgeClass: 'bg-primary-subtle text-primary border-primary-subtle',
+                iconClass: 'bi-info-circle-fill text-primary',
+                alertBg: '#eff6ff',
+                alertBorder: '#bfdbfe',
+                target,
+                finalAvg,
+                wwW, ptW, qaW,
+                wwPct, ptPct, examPct,
+                quizScore, actScore, examScore,
+                isWwRecorded, isPtRecorded, isExamRecorded,
+                lockedPoints,
+                unrecordedWeight: 0,
+                remainingWeight: 0,
+                maxPossible: finalAvg,
+                minPossible: finalAvg,
+                neededPoints: 0,
+                neededScorePct: null,
+                remainingName: 'Quarterly Exam',
+                summary: `All components recorded. Final quarter grade is ${finalAvg}%.`
+            };
+        }
+
+        const neededPoints = target - lockedPoints;
+        const maxPossible = Math.round(lockedPoints + unrecordedWeight);
+        const minPossible = Math.round(lockedPoints);
+        const neededScorePct = unrecordedWeight > 0 ? Math.round((neededPoints / unrecordedWeight) * 100) : 0;
+
+        let status = 'feasible';
+        let label = 'Achievable Goal';
+        let badgeClass = 'bg-success-subtle text-success border-success-subtle';
+        let iconClass = 'bi-check-circle-fill text-success';
+        let alertBg = '#f0fdf4';
+        let alertBorder = '#bbf7d0';
+
+        const remainingName = (!isExamRecorded && isWwRecorded && isPtRecorded) ? 'Quarterly Exam' : 'Remaining Assessments';
+
+        if (target <= minPossible) {
+            status = 'secured';
+            label = 'Target Guaranteed';
+            badgeClass = 'bg-success-subtle text-success border-success-subtle';
+            iconClass = 'bi-shield-check text-success';
+            alertBg = '#f0fdf4';
+            alertBorder = '#bbf7d0';
+        } else if (neededScorePct <= 75) {
+            status = 'feasible';
+            label = 'Highly Achievable';
+            badgeClass = 'bg-success-subtle text-success border-success-subtle';
+            iconClass = 'bi-check-circle-fill text-success';
+            alertBg = '#f0fdf4';
+            alertBorder = '#bbf7d0';
+        } else if (neededScorePct <= 89) {
+            status = 'achievable';
+            label = 'Achievable with Focus';
+            badgeClass = 'bg-success-subtle text-success border-success-subtle';
+            iconClass = 'bi-check-circle-fill text-success';
+            alertBg = '#f0fdf4';
+            alertBorder = '#bbf7d0';
+        } else if (neededScorePct <= 100) {
+            status = 'challenging';
+            label = 'Challenging Target';
+            badgeClass = 'bg-warning-subtle text-warning border-warning-subtle';
+            iconClass = 'bi-exclamation-triangle-fill text-warning';
+            alertBg = '#fffbeb';
+            alertBorder = '#fde68a';
+        } else {
+            status = 'unfeasible';
+            label = 'Out of Reach with Exam Alone';
+            badgeClass = 'bg-danger-subtle text-danger border-danger-subtle';
+            iconClass = 'bi-x-circle-fill text-danger';
+            alertBg = '#fef2f2';
+            alertBorder = '#fecaca';
+        }
+
+        let summary = '';
+        if (status === 'secured') {
+            summary = `Goal reached! Your recorded score (${lockedPoints.toFixed(1)} pts) already meets target ${target}.`;
+        } else if (status === 'unfeasible') {
+            summary = `Target ${target} exceeds max possible (${maxPossible}% with 100% on ${remainingName}).`;
+        } else {
+            summary = `Need ${neededScorePct}% score (${neededPoints.toFixed(1)} / ${unrecordedWeight} pts) on ${remainingName}.`;
+        }
+
+        return {
+            isFullyGraded: false,
+            status,
+            label,
+            badgeClass,
+            iconClass,
+            alertBg,
+            alertBorder,
+            target,
+            wwW, ptW, qaW,
+            wwPct, ptPct, examPct,
+            quizScore, actScore, examScore,
+            isWwRecorded, isPtRecorded, isExamRecorded,
+            lockedPoints,
+            unrecordedWeight,
+            remainingWeight: unrecordedWeight,
+            remainingName,
+            neededPoints,
+            neededScorePct,
+            maxPossible,
+            minPossible,
+            summary
+        };
+    }
+
+    function updateInlineTargetPreview(g, targetVal, cardEl) {
+        if (!g) return;
+        const safeTerm = (g.term || 'term').replace(/\s+/g, '');
+        const previewEl = cardEl ? cardEl.querySelector(`#target-preview-${g.subjectId}-${safeTerm}`) : document.getElementById(`target-preview-${g.subjectId}-${safeTerm}`);
+        if (!previewEl) return;
+
+        const feas = computeTargetFeasibility(g, targetVal);
+        if (!feas) return;
+
+        if (feas.isFullyGraded) {
+            previewEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="micro-text fw-bold text-dark d-flex align-items-center gap-1">
+                        <i class="${feas.iconClass}"></i> ${feas.label}
+                    </span>
+                    <span class="badge ${feas.badgeClass} micro-text rounded-pill py-0.5 px-2">Finalized</span>
+                </div>
+                <p class="micro-text text-secondary mb-0">All items recorded. Term grade is <strong>${feas.finalAvg}%</strong>.</p>
+            `;
+            return;
+        }
+
+        let progressPct = Math.min(100, Math.max(0, feas.neededScorePct || 0));
+        let progressBg = feas.status === 'unfeasible' ? 'bg-danger' : (feas.status === 'challenging' ? 'bg-warning' : 'bg-success');
+
+        previewEl.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between mb-1.5">
+                <span class="micro-text fw-bold text-dark d-flex align-items-center gap-1">
+                    <i class="${feas.iconClass}"></i> ${feas.label}
+                </span>
+                <span class="badge ${feas.badgeClass} micro-text rounded-pill py-0.5 px-2">Target: ${feas.target}</span>
+            </div>
+            <div class="micro-text text-dark mb-1.5">
+                ${feas.summary}
+            </div>
+            ${feas.status !== 'secured' && feas.status !== 'unfeasible' ? `
+                <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height: 6px;">
+                        <div class="progress-bar ${progressBg}" role="progressbar" style="width: ${progressPct}%;" aria-valuenow="${progressPct}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <span class="micro-text fw-bold text-dark">${progressPct}%</span>
+                </div>
+            ` : ''}
+            ${feas.status === 'unfeasible' ? `
+                <div class="micro-text text-danger mt-1">
+                    <i class="bi bi-info-circle me-1"></i>Suggested achievable target: <strong>${feas.maxPossible}%</strong>
+                </div>
+            ` : ''}
+        `;
+    }
 
     function updateGoalCalculations() {
         if (!sliderPT || !sliderWW || !sliderExam) return;
@@ -1435,14 +1649,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         const qaW = (currentGoalSubject && currentGoalSubject.qa_weight) ? Number(currentGoalSubject.qa_weight) / 100 : 0.30;
         const computedGoal = Math.min(100, Math.round((pt * ptW) + (ww * wwW) + (exam * qaW)));
 
-        if (valPT) valPT.textContent = `${pt}%`;
-        if (valWW) valWW.textContent = `${ww}%`;
-        if (valExam) valExam.textContent = `${exam}%`;
-        if (displayGoalScore) displayGoalScore.textContent = computedGoal;
+        const slValPT = document.getElementById('slValPT');
+        const slValWW = document.getElementById('slValWW');
+        const slValExam = document.getElementById('slValExam');
+        const simulatedQuarterGrade = document.getElementById('simulatedQuarterGrade');
 
-        if (gaugePT) gaugePT.style.setProperty('--val', pt);
-        if (gaugeWW) gaugeWW.style.setProperty('--val', ww);
-        if (gaugeExam) gaugeExam.style.setProperty('--val', exam);
+        if (slValPT) slValPT.textContent = `${pt}%`;
+        if (slValWW) slValWW.textContent = `${ww}%`;
+        if (slValExam) slValExam.textContent = `${exam}%`;
+
+        if (simulatedQuarterGrade) {
+            const targetScore = currentGoalFeasibility ? currentGoalFeasibility.target : 75;
+            simulatedQuarterGrade.textContent = `${computedGoal}%`;
+            simulatedQuarterGrade.className = computedGoal >= targetScore ? 'text-success fw-bold ms-1' : (computedGoal >= 75 ? 'text-primary fw-bold ms-1' : 'text-danger fw-bold ms-1');
+        }
+
+        // Dynamically update radial gauges if not locked
+        if (currentGoalFeasibility) {
+            if (!currentGoalFeasibility.isPtRecorded) {
+                if (valPT) valPT.textContent = `${pt}%`;
+                if (gaugePT) {
+                    gaugePT.style.setProperty('--val', pt);
+                    gaugePT.style.setProperty('--stroke-color', pt >= 75 ? '#0a5c2c' : '#ef4444');
+                }
+            }
+            if (!currentGoalFeasibility.isWwRecorded) {
+                if (valWW) valWW.textContent = `${ww}%`;
+                if (gaugeWW) {
+                    gaugeWW.style.setProperty('--val', ww);
+                    gaugeWW.style.setProperty('--stroke-color', ww >= 75 ? '#10b981' : '#ef4444');
+                }
+            }
+            if (!currentGoalFeasibility.isExamRecorded) {
+                if (valExam) valExam.textContent = `${exam}%`;
+                if (gaugeExam) {
+                    gaugeExam.style.setProperty('--val', exam);
+                    gaugeExam.style.setProperty('--stroke-color', exam >= 75 ? '#f59e0b' : '#ef4444');
+                }
+            }
+        }
     }
 
     if (sliderPT && sliderWW && sliderExam) {
@@ -1455,31 +1700,152 @@ document.addEventListener('DOMContentLoaded', async () => {
         const goalSubjectTitle = document.getElementById('goalSubjectTitle');
         const mlRiskForecast = document.getElementById('mlRiskForecast');
         const prescriptiveListContainer = document.getElementById('prescriptiveListContainer');
+        const displayCurrentGrade = document.getElementById('displayCurrentGrade');
+        const displayCurrentTermLabel = document.getElementById('displayCurrentTermLabel');
+        const goalFeasibilityBanner = document.getElementById('goalFeasibilityBanner');
+        const goalFeasibilityIcon = document.getElementById('goalFeasibilityIcon');
+        const goalFeasibilityTitle = document.getElementById('goalFeasibilityTitle');
+        const goalFeasibilityDesc = document.getElementById('goalFeasibilityDesc');
 
         const allGrades = Array.isArray(gradeState.grades) ? gradeState.grades : [];
-        currentGoalSubject = allGrades.find(g => String(g.subjectId) === String(subjectId)) || null;
+        currentGoalSubject = allGrades.find(
+            (g) => String(g.subjectId) === String(subjectId) &&
+                   (term ? (g.term || '').trim().toLowerCase() === term.trim().toLowerCase() : true)
+        ) || allGrades.find(g => String(g.subjectId) === String(subjectId)) || null;
 
-        const wwW = currentGoalSubject?.ww_weight || 20;
-        const ptW = currentGoalSubject?.pt_weight || 50;
-        const qaW = currentGoalSubject?.qa_weight || 30;
+        if (!currentGoalSubject) return;
 
-        const elPt = document.getElementById('goalPtWeightLabel');
-        if (elPt) elPt.textContent = `Performance Task (${ptW}%)`;
+        const feas = computeTargetFeasibility(currentGoalSubject, goalValue);
+        currentGoalFeasibility = feas;
+
+        if (goalSubjectTitle) {
+            goalSubjectTitle.textContent = `${subjectName} • ${term} • ${currentGoalSubject.teacherName || 'Assigned Teacher'}`;
+        }
+        if (displayGoalScore) {
+            displayGoalScore.textContent = feas.target;
+        }
+        if (displayCurrentGrade) {
+            displayCurrentGrade.textContent = currentGoalSubject.average !== null ? `${currentGoalSubject.average}%` : 'Pending';
+        }
+        if (displayCurrentTermLabel) {
+            displayCurrentTermLabel.textContent = `Current Running Grade (${term})`;
+        }
+
+        // Feasibility Banner
+        if (goalFeasibilityBanner) {
+            goalFeasibilityBanner.style.backgroundColor = feas.alertBg;
+            goalFeasibilityBanner.style.borderColor = feas.alertBorder;
+        }
+        if (goalFeasibilityIcon) {
+            goalFeasibilityIcon.className = `bi ${feas.iconClass} fs-5 mt-0.5 flex-shrink-0`;
+        }
+        if (goalFeasibilityTitle) {
+            goalFeasibilityTitle.textContent = feas.label;
+        }
+        if (goalFeasibilityDesc) {
+            if (feas.isFullyGraded) {
+                goalFeasibilityDesc.innerHTML = `All components for <strong>${escapeHtml(term)}</strong> have been submitted and finalized. Final grade: <strong>${feas.finalAvg}%</strong>.`;
+            } else if (feas.status === 'unfeasible') {
+                goalFeasibilityDesc.innerHTML = `Your recorded score is <strong>${feas.lockedPoints.toFixed(1)}</strong> points. Even with a perfect 100% score (${feas.unrecordedWeight} pts) on the ${feas.remainingName}, the highest reachable grade is <strong>${feas.maxPossible}%</strong>. We recommend aiming for <strong>${feas.maxPossible}%</strong> or requesting review activities with your teacher.`;
+            } else if (feas.status === 'secured') {
+                goalFeasibilityDesc.innerHTML = `Your current recorded score of <strong>${feas.lockedPoints.toFixed(1)}</strong> points already meets your goal of <strong>${feas.target}</strong>. Continue your current learning pace!`;
+            } else {
+                goalFeasibilityDesc.innerHTML = `With your current scores (${feas.lockedPoints.toFixed(1)} locked pts), you need <strong>${feas.neededPoints.toFixed(1)} / ${feas.unrecordedWeight} points (${feas.neededScorePct}%)</strong> on your upcoming <strong>${feas.remainingName}</strong> to achieve your target grade of <strong>${feas.target}</strong>.`;
+            }
+        }
+
+        // Component 1: Written Works
         const elWw = document.getElementById('goalWwWeightLabel');
-        if (elWw) elWw.textContent = `Written Work (${wwW}%)`;
+        const badgeWW = document.getElementById('badgeWW');
+        const subtextWW = document.getElementById('subtextWW');
+        if (elWw) elWw.textContent = `Written Works (${feas.wwW}%)`;
+        if (badgeWW) {
+            badgeWW.textContent = feas.isWwRecorded ? 'Recorded (Locked)' : 'Target';
+            badgeWW.className = feas.isWwRecorded ? 'badge bg-primary-subtle text-primary border border-primary-subtle micro-text rounded-pill mb-2 px-2 py-0.5' : 'badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5';
+        }
+        if (valWW) valWW.textContent = feas.isWwRecorded ? `${feas.wwPct}%` : `${feas.target}%`;
+        if (gaugeWW) {
+            gaugeWW.style.setProperty('--val', feas.isWwRecorded ? feas.wwPct : feas.target);
+            gaugeWW.style.setProperty('--stroke-color', feas.isWwRecorded && feas.wwPct < 75 ? '#ef4444' : '#10b981');
+        }
+        if (subtextWW) {
+            subtextWW.textContent = feas.isWwRecorded ? `Score: ${feas.quizScore.toFixed(1)} / ${feas.wwW} pts` : `Target: ${feas.target}%`;
+        }
+
+        // Component 2: Performance Tasks
+        const elPt = document.getElementById('goalPtWeightLabel');
+        const badgePT = document.getElementById('badgePT');
+        const subtextPT = document.getElementById('subtextPT');
+        if (elPt) elPt.textContent = `Performance Tasks (${feas.ptW}%)`;
+        if (badgePT) {
+            badgePT.textContent = feas.isPtRecorded ? 'Recorded (Locked)' : 'Target';
+            badgePT.className = feas.isPtRecorded ? 'badge bg-primary-subtle text-primary border border-primary-subtle micro-text rounded-pill mb-2 px-2 py-0.5' : 'badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5';
+        }
+        if (valPT) valPT.textContent = feas.isPtRecorded ? `${feas.ptPct}%` : `${feas.target}%`;
+        if (gaugePT) {
+            gaugePT.style.setProperty('--val', feas.isPtRecorded ? feas.ptPct : feas.target);
+            gaugePT.style.setProperty('--stroke-color', feas.isPtRecorded && feas.ptPct < 75 ? '#ef4444' : '#0a5c2c');
+        }
+        if (subtextPT) {
+            subtextPT.textContent = feas.isPtRecorded ? `Score: ${feas.actScore.toFixed(1)} / ${feas.ptW} pts` : `Target: ${feas.target}%`;
+        }
+
+        // Component 3: Quarterly Assessment
         const elExam = document.getElementById('goalExamWeightLabel');
-        if (elExam) elExam.textContent = `Quarterly Assessment (${qaW}%)`;
+        const badgeExam = document.getElementById('badgeExam');
+        const subtextExam = document.getElementById('subtextExam');
+        if (elExam) elExam.textContent = `Quarterly Assessment (${feas.qaW}%)`;
+        if (feas.isExamRecorded) {
+            if (badgeExam) {
+                badgeExam.textContent = 'Recorded (Locked)';
+                badgeExam.className = 'badge bg-primary-subtle text-primary border border-primary-subtle micro-text rounded-pill mb-2 px-2 py-0.5';
+            }
+            if (valExam) valExam.textContent = `${feas.examPct}%`;
+            if (gaugeExam) {
+                gaugeExam.style.setProperty('--val', feas.examPct);
+                gaugeExam.style.setProperty('--stroke-color', feas.examPct >= 75 ? '#f59e0b' : '#ef4444');
+            }
+            if (subtextExam) subtextExam.textContent = `Score: ${feas.examScore.toFixed(1)} / ${feas.qaW} pts`;
+        } else {
+            const qaTargetClamped = Math.min(100, Math.max(0, feas.neededScorePct));
+            if (badgeExam) {
+                badgeExam.textContent = feas.status === 'unfeasible' ? 'Out of Reach' : 'Required Target';
+                badgeExam.className = feas.status === 'unfeasible' ? 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text rounded-pill mb-2 px-2 py-0.5' : 'badge bg-success-subtle text-success border border-success-subtle micro-text rounded-pill mb-2 px-2 py-0.5';
+            }
+            if (valExam) valExam.textContent = `${qaTargetClamped}%`;
+            if (gaugeExam) {
+                gaugeExam.style.setProperty('--val', qaTargetClamped);
+                gaugeExam.style.setProperty('--stroke-color', feas.status === 'unfeasible' ? '#ef4444' : (qaTargetClamped > 90 ? '#f59e0b' : '#10b981'));
+            }
+            if (subtextExam) {
+                subtextExam.textContent = `Need: ${Math.max(0, feas.neededPoints).toFixed(1)} / ${feas.qaW} pts`;
+            }
+        }
 
-        const slPt = document.getElementById('goalSliderPtLabel');
-        if (slPt) slPt.textContent = `Goal Adjustment: Performance Task (${ptW}%)`;
+        // Sliders Setup
         const slWw = document.getElementById('goalSliderWwLabel');
-        if (slWw) slWw.textContent = `Goal Adjustment: Written Work (${wwW}%)`;
+        const slPt = document.getElementById('goalSliderPtLabel');
         const slExam = document.getElementById('goalSliderExamLabel');
-        if (slExam) slExam.textContent = `Goal Adjustment: Quarterly Assessment (${qaW}%)`;
+        if (slWw) slWw.innerHTML = `Written Works (${feas.wwW}%) ${feas.isWwRecorded ? '<span class="text-primary micro-text ms-1"><i class="bi bi-lock-fill"></i> Locked</span>' : ''}`;
+        if (slPt) slPt.innerHTML = `Performance Tasks (${feas.ptW}%) ${feas.isPtRecorded ? '<span class="text-primary micro-text ms-1"><i class="bi bi-lock-fill"></i> Locked</span>' : ''}`;
+        if (slExam) slExam.innerHTML = `Quarterly Assessment (${feas.qaW}%) ${feas.isExamRecorded ? '<span class="text-primary micro-text ms-1"><i class="bi bi-lock-fill"></i> Locked</span>' : ''}`;
 
-        if (goalSubjectTitle) goalSubjectTitle.textContent = `${subjectName} (${term})`;
-        if (displayGoalScore) displayGoalScore.textContent = Math.round(goalValue);
+        if (sliderWW) {
+            sliderWW.value = feas.isWwRecorded ? feas.wwPct : feas.target;
+            sliderWW.disabled = feas.isWwRecorded;
+        }
+        if (sliderPT) {
+            sliderPT.value = feas.isPtRecorded ? feas.ptPct : feas.target;
+            sliderPT.disabled = feas.isPtRecorded;
+        }
+        if (sliderExam) {
+            sliderExam.value = feas.isExamRecorded ? feas.examPct : Math.min(100, Math.max(0, feas.neededScorePct));
+            sliderExam.disabled = feas.isExamRecorded;
+        }
 
+        updateGoalCalculations();
+
+        // Practice Links
         const btnPractice = document.getElementById('btnGoalPracticeQuizzes');
         if (btnPractice) {
             btnPractice.href = `quiz_taker_student.html?subject=${encodeURIComponent(subjectName)}&source=practice`;
@@ -1489,16 +1855,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             btnReview.href = `subject_detail_student.html?subject=${encodeURIComponent(subjectName)}`;
         }
 
-        // Approximate required slider targets
-        const targetNum = Math.min(100, Math.max(0, Math.round(goalValue)));
-        if (sliderPT) sliderPT.value = Math.min(100, targetNum);
-        if (sliderWW) sliderWW.value = Math.min(100, targetNum);
-        if (sliderExam) sliderExam.value = Math.min(100, targetNum);
-        updateGoalCalculations();
-
         if (prescriptiveListContainer) {
             prescriptiveListContainer.innerHTML = `
-                <div class="text-center py-2 text-muted micro-text">
+                <div class="text-center py-3 text-muted micro-text">
                     <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
                     Calculating AI prescriptive path...
                 </div>
@@ -1511,7 +1870,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Fetch ML Prescriptive Recommendation
         try {
-            const res = await fetch(`${API_BASE}/api/grades/prescriptive-path?subjectId=${subjectId}&term=${encodeURIComponent(term)}&targetGrade=${targetNum}`, {
+            const res = await fetch(`${API_BASE}/api/grades/prescriptive-path?subjectId=${subjectId}&term=${encodeURIComponent(term)}&targetGrade=${feas.target}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1519,46 +1878,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res.ok) {
                 const mlData = await res.json();
                 if (mlData.success) {
-                    renderPrescriptiveRecommendations(mlData);
+                    renderPrescriptiveRecommendations(mlData, feas);
+                } else {
+                    renderPrescriptiveFallback(feas);
                 }
+            } else {
+                renderPrescriptiveFallback(feas);
             }
         } catch (e) {
             console.error('Prescriptive path error:', e);
-            if (prescriptiveListContainer) {
-                prescriptiveListContainer.innerHTML = `
-                    <div class="alert alert-success-subtle border-0 rounded-3 p-3 micro-text">
-                        <strong class="d-block text-success mb-1"><i class="bi bi-lightbulb-fill me-1"></i>Study Guidance</strong>
-                        Aim for at least ${targetNum}% across upcoming quizzes and quarterly assessments to attain your target grade of ${targetNum}.
-                    </div>
-                `;
-            }
+            renderPrescriptiveFallback(feas);
         }
     }
 
-    function renderPrescriptiveRecommendations(mlData) {
+    function renderPrescriptiveRecommendations(mlData, feas) {
         const mlRiskForecast = document.getElementById('mlRiskForecast');
         const prescriptiveListContainer = document.getElementById('prescriptiveListContainer');
 
-        const riskBadgeColor = mlData.predictedRisk === 'High' ? 'text-danger' : (mlData.predictedRisk === 'Medium' ? 'text-warning' : 'text-success');
+        const riskBadgeColor = mlData.predictedRisk === 'High' ? 'text-danger border-danger-subtle' : (mlData.predictedRisk === 'Medium' ? 'text-warning border-warning-subtle' : 'text-success border-success-subtle');
+        const riskBg = mlData.predictedRisk === 'High' ? 'bg-danger-subtle' : (mlData.predictedRisk === 'Medium' ? 'bg-warning-subtle' : 'bg-success-subtle');
+
         if (mlRiskForecast) {
             mlRiskForecast.innerHTML = `
-                <span class="badge bg-light border ${riskBadgeColor} fw-bold">
+                <span class="badge ${riskBg} ${riskBadgeColor} fw-bold micro-text">
                     Risk Level: ${escapeHtml(mlData.predictedRisk || 'Low')}
                 </span>
-                <span class="ms-1 text-muted">Model Confidence: ${mlData.confidence ? Math.round(mlData.confidence * 100) : 92}%</span>
+                <span class="ms-1.5 micro-text text-muted">Model Confidence: <strong>${mlData.confidence ? Math.round(mlData.confidence * 100) : 92}%</strong></span>
             `;
         }
 
         if (prescriptiveListContainer) {
             const paths = mlData.recommendedPath || [];
             if (paths.length > 0) {
-                let recHtml = '<div class="list-group list-group-flush mb-2">';
-                paths.forEach((p) => {
+                let recHtml = '<div class="d-flex flex-column gap-2 mb-2">';
+                paths.forEach((p, idx) => {
+                    const icon = idx === 0 ? 'bi-bullseye' : (idx === 1 ? 'bi-journal-check' : 'bi-lightbulb-fill');
                     recHtml += `
-                        <div class="list-group-item px-0 py-2 border-0 d-flex align-items-start gap-2">
-                            <i class="bi bi-check-circle-fill text-success mt-0.5 flex-shrink-0"></i>
-                            <div class="micro-text text-dark">
-                                <strong>${escapeHtml(p.focusArea || 'Action Area')}:</strong> ${escapeHtml(p.action || p.description || '')}
+                        <div class="prescriptive-action-card p-3 rounded-3 shadow-2xs d-flex align-items-start gap-2.5">
+                            <div class="bg-success-subtle text-success p-1.5 rounded-circle flex-shrink-0 mt-0.5">
+                                <i class="bi ${icon} fs-6"></i>
+                            </div>
+                            <div class="micro-text text-dark flex-grow-1">
+                                <strong class="d-block text-dark mb-0.5">${escapeHtml(p.focusArea || 'Priority Action')}</strong>
+                                <span class="text-secondary">${escapeHtml(p.action || p.description || '')}</span>
                             </div>
                         </div>
                     `;
@@ -1566,14 +1928,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                 recHtml += '</div>';
                 prescriptiveListContainer.innerHTML = recHtml;
             } else {
-                prescriptiveListContainer.innerHTML = `
-                    <div class="alert alert-success-subtle border-0 rounded-3 p-3 micro-text">
-                        <strong class="d-block text-success mb-1"><i class="bi bi-check2-circle me-1"></i>On Track</strong>
-                        Continue reviewing module flashcards and practice test items before the upcoming quarterly assessment.
-                    </div>
-                `;
+                renderPrescriptiveFallback(feas);
             }
         }
+    }
+
+    function renderPrescriptiveFallback(feas) {
+        const prescriptiveListContainer = document.getElementById('prescriptiveListContainer');
+        if (!prescriptiveListContainer) return;
+        const target = feas ? feas.target : 75;
+        const neededPct = feas ? (feas.neededScorePct !== null ? feas.neededScorePct : 75) : 75;
+
+        prescriptiveListContainer.innerHTML = `
+            <div class="d-flex flex-column gap-2 mb-2">
+                <div class="prescriptive-action-card p-3 rounded-3 d-flex align-items-start gap-2.5">
+                    <div class="bg-success-subtle text-success p-1.5 rounded-circle flex-shrink-0 mt-0.5">
+                        <i class="bi bi-bullseye fs-6"></i>
+                    </div>
+                    <div class="micro-text text-dark flex-grow-1">
+                        <strong class="d-block text-dark mb-0.5">Assessment Focus</strong>
+                        <span class="text-secondary">Target scoring at least ${neededPct}% on your upcoming quarterly assessment to attain your goal of ${target}%.</span>
+                    </div>
+                </div>
+                <div class="prescriptive-action-card p-3 rounded-3 d-flex align-items-start gap-2.5">
+                    <div class="bg-primary-subtle text-primary p-1.5 rounded-circle flex-shrink-0 mt-0.5">
+                        <i class="bi bi-journal-text fs-6"></i>
+                    </div>
+                    <div class="micro-text text-dark flex-grow-1">
+                        <strong class="d-block text-dark mb-0.5">Concept Mastery & Review</strong>
+                        <span class="text-secondary">Review previous quiz topics where points were missed and practice sample assessment questions.</span>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     // =========================================================================

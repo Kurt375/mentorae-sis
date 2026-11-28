@@ -375,98 +375,166 @@
     <div class="modal fade" id="prescriptiveGoalModal" tabindex="-1" aria-labelledby="prescriptiveGoalModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
+            <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg bg-white">
 
-                <div class="modal-header custom-navbar text-white py-3 px-4 border-0 position-relative d-flex align-items-center justify-content-center">
-                    <h5 class="modal-title fw-bold fs-5 text-center text-white m-0 w-100"
-                        id="prescriptiveGoalModalLabel">
-                        Prescriptive Path to Goal
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white position-absolute end-0 me-3" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                <div class="modal-header custom-navbar text-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-white bg-opacity-25 rounded-circle p-1.5 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                            <i class="bi bi-bullseye text-white fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white m-0 fs-6" id="prescriptiveGoalModalLabel">
+                                Target Goal & Prescriptive Path
+                            </h5>
+                            <div class="small text-white-50 micro-text" id="goalSubjectTitle">
+                                Subject • Term
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body p-4 bg-white">
-                    <div class="goal-target-banner text-center py-2.5 px-3 rounded-3 mb-4">
-                        <span class="fs-5 text-dark fw-medium">Your Goal: <strong class="fs-3 fw-bold text-dark"
-                                id="displayGoalScore">96</strong></span>
+                    <!-- Top Goal & Feasibility Banner -->
+                    <div class="goal-target-banner p-3 rounded-4 mb-3.5 border">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <div>
+                                <span class="micro-text text-muted text-uppercase fw-bold d-block">Target Goal</span>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-2 fw-bold text-success" id="displayGoalScore">85</span>
+                                    <span class="micro-text text-muted">/ 100 Quarter Grade</span>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <span class="micro-text text-muted text-uppercase fw-bold d-block">Current Standing</span>
+                                <div class="d-flex align-items-baseline justify-content-end gap-1.5">
+                                    <span class="fs-4 fw-bold text-dark" id="displayCurrentGrade">--</span>
+                                    <span class="micro-text text-muted" id="displayCurrentTermLabel">(Running)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Feasibility Alert Box -->
+                        <div class="p-2.5 px-3 rounded-3 d-flex align-items-start gap-2.5" id="goalFeasibilityBanner" style="background-color: #f0fdf4; border: 1px solid #bbf7d0;">
+                            <i class="bi bi-check-circle-fill text-success fs-5 mt-0.5 flex-shrink-0" id="goalFeasibilityIcon"></i>
+                            <div class="micro-text text-dark">
+                                <strong class="d-block text-dark fw-bold mb-0.5" id="goalFeasibilityTitle">Calculating Goal Feasibility...</strong>
+                                <span class="text-secondary" id="goalFeasibilityDesc">Analyzing recorded scores and remaining components.</span>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- 3 Radial Component Progress / Target Gauges -->
                     <div class="row g-3 text-center justify-content-center align-items-center mb-4">
+                        <!-- Written Works -->
                         <div class="col-4 d-flex flex-column align-items-center">
-                            <span class="micro-text fw-bold text-dark mb-2" id="goalPtWeightLabel">Performance Task</span>
-                            <div class="radial-progress-wrapper" id="gaugePT"
-                                style="--val: 98; --stroke-color: #0a5c2c;">
+                            <span class="micro-text fw-bold text-dark mb-1" id="goalWwWeightLabel">Written Works (20%)</span>
+                            <span class="badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5" id="badgeWW">Target</span>
+                            <div class="radial-progress-wrapper" id="gaugeWW" style="--val: 0; --stroke-color: #10b981;">
                                 <div class="radial-inner">
-                                    <span class="fw-bold fs-4 text-dark" id="valPT">98%</span>
+                                    <span class="fw-bold fs-5 text-dark" id="valWW">--%</span>
                                 </div>
                             </div>
-                            <span class="fw-bold text-dark text-sm mt-2">Target</span>
+                            <span class="micro-text text-muted mt-1.5" id="subtextWW">Required Target</span>
                         </div>
 
+                        <!-- Performance Tasks -->
                         <div class="col-4 d-flex flex-column align-items-center">
-                            <span class="micro-text fw-bold text-dark mb-2" id="goalWwWeightLabel">Written Work</span>
-                            <div class="radial-progress-wrapper" id="gaugeWW"
-                                style="--val: 95; --stroke-color: #0a5c2c;">
+                            <span class="micro-text fw-bold text-dark mb-1" id="goalPtWeightLabel">Performance Tasks (50%)</span>
+                            <span class="badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5" id="badgePT">Target</span>
+                            <div class="radial-progress-wrapper" id="gaugePT" style="--val: 0; --stroke-color: #0a5c2c;">
                                 <div class="radial-inner">
-                                    <span class="fw-bold fs-4 text-dark" id="valWW">95%</span>
+                                    <span class="fw-bold fs-5 text-dark" id="valPT">--%</span>
                                 </div>
                             </div>
-                            <span class="fw-bold text-dark text-sm mt-2">Target</span>
+                            <span class="micro-text text-muted mt-1.5" id="subtextPT">Required Target</span>
                         </div>
 
+                        <!-- Quarterly Assessment -->
                         <div class="col-4 d-flex flex-column align-items-center">
-                            <span class="micro-text fw-bold text-dark mb-2" id="goalExamWeightLabel">Quarterly Assessment</span>
-                            <div class="radial-progress-wrapper" id="gaugeExam"
-                                style="--val: 94; --stroke-color: #0a5c2c;">
+                            <span class="micro-text fw-bold text-dark mb-1" id="goalExamWeightLabel">Quarterly Exam (30%)</span>
+                            <span class="badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5" id="badgeExam">Target</span>
+                            <div class="radial-progress-wrapper" id="gaugeExam" style="--val: 0; --stroke-color: #f59e0b;">
                                 <div class="radial-inner">
-                                    <span class="fw-bold fs-4 text-dark" id="valExam">94%</span>
+                                    <span class="fw-bold fs-5 text-dark" id="valExam">--%</span>
                                 </div>
                             </div>
-                            <span class="fw-bold text-dark text-sm mt-2">Target</span>
+                            <span class="micro-text text-muted mt-1.5" id="subtextExam">Required Target</span>
                         </div>
                     </div>
 
-                    <div class="d-flex flex-column gap-3 mb-4 px-2">
-                        <div>
-                            <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderPtLabel">Goal Adjustment: Performance Task</label>
-                            <input type="range" class="form-range custom-green-range" id="sliderPT" min="0" max="100"
-                                value="98">
+                    <!-- Interactive Goal Adjustment Sliders Box -->
+                    <div class="p-3 bg-light rounded-4 border mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2.5">
+                            <span class="micro-text fw-bold text-dark text-uppercase d-flex align-items-center gap-1.5">
+                                <i class="bi bi-sliders text-success"></i> Interactive Simulation Sliders
+                            </span>
+                            <span class="badge bg-white text-dark border micro-text rounded-pill py-1 px-2.5">
+                                Simulated Quarter Grade: <strong class="text-success ms-1" id="simulatedQuarterGrade">--</strong>
+                            </span>
                         </div>
 
-                        <div>
-                            <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderWwLabel">Goal Adjustment: Written Work</label>
-                            <input type="range" class="form-range custom-green-range" id="sliderWW" min="0" max="100"
-                                value="95">
-                        </div>
+                        <div class="d-flex flex-column gap-3 px-1">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-bold text-dark micro-text m-0" id="goalSliderWwLabel">Written Works</label>
+                                    <span class="badge bg-white text-dark border micro-text fw-bold" id="slValWW">95%</span>
+                                </div>
+                                <input type="range" class="form-range custom-green-range" id="sliderWW" min="0" max="100" value="95">
+                            </div>
 
-                        <div>
-                            <label class="form-label fw-bold text-dark text-sm mb-1" id="goalSliderExamLabel">Goal Adjustment: Quarterly Assessment</label>
-                            <input type="range" class="form-range custom-green-range" id="sliderExam" min="0" max="100"
-                                value="94">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-bold text-dark micro-text m-0" id="goalSliderPtLabel">Performance Tasks</label>
+                                    <span class="badge bg-white text-dark border micro-text fw-bold" id="slValPT">95%</span>
+                                </div>
+                                <input type="range" class="form-range custom-green-range" id="sliderPT" min="0" max="100" value="95">
+                            </div>
+
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-bold text-dark micro-text m-0" id="goalSliderExamLabel">Quarterly Assessment</label>
+                                    <span class="badge bg-white text-dark border micro-text fw-bold" id="slValExam">95%</span>
+                                </div>
+                                <input type="range" class="form-range custom-green-range" id="sliderExam" min="0" max="100" value="95">
+                            </div>
                         </div>
                     </div>
 
-                    <hr class="my-4 text-muted opacity-25">
+                    <!-- AI Prescriptive Guidance & Risk Forecast -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                            <h6 class="fw-bold text-dark fs-6 m-0 d-flex align-items-center gap-1.5">
+                                <i class="bi bi-lightbulb-fill text-warning"></i> AI Prescriptive Study Guidance
+                            </h6>
+                            <div id="mlRiskForecast">
+                                <span class="badge bg-light text-secondary border micro-text">Analyzing...</span>
+                            </div>
+                        </div>
+                        <div id="prescriptiveListContainer">
+                            <div class="text-center py-2 text-muted micro-text">
+                                <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
+                                Calculating AI prescriptive path...
+                            </div>
+                        </div>
+                    </div>
 
-                    <div>
-                        <h6 class="fw-bold text-dark fs-6 mb-3">Recommended Practice Path</h6>
-                        <div class="row g-3">
+                    <!-- Recommended Practice & Review Action Buttons -->
+                    <div class="pt-2 border-top">
+                        <div class="row g-2.5">
                             <div class="col-12 col-sm-6">
-                                <span class="fw-bold text-dark text-sm d-block mb-2">Quizzes</span>
                                 <a href="../Student/quiz_taker_student.html" id="btnGoalPracticeQuizzes"
-                                    class="btn btn-outline-practice w-100 py-2 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none">
-                                    <i class="bi bi-cpu-fill text-success fs-5"></i>
-                                    <span class="fw-bold text-dark text-sm">Practice with Quizzes</span>
+                                    class="btn btn-outline-practice w-100 py-2.5 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none shadow-sm">
+                                    <i class="bi bi-cpu-fill text-success fs-6"></i>
+                                    <span class="fw-bold text-dark small">Practice with Quizzes</span>
                                 </a>
                             </div>
 
                             <div class="col-12 col-sm-6">
-                                <span class="fw-bold text-dark text-sm d-block mb-2">Quarterly Assessment</span>
                                 <a href="../Student/subject_detail_student.html" id="btnGoalReviewLessons"
-                                    class="btn btn-outline-practice w-100 py-2 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none">
-                                    <i class="bi bi-journal-text text-success fs-5"></i>
-                                    <span class="fw-bold text-dark text-sm">Review Lessons</span>
+                                    class="btn btn-outline-practice w-100 py-2.5 rounded-pill d-flex align-items-center justify-content-center gap-2 text-decoration-none shadow-sm">
+                                    <i class="bi bi-journal-text text-success fs-6"></i>
+                                    <span class="fw-bold text-dark small">Review Subject Lessons</span>
                                 </a>
                             </div>
                         </div>

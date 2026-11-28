@@ -122,18 +122,24 @@
 }
 
 .calculator-panel {
-    background-color: #f1fbf3;
-    border: 1px solid #cceed3;
+    background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #bbf7d0;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.calculator-panel:hover {
+    border-color: #86efac;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08) !important;
 }
 
 .target-goal-input {
-    max-width: 220px;
     border: 1.5px solid var(--mentorae-green);
-    border-radius: 20px;
-    padding: 6px 16px;
-    font-weight: 600;
-    font-size: 0.95rem;
+    border-radius: 12px 0 0 12px;
+    padding: 6px 12px;
+    font-weight: 700;
+    font-size: 1.05rem;
     color: var(--text-dark);
+    transition: all 0.2s ease;
 }
 
 .target-goal-input:focus {
@@ -141,15 +147,23 @@
     box-shadow: 0 0 0 0.2rem rgba(10, 92, 44, 0.15);
 }
 
+.target-inline-preview {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
 .btn-calc-check {
     background-color: var(--mentorae-green);
     border: none;
-    transition: background-color 0.15s ease, transform 0.1s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 .btn-calc-check:hover {
     background-color: var(--mentorae-green-hover);
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(10, 92, 44, 0.25) !important;
 }
 
 /* Gauge Analytics Modal Styles (image_677466.png) */
@@ -167,17 +181,18 @@
 
 /* Modal Sliders & Practice Buttons */
 .goal-target-banner {
-    background-color: #eaf8ee;
-    border: 1px solid #cceed3;
+    background: linear-gradient(135deg, #f0fdf4 0%, #e6f9ed 100%);
+    border: 1px solid #bbf7d0;
 }
 
 .custom-green-range {
     -webkit-appearance: none;
     appearance: none;
-    height: 12px;
-    background: linear-gradient(to right, #86efac, #4ade80);
-    border-radius: 8px;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 6px;
     outline: none;
+    transition: background 0.2s ease;
 }
 
 .custom-green-range::-webkit-slider-thumb {
@@ -186,15 +201,28 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background-color: #064e3b;
+    background-color: #0a5c2c;
     border: 2px solid #ffffff;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
-    transition: transform 0.1s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 .custom-green-range::-webkit-slider-thumb:hover {
     transform: scale(1.2);
+    background-color: #064e3b;
+}
+
+.prescriptive-action-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid var(--mentorae-green);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.prescriptive-action-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
 }
 
 .btn-outline-practice {
