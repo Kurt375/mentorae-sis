@@ -1627,18 +1627,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             alertBorder = '#fde68a';
         } else {
             status = 'unfeasible';
-            label = 'Out of Reach with Exam Alone';
-            badgeClass = 'bg-danger-subtle text-danger border-danger-subtle';
-            iconClass = 'bi-x-circle-fill text-danger';
-            alertBg = '#fef2f2';
-            alertBorder = '#fecaca';
+            label = 'Requires Additional Tasks';
+            badgeClass = 'bg-warning-subtle text-dark border border-warning-subtle';
+            iconClass = 'bi-lightning-charge-fill text-warning';
+            alertBg = '#fffbeb';
+            alertBorder = '#fef3c7';
         }
 
         let summary = '';
         if (status === 'secured') {
             summary = `Goal reached! Recorded score (${lockedPoints.toFixed(1)} pts) already meets target ${target}.`;
         } else if (status === 'unfeasible') {
-            summary = `Target ${target} exceeds max possible (${maxPossible}% with 100% on ${remainingName}).`;
+            summary = `Target ${target} requires more than the Exam alone (max ${maxPossible}%). Since the term is active, ask your child's teacher about additional or remedial Performance Tasks/activities to reach this goal.`;
         } else {
             summary = `Need ${neededScorePct}% score (${neededPoints.toFixed(1)} / ${unrecordedWeight} pts) on ${remainingName}.`;
         }
@@ -1749,28 +1749,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             simulatedQuarterGrade.className = computedGoal >= targetScore ? 'text-success fw-bold ms-1' : (computedGoal >= 75 ? 'text-primary fw-bold ms-1' : 'text-danger fw-bold ms-1');
         }
 
-        // Dynamically update radial gauges if not locked
+        // Dynamically update radial gauges during slider simulation
         if (currentGoalFeasibility) {
-            if (!currentGoalFeasibility.isPtRecorded) {
-                if (valPT) valPT.textContent = `${pt}%`;
-                if (gaugePT) {
-                    gaugePT.style.setProperty('--val', pt);
-                    gaugePT.style.setProperty('--stroke-color', pt >= 75 ? '#0a5c2c' : '#ef4444');
-                }
+            if (valPT) valPT.textContent = `${pt}%`;
+            if (gaugePT) {
+                gaugePT.style.setProperty('--val', pt);
+                gaugePT.style.setProperty('--stroke-color', pt >= 75 ? '#0a5c2c' : '#ef4444');
             }
-            if (!currentGoalFeasibility.isWwRecorded) {
-                if (valWW) valWW.textContent = `${ww}%`;
-                if (gaugeWW) {
-                    gaugeWW.style.setProperty('--val', ww);
-                    gaugeWW.style.setProperty('--stroke-color', ww >= 75 ? '#10b981' : '#ef4444');
-                }
+            const subtextPT = document.getElementById('subtextPT');
+            if (subtextPT) {
+                const isDiff = currentGoalFeasibility.ptPct !== null && Math.round(pt) !== Math.round(currentGoalFeasibility.ptPct);
+                subtextPT.innerHTML = isDiff 
+                    ? `<span class="text-primary fw-bold">Simulated: ${(pt * ptW).toFixed(1)} pts</span> (Rec: ${currentGoalFeasibility.ptPct}%)`
+                    : `Score: ${(pt * ptW).toFixed(1)} / ${(ptW * 100).toFixed(0)} pts`;
             }
-            if (!currentGoalFeasibility.isExamRecorded) {
-                if (valExam) valExam.textContent = `${exam}%`;
-                if (gaugeExam) {
-                    gaugeExam.style.setProperty('--val', exam);
-                    gaugeExam.style.setProperty('--stroke-color', exam >= 75 ? '#f59e0b' : '#ef4444');
-                }
+
+            if (valWW) valWW.textContent = `${ww}%`;
+            if (gaugeWW) {
+                gaugeWW.style.setProperty('--val', ww);
+                gaugeWW.style.setProperty('--stroke-color', ww >= 75 ? '#10b981' : '#ef4444');
+            }
+            const subtextWW = document.getElementById('subtextWW');
+            if (subtextWW) {
+                const isDiff = currentGoalFeasibility.wwPct !== null && Math.round(ww) !== Math.round(currentGoalFeasibility.wwPct);
+                subtextWW.innerHTML = isDiff 
+                    ? `<span class="text-primary fw-bold">Simulated: ${(ww * wwW).toFixed(1)} pts</span> (Rec: ${currentGoalFeasibility.wwPct}%)`
+                    : `Score: ${(ww * wwW).toFixed(1)} / ${(wwW * 100).toFixed(0)} pts`;
+            }
+
+            if (valExam) valExam.textContent = `${exam}%`;
+            if (gaugeExam) {
+                gaugeExam.style.setProperty('--val', exam);
+                gaugeExam.style.setProperty('--stroke-color', exam >= 75 ? '#f59e0b' : '#ef4444');
+            }
+            const subtextExam = document.getElementById('subtextExam');
+            if (subtextExam) {
+                const isDiff = currentGoalFeasibility.examPct !== null && Math.round(exam) !== Math.round(currentGoalFeasibility.examPct);
+                subtextExam.innerHTML = isDiff
+                    ? `<span class="text-primary fw-bold">Simulated: ${(exam * qaW).toFixed(1)} pts</span>`
+                    : (currentGoalFeasibility.isExamRecorded ? `Score: ${currentGoalFeasibility.examScore.toFixed(1)} / ${currentGoalFeasibility.qaW} pts` : `Target: ${exam}% (${(exam * qaW).toFixed(1)} pts)`);
             }
         }
     }
@@ -1831,7 +1848,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (feas.isFullyGraded) {
                 goalFeasibilityDesc.innerHTML = `All components for <strong>${escapeHtml(term)}</strong> have been submitted and officially confirmed by the teacher. Final grade: <strong>${feas.finalAvg}%</strong>.`;
             } else if (feas.status === 'unfeasible') {
-                goalFeasibilityDesc.innerHTML = `Your child's recorded score is <strong>${feas.lockedPoints.toFixed(1)}</strong> points. Even with a perfect 100% score (${feas.unrecordedWeight} pts) on the ${feas.remainingName}, the highest reachable grade is <strong>${feas.maxPossible}%</strong>. We recommend aiming for <strong>${feas.maxPossible}%</strong> or contacting the subject teacher for learning support.`;
+                goalFeasibilityDesc.innerHTML = `With current recorded scores (<strong>${feas.lockedPoints.toFixed(1)}</strong> locked pts), a perfect 100% on the Quarterly Exam alone reaches <strong>${feas.maxPossible}%</strong>.<br><br><span class="d-inline-flex align-items-center gap-1.5 text-warning-emphasis fw-bold"><i class="bi bi-info-circle-fill"></i> Term In Progress:</span> Your child's teacher can still encode additional activities or remedial tasks before finalization. <strong>Use the simulation sliders below</strong> to test what Performance Task or Written Works score is needed to reach <strong>${feas.target}%</strong>!`;
             } else if (feas.status === 'secured') {
                 goalFeasibilityDesc.innerHTML = `Your child's current recorded score of <strong>${feas.lockedPoints.toFixed(1)}</strong> points already meets the goal of <strong>${feas.target}</strong>. Excellent progress!`;
             } else {
@@ -1845,7 +1862,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const subtextWW = document.getElementById('subtextWW');
         if (elWw) elWw.textContent = `Written Works (${feas.wwW}%)`;
         if (badgeWW) {
-            badgeWW.textContent = feas.isWwRecorded ? 'Recorded (Locked)' : 'Target';
+            badgeWW.textContent = feas.isWwRecorded ? 'Recorded Score' : 'Target';
             badgeWW.className = feas.isWwRecorded ? 'badge bg-primary-subtle text-primary border border-primary-subtle micro-text rounded-pill mb-2 px-2 py-0.5' : 'badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5';
         }
         if (valWW) valWW.textContent = feas.isWwRecorded ? `${feas.wwPct}%` : `${feas.target}%`;
@@ -1863,7 +1880,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const subtextPT = document.getElementById('subtextPT');
         if (elPt) elPt.textContent = `Performance Tasks (${feas.ptW}%)`;
         if (badgePT) {
-            badgePT.textContent = feas.isPtRecorded ? 'Recorded (Locked)' : 'Target';
+            badgePT.textContent = feas.isPtRecorded ? 'Recorded Score' : 'Target';
             badgePT.className = feas.isPtRecorded ? 'badge bg-primary-subtle text-primary border border-primary-subtle micro-text rounded-pill mb-2 px-2 py-0.5' : 'badge bg-light text-secondary border micro-text rounded-pill mb-2 px-2 py-0.5';
         }
         if (valPT) valPT.textContent = feas.isPtRecorded ? `${feas.ptPct}%` : `${feas.target}%`;
@@ -1882,7 +1899,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (elExam) elExam.textContent = `Quarterly Assessment (${feas.qaW}%)`;
         if (feas.isExamRecorded) {
             if (badgeExam) {
-                badgeExam.textContent = 'Recorded (Locked)';
+                badgeExam.textContent = 'Recorded Score';
                 badgeExam.className = 'badge bg-primary-subtle text-primary border border-primary-subtle micro-text rounded-pill mb-2 px-2 py-0.5';
             }
             if (valExam) valExam.textContent = `${feas.examPct}%`;
@@ -1894,41 +1911,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             const qaTargetClamped = Math.min(100, Math.max(0, feas.neededScorePct));
             if (badgeExam) {
-                badgeExam.textContent = feas.status === 'unfeasible' ? 'Out of Reach' : 'Required Target';
-                badgeExam.className = feas.status === 'unfeasible' ? 'badge bg-danger-subtle text-danger border border-danger-subtle micro-text rounded-pill mb-1.5 px-2 py-0.5' : 'badge bg-success-subtle text-success border border-success-subtle micro-text rounded-pill mb-1.5 px-2 py-0.5';
+                badgeExam.textContent = feas.status === 'unfeasible' ? 'Action Needed' : 'Required Target';
+                badgeExam.className = feas.status === 'unfeasible' ? 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle micro-text rounded-pill mb-1.5 px-2 py-0.5' : 'badge bg-success-subtle text-success border border-success-subtle micro-text rounded-pill mb-1.5 px-2 py-0.5';
             }
             if (valExam) {
                 valExam.textContent = feas.status === 'unfeasible' ? '>100%' : `${qaTargetClamped}%`;
-                valExam.className = feas.status === 'unfeasible' ? 'fw-bold fs-5 text-danger' : 'fw-bold fs-5 text-dark';
+                valExam.className = feas.status === 'unfeasible' ? 'fw-bold fs-5 text-warning-emphasis' : 'fw-bold fs-5 text-dark';
             }
             if (gaugeExam) {
                 gaugeExam.style.setProperty('--val', qaTargetClamped);
-                gaugeExam.style.setProperty('--stroke-color', feas.status === 'unfeasible' ? '#ef4444' : (qaTargetClamped > 90 ? '#f59e0b' : '#10b981'));
+                gaugeExam.style.setProperty('--stroke-color', feas.status === 'unfeasible' ? '#f59e0b' : (qaTargetClamped > 90 ? '#f59e0b' : '#10b981'));
             }
             if (subtextExam) {
-                subtextExam.textContent = feas.status === 'unfeasible' ? `Max: ${feas.qaW}.0 / ${feas.qaW} pts` : `Need: ${Math.max(0, feas.neededPoints).toFixed(1)} / ${feas.qaW} pts`;
+                subtextExam.textContent = feas.status === 'unfeasible' ? `Max with Exam: ${feas.maxPossible}%` : `Need: ${Math.max(0, feas.neededPoints).toFixed(1)} / ${feas.qaW} pts`;
             }
         }
 
-        // Sliders Setup
+        // Sliders Setup: Always keep unlocked during active term so parents/students can simulate what-if scenarios
         const slWw = document.getElementById('goalSliderWwLabel');
         const slPt = document.getElementById('goalSliderPtLabel');
         const slExam = document.getElementById('goalSliderExamLabel');
-        if (slWw) slWw.innerHTML = `Written Works (${feas.wwW}%) ${feas.isWwRecorded ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle micro-text ms-1.5"><i class="bi bi-lock-fill me-0.5"></i> Locked</span>' : ''}`;
-        if (slPt) slPt.innerHTML = `Performance Tasks (${feas.ptW}%) ${feas.isPtRecorded ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle micro-text ms-1.5"><i class="bi bi-lock-fill me-0.5"></i> Locked</span>' : ''}`;
-        if (slExam) slExam.innerHTML = `Quarterly Assessment (${feas.qaW}%) ${feas.isExamRecorded ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle micro-text ms-1.5"><i class="bi bi-lock-fill me-0.5"></i> Locked</span>' : ''}`;
+        if (slWw) slWw.innerHTML = `Written Works (${feas.wwW}%) ${feas.isWwRecorded ? `<span class="badge bg-light text-secondary border micro-text ms-1.5"><i class="bi bi-clock-history me-0.5"></i> Recorded: ${feas.wwPct}%</span>` : '<span class="badge bg-success-subtle text-success border border-success-subtle micro-text ms-1.5">Upcoming</span>'}`;
+        if (slPt) slPt.innerHTML = `Performance Tasks (${feas.ptW}%) ${feas.isPtRecorded ? `<span class="badge bg-light text-secondary border micro-text ms-1.5"><i class="bi bi-clock-history me-0.5"></i> Recorded: ${feas.ptPct}%</span>` : '<span class="badge bg-success-subtle text-success border border-success-subtle micro-text ms-1.5">Upcoming</span>'}`;
+        if (slExam) slExam.innerHTML = `Quarterly Assessment (${feas.qaW}%) ${feas.isExamRecorded ? `<span class="badge bg-light text-secondary border micro-text ms-1.5"><i class="bi bi-clock-history me-0.5"></i> Recorded: ${feas.examPct}%</span>` : '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle micro-text ms-1.5">Upcoming Exam</span>'}`;
 
+        const isLockedTerm = Boolean(feas.isFullyGraded);
         if (sliderWW) {
-            sliderWW.value = feas.isWwRecorded ? feas.wwPct : feas.target;
-            sliderWW.disabled = feas.isWwRecorded;
+            sliderWW.value = feas.wwPct !== null ? feas.wwPct : feas.target;
+            sliderWW.disabled = isLockedTerm;
         }
         if (sliderPT) {
-            sliderPT.value = feas.isPtRecorded ? feas.ptPct : feas.target;
-            sliderPT.disabled = feas.isPtRecorded;
+            sliderPT.value = feas.ptPct !== null ? feas.ptPct : feas.target;
+            sliderPT.disabled = isLockedTerm;
         }
         if (sliderExam) {
-            sliderExam.value = feas.isExamRecorded ? feas.examPct : Math.min(100, Math.max(0, feas.neededScorePct));
-            sliderExam.disabled = feas.isExamRecorded;
+            sliderExam.value = feas.isExamRecorded ? feas.examPct : Math.min(100, Math.max(0, feas.neededScorePct || 75));
+            sliderExam.disabled = isLockedTerm;
         }
 
         updateGoalCalculations();
