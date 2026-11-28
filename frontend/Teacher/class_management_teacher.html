@@ -505,67 +505,82 @@
                     </div>
                 </div>
 
-                <!-- Dedicated Action Footer Toolbar -->
-                <div class="card border shadow-xs rounded-3 p-3 mt-4" style="background-color: #f8fafc; border-color: #e2e8f0 !important;">
-                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-center gap-3">
-                        <!-- Left Group: Spreadsheet & Import Tools -->
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <button type="button"
-                                class="btn btn-outline-success fw-bold d-inline-flex align-items-center gap-2 px-3 py-2 shadow-xs bg-white rounded-3"
-                                style="border-width: 1.5px;"
-                                data-bs-toggle="modal" data-bs-target="#modalUploadECR">
-                                <i class="bi bi-cloud-arrow-up-fill fs-5"></i> Upload / Sync ECR (.xlsm)
-                            </button>
-                            <a href="Sample_Template.xlsm" download="Sample_Template.xlsm" id="btnDownloadBlankTemplateMain"
-                                class="btn border fw-semibold d-inline-flex align-items-center gap-2 px-3 py-2 text-secondary text-decoration-none shadow-xs rounded-3 bg-white"
-                                title="Download official DepEd sample blank template">
-                                <i class="bi bi-download"></i> Sample Template (.xlsm)
-                            </a>
-                        </div>
-
-                        <!-- Right Group: Utilities & Primary Grading Actions -->
-                        <div class="d-flex align-items-center justify-content-start justify-content-lg-end gap-2.5 flex-wrap">
-                            <!-- Utilities Group -->
-                            <div class="d-flex align-items-center gap-2">
+                <!-- Dedicated Action Footer Toolbar: 2 Balanced Rows with Separator -->
+                <div class="card border shadow-xs rounded-4 p-3 mt-4" style="background-color: #f8fafc; border-color: #e2e8f0 !important;">
+                    <div class="d-flex flex-column gap-3">
+                        <!-- ROW 1: Upload ECR, Sample Template, and Reset (3 Equal Columns) -->
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-4">
                                 <button type="button"
-                                    class="btn btn-outline-secondary px-3 py-2 fw-semibold border-secondary-subtle bg-white rounded-3 shadow-xs"
-                                    id="btnResetGrades"
-                                    title="Reset current matrix inputs">
-                                    <i class="bi bi-arrow-counterclockwise"></i> Reset
-                                </button>
-                                <button type="button"
-                                    class="btn px-3 py-2 fw-semibold rounded-3 shadow-xs d-inline-flex align-items-center gap-1.5"
-                                    id="btnZeroOutPending"
-                                    style="background-color: #fffbeb; border: 1px solid #fde68a; color: #b45309;"
-                                    title="Bulk-convert all remaining empty/pending assessment cells into 0 at the end of the term">
-                                    <i class="bi bi-slash-circle"></i> Zero Out Pending
+                                    class="btn btn-outline-success fw-bold w-100 py-2.5 px-3 shadow-xs bg-white rounded-3 d-flex align-items-center justify-content-center gap-2"
+                                    style="border-width: 1.5px; height: 42px;"
+                                    data-bs-toggle="modal" data-bs-target="#modalUploadECR">
+                                    <i class="bi bi-cloud-arrow-up-fill fs-5"></i>
+                                    <span>Upload / Sync ECR (.xlsm)</span>
                                 </button>
                             </div>
-
-                            <!-- Subtle Vertical Divider (visible on medium+ screens) -->
-                            <div class="vr my-1 opacity-25 d-none d-md-block" style="width: 1px; height: 28px; background-color: #94a3b8;"></div>
-
-                            <!-- Primary Actions -->
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="col-12 col-md-4">
+                                <a href="Sample_Template.xlsm" download="Sample_Template.xlsm" id="btnDownloadBlankTemplateMain"
+                                    class="btn border fw-semibold w-100 py-2.5 px-3 text-secondary text-decoration-none shadow-xs rounded-3 bg-white d-flex align-items-center justify-content-center gap-2"
+                                    style="height: 42px;"
+                                    title="Download official DepEd sample blank template">
+                                    <i class="bi bi-download"></i>
+                                    <span>Sample Template (.xlsm)</span>
+                                </a>
+                            </div>
+                            <div class="col-12 col-md-4">
                                 <button type="button"
-                                    class="btn btn-success px-3.5 py-2 fw-bold shadow-xs d-inline-flex align-items-center gap-2 rounded-3 text-white"
-                                    style="background-color: #15803d; border-color: #15803d;"
+                                    class="btn btn-outline-secondary w-100 py-2.5 px-3 fw-semibold border-secondary-subtle bg-white rounded-3 shadow-xs d-flex align-items-center justify-content-center gap-2"
+                                    style="height: 42px;"
+                                    id="btnResetGrades"
+                                    title="Reset current matrix inputs">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                    <span>Reset Grade Sheet</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Clean Separating Line between Row 1 and Row 2 -->
+                        <hr class="m-0 border-top" style="border-color: #e2e8f0; opacity: 1;">
+
+                        <!-- ROW 2: Zero Out, Save All, and Finalize / Reopen (3 Equal Columns) -->
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-4">
+                                <button type="button"
+                                    class="btn w-100 py-2.5 px-3 fw-semibold rounded-3 shadow-xs d-flex align-items-center justify-content-center gap-2"
+                                    id="btnZeroOutPending"
+                                    style="background-color: #fffbeb; border: 1.5px solid #fde68a; color: #b45309; height: 42px;"
+                                    title="Bulk-convert all remaining empty/pending assessment cells into 0 at the end of the term">
+                                    <i class="bi bi-slash-circle"></i>
+                                    <span>Zero Out Pending</span>
+                                </button>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <button type="button"
+                                    class="btn btn-success w-100 py-2.5 px-3 fw-bold shadow-xs d-flex align-items-center justify-content-center gap-2 rounded-3 text-white"
+                                    style="background-color: #15803d; border-color: #15803d; height: 42px;"
                                     id="btnSaveAllGradesNow"
                                     title="Save working draft of current grades">
-                                    <i class="bi bi-floppy-fill"></i> Save All Grades
+                                    <i class="bi bi-floppy-fill"></i>
+                                    <span>Save All Grades</span>
                                 </button>
+                            </div>
+                            <div class="col-12 col-md-4">
                                 <button type="button"
-                                    class="btn btn-primary px-3.5 py-2 fw-bold shadow-xs d-inline-flex align-items-center gap-2 rounded-3 text-white"
-                                    style="background-color: #1d4ed8; border-color: #1d4ed8;"
+                                    class="btn btn-primary w-100 py-2.5 px-3 fw-bold shadow-xs d-flex align-items-center justify-content-center gap-2 rounded-3 text-white"
+                                    style="background-color: #1d4ed8; border-color: #1d4ed8; height: 42px;"
                                     id="btnFinalizeTermGrades"
                                     title="Officially confirm and finalize all grades for this term">
-                                    <i class="bi bi-patch-check-fill"></i> Finalize Term Grades
+                                    <i class="bi bi-patch-check-fill"></i>
+                                    <span>Finalize Term Grades</span>
                                 </button>
                                 <button type="button"
-                                    class="btn btn-outline-primary px-3.5 py-2 fw-semibold border-primary-subtle d-none align-items-center gap-2 rounded-3 bg-white"
+                                    class="btn btn-outline-primary w-100 py-2.5 px-3 fw-semibold border-primary-subtle d-none align-items-center justify-content-center gap-2 rounded-3 bg-white"
+                                    style="height: 42px;"
                                     id="btnReopenTermGrades"
                                     title="Reopen term grades for editing and adjustment">
-                                    <i class="bi bi-unlock-fill"></i> Reopen Term
+                                    <i class="bi bi-unlock-fill"></i>
+                                    <span>Reopen Term</span>
                                 </button>
                             </div>
                         </div>

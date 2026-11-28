@@ -3329,14 +3329,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnFinalize && btnReopen) {
             if (isFinalized) {
                 btnFinalize.classList.add('d-none');
-                btnFinalize.classList.remove('d-inline-flex');
+                btnFinalize.classList.remove('d-flex');
                 btnReopen.classList.remove('d-none');
-                btnReopen.classList.add('d-inline-flex');
+                btnReopen.classList.add('d-flex');
             } else {
                 btnFinalize.classList.remove('d-none');
-                btnFinalize.classList.add('d-inline-flex');
+                btnFinalize.classList.add('d-flex');
                 btnReopen.classList.add('d-none');
-                btnReopen.classList.remove('d-inline-flex');
+                btnReopen.classList.remove('d-flex');
             }
         }
     }
@@ -3441,7 +3441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await performSaveAllGrades(true);
             } finally {
                 btnSaveAllGradesNow.disabled = false;
-                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> Save All Grades';
+                btnSaveAllGradesNow.innerHTML = '<i class="bi bi-floppy-fill"></i> <span>Save All Grades</span>';
                 loadGradeSheet();
                 loadRoster(currentSectionId);
             }
@@ -3501,7 +3501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const saveOk = await performSaveAllGrades(false);
                 if (!saveOk) {
                     btnFinalizeTermGrades.disabled = false;
-                    btnFinalizeTermGrades.innerHTML = '<i class="bi bi-patch-check-fill"></i> Finalize Term Grades';
+                    btnFinalizeTermGrades.innerHTML = '<i class="bi bi-patch-check-fill"></i> <span>Finalize Term Grades</span>';
                     return;
                 }
 
@@ -3528,7 +3528,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert('An error occurred while finalizing term grades.');
             } finally {
                 btnFinalizeTermGrades.disabled = false;
-                btnFinalizeTermGrades.innerHTML = '<i class="bi bi-patch-check-fill"></i> Finalize Term Grades';
+                btnFinalizeTermGrades.innerHTML = '<i class="bi bi-patch-check-fill"></i> <span>Finalize Term Grades</span>';
             }
         });
     }
@@ -3569,7 +3569,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert('An error occurred while reopening term grades.');
             } finally {
                 btnReopenTermGrades.disabled = false;
-                btnReopenTermGrades.innerHTML = '<i class="bi bi-unlock-fill"></i> Reopen Term';
+                btnReopenTermGrades.innerHTML = '<i class="bi bi-unlock-fill"></i> <span>Reopen Term</span>';
             }
         });
     }
